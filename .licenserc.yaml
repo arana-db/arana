@@ -16,6 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 #
+
 header: # `header` section is configurations for source codes license header.
   license:
     spdx-id: Apache-2.0 # the spdx id of the license, it's convenient when your license is standard SPDX license.
@@ -37,7 +38,6 @@ header: # `header` section is configurations for source codes license header.
       KIND, either express or implied.  See the License for the
       specific language governing permissions and limitations
       under the License.
-
     # `pattern` is optional regexp if all the file headers are the same as `license` or the license of `spdx-id` and `copyright-owner`.
     pattern: |
       Licensed to the Apache Software Foundation under one or more contributor
