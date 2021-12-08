@@ -73,6 +73,7 @@ header: # `header` section is configurations for source codes license header.
     - 'docs/**.svg'
     - '.travis.yml'
     - '.gitignore'
+    - 'makefile'
     - 'docker'
     - 'pkg/resolver/mysql/constants.go' # with two license: apache and Vitess
     - 'pkg/resolver/mysql/encoding.go'

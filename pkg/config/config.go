@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 )
 
 import (
@@ -98,10 +99,12 @@ func (t *ProtocolType) UnmarshalText(text []byte) error {
 }
 
 func (t *ProtocolType) unmarshalText(text []byte) bool {
-	switch string(text) {
-	case "mysql", "Mysql", "MYSQL":
+	protocolType := string(text)
+	pt := strings.ToLower(protocolType)
+	switch pt {
+	case "mysql":
 		*t = Mysql
-	case "http", "Http", "HTTP":
+	case "http":
 		*t = Http
 	default:
 		return false
@@ -120,12 +123,14 @@ func (m *ExecutorMode) UnmarshalText(text []byte) error {
 }
 
 func (m *ExecutorMode) unmarshalText(text []byte) bool {
-	switch string(text) {
-	case "singledb", "SingleDB", "SINGLEDB":
+	executorMode := string(text)
+	em := strings.ToLower(executorMode)
+	switch em {
+	case "singledb":
 		*m = SingleDB
-	case "readwritesplitting", "ReadWriteSplitting", "READWRITESPLITTING":
+	case "readwritesplitting":
 		*m = ReadWriteSplitting
-	case "sharding", "Sharding", "SHARDING":
+	case "sharding":
 		*m = Sharding
 	default:
 		return false
