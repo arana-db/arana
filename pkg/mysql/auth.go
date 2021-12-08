@@ -384,10 +384,10 @@ func (conn *BackendConnection) handleAuthResult(oldAuthData []byte, plugin strin
 					pubKey := conn.conf.pubKey
 					if pubKey == nil {
 						//request public key from server
-						data := conn.c.startEphemeralPacket(4 + 1)
-
-						data[4] = cachingSha2PasswordRequestPublicKey
-						conn.c.writePacket(data)
+						var data []byte
+						if err = conn.c.writePacket([]byte{cachingSha2PasswordRequestPublicKey}); err != nil {
+							return err
+						}
 
 						// parse public key
 						if data, err = conn.c.readPacket(); err != nil {
@@ -482,12 +482,7 @@ func (conn *BackendConnection) readAuthResult() ([]byte, string, error) {
 
 // http://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::AuthSwitchResponse
 func (conn *BackendConnection) writeAuthSwitchPacket(authData []byte) error {
-	pktLen := 4 + len(authData)
-	data := conn.c.startEphemeralPacket(pktLen)
-
-	// Add the auth Content [EOF]
-	copy(data[4:], authData)
-	return conn.c.writePacket(data)
+	return conn.c.writePacket(authData)
 }
 
 // Returns error if Packet is not an 'Result OK'-Packet

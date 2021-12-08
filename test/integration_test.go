@@ -50,7 +50,7 @@ func TestInsert(t *testing.T) {
 		t.Errorf("insert row error: %v", err)
 		return
 	}
-	assert.Equal(t, affected, int64(1))
+	assert.Equal(t, int64(1), affected)
 }
 
 func TestSelect(t *testing.T) {
@@ -74,8 +74,8 @@ func TestSelect(t *testing.T) {
 		t.Errorf("select row error: %v", err)
 		return
 	}
-	assert.Equal(t, result, true)
-	assert.Equal(t, v.FirstName, "共和国")
+	assert.Equal(t, true, result)
+	assert.Equal(t, "共和国", v.FirstName)
 }
 
 func TestUpdate(t *testing.T) {
@@ -95,7 +95,7 @@ func TestUpdate(t *testing.T) {
 		t.Errorf("update row error: %v", err)
 		return
 	}
-	assert.Equal(t, affected, int64(1))
+	assert.Equal(t, int64(1), affected)
 }
 
 func TestDelete(t *testing.T) {
@@ -115,5 +115,5 @@ func TestDelete(t *testing.T) {
 		t.Errorf("delete row error: %v", err)
 		return
 	}
-	assert.Equal(t, affected, int64(1))
+	assert.Equal(t, int64(1), affected)
 }
