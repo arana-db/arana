@@ -18,8 +18,6 @@
 package main
 
 import (
-	"context"
-	"database/sql"
 	"encoding/json"
 	"os"
 )
@@ -37,7 +35,6 @@ import (
 	"github.com/dubbogo/kylin/pkg/mysql"
 	"github.com/dubbogo/kylin/pkg/resource"
 	"github.com/dubbogo/kylin/pkg/server"
-	"github.com/dubbogo/kylin/pkg/util/log"
 	"github.com/dubbogo/kylin/third_party/pools"
 )
 
@@ -68,17 +65,11 @@ var (
 			listener.SetExecutor(exec)
 
 			resource.InitDataSourceManager(conf.DataSources, func(config json.RawMessage) pools.Factory {
-				return func(context context.Context) (pools.Resource, error) {
-					v := &struct {
-						DSN string `json:"dsn"`
-					}{}
-					if err := json.Unmarshal(config, v); err != nil {
-						log.Errorf("unmarshal mysql Listener config failed, %s", err)
-						return nil, err
-					}
-					db, err := sql.Open("mysql", v.DSN)
-					return db, err
+				collector, err := mysql.NewConnector(config)
+				if err != nil {
+					panic(err)
 				}
+				return collector.NewBackendConnection
 			})
 			kylin := server.NewServer()
 			kylin.AddListener(listener)

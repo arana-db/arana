@@ -71,7 +71,7 @@ type Factory func(context.Context) (Resource, error)
 // Thread synchronization between Close() and IsClosed()
 // is the responsibility of the caller.
 type Resource interface {
-	Close() error
+	Close()
 }
 
 // ResourcePool allows you to use a pool of resources.

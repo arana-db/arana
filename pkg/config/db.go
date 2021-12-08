@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -69,12 +70,14 @@ func (r *DataSourceRole) UnmarshalText(text []byte) error {
 }
 
 func (r *DataSourceRole) unmarshalText(text []byte) bool {
-	switch string(text) {
-	case "master", "Master", "MASTER":
+	dataSourceRole := string(text)
+	dsr := strings.ToLower(dataSourceRole)
+	switch dsr {
+	case "master":
 		*r = Master
-	case "slave", "Slave", "SLAVE":
+	case "slave":
 		*r = Slave
-	case "meta", "Meta", "META":
+	case "meta":
 		*r = Meta
 	default:
 		return false
@@ -93,10 +96,12 @@ func (t *DataSourceType) UnmarshalText(text []byte) error {
 }
 
 func (t *DataSourceType) unmarshalText(text []byte) bool {
-	switch string(text) {
-	case "mysql", "Mysql", "MYSQL":
+	dataSourceType := string(text)
+	dst := strings.ToLower(dataSourceType)
+	switch dst {
+	case "mysql":
 		*t = DBMysql
-	case "postgresql", "PostgreSql", "POSTGRESQL", "pg", "pgsql", "PG", "PGSQL":
+	case "postgresql":
 		*t = DBPostgreSql
 	default:
 		return false
