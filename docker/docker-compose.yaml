@@ -1,7 +1,7 @@
 version: "2.3"
 services:
   mysql:
-    image: mysql:5.7
+    image: mysql:8.0
     container_name: kylin-mysql
     networks:
       - local
