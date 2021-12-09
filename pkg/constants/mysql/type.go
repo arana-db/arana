@@ -39,10 +39,6 @@ import (
 	"fmt"
 )
 
-import (
-	"github.com/pingcap/parser/mysql"
-)
-
 // https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-Protocol::ColumnType
 type FieldType byte
 
@@ -174,24 +170,24 @@ var typeToMySQL = map[FieldType]struct {
 	flags int64
 }{
 	FieldTypeTiny:       {typ: 1},
-	FieldTypeUint8:      {typ: 1, flags: int64(mysql.UnsignedFlag)},
+	FieldTypeUint8:      {typ: 1, flags: int64(UnsignedFlag)},
 	FieldTypeShort:      {typ: 2},
-	FieldTypeUint16:     {typ: 2, flags: int64(mysql.UnsignedFlag)},
+	FieldTypeUint16:     {typ: 2, flags: int64(UnsignedFlag)},
 	FieldTypeLong:       {typ: 3},
-	FieldTypeUint32:     {typ: 3, flags: int64(mysql.UnsignedFlag)},
+	FieldTypeUint32:     {typ: 3, flags: int64(UnsignedFlag)},
 	FieldTypeFloat:      {typ: 4},
 	FieldTypeDouble:     {typ: 5},
-	FieldTypeNULL:       {typ: 6, flags: int64(mysql.BinaryFlag)},
+	FieldTypeNULL:       {typ: 6, flags: int64(BinaryFlag)},
 	FieldTypeTimestamp:  {typ: 7},
 	FieldTypeLongLong:   {typ: 8},
-	FieldTypeUint64:     {typ: 8, flags: int64(mysql.UnsignedFlag)},
+	FieldTypeUint64:     {typ: 8, flags: int64(UnsignedFlag)},
 	FieldTypeInt24:      {typ: 9},
-	FieldTypeUint24:     {typ: 9, flags: int64(mysql.UnsignedFlag)},
-	FieldTypeDate:       {typ: 10, flags: int64(mysql.BinaryFlag)},
-	FieldTypeTime:       {typ: 11, flags: int64(mysql.BinaryFlag)},
-	FieldTypeDateTime:   {typ: 12, flags: int64(mysql.BinaryFlag)},
-	FieldTypeYear:       {typ: 13, flags: int64(mysql.UnsignedFlag)},
-	FieldTypeBit:        {typ: 16, flags: int64(mysql.UnsignedFlag)},
+	FieldTypeUint24:     {typ: 9, flags: int64(UnsignedFlag)},
+	FieldTypeDate:       {typ: 10, flags: int64(BinaryFlag)},
+	FieldTypeTime:       {typ: 11, flags: int64(BinaryFlag)},
+	FieldTypeDateTime:   {typ: 12, flags: int64(BinaryFlag)},
+	FieldTypeYear:       {typ: 13, flags: int64(UnsignedFlag)},
+	FieldTypeBit:        {typ: 16, flags: int64(UnsignedFlag)},
 	FieldTypeJSON:       {typ: 245},
 	FieldTypeDecimal:    {typ: 246},
 	FieldTypeEnum:       {typ: 247},
