@@ -148,11 +148,11 @@ func parse(path string) *Configuration {
 	}
 	cfg := &Configuration{}
 	if yamlFormat(path) {
-		bytes, err := yaml.YAMLToJSON(content)
+		jsonBytes, err := yaml.YAMLToJSON(content)
 		if err != nil {
 			log.Fatalf("[config] [default load] translate yaml to json error: %v", err)
 		}
-		content = bytes
+		content = jsonBytes
 	}
 	// translate to lower case
 	err = json.Unmarshal(content, cfg)
