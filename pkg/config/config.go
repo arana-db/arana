@@ -26,6 +26,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 import (
@@ -158,6 +159,16 @@ func parse(path string) *Configuration {
 	err = json.Unmarshal(content, cfg)
 	if err != nil {
 		log.Fatalf("[config] [default load] json unmarshal config failed, error: %v", err)
+	}
+
+	for _, ds := range cfg.DataSources {
+		if ds.IdleTimeoutStr != "" {
+			var err error
+			if ds.IdleTimeout, err = time.ParseDuration(ds.IdleTimeoutStr); err != nil {
+				log.Errorf("[config] [default load] parse idle timeout failed, set to default %s, data source name: %s, error: %v",
+					ds.Name, err)
+			}
+		}
 	}
 	return cfg
 

@@ -40,13 +40,14 @@ type (
 
 	// DataSource
 	DataSource struct {
-		Role        DataSourceRole  `yaml:"role" json:"role"`
-		Type        DataSourceType  `yaml:"type" json:"type"`
-		Name        string          `yaml:"name" json:"name"`
-		Conf        json.RawMessage `yaml:"conf" json:"conf"`
-		Capacity    int             `yaml:"capacity" json:"capacity"`         // connection pool capacity
-		MaxCapacity int             `yaml:"max_capacity" json:"max_capacity"` // max connection pool capacity
-		IdleTimeout time.Duration   `yaml:"idle_timeout" json:"idle_timeout"` // close backend direct connection after idle_timeout,unit: seconds
+		Role           DataSourceRole  `yaml:"role" json:"role"`
+		Type           DataSourceType  `yaml:"type" json:"type"`
+		Name           string          `yaml:"name" json:"name"`
+		Conf           json.RawMessage `yaml:"conf" json:"conf"`
+		Capacity       int             `yaml:"capacity" json:"capacity"`         // connection pool capacity
+		MaxCapacity    int             `yaml:"max_capacity" json:"max_capacity"` // max connection pool capacity
+		IdleTimeout    time.Duration   `yaml:"idle_timeout" json:"_"`            // close backend direct connection after idle_timeout
+		IdleTimeoutStr string          `yaml:"_" json:"idle_timeout"`
 	}
 )
 
