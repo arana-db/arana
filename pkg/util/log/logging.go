@@ -124,7 +124,7 @@ var (
 
 func init() {
 	zapLoggerConfig.EncoderConfig = zapLoggerEncoderConfig
-	zapLogger, _ = zapLoggerConfig.Build()
+	zapLogger, _ = zapLoggerConfig.Build(zap.AddCallerSkip(1))
 	log = zapLogger.Sugar()
 }
 
