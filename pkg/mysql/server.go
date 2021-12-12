@@ -1181,15 +1181,15 @@ func (c *Conn) writeRow(row []*proto.Value) error {
 		}
 	}
 
-	Data := c.startEphemeralPacket(length)
+	data := c.startEphemeralPacket(length)
 	pos := 0
 	for _, val := range row {
 		if val == nil || val.Val == nil {
-			pos = writeByte(Data, pos, mysql.NullValue)
+			pos = writeByte(data, pos, mysql.NullValue)
 		} else {
 			l := val.Len
-			pos = writeLenEncInt(Data, pos, uint64(l))
-			pos += copy(Data[pos:], val.Raw)
+			pos = writeLenEncInt(data, pos, uint64(l))
+			pos += copy(data[pos:], val.Raw)
 		}
 	}
 
