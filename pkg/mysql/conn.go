@@ -37,10 +37,10 @@ import (
 )
 
 import (
-	"github.com/dubbogo/kylin/pkg/constants/mysql"
-	err2 "github.com/dubbogo/kylin/pkg/mysql/errors"
-	"github.com/dubbogo/kylin/third_party/bucketpool"
-	"github.com/dubbogo/kylin/third_party/sync2"
+	"github.com/dubbogo/arana/pkg/constants/mysql"
+	err2 "github.com/dubbogo/arana/pkg/mysql/errors"
+	"github.com/dubbogo/arana/third_party/bucketpool"
+	"github.com/dubbogo/arana/third_party/sync2"
 )
 
 const (

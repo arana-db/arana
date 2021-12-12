@@ -36,7 +36,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/kylin/pkg/util/log"
+	"github.com/dubbogo/arana/pkg/util/log"
 )
 
 type Configuration struct {

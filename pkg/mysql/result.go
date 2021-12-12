@@ -20,7 +20,7 @@
 package mysql
 
 import (
-	"github.com/dubbogo/kylin/pkg/proto"
+	"github.com/dubbogo/arana/pkg/proto"
 )
 
 type Result struct {

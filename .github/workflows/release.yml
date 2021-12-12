@@ -43,5 +43,5 @@ jobs:
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
           goversion: "https://golang.org/dl/go1.14.linux-amd64.tar.gz"
-          project_path: "./cmd/kylin"
-          binary_name: "dubbo-go-kylin"
+          project_path: "./cmd/arana"
+          binary_name: "dubbo-go-arana"

@@ -25,7 +25,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/kylin/pkg/constants/mysql"
+	"github.com/dubbogo/arana/pkg/constants/mysql"
 )
 
 var (

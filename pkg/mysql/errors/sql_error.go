@@ -42,7 +42,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/kylin/pkg/constants/mysql"
+	"github.com/dubbogo/arana/pkg/constants/mysql"
 )
 
 // SQLError is the error structure returned from calling a db library function

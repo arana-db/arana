@@ -24,7 +24,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/kylin/third_party/pools"
+	"github.com/dubbogo/arana/third_party/pools"
 )
 
 type (

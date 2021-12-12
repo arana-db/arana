@@ -4,4 +4,4 @@ WORKDIR app
 
 COPY dist/ .
 
-CMD ["./kylin", "start", "-c", "config.yaml"]
+CMD ["./arana", "start", "-c", "config.yaml"]

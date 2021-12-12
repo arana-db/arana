@@ -40,11 +40,11 @@ import (
 )
 
 import (
-	"github.com/dubbogo/kylin/pkg/config"
-	"github.com/dubbogo/kylin/pkg/constants/mysql"
-	"github.com/dubbogo/kylin/pkg/mysql/errors"
-	"github.com/dubbogo/kylin/pkg/proto"
-	"github.com/dubbogo/kylin/pkg/util/log"
+	"github.com/dubbogo/arana/pkg/config"
+	"github.com/dubbogo/arana/pkg/constants/mysql"
+	"github.com/dubbogo/arana/pkg/mysql/errors"
+	"github.com/dubbogo/arana/pkg/proto"
+	"github.com/dubbogo/arana/pkg/util/log"
 )
 
 const initClientConnStatus = mysql.ServerStatusAutocommit

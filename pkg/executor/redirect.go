@@ -30,11 +30,11 @@ import (
 )
 
 import (
-	"github.com/dubbogo/kylin/pkg/mysql"
-	"github.com/dubbogo/kylin/pkg/proto"
-	"github.com/dubbogo/kylin/pkg/resource"
-	"github.com/dubbogo/kylin/pkg/util/log"
-	"github.com/dubbogo/kylin/third_party/pools"
+	"github.com/dubbogo/arana/pkg/mysql"
+	"github.com/dubbogo/arana/pkg/proto"
+	"github.com/dubbogo/arana/pkg/resource"
+	"github.com/dubbogo/arana/pkg/util/log"
+	"github.com/dubbogo/arana/third_party/pools"
 )
 
 type RedirectExecutor struct {

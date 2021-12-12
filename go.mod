@@ -1,4 +1,4 @@
-module github.com/dubbogo/kylin
+module github.com/dubbogo/arana
 
 go 1.16
 

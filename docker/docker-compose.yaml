@@ -2,7 +2,7 @@ version: "2.3"
 services:
   mysql:
     image: mysql:8.0
-    container_name: kylin-mysql
+    container_name: arana-mysql
     networks:
       - local
     ports:
@@ -14,10 +14,10 @@ services:
     - ./mysqld/:/var/run/mysqld:z
     - ./scripts/:/docker-entrypoint-initdb.d/:rw
     command: ['mysqld', '--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci']
-  kylin:
-    image: kylin:latest
-    container_name: kylin
-    command: sh -c "sleep 30 && ./kylin start -c config.yaml"
+  arana:
+    image: arana:latest
+    container_name: arana
+    command: sh -c "sleep 30 && ./arana start -c config.yaml"
     networks:
       - local
     ports:
