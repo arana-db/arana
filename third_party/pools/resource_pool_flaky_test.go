@@ -46,7 +46,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/kylin/third_party/sync2"
+	"github.com/dubbogo/arana/third_party/sync2"
 )
 
 var lastID, count sync2.AtomicInt64

@@ -31,13 +31,13 @@ import (
 )
 
 import (
-	"github.com/dubbogo/kylin/pkg/config"
-	"github.com/dubbogo/kylin/pkg/constants"
-	"github.com/dubbogo/kylin/pkg/executor"
-	"github.com/dubbogo/kylin/pkg/mysql"
-	"github.com/dubbogo/kylin/pkg/resource"
-	"github.com/dubbogo/kylin/pkg/server"
-	"github.com/dubbogo/kylin/third_party/pools"
+	"github.com/dubbogo/arana/pkg/config"
+	"github.com/dubbogo/arana/pkg/constants"
+	"github.com/dubbogo/arana/pkg/executor"
+	"github.com/dubbogo/arana/pkg/mysql"
+	"github.com/dubbogo/arana/pkg/resource"
+	"github.com/dubbogo/arana/pkg/server"
+	"github.com/dubbogo/arana/third_party/pools"
 )
 
 var (
@@ -48,14 +48,14 @@ var (
 
 var (
 	rootCommand = &cobra.Command{
-		Use:     "kylin",
-		Short:   "kylin is a db proxy server",
+		Use:     "arana",
+		Short:   "arana is a db proxy server",
 		Version: Version,
 	}
 
 	startCommand = &cobra.Command{
 		Use:   "start",
-		Short: "start kylin",
+		Short: "start arana",
 
 		Run: func(cmd *cobra.Command, args []string) {
 			conf := config.Load(configPath)
@@ -73,9 +73,9 @@ var (
 				}
 				return collector.NewBackendConnection
 			})
-			kylin := server.NewServer()
-			kylin.AddListener(listener)
-			kylin.Start()
+			arana := server.NewServer()
+			arana.AddListener(listener)
+			arana.Start()
 		},
 	}
 )

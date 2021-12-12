@@ -42,7 +42,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/kylin/third_party/sync2"
+	"github.com/dubbogo/arana/third_party/sync2"
 )
 
 // Out-of-band messages

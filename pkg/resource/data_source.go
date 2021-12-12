@@ -25,8 +25,8 @@ import (
 )
 
 import (
-	"github.com/dubbogo/kylin/pkg/config"
-	"github.com/dubbogo/kylin/third_party/pools"
+	"github.com/dubbogo/arana/pkg/config"
+	"github.com/dubbogo/arana/third_party/pools"
 )
 
 var dataSourceManager *DataSourceManager

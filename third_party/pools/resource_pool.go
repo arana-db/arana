@@ -49,8 +49,8 @@ import (
 )
 
 import (
-	"github.com/dubbogo/kylin/third_party/sync2"
-	"github.com/dubbogo/kylin/third_party/timer"
+	"github.com/dubbogo/arana/third_party/sync2"
+	"github.com/dubbogo/arana/third_party/timer"
 )
 
 var (

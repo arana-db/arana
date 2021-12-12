@@ -3,10 +3,10 @@ unit-test:
 
 build:
 	@mkdir -p dist
-	cd cmd && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ../dist/kylin
+	cd cmd && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ../dist/arana
 
 docker-build: build
-	docker build -f docker/Dockerfile -t kylin:latest .
+	docker build -f docker/Dockerfile -t arana:latest .
 
 integration-test: build docker-build
 	@mkdir -p docker/data

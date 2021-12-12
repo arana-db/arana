@@ -18,4 +18,4 @@ data_source_cluster:
     max_capacity: 20
     idle_timeout: 60s
     conf:
-      dsn: root:123456@tcp(kylin-mysql:3306)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8
+      dsn: root:123456@tcp(arana-mysql:3306)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8
