@@ -20,5 +20,5 @@
 package constants
 
 const (
-	EnvKylinConfig = "Kylin_Config"
+	EnvAranaConfig = "Arana_Config"
 )

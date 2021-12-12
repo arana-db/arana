@@ -82,7 +82,7 @@ var (
 
 // init Init startCmd
 func init() {
-	startCommand.PersistentFlags().StringVarP(&configPath, constants.ConfigPathKey, "c", os.Getenv(constants.EnvKylinConfig), "Load configuration from `FILE`")
+	startCommand.PersistentFlags().StringVarP(&configPath, constants.ConfigPathKey, "c", os.Getenv(constants.EnvAranaConfig), "Load configuration from `FILE`")
 	rootCommand.AddCommand(startCommand)
 }
 
