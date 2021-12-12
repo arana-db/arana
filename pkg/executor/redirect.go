@@ -128,23 +128,26 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 	log.Debugf("ComQuery: %s", query)
 
 	resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(ctx.MasterDataSource[0])
-	if _, ok := act.(*ast.BeginStmt); ok {
+	switch act.(type) {
+	case *ast.BeginStmt:
 		r, err = resourcePool.Get(ctx)
 		if err != nil {
 			return nil, 0, err
 		}
 		executor.localTransactionMap[ctx.ConnectionID] = r
-	} else if _, ok := act.(*ast.CommitStmt); ok {
+	case *ast.CommitStmt:
 		r = executor.localTransactionMap[ctx.ConnectionID]
 		defer func() {
+			delete(executor.localTransactionMap, ctx.ConnectionID)
 			resourcePool.Put(r)
 		}()
-	} else if _, ok := act.(*ast.RollbackStmt); ok {
+	case *ast.RollbackStmt:
 		r = executor.localTransactionMap[ctx.ConnectionID]
 		defer func() {
+			delete(executor.localTransactionMap, ctx.ConnectionID)
 			resourcePool.Put(r)
 		}()
-	} else {
+	default:
 		r, err = resourcePool.Get(ctx)
 		defer func() {
 			resourcePool.Put(r)
