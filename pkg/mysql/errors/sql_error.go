@@ -36,9 +36,9 @@
 package errors
 
 import (
-	"bytes"
 	"fmt"
 	"regexp"
+	"strings"
 )
 
 import (
@@ -69,17 +69,17 @@ func NewSQLError(number int, sqlState string, format string, args ...interface{}
 
 // Error implements the error interface
 func (se *SQLError) Error() string {
-	buf := &bytes.Buffer{}
+	var buf strings.Builder
 	buf.WriteString(se.Message)
 
 	// Add MySQL errno and SQLSTATE in a format that we can later parse.
 	// There's no avoiding string parsing because all errors
 	// are converted to strings anyway at RPC boundaries.
 	// See NewSQLErrorFromError.
-	fmt.Fprintf(buf, " (errno %v) (sqlstate %v)", se.Num, se.State)
+	buf.WriteString(fmt.Sprintf(" (errno %v) (sqlstate %v)", se.Num, se.State))
 
 	if se.Query != "" {
-		fmt.Fprintf(buf, " during query: %s", se.Query)
+		buf.WriteString(fmt.Sprintf(" during query: %s", se.Query))
 	}
 
 	return buf.String()
