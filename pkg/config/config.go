@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
-	"strings"
 	"time"
 )
 
@@ -95,7 +94,7 @@ func (t *ProtocolType) UnmarshalText(text []byte) error {
 	if t == nil {
 		return errors.New("can't unmarshal a nil *ProtocolType")
 	}
-	if !t.unmarshalText(text) && !t.unmarshalText(bytes.ToLower(text)) {
+	if t.unmarshalText(bytes.ToLower(text)) {
 		return fmt.Errorf("unrecognized protocal type: %q", text)
 	}
 	return nil
@@ -103,8 +102,7 @@ func (t *ProtocolType) UnmarshalText(text []byte) error {
 
 func (t *ProtocolType) unmarshalText(text []byte) bool {
 	protocolType := string(text)
-	pt := strings.ToLower(protocolType)
-	switch pt {
+	switch protocolType {
 	case "mysql":
 		*t = Mysql
 	case "http":
@@ -119,7 +117,7 @@ func (m *ExecutorMode) UnmarshalText(text []byte) error {
 	if m == nil {
 		return errors.New("can't unmarshal a nil *ExecutorMode")
 	}
-	if !m.unmarshalText(text) && !m.unmarshalText(bytes.ToLower(text)) {
+	if m.unmarshalText(bytes.ToLower(text)) {
 		return fmt.Errorf("unrecognized executor mode: %q", text)
 	}
 	return nil
@@ -127,8 +125,7 @@ func (m *ExecutorMode) UnmarshalText(text []byte) error {
 
 func (m *ExecutorMode) unmarshalText(text []byte) bool {
 	executorMode := string(text)
-	em := strings.ToLower(executorMode)
-	switch em {
+	switch executorMode {
 	case "singledb":
 		*m = SingleDB
 	case "readwritesplitting":
