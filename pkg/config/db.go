@@ -23,7 +23,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 )
 
@@ -66,7 +65,7 @@ func (r *DataSourceRole) UnmarshalText(text []byte) error {
 	if r == nil {
 		return errors.New("can'r unmarshal a nil *DataSourceRole")
 	}
-	if !r.unmarshalText(text) && !r.unmarshalText(bytes.ToLower(text)) {
+	if r.unmarshalText(bytes.ToLower(text)) {
 		return fmt.Errorf("unrecognized protocal type: %q", text)
 	}
 	return nil
@@ -74,8 +73,7 @@ func (r *DataSourceRole) UnmarshalText(text []byte) error {
 
 func (r *DataSourceRole) unmarshalText(text []byte) bool {
 	dataSourceRole := string(text)
-	dsr := strings.ToLower(dataSourceRole)
-	switch dsr {
+	switch dataSourceRole {
 	case "master":
 		*r = Master
 	case "slave":
@@ -92,7 +90,7 @@ func (t *DataSourceType) UnmarshalText(text []byte) error {
 	if t == nil {
 		return errors.New("can't unmarshal a nil *DataSourceRole")
 	}
-	if !t.unmarshalText(text) && !t.unmarshalText(bytes.ToLower(text)) {
+	if t.unmarshalText(bytes.ToLower(text)) {
 		return fmt.Errorf("unrecognized protocal type: %q", text)
 	}
 	return nil
@@ -100,8 +98,7 @@ func (t *DataSourceType) UnmarshalText(text []byte) error {
 
 func (t *DataSourceType) unmarshalText(text []byte) bool {
 	dataSourceType := string(text)
-	dst := strings.ToLower(dataSourceType)
-	switch dst {
+	switch dataSourceType {
 	case "mysql":
 		*t = DBMysql
 	case "postgresql":
