@@ -63,10 +63,10 @@ const (
 
 func (r *DataSourceRole) UnmarshalText(text []byte) error {
 	if r == nil {
-		return errors.New("can'r unmarshal a nil *DataSourceRole")
+		return errors.New("can't unmarshal a nil *DataSourceRole")
 	}
-	if r.unmarshalText(bytes.ToLower(text)) {
-		return fmt.Errorf("unrecognized protocal type: %q", text)
+	if !r.unmarshalText(bytes.ToLower(text)) {
+		return fmt.Errorf("unrecognized datasource role: %q", text)
 	}
 	return nil
 }
@@ -88,10 +88,10 @@ func (r *DataSourceRole) unmarshalText(text []byte) bool {
 
 func (t *DataSourceType) UnmarshalText(text []byte) error {
 	if t == nil {
-		return errors.New("can't unmarshal a nil *DataSourceRole")
+		return errors.New("can't unmarshal a nil *DataSourceType")
 	}
-	if t.unmarshalText(bytes.ToLower(text)) {
-		return fmt.Errorf("unrecognized protocal type: %q", text)
+	if !t.unmarshalText(bytes.ToLower(text)) {
+		return fmt.Errorf("unrecognized datasource type: %q", text)
 	}
 	return nil
 }
