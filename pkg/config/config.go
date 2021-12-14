@@ -94,7 +94,7 @@ func (t *ProtocolType) UnmarshalText(text []byte) error {
 	if t == nil {
 		return errors.New("can't unmarshal a nil *ProtocolType")
 	}
-	if t.unmarshalText(bytes.ToLower(text)) {
+	if !t.unmarshalText(bytes.ToLower(text)) {
 		return fmt.Errorf("unrecognized protocol type: %q", text)
 	}
 	return nil
@@ -117,7 +117,7 @@ func (m *ExecutorMode) UnmarshalText(text []byte) error {
 	if m == nil {
 		return errors.New("can't unmarshal a nil *ExecutorMode")
 	}
-	if m.unmarshalText(bytes.ToLower(text)) {
+	if !m.unmarshalText(bytes.ToLower(text)) {
 		return fmt.Errorf("unrecognized executor mode: %q", text)
 	}
 	return nil
