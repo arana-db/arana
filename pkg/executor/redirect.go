@@ -30,6 +30,7 @@ import (
 )
 
 import (
+	"github.com/dubbogo/arana/pkg/config"
 	"github.com/dubbogo/arana/pkg/mysql"
 	"github.com/dubbogo/arana/pkg/proto"
 	"github.com/dubbogo/arana/pkg/resource"
@@ -38,33 +39,39 @@ import (
 )
 
 type RedirectExecutor struct {
+	mode proto.ExecuteMode
+	preFilters []proto.PreFilter
+	postFilters []proto.PostFilter
+	dataSources []*config.DataSourceGroup
 	localTransactionMap map[uint32]pools.Resource
 }
 
-func NewRedirectExecutor() proto.Executor {
+func NewRedirectExecutor(conf *config.Executor) proto.Executor {
 	return &RedirectExecutor{
+		mode: conf.Mode,
+		dataSources: conf.DataSources,
 		localTransactionMap: make(map[uint32]pools.Resource, 0),
 	}
 }
 
 func (executor *RedirectExecutor) AddPreFilter(filter proto.PreFilter) {
-
+	executor.preFilters = append(executor.preFilters, filter)
 }
 
 func (executor *RedirectExecutor) AddPostFilter(filter proto.PostFilter) {
-
+	executor.postFilters = append(executor.postFilters, filter)
 }
 
 func (executor *RedirectExecutor) GetPreFilters() []proto.PreFilter {
-	return nil
+	return executor.preFilters
 }
 
 func (executor *RedirectExecutor) GetPostFilter() []proto.PostFilter {
-	return nil
+	return executor.postFilters
 }
 
 func (executor *RedirectExecutor) ExecuteMode() proto.ExecuteMode {
-	return 0
+	return executor.mode
 }
 
 func (executor *RedirectExecutor) ProcessDistributedTransaction() bool {
@@ -81,7 +88,7 @@ func (executor *RedirectExecutor) InGlobalTransaction(ctx *proto.Context) bool {
 }
 
 func (executor *RedirectExecutor) ExecuteUseDB(ctx *proto.Context) error {
-	resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(ctx.MasterDataSource[0])
+	resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(executor.dataSources[0].Master)
 	r, err := resourcePool.Get(ctx)
 	defer func() {
 		resourcePool.Put(r)
@@ -98,7 +105,7 @@ func (executor *RedirectExecutor) ExecuteFieldList(ctx *proto.Context) ([]proto.
 	index := bytes.IndexByte(ctx.Data, 0x00)
 	table := string(ctx.Data[0:index])
 	wildcard := string(ctx.Data[index+1:])
-	resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(ctx.MasterDataSource[0])
+	resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(executor.dataSources[0].Master)
 	r, err := resourcePool.Get(ctx)
 	defer func() {
 		resourcePool.Put(r)
@@ -127,7 +134,7 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 	}
 	log.Debugf("ComQuery: %s", query)
 
-	resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(ctx.MasterDataSource[0])
+	resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(executor.dataSources[0].Master)
 	switch act.(type) {
 	case *ast.BeginStmt:
 		r, err = resourcePool.Get(ctx)
@@ -167,7 +174,7 @@ func (executor *RedirectExecutor) ExecutorComPrepareExecute(ctx *proto.Context) 
 	var err error
 	r, ok := executor.localTransactionMap[ctx.ConnectionID]
 	if !ok {
-		resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(ctx.MasterDataSource[0])
+		resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(executor.dataSources[0].Master)
 		r, err = resourcePool.Get(ctx)
 		defer func() {
 			resourcePool.Put(r)
@@ -188,7 +195,7 @@ func (executor *RedirectExecutor) ExecutorComPrepareExecute(ctx *proto.Context) 
 }
 
 func (executor *RedirectExecutor) ConnectionClose(ctx *proto.Context) {
-	resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(ctx.MasterDataSource[0])
+	resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(executor.dataSources[0].Master)
 	r, ok := executor.localTransactionMap[ctx.ConnectionID]
 	if ok {
 		defer func() {

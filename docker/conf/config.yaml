@@ -7,8 +7,13 @@ listeners:
       users:
         dksl: "123456"
       server_version: 5.7.0
-      master_data_source:
-        - employees
+    executor: redirect
+
+executors:
+  - name: redirect
+    mode: singledb
+    data_sources:
+      - master: employees
 
 data_source_cluster:
   - role: master

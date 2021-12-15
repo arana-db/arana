@@ -21,6 +21,7 @@ package main
 
 import (
 	"encoding/json"
+	"github.com/dubbogo/arana/pkg/proto"
 	"os"
 )
 
@@ -59,12 +60,18 @@ var (
 
 		Run: func(cmd *cobra.Command, args []string) {
 			conf := config.Load(configPath)
+
+			executors := make(map[string]proto.Executor)
+			for _, executorConf := range conf.Executors {
+				executor := executor.NewRedirectExecutor(executorConf)
+				executors[executorConf.Name] = executor
+			}
+
 			listener, err := mysql.NewListener(conf.Listeners[0])
 			if err != nil {
 				panic(err)
 			}
-			exec := executor.NewRedirectExecutor()
-			listener.SetExecutor(exec)
+			listener.SetExecutor(executors[conf.Listeners[0].Executor])
 
 			resource.InitDataSourceManager(conf.DataSources, func(config json.RawMessage) pools.Factory {
 				collector, err := mysql.NewConnector(config)

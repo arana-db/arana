@@ -52,9 +52,6 @@ const initClientConnStatus = mysql.ServerStatusAutocommit
 type ServerConfig struct {
 	Users            map[string]string `yaml:"users" json:"users"`
 	ServerVersion    string            `yaml:"server_version" json:"server_version"`
-	MetaDataSource   string            `yaml:"meta_data_source" json:"meta_data_source"`
-	MasterDataSource []string          `yaml:"master_data_source" json:"master_data_source"`
-	SlaveDataSource  []string          `yaml:"slave_data_source" json:"slave_data_source"`
 }
 
 type Listener struct {
@@ -159,9 +156,6 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32) {
 		l.executor.ConnectionClose(&proto.Context{
 			Context:          context.Background(),
 			ConnectionID:     l.connectionID,
-			MasterDataSource: l.conf.MasterDataSource,
-			SlaveDataSource:  l.conf.SlaveDataSource,
-			MetaDataSource:   l.conf.MetaDataSource,
 		})
 	}()
 
@@ -193,9 +187,6 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32) {
 			Context:          context.Background(),
 			ConnectionID:     l.connectionID,
 			Data:             data,
-			MasterDataSource: l.conf.MasterDataSource,
-			SlaveDataSource:  l.conf.SlaveDataSource,
-			MetaDataSource:   l.conf.MetaDataSource,
 		}
 		err = l.ExecuteCommand(c, ctx)
 		if err != nil {

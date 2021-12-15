@@ -20,7 +20,10 @@
 package proto
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"github.com/pkg/errors"
 )
 
 import (
@@ -40,10 +43,6 @@ type (
 		Data []byte
 
 		Stmt *Stmt
-
-		MetaDataSource   string
-		MasterDataSource []string
-		SlaveDataSource  []string
 	}
 
 	Listener interface {
@@ -61,7 +60,7 @@ type (
 
 	// PostFilter
 	PostFilter interface {
-		PostHandle(ctx Context)
+		PostHandle(ctx Context, result Result)
 	}
 
 	// Executor
@@ -101,3 +100,33 @@ type (
 		GetMetaResourcePool(name string) *pools.ResourcePool
 	}
 )
+
+const (
+	SingleDB ExecuteMode = iota
+	ReadWriteSplitting
+	Sharding
+)
+
+func (m *ExecuteMode) UnmarshalText(text []byte) error {
+	if m == nil {
+		return errors.New("can't unmarshal a nil *ExecuteMode")
+	}
+	if !m.unmarshalText(bytes.ToLower(text)) {
+		return fmt.Errorf("unrecognized execute mode: %q", text)
+	}
+	return nil
+}
+
+func (m *ExecuteMode) unmarshalText(text []byte) bool {
+	switch string(text) {
+	case "singledb":
+		*m = SingleDB
+	case "readwritesplitting":
+		*m = ReadWriteSplitting
+	case "sharding":
+		*m = Sharding
+	default:
+		return false
+	}
+	return true
+}
