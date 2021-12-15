@@ -30,6 +30,6 @@ jobs:
           persist-credentials: false
           submodules: true
       - name: golangci-lint
-        uses: ./.github/actions/review-dog
+        uses: ./.github/actions/action-golangci-lint
         with:
           golangci_lint_flags: "--timeout=10m"
