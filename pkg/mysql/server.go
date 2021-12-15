@@ -1187,7 +1187,7 @@ func (c *Conn) writeRow(row []*proto.Value) error {
 		if val == nil || val.Val == nil {
 			pos = writeByte(data, pos, mysql.NullValue)
 		} else {
-			l := val.Len
+			l := len(val.Raw)
 			pos = writeLenEncInt(data, pos, uint64(l))
 			pos += copy(data[pos:], val.Raw)
 		}
