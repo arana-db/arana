@@ -97,9 +97,9 @@ jobs:
         run: |
           go mod vendor && go test ./pkg/... -coverprofile=coverage.txt -covermode=atomic
       # integration test
-#      - name: Integration Test
-#        run: |
-#          chmod +x start_integrate_test.sh && chmod +x integrate_test.sh && ./start_integrate_test.sh
+      - name: Integration Test
+        run: |
+          make integration-test && make clean
 
       - name: Coverage
         run: bash <(curl -s https://codecov.io/bash)

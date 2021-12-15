@@ -15,12 +15,9 @@ integration-test: build docker-build
 	@sleep 30
 	@go clean -testcache
 	go test -tags integration -v ./test/...
-	docker-compose -f docker/docker-compose.yaml down
-	@rm -rf dist
-	@rm -rf docker/data
-	@rm -rf docker/mysqld
 
 clean:
+	docker-compose -f docker/docker-compose.yaml down
 	@rm -rf coverage.txt
 	@rm -rf dist
 	@rm -rf docker/data
