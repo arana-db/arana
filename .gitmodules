@@ -3,5 +3,5 @@
 	url = git@github.com:zcong1993/actions-ding.git
 [submodule ".github/actions/review-dog"]
 	path = .github/actions/review-dog
-	url = https://github.com/reviewdog/action-golangci-lint.git
+	url =  git@github.com:reviewdog/action-golangci-lint.git
   
