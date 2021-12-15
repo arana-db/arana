@@ -78,6 +78,31 @@ func TestSelect(t *testing.T) {
 	assert.Equal(t, "共和国", v.FirstName)
 }
 
+func TestSelectLimit1(t *testing.T) {
+	var v = &struct {
+		EmpNo     int       `gorm:"emp_no"`
+		BirthDate time.Time `gorm:"birth_date"`
+		FirstName string    `gorm:"first_name"`
+		LastName  string    `gorm:"last_name"`
+		Gender    string    `gorm:"gender"`
+		HireDate  time.Time `gorm:"hire_date"`
+	}{}
+	engine, err := xorm.NewEngine("mysql", "dksl:123456@tcp(127.0.0.1:13306)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8")
+	if err != nil {
+		t.Errorf("connection error: %v", err)
+		return
+	}
+
+	result, err := engine.SQL(`SELECT emp_no, birth_date, first_name, last_name, gender, hire_date FROM employees 
+		LIMIT 1`).Get(v)
+	if err != nil {
+		t.Errorf("select row error: %v", err)
+		return
+	}
+	assert.Equal(t, true, result)
+	assert.Equal(t, "共和国", v.FirstName)
+}
+
 func TestUpdate(t *testing.T) {
 	engine, err := xorm.NewEngine("mysql", "dksl:123456@tcp(127.0.0.1:13306)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8")
 	if err != nil {
