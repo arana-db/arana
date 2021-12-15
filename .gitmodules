@@ -1,6 +1,6 @@
 [submodule ".github/actions/actions-ding"]
 	path = .github/actions/actions-ding
 	url = https://github.com/zcong1993/actions-ding.git
-[submodule ".github/actions/review-dog"]
-	path = .github/actions/review-dog
+[submodule ".github/actions/action-golangci-lint"]
+	path = .github/actions/action-golangci-lint
 	url = https://github.com/reviewdog/action-golangci-lint.git
