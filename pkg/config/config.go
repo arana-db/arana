@@ -95,7 +95,7 @@ func (t *ProtocolType) UnmarshalText(text []byte) error {
 		return errors.New("can't unmarshal a nil *ProtocolType")
 	}
 	if t.unmarshalText(bytes.ToLower(text)) {
-		return fmt.Errorf("unrecognized protocal type: %q", text)
+		return fmt.Errorf("unrecognized protocol type: %q", text)
 	}
 	return nil
 }
