@@ -66,7 +66,7 @@ func (r *DataSourceRole) UnmarshalText(text []byte) error {
 		return errors.New("can'r unmarshal a nil *DataSourceRole")
 	}
 	if r.unmarshalText(bytes.ToLower(text)) {
-		return fmt.Errorf("unrecognized protocal type: %q", text)
+		return fmt.Errorf("unrecognized protocol type: %q", text)
 	}
 	return nil
 }
@@ -91,7 +91,7 @@ func (t *DataSourceType) UnmarshalText(text []byte) error {
 		return errors.New("can't unmarshal a nil *DataSourceRole")
 	}
 	if t.unmarshalText(bytes.ToLower(text)) {
-		return fmt.Errorf("unrecognized protocal type: %q", text)
+		return fmt.Errorf("unrecognized protocol type: %q", text)
 	}
 	return nil
 }
