@@ -23,7 +23,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/dubbogo/arana/pkg/proto"
 	"io/ioutil"
 	"path/filepath"
 	"time"
@@ -36,6 +35,7 @@ import (
 )
 
 import (
+	"github.com/dubbogo/arana/pkg/proto"
 	"github.com/dubbogo/arana/pkg/util/log"
 )
 
@@ -62,7 +62,7 @@ type (
 	}
 
 	Filter struct {
-		Type   string          `json:"type,omitempty"`
+		Name   string          `json:"name,omitempty"`
 		Config json.RawMessage `json:"config,omitempty"`
 	}
 

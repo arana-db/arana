@@ -39,17 +39,19 @@ import (
 )
 
 type RedirectExecutor struct {
-	mode proto.ExecuteMode
-	preFilters []proto.PreFilter
-	postFilters []proto.PostFilter
-	dataSources []*config.DataSourceGroup
+	mode                proto.ExecuteMode
+	preFilters          []proto.PreFilter
+	postFilters         []proto.PostFilter
+	dataSources         []*config.DataSourceGroup
 	localTransactionMap map[uint32]pools.Resource
 }
 
 func NewRedirectExecutor(conf *config.Executor) proto.Executor {
 	return &RedirectExecutor{
-		mode: conf.Mode,
-		dataSources: conf.DataSources,
+		mode:                conf.Mode,
+		preFilters:          make([]proto.PreFilter, 0),
+		postFilters:         make([]proto.PostFilter, 0),
+		dataSources:         conf.DataSources,
 		localTransactionMap: make(map[uint32]pools.Resource, 0),
 	}
 }
@@ -165,7 +167,9 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 	}
 
 	backendConn := r.(*mysql.BackendConnection)
+	executor.doPreFilter(ctx)
 	result, warn, err := backendConn.ExecuteWithWarningCount(query, 1, true)
+	executor.doPostFilter(ctx, result)
 	return result, warn, err
 }
 
@@ -190,7 +194,9 @@ func (executor *RedirectExecutor) ExecutorComPrepareExecute(ctx *proto.Context) 
 	if err != nil {
 		return nil, 0, err
 	}
+	executor.doPreFilter(ctx)
 	result, warn, err := backendConn.ExecuteWithWarningCount(query, 1000, true)
+	executor.doPostFilter(ctx, result)
 	return result, warn, err
 }
 
@@ -206,6 +212,34 @@ func (executor *RedirectExecutor) ConnectionClose(ctx *proto.Context) {
 		if err != nil {
 			log.Error(err)
 		}
+	}
+}
+
+func (executor *RedirectExecutor) doPreFilter(ctx *proto.Context) {
+	for i := 0; i < len(executor.preFilters); i++ {
+		func(ctx *proto.Context) {
+			defer func() {
+				if err := recover(); err != nil {
+					log.Errorf("failed to execute filter: %s, err: %v", executor.preFilters[i].GetName(), err)
+				}
+			}()
+			filter := executor.preFilters[i]
+			filter.PreHandle(ctx)
+		}(ctx)
+	}
+}
+
+func (executor *RedirectExecutor) doPostFilter(ctx *proto.Context, result proto.Result) {
+	for i := 0; i < len(executor.postFilters); i++ {
+		func(ctx *proto.Context) {
+			defer func() {
+				if err := recover(); err != nil {
+					log.Errorf("failed to execute filter: %s, err: %v", executor.postFilters[i].GetName(), err)
+				}
+			}()
+			filter := executor.postFilters[i]
+			filter.PostHandle(ctx, result)
+		}(ctx)
 	}
 }
 

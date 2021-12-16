@@ -50,8 +50,8 @@ import (
 const initClientConnStatus = mysql.ServerStatusAutocommit
 
 type ServerConfig struct {
-	Users            map[string]string `yaml:"users" json:"users"`
-	ServerVersion    string            `yaml:"server_version" json:"server_version"`
+	Users         map[string]string `yaml:"users" json:"users"`
+	ServerVersion string            `yaml:"server_version" json:"server_version"`
 }
 
 type Listener struct {
@@ -154,8 +154,8 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32) {
 
 		conn.Close()
 		l.executor.ConnectionClose(&proto.Context{
-			Context:          context.Background(),
-			ConnectionID:     l.connectionID,
+			Context:      context.Background(),
+			ConnectionID: l.connectionID,
 		})
 	}()
 
@@ -184,9 +184,9 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32) {
 		}
 
 		ctx := &proto.Context{
-			Context:          context.Background(),
-			ConnectionID:     l.connectionID,
-			Data:             data,
+			Context:      context.Background(),
+			ConnectionID: l.connectionID,
+			Data:         data,
 		}
 		err = l.ExecuteCommand(c, ctx)
 		if err != nil {

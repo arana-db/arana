@@ -22,7 +22,11 @@ package proto
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+)
+
+import (
 	"github.com/pkg/errors"
 )
 
@@ -53,14 +57,24 @@ type (
 		Close()
 	}
 
+	Filter interface {
+		GetName() string
+	}
+
 	// PreFilter
 	PreFilter interface {
-		PreHandle(ctx Context)
+		Filter
+		PreHandle(ctx *Context)
 	}
 
 	// PostFilter
 	PostFilter interface {
-		PostHandle(ctx Context, result Result)
+		Filter
+		PostHandle(ctx *Context, result Result)
+	}
+
+	FilterFactory interface {
+		NewFilter(config json.RawMessage) (Filter, error)
 	}
 
 	// Executor
