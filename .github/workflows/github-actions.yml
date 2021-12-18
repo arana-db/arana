@@ -99,22 +99,22 @@ jobs:
       - name: Set Up MySQL
         uses: baerwang/mysql-action@v1.2
         with:
-          host port: ${{ secrets.MYSQL_PORT }}
-          container port: ${{ secrets.MYSQL_PORT }}
+          host port: ${{ env.MYSQL_PORT }}
+          container port: ${{ env.MYSQL_PORT }}
           character set server: 'utf8mb4'
           collation server: 'utf8mb4_unicode_ci'
-          mysql version: ${{ secrets.MYSQL_VERSION }}
-          mysql database: ${{ secrets.MYSQL_DATABASE }}
-          mysql root password: ${{ secrets.MYSQL_ROOT_PWD }}
-          mysql user: ${{ secrets.MYSQL_USER_NAME }}
-          mysql password: ${{ secrets.MYSQL_PWD }}
+          mysql version: ${{ env.MYSQL_VERSION }}
+          mysql database: ${{ env.MYSQL_DATABASE }}
+          mysql root password: ${{ env.MYSQL_ROOT_PWD }}
+          mysql user: ${{ env.MYSQL_USER_NAME }}
+          mysql password: ${{ env.MYSQL_PWD }}
 
       - name: Import MySQL init.sql
         shell: bash
         run: |
           cat <<EOF > wait.sh
           #!/bin/sh
-          while ! mysqladmin ping --host=127.0.0.1 --password=${{ secrets.MYSQL_ROOT_PWD }} -P${{ secrets.MYSQL_PORT }} --silent; do
+          while ! mysqladmin ping --host=127.0.0.1 --password=${{ env.MYSQL_ROOT_PWD }} -P${{ env.MYSQL_PORT }} --silent; do
             sleep 1
           done
           EOF
@@ -124,8 +124,8 @@ jobs:
           source ./wait.sh || true
           echo END
 
-          export MYSQL_PWD=${{ secrets.MYSQL_PWD }}
-          mysql -h 127.0.0.1 -u ${{ secrets.MYSQL_USER_NAME }} -P${{ secrets.MYSQL_PORT }} -v < ./docker/scripts/init.sql
+          export MYSQL_PWD=${{ env.MYSQL_PWD }}
+          mysql -h 127.0.0.1 -u ${{ env.MYSQL_USER_NAME }} -P${{ env.MYSQL_PORT }} -v < ./docker/scripts/init.sql
 
       - name: Go Test
         run: |
