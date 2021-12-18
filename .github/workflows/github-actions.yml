@@ -99,7 +99,7 @@ jobs:
       - name: Set Up MySQL
         uses: mirromutth/mysql-action@v1.1
         with:
-          host port: 13306
+          host port: ${{ secrets.MYSQL_PORT }}
           container port: 3307
           character set server: 'utf8mb4'
           collation server: 'utf8mb4_unicode_ci'
