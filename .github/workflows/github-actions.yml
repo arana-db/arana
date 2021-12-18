@@ -93,6 +93,29 @@ jobs:
       - name: Run Linter
         run: golangci-lint run --timeout=10m -v --disable-all --enable=govet --enable=staticcheck --enable=ineffassign --enable=misspell
 
+      - name: Shutdown Ubuntu MySQL (SUDOx)
+        run: sudo service mysql stop
+
+      - name: Set Up MySQL
+        uses: mirromutth/mysql-action@v1.1
+        with:
+          host port: ${{ secrets.MYSQL_PORT }}
+          container port: 3307
+          character set server: 'utf8mb4'
+          collation server: 'utf8mb4_unicode_ci'
+          mysql version: ${{ secrets.MYSQL_VERSION }}
+          mysql user: ${{ secrets.MYSQL_USER_NAME }}
+          mysql password: ${{ secrets.MYSQL_PWD }}
+
+      - name: Restart MySQL
+        run: sudo service mysql restart
+
+      - name: Import mysql sql
+        shell: bash
+        run: |
+          export MYSQL_PWD=${{ secrets.MYSQL_PWD }}
+          mysql -h 127.0.0.1 -u ${{ secrets.MYSQL_USER_NAME }} -v < ./docker/scripts/init.sql
+
       - name: Go Test
         run: |
           go mod vendor && go test ./pkg/... -coverprofile=coverage.txt -covermode=atomic
