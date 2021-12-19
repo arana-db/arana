@@ -35,11 +35,16 @@ import (
 )
 
 import (
+	"github.com/dubbogo/arana/pkg/proto"
 	"github.com/dubbogo/arana/pkg/util/log"
 )
 
 type Configuration struct {
 	Listeners []*Listener `yaml:"listeners" json:"listeners"`
+
+	Executors []*Executor `yaml:"executors" json:"executors"`
+
+	Filters []*Filter `yaml:"filters" json:"filters"`
 
 	DataSources []*DataSource `yaml:"data_source_cluster" json:"data_source_cluster"`
 }
@@ -47,9 +52,6 @@ type Configuration struct {
 type (
 	// ProtocolType protocol type enum
 	ProtocolType int32
-
-	// ExecutorMode executor mode enum
-	ExecutorMode int32
 
 	// SocketAddress specify either a logical or physical address and port, which are
 	// used to tell server where to bind/listen, connect to upstream and find
@@ -60,34 +62,35 @@ type (
 	}
 
 	Filter struct {
-		Type   string          `json:"type,omitempty"`
+		Name   string          `json:"name,omitempty"`
 		Config json.RawMessage `json:"config,omitempty"`
 	}
 
+	DataSourceGroup struct {
+		Master string   `yaml:"master" json:"master"`
+		Slaves []string `yaml:"slaves,omitempty" json:"slaves,omitempty"`
+	}
+
 	Executor struct {
-		Mode                          string          `json:"mode,omitempty"`
-		ProcessDistributedTransaction bool            `json:"process_distributed_transaction,omitempty"`
-		Config                        json.RawMessage `json:"config,omitempty"`
+		Name                          string             `yaml:"name" json:"name"`
+		Mode                          proto.ExecuteMode  `yaml:"mode" json:"mode"`
+		DataSources                   []*DataSourceGroup `yaml:"data_sources" json:"data_sources"`
+		Filters                       []string           `yaml:"filters" json:"filters"`
+		ProcessDistributedTransaction bool               `yaml:"process_distributed_transaction,omitempty" json:"process_distributed_transaction,omitempty"`
 	}
 
 	Listener struct {
 		ProtocolType  ProtocolType    `yaml:"protocol_type" json:"protocol_type"`
 		SocketAddress SocketAddress   `yaml:"socket_address" json:"socket_address"`
-		Filters       []*Filter       `yaml:"filters" json:"filters"`
+		Filters       []string        `yaml:"filters" json:"filters"`
 		Config        json.RawMessage `yaml:"config" json:"config"`
-		Executor      Executor        `yaml:"executor" json:"executor"`
+		Executor      string          `yaml:"executor" json:"executor"`
 	}
 )
 
 const (
 	Http ProtocolType = iota
 	Mysql
-)
-
-const (
-	SingleDB ExecutorMode = iota
-	ReadWriteSplitting
-	Sharding
 )
 
 func (t *ProtocolType) UnmarshalText(text []byte) error {
@@ -107,31 +110,6 @@ func (t *ProtocolType) unmarshalText(text []byte) bool {
 		*t = Mysql
 	case "http":
 		*t = Http
-	default:
-		return false
-	}
-	return true
-}
-
-func (m *ExecutorMode) UnmarshalText(text []byte) error {
-	if m == nil {
-		return errors.New("can't unmarshal a nil *ExecutorMode")
-	}
-	if !m.unmarshalText(bytes.ToLower(text)) {
-		return fmt.Errorf("unrecognized executor mode: %q", text)
-	}
-	return nil
-}
-
-func (m *ExecutorMode) unmarshalText(text []byte) bool {
-	executorMode := string(text)
-	switch executorMode {
-	case "singledb":
-		*m = SingleDB
-	case "readwritesplitting":
-		*m = ReadWriteSplitting
-	case "sharding":
-		*m = Sharding
 	default:
 		return false
 	}
