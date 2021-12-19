@@ -125,7 +125,7 @@ jobs:
           echo END
 
           export MYSQL_PWD=123456
-          mysql -h 127.0.0.1 -u dsl P13306 -v < ./docker/scripts/init.sql
+          mysql -h 127.0.0.1 -u dsl -P13306 -v < ./docker/scripts/init.sql
 
       - name: Go Test
         run: |
