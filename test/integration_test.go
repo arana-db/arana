@@ -34,22 +34,14 @@ import (
 
 func TestInsert(t *testing.T) {
 	engine, err := xorm.NewEngine("mysql", "dksl:123456@tcp(127.0.0.1:13306)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8")
-	if err != nil {
-		t.Errorf("connection error: %v", err)
-		return
-	}
+	assert.NoErrorf(t, err, "connection error: %v", err)
+	defer engine.Close()
 
 	result, err := engine.Exec(`INSERT INTO employees ( emp_no, birth_date, first_name, last_name, gender, hire_date )
 		VALUES (?, ?, ?, ?, ?, ?)`, 100001, "1949-10-01", "共和国", "中华人民", "M", "1949-10-01")
-	if err != nil {
-		t.Errorf("insert row error: %v", err)
-		return
-	}
+	assert.NoErrorf(t, err, "insert row error: %v", err)
 	affected, err := result.RowsAffected()
-	if err != nil {
-		t.Errorf("insert row error: %v", err)
-		return
-	}
+	assert.NoErrorf(t, err, "insert row error: %v", err)
 	assert.Equal(t, int64(1), affected)
 }
 
@@ -63,17 +55,12 @@ func TestSelect(t *testing.T) {
 		HireDate  time.Time `gorm:"hire_date"`
 	}{}
 	engine, err := xorm.NewEngine("mysql", "dksl:123456@tcp(127.0.0.1:13306)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8")
-	if err != nil {
-		t.Errorf("connection error: %v", err)
-		return
-	}
+	assert.NoErrorf(t, err, "connection error: %v", err)
+	defer engine.Close()
 
 	result, err := engine.SQL(`SELECT emp_no, birth_date, first_name, last_name, gender, hire_date FROM employees 
 		WHERE emp_no = ?`, 100001).Get(v)
-	if err != nil {
-		t.Errorf("select row error: %v", err)
-		return
-	}
+	assert.NoErrorf(t, err, "select row error: %v", err)
 	assert.Equal(t, true, result)
 	assert.Equal(t, "共和国", v.FirstName)
 }
@@ -88,57 +75,36 @@ func TestSelectLimit1(t *testing.T) {
 		HireDate  time.Time `gorm:"hire_date"`
 	}{}
 	engine, err := xorm.NewEngine("mysql", "dksl:123456@tcp(127.0.0.1:13306)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8")
-	if err != nil {
-		t.Errorf("connection error: %v", err)
-		return
-	}
+	assert.NoErrorf(t, err, "connection error: %v", err)
+	defer engine.Close()
 
 	result, err := engine.SQL(`SELECT emp_no, birth_date, first_name, last_name, gender, hire_date FROM employees 
 		LIMIT 1`).Get(v)
-	if err != nil {
-		t.Errorf("select row error: %v", err)
-		return
-	}
+	assert.NoErrorf(t, err, "select row error: %v", err)
 	assert.Equal(t, true, result)
 	assert.Equal(t, "共和国", v.FirstName)
 }
 
 func TestUpdate(t *testing.T) {
 	engine, err := xorm.NewEngine("mysql", "dksl:123456@tcp(127.0.0.1:13306)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8")
-	if err != nil {
-		t.Errorf("connection error: %v", err)
-		return
-	}
+	assert.NoErrorf(t, err, "connection error: %v", err)
+	defer engine.Close()
 
 	result, err := engine.Exec(`UPDATE employees set last_name = ? where emp_no = ?`, "伟大的中华人民", 100001)
-	if err != nil {
-		t.Errorf("update row error: %v", err)
-		return
-	}
+	assert.NoErrorf(t, err, "update row error: %v", err)
 	affected, err := result.RowsAffected()
-	if err != nil {
-		t.Errorf("update row error: %v", err)
-		return
-	}
+	assert.NoErrorf(t, err, "update row error: %v", err)
 	assert.Equal(t, int64(1), affected)
 }
 
 func TestDelete(t *testing.T) {
 	engine, err := xorm.NewEngine("mysql", "dksl:123456@tcp(127.0.0.1:13306)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8")
-	if err != nil {
-		t.Errorf("connection error: %v", err)
-		return
-	}
+	assert.NoErrorf(t, err, "connection error: %v", err)
+	defer engine.Close()
 
 	result, err := engine.Exec(`DELETE FROM employees WHERE emp_no = ?`, 100001)
-	if err != nil {
-		t.Errorf("delete row error: %v", err)
-		return
-	}
+	assert.NoErrorf(t, err, "delete row error: %v", err)
 	affected, err := result.RowsAffected()
-	if err != nil {
-		t.Errorf("delete row error: %v", err)
-		return
-	}
+	assert.NoErrorf(t, err, "delete row error: %v", err)
 	assert.Equal(t, int64(1), affected)
 }
