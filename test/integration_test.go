@@ -92,7 +92,7 @@ func TestSelectLimit1(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
-	db, err := sql.Open("mysql", "root:123456@tcp(127.0.0.1:3306)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8")
+	db, err := sql.Open("mysql", "dksl:123456@tcp(127.0.0.1:13306)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8")
 	assert.NoErrorf(t, err, "connection error: %v", err)
 	defer db.Close()
 
