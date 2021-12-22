@@ -7,9 +7,13 @@ package testdata
 import (
 	context "context"
 	reflect "reflect"
+)
 
+import (
 	gomock "github.com/golang/mock/gomock"
+)
 
+import (
 	sequence "github.com/dubbogo/arana/pkg/proto"
 )
 

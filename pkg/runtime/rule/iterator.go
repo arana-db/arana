@@ -18,7 +18,9 @@
 
 package rule
 
-import "github.com/dubbogo/arana/pkg/proto/rule"
+import (
+	"github.com/dubbogo/arana/pkg/proto/rule"
+)
 
 var (
 	_ rule.Range = (*singleRange)(nil)

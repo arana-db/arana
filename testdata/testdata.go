@@ -4,7 +4,9 @@ package testdata
 import (
 	"path/filepath"
 	"runtime"
+)
 
+import (
 	_ "github.com/golang/mock/gomock"
 )
 

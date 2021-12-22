@@ -25,9 +25,13 @@ import (
 	"math"
 	"strconv"
 	"time"
+)
 
+import (
 	"github.com/pkg/errors"
+)
 
+import (
 	"github.com/dubbogo/arana/pkg/proto/rule"
 	"github.com/dubbogo/arana/pkg/runtime/cmp"
 	"github.com/dubbogo/arana/pkg/runtime/logical"

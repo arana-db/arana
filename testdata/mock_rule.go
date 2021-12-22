@@ -6,7 +6,9 @@ package testdata
 
 import (
 	reflect "reflect"
+)
 
+import (
 	gomock "github.com/golang/mock/gomock"
 )
 

@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 //
+
 //go:generate mockgen -destination=../../../testdata/mock_rule.go -package=testdata . ShardComputer
 package rule
 

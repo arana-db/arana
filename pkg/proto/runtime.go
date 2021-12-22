@@ -19,7 +19,9 @@
 //go:generate mockgen -destination=../../testdata/mock_runtime.go -package=testdata . Rows,VConn,QueryPlan,ExecPlan,Optimizer
 package proto
 
-import "context"
+import (
+	"context"
+)
 
 type (
 	// Rows represents a flow of Row.

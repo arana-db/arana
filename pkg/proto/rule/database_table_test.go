@@ -23,9 +23,13 @@ import (
 	"strings"
 	"testing"
 	"time"
+)
 
+import (
 	"github.com/stretchr/testify/assert"
+)
 
+import (
 	"github.com/dubbogo/arana/pkg/proto/rule"
 )
 

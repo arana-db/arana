@@ -57,7 +57,9 @@ import (
 	"sort"
 	"sync"
 	"time"
+)
 
+import (
 	"github.com/pkg/errors"
 )
 

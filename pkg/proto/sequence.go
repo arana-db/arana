@@ -19,7 +19,9 @@
 //go:generate mockgen -destination=../../testdata/mock_sequence.go -package=testdata . Sequence,Sequencer
 package proto
 
-import "context"
+import (
+	"context"
+)
 
 // Sequence represents a global unique id generator.
 type Sequence interface {
