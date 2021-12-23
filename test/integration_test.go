@@ -33,38 +33,25 @@ import (
 
 func TestInsert(t *testing.T) {
 	db, err := sql.Open("mysql", "dksl:123456@tcp(127.0.0.1:13306)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8")
-	if err != nil {
-		t.Errorf("connection error: %v", err)
-		return
-	}
+	assert.NoErrorf(t, err, "connection error: %v", err)
+	defer db.Close()
 
 	result, err := db.Exec(`INSERT INTO employees ( emp_no, birth_date, first_name, last_name, gender, hire_date )
 		VALUES (?, ?, ?, ?, ?, ?)`, 100001, "1949-10-01", "共和国", "中华人民", "M", "1949-10-01")
-	if err != nil {
-		t.Errorf("insert row error: %v", err)
-		return
-	}
+	assert.NoErrorf(t, err, "insert row error: %v", err)
 	affected, err := result.RowsAffected()
-	if err != nil {
-		t.Errorf("insert row error: %v", err)
-		return
-	}
+	assert.NoErrorf(t, err, "insert row error: %v", err)
 	assert.Equal(t, int64(1), affected)
 }
 
 func TestSelect(t *testing.T) {
 	db, err := sql.Open("mysql", "dksl:123456@tcp(127.0.0.1:13306)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8")
-	if err != nil {
-		t.Errorf("connection error: %v", err)
-		return
-	}
+	assert.NoErrorf(t, err, "connection error: %v", err)
+	defer db.Close()
 
 	rows, err := db.Query(`SELECT emp_no, birth_date, first_name, last_name, gender, hire_date FROM employees 
 		WHERE emp_no = ?`, 100001)
-	if err != nil {
-		t.Errorf("select row error: %v", err)
-		return
-	}
+	assert.NoErrorf(t, err, "select row error: %v", err)
 
 	var empNo string
 	var birthDate time.Time
@@ -73,7 +60,7 @@ func TestSelect(t *testing.T) {
 	var gender string
 	var hireDate time.Time
 	if rows.Next() {
-		err := rows.Scan(&empNo, &birthDate, &firstName, &lastName, &gender, &hireDate)
+		err = rows.Scan(&empNo, &birthDate, &firstName, &lastName, &gender, &hireDate)
 		if err != nil {
 			t.Error(err)
 		}
@@ -83,16 +70,11 @@ func TestSelect(t *testing.T) {
 
 func TestSelectLimit1(t *testing.T) {
 	db, err := sql.Open("mysql", "dksl:123456@tcp(127.0.0.1:13306)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8")
-	if err != nil {
-		t.Errorf("connection error: %v", err)
-		return
-	}
+	assert.NoErrorf(t, err, "connection error: %v", err)
+	defer db.Close()
 
 	rows, err := db.Query(`SELECT emp_no, birth_date, first_name, last_name, gender, hire_date FROM employees LIMIT 1`)
-	if err != nil {
-		t.Errorf("select row error: %v", err)
-		return
-	}
+	assert.NoErrorf(t, err, "select row error: %v", err)
 
 	var empNo string
 	var birthDate time.Time
@@ -101,7 +83,7 @@ func TestSelectLimit1(t *testing.T) {
 	var gender string
 	var hireDate time.Time
 	if rows.Next() {
-		err := rows.Scan(&empNo, &birthDate, &firstName, &lastName, &gender, &hireDate)
+		err = rows.Scan(&empNo, &birthDate, &firstName, &lastName, &gender, &hireDate)
 		if err != nil {
 			t.Error(err)
 		}
@@ -111,41 +93,25 @@ func TestSelectLimit1(t *testing.T) {
 
 func TestUpdate(t *testing.T) {
 	db, err := sql.Open("mysql", "dksl:123456@tcp(127.0.0.1:13306)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8")
-	if err != nil {
-		t.Errorf("connection error: %v", err)
-		return
-	}
+	assert.NoErrorf(t, err, "connection error: %v", err)
+	defer db.Close()
 
 	result, err := db.Exec(`UPDATE employees set last_name = ? where emp_no = ?`, "伟大的中华人民", 100001)
-	if err != nil {
-		t.Errorf("update row error: %v", err)
-		return
-	}
+	assert.NoErrorf(t, err, "update row error: %v", err)
 	affected, err := result.RowsAffected()
-	if err != nil {
-		t.Errorf("update row error: %v", err)
-		return
-	}
+	assert.NoErrorf(t, err, "update row error: %v", err)
 
 	assert.Equal(t, int64(1), affected)
 }
 
 func TestDelete(t *testing.T) {
 	db, err := sql.Open("mysql", "dksl:123456@tcp(127.0.0.1:13306)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8")
-	if err != nil {
-		t.Errorf("connection error: %v", err)
-		return
-	}
+	assert.NoErrorf(t, err, "connection error: %v", err)
+	defer db.Close()
 
 	result, err := db.Exec(`DELETE FROM employees WHERE emp_no = ?`, 100001)
-	if err != nil {
-		t.Errorf("delete row error: %v", err)
-		return
-	}
+	assert.NoErrorf(t, err, "delete row error: %v", err)
 	affected, err := result.RowsAffected()
-	if err != nil {
-		t.Errorf("delete row error: %v", err)
-		return
-	}
+	assert.NoErrorf(t, err, "delete row error: %v", err)
 	assert.Equal(t, int64(1), affected)
 }
