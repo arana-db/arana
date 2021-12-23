@@ -118,10 +118,10 @@ var (
 						listenerConf.SocketAddress.Address,
 						listenerConf.SocketAddress.Port))
 				}
-				listener.SetExecutor(executors[conf.Listeners[0].Executor])
+				listener.SetExecutor(executor)
 				propeller.AddListener(listener)
-				propeller.Start()
 			}
+			propeller.Start()
 		},
 	}
 )
