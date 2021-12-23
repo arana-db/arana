@@ -76,7 +76,6 @@ func (dt DatabaseTables) Or(other DatabaseTables) DatabaseTables {
 
 	if dt.IsEmpty() || other.IsEmpty() {
 		return other
-		return other
 	}
 
 	indexes := make(map[string]map[string]struct{})
