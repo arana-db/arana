@@ -19,9 +19,13 @@ package logical_test
 
 import (
 	"testing"
+)
 
+import (
 	"github.com/stretchr/testify/assert"
+)
 
+import (
 	. "github.com/dubbogo/arana/pkg/runtime/logical"
 )
 

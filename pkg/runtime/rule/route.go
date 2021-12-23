@@ -20,7 +20,9 @@ package rule
 
 import (
 	"github.com/pkg/errors"
+)
 
+import (
 	"github.com/dubbogo/arana/pkg/proto/rule"
 	"github.com/dubbogo/arana/pkg/runtime/cmp"
 )

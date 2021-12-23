@@ -73,10 +73,9 @@ func (dt DatabaseTables) Or(other DatabaseTables) DatabaseTables {
 	if dt == nil || other == nil {
 		return nil
 	}
-	if dt.IsEmpty() {
+
+	if dt.IsEmpty() || other.IsEmpty() {
 		return other
-	}
-	if other.IsEmpty() {
 		return other
 	}
 

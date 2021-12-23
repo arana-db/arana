@@ -20,10 +20,15 @@ package rule_test
 import (
 	"fmt"
 	"testing"
+)
 
+import (
 	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
 
+	"github.com/stretchr/testify/assert"
+)
+
+import (
 	"github.com/dubbogo/arana/pkg/proto/rule"
 	"github.com/dubbogo/arana/testdata"
 )

@@ -21,9 +21,13 @@ import (
 	"fmt"
 	"strconv"
 	"testing"
+)
 
+import (
 	"github.com/stretchr/testify/assert"
+)
 
+import (
 	"github.com/dubbogo/arana/pkg/proto/rule"
 	"github.com/dubbogo/arana/pkg/runtime/cmp"
 	. "github.com/dubbogo/arana/pkg/runtime/rule"

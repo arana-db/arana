@@ -22,7 +22,9 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+)
 
+import (
 	"github.com/dubbogo/arana/pkg/runtime/misc"
 )
 

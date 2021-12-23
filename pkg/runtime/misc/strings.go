@@ -96,11 +96,7 @@ func FirstNonZeroInt64(first, second int64, others ...int64) int64 {
 }
 
 func PadRight(str, pad string, length int) string {
-	if len(str) == length {
-		return str
-	}
-
-	if len(str) > length {
+	if len(str) >= length {
 		return str[:length]
 	}
 

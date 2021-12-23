@@ -20,9 +20,13 @@ package rule_test
 import (
 	"sort"
 	"testing"
+)
 
+import (
 	"github.com/stretchr/testify/assert"
+)
 
+import (
 	"github.com/dubbogo/arana/pkg/runtime/cmp"
 	. "github.com/dubbogo/arana/pkg/runtime/rule"
 )
