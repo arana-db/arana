@@ -25,8 +25,6 @@ import (
 )
 
 import (
-	_ "github.com/go-sql-driver/mysql" // register mysql
-
 	"github.com/pkg/errors"
 
 	"github.com/spf13/cobra"
