@@ -45,6 +45,7 @@ import (
 )
 
 import (
+	"go.uber.org/atomic"
 	"golang.org/x/net/context"
 )
 
@@ -79,16 +80,16 @@ type Resource interface {
 // ResourcePool allows you to use a pool of resources.
 type ResourcePool struct {
 	// stats. Atomic fields must remain at the top in order to prevent panics on certain architectures.
-	available  sync2.AtomicInt64
-	active     sync2.AtomicInt64
-	inUse      sync2.AtomicInt64
-	waitCount  sync2.AtomicInt64
-	waitTime   sync2.AtomicDuration
-	idleClosed sync2.AtomicInt64
-	exhausted  sync2.AtomicInt64
+	available  *atomic.Int64
+	active     *atomic.Int64
+	inUse      *atomic.Int64
+	waitCount  *atomic.Int64
+	waitTime   *atomic.Duration
+	idleClosed *atomic.Int64
+	exhausted  *atomic.Int64
 
-	capacity    sync2.AtomicInt64
-	idleTimeout sync2.AtomicDuration
+	capacity    *atomic.Int64
+	idleTimeout *atomic.Duration
 
 	resources chan resourceWrapper
 	factory   Factory
@@ -119,9 +120,9 @@ func NewResourcePool(factory Factory, capacity, maxCap int, idleTimeout time.Dur
 	rp := &ResourcePool{
 		resources:   make(chan resourceWrapper, maxCap),
 		factory:     factory,
-		available:   sync2.NewAtomicInt64(int64(capacity)),
-		capacity:    sync2.NewAtomicInt64(int64(capacity)),
-		idleTimeout: sync2.NewAtomicDuration(idleTimeout),
+		available:   atomic.NewInt64(int64(capacity)),
+		capacity:    atomic.NewInt64(int64(capacity)),
+		idleTimeout: atomic.NewDuration(idleTimeout),
 		logWait:     logWait,
 	}
 	for i := 0; i < capacity; i++ {
@@ -177,7 +178,7 @@ func (rp *ResourcePool) Close() {
 
 // IsClosed returns true if the resource pool is closed.
 func (rp *ResourcePool) IsClosed() (closed bool) {
-	return rp.capacity.Get() == 0
+	return rp.capacity.Load() == 0
 }
 
 // closeIdleResources scans the pool for idle resources
@@ -305,14 +306,14 @@ func (rp *ResourcePool) SetCapacity(capacity int) error {
 	// if old capacity is non-zero.
 	var oldcap int
 	for {
-		oldcap = int(rp.capacity.Get())
+		oldcap = int(rp.capacity.Load())
 		if oldcap == 0 {
 			return ErrClosed
 		}
 		if oldcap == capacity {
 			return nil
 		}
-		if rp.capacity.CompareAndSwap(int64(oldcap), int64(capacity)) {
+		if rp.capacity.CAS(int64(oldcap), int64(capacity)) {
 			break
 		}
 	}
@@ -353,7 +354,7 @@ func (rp *ResourcePool) SetIdleTimeout(idleTimeout time.Duration) {
 		panic("SetIdleTimeout called when timer not initialized")
 	}
 
-	rp.idleTimeout.Set(idleTimeout)
+	rp.idleTimeout.Store(idleTimeout)
 	rp.idleTimer.SetInterval(idleTimeout / 10)
 }
 
@@ -375,23 +376,23 @@ func (rp *ResourcePool) StatsJSON() string {
 
 // Capacity returns the capacity.
 func (rp *ResourcePool) Capacity() int64 {
-	return rp.capacity.Get()
+	return rp.capacity.Load()
 }
 
 // Available returns the number of currently unused and available resources.
 func (rp *ResourcePool) Available() int64 {
-	return rp.available.Get()
+	return rp.available.Load()
 }
 
 // Active returns the number of active (i.e. non-nil) resources either in the
 // pool or claimed for use
 func (rp *ResourcePool) Active() int64 {
-	return rp.active.Get()
+	return rp.active.Load()
 }
 
 // InUse returns the number of claimed resources from the pool
 func (rp *ResourcePool) InUse() int64 {
-	return rp.inUse.Get()
+	return rp.inUse.Load()
 }
 
 // MaxCap returns the max capacity.
@@ -401,25 +402,25 @@ func (rp *ResourcePool) MaxCap() int64 {
 
 // WaitCount returns the total number of waits.
 func (rp *ResourcePool) WaitCount() int64 {
-	return rp.waitCount.Get()
+	return rp.waitCount.Load()
 }
 
 // WaitTime returns the total wait time.
 func (rp *ResourcePool) WaitTime() time.Duration {
-	return rp.waitTime.Get()
+	return rp.waitTime.Load()
 }
 
 // IdleTimeout returns the idle timeout.
 func (rp *ResourcePool) IdleTimeout() time.Duration {
-	return rp.idleTimeout.Get()
+	return rp.idleTimeout.Load()
 }
 
 // IdleClosed returns the count of resources closed due to idle timeout.
 func (rp *ResourcePool) IdleClosed() int64 {
-	return rp.idleClosed.Get()
+	return rp.idleClosed.Load()
 }
 
 // Exhausted returns the number of times Available dropped below 1
 func (rp *ResourcePool) Exhausted() int64 {
-	return rp.exhausted.Get()
+	return rp.exhausted.Load()
 }
