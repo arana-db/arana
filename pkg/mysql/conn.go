@@ -34,13 +34,13 @@ import (
 
 import (
 	"github.com/pkg/errors"
+	"go.uber.org/atomic"
 )
 
 import (
 	"github.com/dubbogo/arana/pkg/constants/mysql"
 	err2 "github.com/dubbogo/arana/pkg/mysql/errors"
 	"github.com/dubbogo/arana/third_party/bucketpool"
-	"github.com/dubbogo/arana/third_party/sync2"
 )
 
 const (
@@ -90,7 +90,7 @@ type Conn struct {
 	ConnectionID uint32
 
 	// closed is set to true when Close() is called on the connection.
-	closed sync2.AtomicBool
+	closed *atomic.Bool
 
 	// Packet encoding variables.
 	sequence       uint8
@@ -124,7 +124,7 @@ type Conn struct {
 func newConn(conn net.Conn) *Conn {
 	return &Conn{
 		conn:           conn,
-		closed:         sync2.NewAtomicBool(false),
+		closed:         atomic.NewBool(false),
 		bufferedReader: bufio.NewReaderSize(conn, connBufferSize),
 	}
 }
@@ -559,7 +559,7 @@ func (c *Conn) String() string {
 // Close closes the connection. It can be called from a different go
 // routine to interrupt the current connection.
 func (c *Conn) Close() {
-	if c.closed.CompareAndSwap(false, true) {
+	if c.closed.CAS(false, true) {
 		c.conn.Close()
 	}
 }
@@ -568,7 +568,7 @@ func (c *Conn) Close() {
 // Close() method.  Note if the other side closes the connection, but
 // Close() wasn't called, this will return false.
 func (c *Conn) IsClosed() bool {
-	return c.closed.Get()
+	return c.closed.Load()
 }
 
 //
