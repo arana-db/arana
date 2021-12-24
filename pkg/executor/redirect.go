@@ -68,7 +68,7 @@ func (executor *RedirectExecutor) GetPreFilters() []proto.PreFilter {
 	return executor.preFilters
 }
 
-func (executor *RedirectExecutor) GetPostFilter() []proto.PostFilter {
+func (executor *RedirectExecutor) GetPostFilters() []proto.PostFilter {
 	return executor.postFilters
 }
 

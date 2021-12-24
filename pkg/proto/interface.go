@@ -85,7 +85,7 @@ type (
 
 		GetPreFilters() []PreFilter
 
-		GetPostFilter() []PostFilter
+		GetPostFilters() []PostFilter
 
 		ExecuteMode() ExecuteMode
 
