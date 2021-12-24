@@ -42,7 +42,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/third_party/sync2"
+	"go.uber.org/atomic"
 )
 
 // Out-of-band messages
@@ -77,7 +77,7 @@ A zero value interval will cause the timer to wait indefinitely, and it
 will react only to an explicit Trigger or Stop.
 */
 type Timer struct {
-	interval sync2.AtomicDuration
+	interval *atomic.Duration
 
 	// state management
 	mu      sync.Mutex
@@ -90,9 +90,10 @@ type Timer struct {
 // NewTimer creates a new Timer object
 func NewTimer(interval time.Duration) *Timer {
 	tm := &Timer{
-		msg: make(chan typeAction),
+		interval: atomic.NewDuration(0),
+		msg:      make(chan typeAction),
 	}
-	tm.interval.Set(interval)
+	tm.interval.Store(interval)
 	return tm
 }
 
@@ -111,7 +112,7 @@ func (tm *Timer) run(keephouse func()) {
 	var timer *time.Timer
 	for {
 		var ch <-chan time.Time
-		interval := tm.interval.Get()
+		interval := tm.interval.Load()
 		if interval > 0 {
 			timer = time.NewTimer(interval)
 			ch = timer.C
@@ -137,7 +138,7 @@ func (tm *Timer) run(keephouse func()) {
 // SetInterval changes the wait interval.
 // It will cause the timer to restart the wait.
 func (tm *Timer) SetInterval(ns time.Duration) {
-	tm.interval.Set(ns)
+	tm.interval.Store(ns)
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
 	if tm.running {
@@ -176,5 +177,5 @@ func (tm *Timer) Stop() {
 
 // Interval returns the current interval.
 func (tm *Timer) Interval() time.Duration {
-	return tm.interval.Get()
+	return tm.interval.Load()
 }
