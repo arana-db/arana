@@ -119,8 +119,7 @@ func NewListener(conf *config.Listener) (proto.Listener, error) {
 		conf:        cfg,
 		listener:    l,
 		statementID: atomic.NewUint32(0),
-		//stmts:    make(map[uint32]*proto.Stmt, 0),
-		stmts: sync.Map{},
+		stmts:       sync.Map{},
 	}
 	return listener, nil
 }
@@ -679,7 +678,7 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 		if ok {
 			if prepare, ok := l.stmts.Load(stmtID); ok {
 				prepareStat, _ := prepare.(*proto.Stmt)
-				prepareStat.BindVars = make(map[string]interface{}, 0)
+				prepareStat.BindVars = make(map[string]interface{})
 			}
 		}
 		return c.writeOKPacket(0, 0, c.StatusFlags, 0)
