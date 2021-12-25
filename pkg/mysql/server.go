@@ -25,11 +25,13 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"go.uber.org/atomic"
 	"io"
 	"math"
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 import (
@@ -92,10 +94,11 @@ type Listener struct {
 	schemaName string
 
 	// statementID is the prepared statement ID.
-	statementID uint32
+	statementID *atomic.Uint32
 
 	// stmts is the map to use a prepared statement.
-	stmts map[uint32]*proto.Stmt
+	// key is uint32 value is *proto.Stmt
+	stmts sync.Map
 }
 
 func NewListener(conf *config.Listener) (proto.Listener, error) {
@@ -114,7 +117,9 @@ func NewListener(conf *config.Listener) (proto.Listener, error) {
 	listener := &Listener{
 		conf:     cfg,
 		listener: l,
-		stmts:    make(map[uint32]*proto.Stmt, 0),
+		statementID: atomic.NewUint32(0),
+		//stmts:    make(map[uint32]*proto.Stmt, 0),
+		stmts: sync.Map{},
 	}
 	return listener, nil
 }
@@ -562,9 +567,10 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 		c.recycleReadPacket()
 
 		// Popoulate PrepareData
-		l.statementID++
+		statementID := l.statementID.Inc()
+
 		stmt := &proto.Stmt{
-			StatementID: l.statementID,
+			StatementID: statementID,
 			PrepareStmt: query,
 		}
 		p := parser.New()
@@ -587,9 +593,9 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 			stmt.BindVars = make(map[string]interface{}, paramsCount)
 		}
 
-		l.stmts[l.statementID] = stmt
+		l.stmts.Store(statementID, stmt)
 
-		if err := c.writePrepare(l.capabilities, l.stmts[l.statementID]); err != nil {
+		if err := c.writePrepare(l.capabilities, stmt); err != nil {
 			return err
 		}
 	case mysql.ComStmtExecute:
@@ -606,8 +612,10 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 			if stmtID != uint32(0) {
 				defer func() {
 					// Allocate a new bindvar map every time since VTGate.Execute() mutates it.
-					prepare := l.stmts[stmtID]
-					prepare.BindVars = make(map[string]interface{}, prepare.ParamsCount)
+					if prepare, ok := l.stmts.Load(stmtID); ok {
+						prepareStat, _ := prepare.(*proto.Stmt)
+						prepareStat.BindVars = make(map[string]interface{}, prepareStat.ParamsCount)
+					}
 				}()
 			}
 
@@ -620,8 +628,8 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 				return nil
 			}
 
-			stmt := l.stmts[stmtID]
-			ctx.Stmt = stmt
+			prepareStmt, _ := l.stmts.Load(stmtID)
+			ctx.Stmt = prepareStmt.(*proto.Stmt)
 
 			result, warn, err := l.executor.ExecutorComPrepareExecute(ctx)
 			if err != nil {
@@ -659,7 +667,7 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 		stmtID, _, ok := readUint32(ctx.Data, 1)
 		c.recycleReadPacket()
 		if ok {
-			delete(l.stmts, stmtID)
+			l.stmts.Delete(stmtID)
 		}
 	case mysql.ComStmtSendLongData: // no response
 		values := make([]byte, len(ctx.Data))
@@ -668,8 +676,10 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 		stmtID, _, ok := readUint32(ctx.Data, 1)
 		c.recycleReadPacket()
 		if ok {
-			stmt := l.stmts[stmtID]
-			stmt.BindVars = make(map[string]interface{}, 0)
+			if prepare, ok := l.stmts.Load(stmtID); ok {
+				prepareStat, _ := prepare.(*proto.Stmt)
+				prepareStat.BindVars = make(map[string]interface{}, 0)
+			}
 		}
 		return c.writeOKPacket(0, 0, c.StatusFlags, 0)
 	case mysql.ComSetOption:
@@ -773,7 +783,7 @@ func (c *Conn) sendColumnCount(count uint64) error {
 	return c.writeEphemeralPacket()
 }
 
-func (c *Conn) parseComStmtExecute(stmts map[uint32]*proto.Stmt, data []byte) (uint32, byte, error) {
+func (c *Conn) parseComStmtExecute(stmts sync.Map, data []byte) (uint32, byte, error) {
 	pos := 0
 	payload := data[1:]
 	bitMap := make([]byte, 0)
@@ -783,11 +793,12 @@ func (c *Conn) parseComStmtExecute(stmts map[uint32]*proto.Stmt, data []byte) (u
 	if !ok {
 		return 0, 0, errors.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "reading statement ID failed")
 	}
-	prepare, ok := stmts[stmtID]
+	//prepare, ok := stmts[stmtID]
+	prepare, ok := stmts.Load(stmtID)
 	if !ok {
 		return 0, 0, errors.NewSQLError(mysql.CRCommandsOutOfSync, mysql.SSUnknownSQLState, "statement ID is not found from record")
 	}
-
+	prepareStat, _ := prepare.(*proto.Stmt)
 	// cursor type flags
 	cursorType, pos, ok := readByte(payload, pos)
 	if !ok {
@@ -803,8 +814,8 @@ func (c *Conn) parseComStmtExecute(stmts map[uint32]*proto.Stmt, data []byte) (u
 		return stmtID, 0, errors.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "iteration count is not equal to 1")
 	}
 
-	if prepare.ParamsCount > 0 {
-		bitMap, pos, ok = readBytes(payload, pos, int((prepare.ParamsCount+7)/8))
+	if prepareStat.ParamsCount > 0 {
+		bitMap, pos, ok = readBytes(payload, pos, int((prepareStat.ParamsCount+7)/8))
 		if !ok {
 			return stmtID, 0, errors.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "reading NULL-bitmap failed")
 		}
@@ -813,7 +824,7 @@ func (c *Conn) parseComStmtExecute(stmts map[uint32]*proto.Stmt, data []byte) (u
 	newParamsBoundFlag, pos, ok := readByte(payload, pos)
 	if ok && newParamsBoundFlag == 0x01 {
 		var mysqlType, flags byte
-		for i := uint16(0); i < prepare.ParamsCount; i++ {
+		for i := uint16(0); i < prepareStat.ParamsCount; i++ {
 			mysqlType, pos, ok = readByte(payload, pos)
 			if !ok {
 				return stmtID, 0, errors.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "reading parameter type failed")
@@ -830,14 +841,14 @@ func (c *Conn) parseComStmtExecute(stmts map[uint32]*proto.Stmt, data []byte) (u
 				return stmtID, 0, errors.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "MySQLToType(%v,%v) failed: %v", mysqlType, flags, err)
 			}
 
-			prepare.ParamsType[i] = int32(valType)
+			prepareStat.ParamsType[i] = int32(valType)
 		}
 	}
 
-	for i := 0; i < len(prepare.ParamsType); i++ {
+	for i := 0; i < len(prepareStat.ParamsType); i++ {
 		var val interface{}
 		parameterID := fmt.Sprintf("v%d", i+1)
-		if v, ok := prepare.BindVars[parameterID]; ok {
+		if v, ok := prepareStat.BindVars[parameterID]; ok {
 			if v != nil {
 				continue
 			}
@@ -846,13 +857,13 @@ func (c *Conn) parseComStmtExecute(stmts map[uint32]*proto.Stmt, data []byte) (u
 		if (bitMap[i/8] & (1 << uint(i%8))) > 0 {
 			val, pos, ok = c.parseStmtArgs(nil, mysql.FieldTypeNULL, pos)
 		} else {
-			val, pos, ok = c.parseStmtArgs(payload, mysql.FieldType(prepare.ParamsType[i]), pos)
+			val, pos, ok = c.parseStmtArgs(payload, mysql.FieldType(prepareStat.ParamsType[i]), pos)
 		}
 		if !ok {
-			return stmtID, 0, errors.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "decoding parameter value failed: %v", prepare.ParamsType[i])
+			return stmtID, 0, errors.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "decoding parameter value failed: %v", prepareStat.ParamsType[i])
 		}
 
-		prepare.BindVars[parameterID] = val
+		prepareStat.BindVars[parameterID] = val
 	}
 
 	return stmtID, cursorType, nil
