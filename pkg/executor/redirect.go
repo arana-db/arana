@@ -30,6 +30,7 @@ import (
 )
 
 import (
+	"github.com/dubbogo/arana/pkg/config"
 	"github.com/dubbogo/arana/pkg/mysql"
 	"github.com/dubbogo/arana/pkg/proto"
 	"github.com/dubbogo/arana/pkg/resource"
@@ -38,33 +39,41 @@ import (
 )
 
 type RedirectExecutor struct {
+	mode                proto.ExecuteMode
+	preFilters          []proto.PreFilter
+	postFilters         []proto.PostFilter
+	dataSources         []*config.DataSourceGroup
 	localTransactionMap map[uint32]pools.Resource
 }
 
-func NewRedirectExecutor() proto.Executor {
+func NewRedirectExecutor(conf *config.Executor) proto.Executor {
 	return &RedirectExecutor{
+		mode:                conf.Mode,
+		preFilters:          make([]proto.PreFilter, 0),
+		postFilters:         make([]proto.PostFilter, 0),
+		dataSources:         conf.DataSources,
 		localTransactionMap: make(map[uint32]pools.Resource, 0),
 	}
 }
 
 func (executor *RedirectExecutor) AddPreFilter(filter proto.PreFilter) {
-
+	executor.preFilters = append(executor.preFilters, filter)
 }
 
 func (executor *RedirectExecutor) AddPostFilter(filter proto.PostFilter) {
-
+	executor.postFilters = append(executor.postFilters, filter)
 }
 
 func (executor *RedirectExecutor) GetPreFilters() []proto.PreFilter {
-	return nil
+	return executor.preFilters
 }
 
-func (executor *RedirectExecutor) GetPostFilter() []proto.PostFilter {
-	return nil
+func (executor *RedirectExecutor) GetPostFilters() []proto.PostFilter {
+	return executor.postFilters
 }
 
 func (executor *RedirectExecutor) ExecuteMode() proto.ExecuteMode {
-	return 0
+	return executor.mode
 }
 
 func (executor *RedirectExecutor) ProcessDistributedTransaction() bool {
@@ -81,7 +90,7 @@ func (executor *RedirectExecutor) InGlobalTransaction(ctx *proto.Context) bool {
 }
 
 func (executor *RedirectExecutor) ExecuteUseDB(ctx *proto.Context) error {
-	resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(ctx.MasterDataSource[0])
+	resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(executor.dataSources[0].Master)
 	r, err := resourcePool.Get(ctx)
 	defer func() {
 		resourcePool.Put(r)
@@ -98,7 +107,7 @@ func (executor *RedirectExecutor) ExecuteFieldList(ctx *proto.Context) ([]proto.
 	index := bytes.IndexByte(ctx.Data, 0x00)
 	table := string(ctx.Data[0:index])
 	wildcard := string(ctx.Data[index+1:])
-	resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(ctx.MasterDataSource[0])
+	resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(executor.dataSources[0].Master)
 	r, err := resourcePool.Get(ctx)
 	defer func() {
 		resourcePool.Put(r)
@@ -127,7 +136,7 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 	}
 	log.Debugf("ComQuery: %s", query)
 
-	resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(ctx.MasterDataSource[0])
+	resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(executor.dataSources[0].Master)
 	switch act.(type) {
 	case *ast.BeginStmt:
 		r, err = resourcePool.Get(ctx)
@@ -158,7 +167,9 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 	}
 
 	backendConn := r.(*mysql.BackendConnection)
+	executor.doPreFilter(ctx)
 	result, warn, err := backendConn.ExecuteWithWarningCount(query, 1, true)
+	executor.doPostFilter(ctx, result)
 	return result, warn, err
 }
 
@@ -167,7 +178,7 @@ func (executor *RedirectExecutor) ExecutorComPrepareExecute(ctx *proto.Context) 
 	var err error
 	r, ok := executor.localTransactionMap[ctx.ConnectionID]
 	if !ok {
-		resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(ctx.MasterDataSource[0])
+		resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(executor.dataSources[0].Master)
 		r, err = resourcePool.Get(ctx)
 		defer func() {
 			resourcePool.Put(r)
@@ -183,12 +194,14 @@ func (executor *RedirectExecutor) ExecutorComPrepareExecute(ctx *proto.Context) 
 	if err != nil {
 		return nil, 0, err
 	}
+	executor.doPreFilter(ctx)
 	result, warn, err := backendConn.ExecuteWithWarningCount(query, 1000, true)
+	executor.doPostFilter(ctx, result)
 	return result, warn, err
 }
 
 func (executor *RedirectExecutor) ConnectionClose(ctx *proto.Context) {
-	resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(ctx.MasterDataSource[0])
+	resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(executor.dataSources[0].Master)
 	r, ok := executor.localTransactionMap[ctx.ConnectionID]
 	if ok {
 		defer func() {
@@ -199,6 +212,34 @@ func (executor *RedirectExecutor) ConnectionClose(ctx *proto.Context) {
 		if err != nil {
 			log.Error(err)
 		}
+	}
+}
+
+func (executor *RedirectExecutor) doPreFilter(ctx *proto.Context) {
+	for i := 0; i < len(executor.preFilters); i++ {
+		func(ctx *proto.Context) {
+			defer func() {
+				if err := recover(); err != nil {
+					log.Errorf("failed to execute filter: %s, err: %v", executor.preFilters[i].GetName(), err)
+				}
+			}()
+			filter := executor.preFilters[i]
+			filter.PreHandle(ctx)
+		}(ctx)
+	}
+}
+
+func (executor *RedirectExecutor) doPostFilter(ctx *proto.Context, result proto.Result) {
+	for i := 0; i < len(executor.postFilters); i++ {
+		func(ctx *proto.Context) {
+			defer func() {
+				if err := recover(); err != nil {
+					log.Errorf("failed to execute filter: %s, err: %v", executor.postFilters[i].GetName(), err)
+				}
+			}()
+			filter := executor.postFilters[i]
+			filter.PostHandle(ctx, result)
+		}(ctx)
 	}
 }
 
