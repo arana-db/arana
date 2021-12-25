@@ -25,7 +25,6 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
-	"go.uber.org/atomic"
 	"io"
 	"math"
 	"net"
@@ -39,6 +38,8 @@ import (
 	_ "github.com/pingcap/parser/test_driver"
 
 	err2 "github.com/pkg/errors"
+
+	"go.uber.org/atomic"
 )
 
 import (
