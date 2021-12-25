@@ -613,8 +613,8 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 				defer func() {
 					// Allocate a new bindvar map every time since VTGate.Execute() mutates it.
 					if prepare, ok := l.stmts.Load(stmtID); ok {
-						prepareStat, _ := prepare.(*proto.Stmt)
-						prepareStat.BindVars = make(map[string]interface{}, prepareStat.ParamsCount)
+						prepareStmt, _ := prepare.(*proto.Stmt)
+						prepareStmt.BindVars = make(map[string]interface{}, prepareStmt.ParamsCount)
 					}
 				}()
 			}
@@ -677,8 +677,8 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 		c.recycleReadPacket()
 		if ok {
 			if prepare, ok := l.stmts.Load(stmtID); ok {
-				prepareStat, _ := prepare.(*proto.Stmt)
-				prepareStat.BindVars = make(map[string]interface{})
+				prepareStmt, _ := prepare.(*proto.Stmt)
+				prepareStmt.BindVars = make(map[string]interface{})
 			}
 		}
 		return c.writeOKPacket(0, 0, c.StatusFlags, 0)

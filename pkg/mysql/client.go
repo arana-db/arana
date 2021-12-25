@@ -862,16 +862,6 @@ func (conn *BackendConnection) WriteComFieldList(table string, wildcard string) 
 	return nil
 }
 
-// WriteComQuit tells the server that the client wants to close the connection
-func (conn *BackendConnection) WriteComQuit() error {
-	data := conn.c.startEphemeralPacket(1)
-	data[0] = mysql.ComQuit
-	if err := conn.c.writeEphemeralPacket(); err != nil {
-		return err2.NewSQLError(mysql.CRServerGone, mysql.SSUnknownSQLState, err.Error())
-	}
-	return nil
-}
-
 // WriteComCreateDB create a schema
 func (conn *BackendConnection) WriteComCreateDB(db string) error {
 	data := conn.c.startEphemeralPacket(len(db) + 1)
