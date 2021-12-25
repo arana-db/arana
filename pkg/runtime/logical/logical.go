@@ -35,9 +35,9 @@ const (
 )
 
 const (
-	_ Op = iota
-	Land
-	Lor
+	_    Op = iota
+	Land    // AND
+	Lor     // OR
 )
 
 var (
@@ -86,14 +86,14 @@ func New(key string, options ...Option) Logical {
 	return ret
 }
 
-// Logical 逻辑运算器, 最终优化目标消除内部并集, 也就是展开成
+// Logical represents the operation of logical item.
 type Logical interface {
 	fmt.Stringer
-	// And 执行与运算
+	// And eval the AND operation.
 	And(other Logical) Logical
-	// Not 执行非运算
+	// Not eval the NOT operation.
 	Not() Logical
-	// Or 执行或运算
+	// Or eval the OR operation.
 	Or(other Logical) Logical
 	// ToString returns a display string.
 	ToString(and, or string) string
@@ -109,6 +109,7 @@ type atom struct {
 }
 
 func (a *atom) phantom() {
+	// DO NOTHING
 }
 
 func (a *atom) Not() Logical {
@@ -388,7 +389,7 @@ func (c *composite) or(other Logical) Logical {
 		case Lor:
 			switch d.op {
 			case Land:
-				// TODO: 再考虑下这里的展开逻辑
+				// FIXME: more???
 				// (A ∪ B) ∪ (C ∩ D)  => A ∪ B ∪ (C ∩ D)
 				// (A ∪ B) ∪ (A ∩ D) => A ∪ B
 				for _, it := range c.ch {

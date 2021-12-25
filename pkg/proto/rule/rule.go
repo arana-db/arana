@@ -29,11 +29,11 @@ import (
 )
 
 type (
-	// ShardMetadata 分片元数据
+	// ShardMetadata represents the metadata of shards.
 	ShardMetadata struct {
-		Steps    int           // 步进总数
-		Stepper  Stepper       // 范围步进器
-		Computer ShardComputer // 分片计算器
+		Steps    int           // steps
+		Stepper  Stepper       // stepper
+		Computer ShardComputer // compute shards
 	}
 
 	// ShardComputer computes the shard index from an input value.
@@ -43,16 +43,18 @@ type (
 	}
 )
 
-// VTable 表示一个虚拟的逻辑表, 一个虚拟逻辑表可能分布散落在多个物理库表上, 虚拟表会维护一个分布拓扑以及分片元数据
+// VTable represents a virtual/logical table.
 type VTable struct {
 	topology *Topology
 	shards   map[string][2]*ShardMetadata // column -> [db shard metadata,table shard metadata]
 }
 
+// Topology returns the topology of VTable.
 func (vt *VTable) Topology() *Topology {
 	return vt.topology
 }
 
+// Shard returns the shard result.
 func (vt *VTable) Shard(column string, value interface{}) (db int, table int, err error) {
 	sm, ok := vt.shards[column]
 	if !ok {
@@ -60,12 +62,12 @@ func (vt *VTable) Shard(column string, value interface{}) (db int, table int, er
 		return
 	}
 
-	if sm[0] != nil {
+	if sm[0] != nil { // compute the index of db
 		if db, err = sm[0].Computer.Compute(value); err != nil {
 			return
 		}
 	}
-	if sm[1] != nil {
+	if sm[1] != nil { // compute the index of table
 		if table, err = sm[1].Computer.Compute(value); err != nil {
 			return
 		}
@@ -74,6 +76,7 @@ func (vt *VTable) Shard(column string, value interface{}) (db int, table int, er
 	return
 }
 
+// GetShardMetadata returns the shard metadata with given column.
 func (vt *VTable) GetShardMetadata(column string) (db *ShardMetadata, tbl *ShardMetadata, ok bool) {
 	var exist [2]*ShardMetadata
 	if exist, ok = vt.shards[column]; !ok {
@@ -93,6 +96,7 @@ func (vt *VTable) GetShardMetadata(column string) (db *ShardMetadata, tbl *Shard
 	return
 }
 
+// SetShardMetadata sets the shard metadata.
 func (vt *VTable) SetShardMetadata(column string, dbShardMetadata, tblShardMetadata *ShardMetadata) {
 	if vt.shards == nil {
 		vt.shards = make(map[string][2]*ShardMetadata)
@@ -100,16 +104,18 @@ func (vt *VTable) SetShardMetadata(column string, dbShardMetadata, tblShardMetad
 	vt.shards[column] = [2]*ShardMetadata{dbShardMetadata, tblShardMetadata}
 }
 
+// SetTopology sets the topology.
 func (vt *VTable) SetTopology(topology *Topology) {
 	vt.topology = topology
 }
 
-// Rule 定义了核心分库分表规则
+// Rule represents sharding rule, a Rule contains multiple logical tables.
 type Rule struct {
 	mu    sync.RWMutex
 	vtabs map[string]*VTable // table name -> *VTable
 }
 
+// HasColumn returns true if the table and columns exists.
 func (ru *Rule) HasColumn(table, column string) bool {
 	vt, ok := ru.VTable(table)
 	if !ok {
@@ -119,6 +125,7 @@ func (ru *Rule) HasColumn(table, column string) bool {
 	return ok
 }
 
+// Has return true if the table exists.
 func (ru *Rule) Has(table string) bool {
 	ru.mu.RLock()
 	_, ok := ru.vtabs[table]
@@ -126,12 +133,14 @@ func (ru *Rule) Has(table string) bool {
 	return ok
 }
 
+// RemoveVTable removes the VTable with given table.
 func (ru *Rule) RemoveVTable(table string) {
 	ru.mu.Lock()
 	delete(ru.vtabs, table)
 	ru.mu.Unlock()
 }
 
+// SetVTable sets a VTable.
 func (ru *Rule) SetVTable(table string, vt *VTable) {
 	ru.mu.Lock()
 	if ru.vtabs == nil {
@@ -141,13 +150,15 @@ func (ru *Rule) SetVTable(table string, vt *VTable) {
 	ru.mu.Unlock()
 }
 
-func (ru *Rule) VTable(name string) (*VTable, bool) {
+// VTable returns the VTable with given table name.
+func (ru *Rule) VTable(table string) (*VTable, bool) {
 	ru.mu.RLock()
-	vt, ok := ru.vtabs[name]
+	vt, ok := ru.vtabs[table]
 	ru.mu.RUnlock()
 	return vt, ok
 }
 
+// MustVTable returns the VTable with given table name, panic if not exist.
 func (ru *Rule) MustVTable(name string) *VTable {
 	v, ok := ru.VTable(name)
 	if !ok {

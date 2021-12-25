@@ -22,12 +22,13 @@ import (
 	"sort"
 )
 
-// Topology 定义了分库分表物理拓扑
+// Topology represents the topology of databases and tables.
 type Topology struct {
 	dbRender, tbRender func(int) string
 	idx                map[int][]int
 }
 
+// Len returns the length of database and table.
 func (to *Topology) Len() (dbLen int, tblLen int) {
 	dbLen = len(to.idx)
 	for _, v := range to.idx {
@@ -36,6 +37,7 @@ func (to *Topology) Len() (dbLen int, tblLen int) {
 	return
 }
 
+// SetTopology sets the topology.
 func (to *Topology) SetTopology(db int, tables ...int) {
 	if to.idx == nil {
 		to.idx = make(map[int][]int)
@@ -52,10 +54,12 @@ func (to *Topology) SetTopology(db int, tables ...int) {
 	to.idx[db] = clone
 }
 
+// SetRender sets the database/table name render.
 func (to *Topology) SetRender(dbRender, tbRender func(int) string) {
 	to.dbRender, to.tbRender = dbRender, tbRender
 }
 
+// Render renders the name of database and table from indexes.
 func (to *Topology) Render(dbIdx, tblIdx int) (string, string, bool) {
 	if to.tbRender == nil || to.dbRender == nil {
 		return "", "", false

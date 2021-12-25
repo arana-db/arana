@@ -156,7 +156,7 @@ func (t *KeyedEvaluator) toComparative(metadata *rule.ShardMetadata) *cmp.Compar
 		val = t.v
 	)
 
-	// 转换下nil
+	// convert nil
 	if val == nil {
 		val = misc.Null{}
 	}
@@ -205,7 +205,7 @@ func (t *KeyedEvaluator) toComparative(metadata *rule.ShardMetadata) *cmp.Compar
 		s = strconv.FormatInt(int64(v), 10)
 		k = cmp.Kint
 	case float64:
-		// 非法的值兜底为0, 比如除数为0
+		// zero div
 		if math.IsNaN(v) || math.IsInf(v, 0) {
 			s = "0"
 		} else {
@@ -237,7 +237,7 @@ func (t *KeyedEvaluator) String() string {
 }
 
 func (t *KeyedEvaluator) ToLogical() logical.Logical {
-	// NOTICE: 逻辑运算重排序, 确保同key的原子, 大于在前, 小于在后, 值小的在前, 值大的在后
+	// NOTICE: sort the logical operations, eg: a > 1 AND a > 2 AND a < 1 AND a < 2
 	var suffix string
 	switch v := t.v.(type) {
 	case int8, uint8, int16, uint16, int32, uint32, int, int64:
@@ -406,7 +406,7 @@ func processRange(tableName string, ru *rule.Rule, begin, end *KeyedEvaluator) (
 		return nil, errors.Errorf("no available rule metadata found: fields=[%s,%s]", begin.k, end.k)
 	}
 
-	// 字符串范围比较, 退化为全扫描
+	// string range is not available, use full-scan instead
 	if m1.Stepper.U == rule.Ustr && m2.Stepper.U == rule.Ustr {
 		return _noopEvaluator, nil
 	}
@@ -466,7 +466,7 @@ func and(tableName string, rule *rule.Rule, first, second Evaluator) (Evaluator,
 	k2, ok2 := second.(*KeyedEvaluator)
 
 	if ok1 && ok2 {
-		if k1.k == k2.k { // Key相同, 执行逻辑展开运算
+		if k1.k == k2.k { // same key, handle comparison.
 			var rangeMode int8 // 0:
 			switch k1.op {
 			case cmp.Ceq:
@@ -754,7 +754,7 @@ func and(tableName string, rule *rule.Rule, first, second Evaluator) (Evaluator,
 				return processRange(tableName, rule, k2, k1)
 			}
 		} else if rule.HasColumn(tableName, k1.k) && rule.HasColumn(tableName, k2.k) {
-			// SKIP: 多个sharding key, 走 slow path
+			// SKIP: multiple sharding keys, goto slow path
 		} else if rule.HasColumn(tableName, k1.k) {
 			return k1, nil
 		} else if rule.HasColumn(tableName, k2.k) {

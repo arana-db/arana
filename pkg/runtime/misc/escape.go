@@ -45,7 +45,7 @@ func WriteEscape(sb *strings.Builder, input string, flag EscapeFlag) {
 		case '\r':
 			sb.WriteString(`\r`)
 		case '\\':
-			// 处理MySQL中like, 保留\%和\_
+			// process LIKE literal, keep '\%' and '\_'
 			var isLikeEscape bool
 			if flag&EscapeLike != 0 {
 				next, _ := utf8.DecodeRuneInString(input[size:])

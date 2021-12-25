@@ -26,6 +26,7 @@ import (
 type (
 	// Rows represents a flow of Row.
 	Rows interface {
+		// Next returns the next Row, nil if EOF.
 		Next() Row
 	}
 

@@ -36,7 +36,7 @@ const (
 	Kdate        // DATE
 )
 
-// 注意: 操作符枚举, 千万不要调整定义顺序!!!
+// NOTICE: DO NOT change orders of following constants!!!
 const (
 	_    Comparison = iota
 	Ceq             // ==
@@ -71,6 +71,7 @@ func (k Kind) String() string {
 	}
 }
 
+// Comparison represents the comparisons.
 type Comparison uint8
 
 func (c Comparison) String() string {
@@ -184,17 +185,17 @@ func (c *Comparative) Value() (interface{}, error) {
 	}
 }
 
-// NewInt64 creates a Comparative.
+// NewInt64 creates a Comparative from int64.
 func NewInt64(key string, comparison Comparison, value int64) *Comparative {
 	return New(key, comparison, strconv.FormatInt(value, 10), Kint)
 }
 
-// NewDate creates a Comparative.
+// NewDate creates a Comparative from time.Time.
 func NewDate(key string, comparison Comparison, value time.Time) *Comparative {
 	return New(key, comparison, value.Format("2006-01-02 15:04:05"), Kdate)
 }
 
-// NewString creates a Comparative.
+// NewString creates a Comparative from string.
 func NewString(key string, comparison Comparison, value string) *Comparative {
 	return New(key, comparison, value, Kstring)
 }

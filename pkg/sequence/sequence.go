@@ -18,4 +18,4 @@
 
 package sequence
 
-// TODO: 实现 proto.Sequencer, proto.Sequence, 考虑如何让用户自己注册
+// TODO: implement proto.Sequencer, proto.Sequence, provide a register func.
