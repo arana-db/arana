@@ -15,7 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 //
-package rule_test
+
+package rule
 
 import (
 	"fmt"
@@ -30,7 +31,6 @@ import (
 import (
 	"github.com/dubbogo/arana/pkg/proto/rule"
 	"github.com/dubbogo/arana/pkg/runtime/cmp"
-	. "github.com/dubbogo/arana/pkg/runtime/rule"
 )
 
 const (

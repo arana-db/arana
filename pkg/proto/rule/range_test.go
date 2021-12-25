@@ -15,7 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 //
-package rule_test
+
+package rule
 
 import (
 	"testing"
@@ -25,14 +26,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-import (
-	"github.com/dubbogo/arana/pkg/proto/rule"
-)
-
 func TestStepper_After(t *testing.T) {
-	st := rule.Stepper{
+	st := Stepper{
 		N: 2,
-		U: rule.Unum,
+		U: Unum,
 	}
 	val, err := st.After(2)
 	assert.NoError(t, err)
@@ -40,9 +37,9 @@ func TestStepper_After(t *testing.T) {
 }
 
 func TestStepper_Before(t *testing.T) {
-	st := rule.Stepper{
+	st := Stepper{
 		N: 1,
-		U: rule.Unum,
+		U: Unum,
 	}
 	val, err := st.Before(2)
 	assert.NoError(t, err)
@@ -50,9 +47,9 @@ func TestStepper_Before(t *testing.T) {
 }
 
 func TestStepper_Ascend(t *testing.T) {
-	st := rule.Stepper{
+	st := Stepper{
 		N: 1,
-		U: rule.Unum,
+		U: Unum,
 	}
 
 	rng, err := st.Ascend(100, 3)
@@ -66,9 +63,9 @@ func TestStepper_Ascend(t *testing.T) {
 }
 
 func TestStepper_Descend(t *testing.T) {
-	st := rule.Stepper{
+	st := Stepper{
 		N: 1,
-		U: rule.Unum,
+		U: Unum,
 	}
 
 	rng, err := st.Descend(100, 3)

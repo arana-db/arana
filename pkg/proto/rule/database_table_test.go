@@ -15,7 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 //
-package rule_test
+
+package rule
 
 import (
 	"fmt"
@@ -29,12 +30,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-import (
-	"github.com/dubbogo/arana/pkg/proto/rule"
-)
-
-func parseDatabaseTablesFromString(s string) rule.DatabaseTables {
-	ret := make(rule.DatabaseTables)
+func parseDatabaseTablesFromString(s string) DatabaseTables {
+	ret := make(DatabaseTables)
 	sp := strings.Split(s, ";")
 	for _, it := range sp {
 		if strings.TrimSpace(it) == "" {

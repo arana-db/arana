@@ -15,7 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 //
-package misc_test
+
+package misc
 
 import (
 	"testing"
@@ -25,18 +26,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-import (
-	"github.com/dubbogo/arana/pkg/runtime/misc"
-)
-
 func TestUnescape(t *testing.T) {
-	assert.Equal(t, `abc\abc`, misc.Unescape(`abc\\abc`))
-	assert.Equal(t, "abc\nabc", misc.Unescape(`abc\nabc`))
-	assert.Equal(t, "\\abc\\\\abc\n\t\rabc\v", misc.Unescape(`\\abc\\\\abc\n\t\rabc\v`))
+	assert.Equal(t, `abc\abc`, Unescape(`abc\\abc`))
+	assert.Equal(t, "abc\nabc", Unescape(`abc\nabc`))
+	assert.Equal(t, "\\abc\\\\abc\n\t\rabc\v", Unescape(`\\abc\\\\abc\n\t\rabc\v`))
 }
 
 func TestEscape(t *testing.T) {
-	assert.Equal(t, `hello\nworld!`, misc.Escape("hello\nworld!", 0))
-	assert.Equal(t, `{\"age\":18}`, misc.Escape(`{"age":18}`, misc.EscapeDoubleQuote))
-	assert.Equal(t, `like\%`, misc.Escape(`like\%`, misc.EscapeLike))
+	assert.Equal(t, `hello\nworld!`, Escape("hello\nworld!", 0))
+	assert.Equal(t, `{\"age\":18}`, Escape(`{"age":18}`, EscapeDoubleQuote))
+	assert.Equal(t, `like\%`, Escape(`like\%`, EscapeLike))
 }

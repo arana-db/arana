@@ -15,7 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 //
-package rule_test
+
+package rule
 
 import (
 	"sort"
@@ -28,7 +29,6 @@ import (
 
 import (
 	"github.com/dubbogo/arana/pkg/runtime/cmp"
-	. "github.com/dubbogo/arana/pkg/runtime/rule"
 )
 
 func TestRule_Route(t *testing.T) {

@@ -15,7 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 //
-package logical_test
+
+package logical
 
 import (
 	"testing"
@@ -23,10 +24,6 @@ import (
 
 import (
 	"github.com/stretchr/testify/assert"
-)
-
-import (
-	. "github.com/dubbogo/arana/pkg/runtime/logical"
 )
 
 func TestLogicalAndOr(t *testing.T) {

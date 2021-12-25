@@ -15,7 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 //
-package rule_test
+
+package rule
 
 import (
 	"fmt"
@@ -29,7 +30,6 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/proto/rule"
 	"github.com/dubbogo/arana/testdata"
 )
 
@@ -42,26 +42,26 @@ func TestRule(t *testing.T) {
 
 	t.Log(m)
 
-	buildRule := func(c1, c2 rule.ShardComputer) *rule.Rule {
+	buildRule := func(c1, c2 ShardComputer) *Rule {
 		var (
-			ru      rule.Rule
-			vtab    rule.VTable
-			stepper = rule.Stepper{
+			ru      Rule
+			vtab    VTable
+			stepper = Stepper{
 				N: 1,
-				U: rule.Unum,
+				U: Unum,
 			}
 		)
 
-		vtab.SetShardMetadata("uid", &rule.ShardMetadata{
+		vtab.SetShardMetadata("uid", &ShardMetadata{
 			Stepper:  stepper,
 			Computer: c1,
-		}, &rule.ShardMetadata{
+		}, &ShardMetadata{
 			Stepper:  stepper,
 			Computer: c2,
 		})
 
 		// 表拓扑, 4库16表
-		var topo rule.Topology
+		var topo Topology
 		topo.SetTopology(0, 0, 4, 8, 12)
 		topo.SetTopology(1, 1, 5, 9, 13)
 		topo.SetTopology(2, 2, 6, 10, 14)

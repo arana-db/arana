@@ -110,7 +110,7 @@ func (dt DatabaseTables) Or(other DatabaseTables) DatabaseTables {
 		}
 
 		for tbl := range v {
-			if _, ok := fuzz[tbl]; ok { // 假如已经星号匹配了,直接忽略
+			if _, ok := fuzz[tbl]; ok { // ignore if match(*) already
 				continue
 			}
 			ret[db] = append(ret[db], tbl)
