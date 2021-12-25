@@ -840,6 +840,9 @@ func (conn *BackendConnection) WriteComSetOption(operation uint16) error {
 	return nil
 }
 
+
+// get the column definitions of a table
+// As of MySQL 5.7.11, COM_FIELD_LIST is deprecated and will be removed in a future version of MySQL
 func (conn *BackendConnection) WriteComFieldList(table string, wildcard string) error {
 	conn.c.sequence = 0
 	length := 1 +
@@ -859,6 +862,60 @@ func (conn *BackendConnection) WriteComFieldList(table string, wildcard string) 
 
 	return nil
 }
+
+// WriteComQuit tells the server that the client wants to close the connection
+func (conn *BackendConnection) WriteComQuit() error {
+	data := conn.c.startEphemeralPacket(1)
+	data[0] = mysql.ComQuit
+	if err := conn.c.writeEphemeralPacket(); err != nil {
+		return err2.NewSQLError(mysql.CRServerGone, mysql.SSUnknownSQLState, err.Error())
+	}
+	return nil
+}
+
+// WriteComCreateDB create a schema
+func (conn *BackendConnection) WriteComCreateDB(db string) error {
+	data := conn.c.startEphemeralPacket(len(db) + 1)
+	data[0] = mysql.ComCreateDB
+	copy(data[1:], db)
+	if err := conn.c.writeEphemeralPacket(); err != nil {
+		return err2.NewSQLError(mysql.CRServerGone, mysql.SSUnknownSQLState, err.Error())
+	}
+	return nil
+}
+
+// WriteComDropDB drop a schema
+func (conn *BackendConnection) WriteComDropDB(db string) error {
+	data := conn.c.startEphemeralPacket(len(db) + 1)
+	data[0] = mysql.ComDropDB
+	copy(data[1:], db)
+	if err := conn.c.writeEphemeralPacket(); err != nil {
+		return err2.NewSQLError(mysql.CRServerGone, mysql.SSUnknownSQLState, err.Error())
+	}
+	return nil
+}
+
+// As of MySQL 5.7.11, COM_REFRESH is deprecated and will be removed in a future version of MySQL.
+func (conn *BackendConnection) WriteComRefresh(subCommand uint16) error {
+	data := conn.c.startEphemeralPacket(16 + 1)
+	data[0] = mysql.ComRefresh
+	writeUint16(data, 1, subCommand)
+	if err := conn.c.writeEphemeralPacket(); err != nil {
+		return err2.NewSQLError(mysql.CRServerGone, mysql.SSUnknownSQLState, err.Error())
+	}
+	return nil
+}
+
+// Get a human readable string of internal statistics.
+func (conn *BackendConnection) WriteComStatistics() error {
+	data := conn.c.startEphemeralPacket(1)
+	data[0] = mysql.ComStatistics
+	if err := conn.c.writeEphemeralPacket(); err != nil {
+		return err2.NewSQLError(mysql.CRServerGone, mysql.SSUnknownSQLState, err.Error())
+	}
+	return nil
+}
+
 
 // readColumnDefinition reads the next Column Definition packet.
 // Returns a SQLError.
