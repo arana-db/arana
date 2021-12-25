@@ -116,8 +116,8 @@ func NewListener(conf *config.Listener) (proto.Listener, error) {
 	}
 
 	listener := &Listener{
-		conf:     cfg,
-		listener: l,
+		conf:        cfg,
+		listener:    l,
 		statementID: atomic.NewUint32(0),
 		//stmts:    make(map[uint32]*proto.Stmt, 0),
 		stmts: sync.Map{},

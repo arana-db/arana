@@ -313,7 +313,6 @@ const (
 	CRMalformedPacket = 2027
 )
 
-
 // As of MySQL 5.7.11, COM_REFRESH is deprecated and will be removed in a future version of MySQL
 // com_query instead
 // COM_REFRESH sub command

@@ -840,7 +840,6 @@ func (conn *BackendConnection) WriteComSetOption(operation uint16) error {
 	return nil
 }
 
-
 // get the column definitions of a table
 // As of MySQL 5.7.11, COM_FIELD_LIST is deprecated and will be removed in a future version of MySQL
 func (conn *BackendConnection) WriteComFieldList(table string, wildcard string) error {
@@ -915,7 +914,6 @@ func (conn *BackendConnection) WriteComStatistics() error {
 	}
 	return nil
 }
-
 
 // readColumnDefinition reads the next Column Definition packet.
 // Returns a SQLError.
