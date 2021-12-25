@@ -30,8 +30,10 @@ import (
 
 const min = 0.000001
 
-var _numReg = regexp.MustCompilePOSIX("^-?(0|[1-9][0-9]*)$")
-var _floatReg = regexp.MustCompilePOSIX("^-?(0|[1-9][0-9]*)(.[0-9]+)?$")
+var (
+	_numReg   = regexp.MustCompilePOSIX("^-?(0|[1-9][0-9]*)$")
+	_floatReg = regexp.MustCompilePOSIX("^-?(0|[1-9][0-9]*)(.[0-9]+)?$")
+)
 
 func IsFloat64Equal(f1, f2 float64) bool {
 	if f1 > f2 {

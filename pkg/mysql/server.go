@@ -139,7 +139,6 @@ func (l *Listener) Listen() {
 }
 
 func (l *Listener) Close() {
-
 }
 
 func (l *Listener) handle(conn net.Conn, connectionID uint32) {
@@ -1255,7 +1254,8 @@ func (c *Conn) writePrepare(capabilities uint32, prepare *proto.Stmt) error {
 				name:      "?",
 				fieldType: mysql.FieldTypeString,
 				flags:     mysql.BinaryFlag,
-				charSet:   63}); err != nil {
+				charSet:   63,
+			}); err != nil {
 				return err
 			}
 		}

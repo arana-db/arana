@@ -245,7 +245,7 @@ func (executor *RedirectExecutor) doPostFilter(ctx *proto.Context, result proto.
 
 func generateSql(stmt *proto.Stmt) (string, error) {
 	var result []byte
-	var j = 0
+	j := 0
 	sql := []byte(stmt.PrepareStmt)
 	for i := 0; i < len(sql); i++ {
 		if sql[i] != '?' {

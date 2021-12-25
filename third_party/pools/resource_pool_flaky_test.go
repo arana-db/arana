@@ -46,8 +46,10 @@ import (
 	"golang.org/x/net/context"
 )
 
-var lastID, count = atomic.NewInt64(0), atomic.NewInt64(0)
-var waitStarts []time.Time
+var (
+	lastID, count = atomic.NewInt64(0), atomic.NewInt64(0)
+	waitStarts    []time.Time
+)
 
 type TestResource struct {
 	num    int64

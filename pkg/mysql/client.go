@@ -624,7 +624,7 @@ func (conn *BackendConnection) parseInitialHandshakePacket(data []byte) (uint32,
 	if !ok {
 		return 0, nil, "", err2.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "parseInitialHandshakePacket: packet has no capability flags (lower 2 bytes)")
 	}
-	var capabilities = uint32(capLower)
+	capabilities := uint32(capLower)
 
 	// The packet can end here.
 	if pos == len(data) {
@@ -942,9 +942,9 @@ func (conn *BackendConnection) readColumnDefinition(field *Field, index int) err
 	}
 	field.decimals = decimals
 
-	//if more Content, command was field list
+	// if more Content, command was field list
 	if len(colDef) > pos+8 {
-		//length of default value lenenc-int
+		// length of default value lenenc-int
 		field.defaultValueLength, pos, ok = readUint64(colDef, pos)
 		if !ok {
 			return err2.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "extracting col %v default value failed", index)
@@ -954,7 +954,7 @@ func (conn *BackendConnection) readColumnDefinition(field *Field, index int) err
 			return err2.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "extracting col %v default value failed", index)
 		}
 
-		//default value string[$len]
+		// default value string[$len]
 		field.defaultValue = colDef[pos:(pos + int(field.defaultValueLength))]
 	}
 	return nil
@@ -1139,12 +1139,10 @@ func (conn *BackendConnection) ReadQueryResult(maxrows int, wantfields bool) (re
 			return nil, false, 0, err2.NewSQLError(mysql.CRServerLost, mysql.SSUnknownSQLState, "%v", err)
 		}
 		if isEOFPacket(data) {
-
 			// This is what we expect.
 			// Warnings and status flags are ignored.
 			conn.c.recycleReadPacket()
 			// goto: read row loop
-
 		} else if isErrorPacket(data) {
 			defer conn.c.recycleReadPacket()
 			return nil, false, 0, ParseErrorPacket(data)

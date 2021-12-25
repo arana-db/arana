@@ -226,7 +226,7 @@ const (
 	// ComSetOption is COM_SET_OPTION
 	ComSetOption = 0x1b
 
-	//ComStmtFetch is COM_STMT_FETCH
+	// ComStmtFetch is COM_STMT_FETCH
 	ComStmtFetch = 0x1c
 
 	ComDaemon = 0x1d
