@@ -607,7 +607,7 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 					log.Errorf("conn %v: flush() failed: %v", c.ID(), err)
 				}
 			}()
-			stmtID, _, err := c.parseComStmtExecute(l.stmts, ctx.Data)
+			stmtID, _, err := c.parseComStmtExecute(&l.stmts, ctx.Data)
 			c.recycleReadPacket()
 
 			if stmtID != uint32(0) {
@@ -784,7 +784,7 @@ func (c *Conn) sendColumnCount(count uint64) error {
 	return c.writeEphemeralPacket()
 }
 
-func (c *Conn) parseComStmtExecute(stmts sync.Map, data []byte) (uint32, byte, error) {
+func (c *Conn) parseComStmtExecute(stmts *sync.Map, data []byte) (uint32, byte, error) {
 	pos := 0
 	payload := data[1:]
 	bitMap := make([]byte, 0)
