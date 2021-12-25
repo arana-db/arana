@@ -96,36 +96,9 @@ jobs:
       - name: Shutdown Ubuntu MySQL (SUDOx)
         run: sudo service mysql stop
 
-      - name: Set Up MySQL
-        uses: baerwang/mysql-action@v1.2
-        with:
-          host port: 13306
-          container port: 13306
-          character set server: 'utf8mb4'
-          collation server: 'utf8mb4_unicode_ci'
-          mysql version: '8.0'
-          mysql database: 'employees'
-          mysql root password: 'root'
-          mysql user: 'dsl'
-          mysql password: '123456'
-
-      - name: Import MySQL init.sql
+      - name: Makefile integration-test
         shell: bash
-        run: |
-          cat <<EOF > wait.sh
-          #!/bin/sh
-          while ! mysqladmin ping --host=127.0.0.1 --password=root -P13306 --silent; do
-            sleep 1
-          done
-          EOF
-
-          chmod +x ./wait.sh
-          echo START
-          source ./wait.sh || true
-          echo END
-
-          export MYSQL_PWD=123456
-          mysql -h 127.0.0.1 -u dsl -P13306 -v < ./docker/scripts/init.sql
+        run: make integration-test
 
       - name: Go Test
         run: |

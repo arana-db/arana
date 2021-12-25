@@ -6,18 +6,21 @@ services:
     networks:
       - local
     ports:
-    - "3306:3306"
+      - "8888:3306"
     environment:
       MYSQL_ROOT_PASSWORD: "123456"
     volumes:
-    - ./data:/var/lib/mysql:z
-    - ./mysqld/:/var/run/mysqld:z
-    - ./scripts/:/docker-entrypoint-initdb.d/:rw
+      - ./scripts/:/docker-entrypoint-initdb.d/:rw
     command: ['mysqld', '--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci']
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "127.0.0.1"]
+      interval: 2s
+      timeout: 1s
+      retries: 5
   arana:
     image: arana:latest
     container_name: arana
-    command: sh -c "sleep 30 && ./arana start -c config.yaml"
+    command: sh -c "./arana start -c config.yaml"
     networks:
       - local
     ports:
