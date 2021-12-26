@@ -37,12 +37,9 @@ func (dt DatabaseTables) IsConfused() bool {
 		return false
 	}
 
-	var (
-		dbs = make(map[string]struct{})
-		tbs = make(map[string]struct{})
-	)
-	for db, tbls := range dt {
-		dbs[db] = struct{}{}
+	tbs := make(map[string]struct{})
+
+	for _, tbls := range dt {
 		for _, tbl := range tbls {
 			if _, ok := tbs[tbl]; ok {
 				return true

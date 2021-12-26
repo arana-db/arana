@@ -73,6 +73,7 @@ func (vt *VTable) Shard(column string, value interface{}) (db int, table int, er
 		}
 	}
 
+	err = errors.Errorf("no shard metadata for column %s", column)
 	return
 }
 
