@@ -84,8 +84,9 @@ jobs:
 
       - name: Go Fmt
         run: |
-          go fmt ./... && git status && [[ -z `git status -s` ]]
-          # diff -u <(echo -n) <(gofmt -d -s .)
+          go vet -stdmethods=false $(go list ./...)
+          go install mvdan.cc/gofumpt@v0.2.1
+          test -z "$(gofumpt -l -extra .)"
 
       - name: Install go ci lint
         run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.27.0
@@ -103,10 +104,13 @@ jobs:
       - name: Go Test
         run: |
           go mod vendor && go test ./pkg/... -coverprofile=coverage.txt -covermode=atomic
-      # integration test
-#      - name: Integration Test
-#        run: |
-#          chmod +x start_integrate_test.sh && chmod +x integrate_test.sh && ./start_integrate_test.sh
+
+      - name: Shutdown Ubuntu MySQL (SUDOx)
+        run: sudo service mysql stop
+
+      - name: Makefile integration-test
+        shell: bash
+        run: make integration-test
 
       - name: Coverage
         run: bash <(curl -s https://codecov.io/bash)
