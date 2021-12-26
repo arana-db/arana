@@ -130,5 +130,4 @@ func TestEvaluator_Eval(t *testing.T) {
 		assert.NoError(t, err)
 		t.Logf("%s => %s", l.ToString("AND", "OR"), v)
 	})
-
 }

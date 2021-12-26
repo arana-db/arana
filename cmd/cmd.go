@@ -26,7 +26,6 @@ import (
 
 import (
 	"github.com/pkg/errors"
-
 	"github.com/spf13/cobra"
 )
 
@@ -34,7 +33,7 @@ import (
 	"github.com/dubbogo/arana/pkg/config"
 	"github.com/dubbogo/arana/pkg/constants"
 	"github.com/dubbogo/arana/pkg/executor"
-	filter "github.com/dubbogo/arana/pkg/filters"
+	"github.com/dubbogo/arana/pkg/filters"
 	"github.com/dubbogo/arana/pkg/mysql"
 	"github.com/dubbogo/arana/pkg/proto"
 	"github.com/dubbogo/arana/pkg/resource"

@@ -30,7 +30,6 @@ import (
 
 import (
 	"github.com/ghodss/yaml"
-
 	"github.com/pkg/errors"
 )
 
@@ -146,7 +145,6 @@ func parse(path string) *Configuration {
 		}
 	}
 	return cfg
-
 }
 
 func yamlFormat(path string) bool {

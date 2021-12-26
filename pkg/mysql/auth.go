@@ -383,7 +383,7 @@ func (conn *BackendConnection) handleAuthResult(oldAuthData []byte, plugin strin
 				} else {
 					pubKey := conn.conf.pubKey
 					if pubKey == nil {
-						//request public key from server
+						// request public key from server
 						var data []byte
 						if err = conn.c.writePacket([]byte{cachingSha2PasswordRequestPublicKey}); err != nil {
 							return err

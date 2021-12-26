@@ -418,7 +418,6 @@ func (c *composite) optimize() int {
 	sort.Sort(sortLogicals(c.ch))
 	removed := make(map[int]struct{})
 	switch c.op {
-
 	case Lor:
 		for i := 0; i < len(c.ch); i++ {
 			next, ok := c.ch[i].(*atom)
@@ -493,7 +492,6 @@ func EvalBool(l Logical) (bool, error) {
 	}, func(i interface{}) interface{} {
 		return !i.(bool)
 	})
-
 	if err != nil {
 		return false, err
 	}

@@ -192,7 +192,6 @@ func (s Stepper) compute(offset interface{}, n int) (interface{}, error) {
 		return &iterStr{length: 16, cnt: n}, nil
 	}
 	return nil, errors.Errorf("unsupported offset type: type=%T, unit=%s", offset, s.U)
-
 }
 
 func (s Stepper) iterTime(offset time.Time, cnt int, timeUnit time.Duration, reverse bool) Range {
