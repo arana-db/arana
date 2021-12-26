@@ -12,7 +12,6 @@ integration-test: build docker-build
 	@mkdir -p docker/data
 	@mkdir -p docker/mysqld
 	docker-compose -f docker/docker-compose.yaml up -d
-	@sleep 30
 	@go clean -testcache
 	go test -tags integration -v ./test/...
 
