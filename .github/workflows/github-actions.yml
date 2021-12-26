@@ -94,13 +94,6 @@ jobs:
       - name: Run Linter
         run: golangci-lint run --timeout=10m -v --disable-all --enable=govet --enable=staticcheck --enable=ineffassign --enable=misspell
 
-      - name: Shutdown Ubuntu MySQL (SUDOx)
-        run: sudo service mysql stop
-
-      - name: Makefile integration-test
-        shell: bash
-        run: make integration-test
-
       - name: Go Test
         run: |
           go mod vendor && go test ./pkg/... -coverprofile=coverage.txt -covermode=atomic
