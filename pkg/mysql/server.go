@@ -798,7 +798,7 @@ func (c *Conn) parseComStmtExecute(stmts *sync.Map, data []byte) (uint32, byte, 
 	if !ok {
 		return 0, 0, errors.NewSQLError(mysql.CRCommandsOutOfSync, mysql.SSUnknownSQLState, "statement ID is not found from record")
 	}
-	prepareStat, _ := prepare.(*proto.Stmt)
+	prepareStmt, _ := prepare.(*proto.Stmt)
 	// cursor type flags
 	cursorType, pos, ok := readByte(payload, pos)
 	if !ok {
@@ -814,8 +814,8 @@ func (c *Conn) parseComStmtExecute(stmts *sync.Map, data []byte) (uint32, byte, 
 		return stmtID, 0, errors.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "iteration count is not equal to 1")
 	}
 
-	if prepareStat.ParamsCount > 0 {
-		bitMap, pos, ok = readBytes(payload, pos, int((prepareStat.ParamsCount+7)/8))
+	if prepareStmt.ParamsCount > 0 {
+		bitMap, pos, ok = readBytes(payload, pos, int((prepareStmt.ParamsCount+7)/8))
 		if !ok {
 			return stmtID, 0, errors.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "reading NULL-bitmap failed")
 		}
@@ -824,7 +824,7 @@ func (c *Conn) parseComStmtExecute(stmts *sync.Map, data []byte) (uint32, byte, 
 	newParamsBoundFlag, pos, ok := readByte(payload, pos)
 	if ok && newParamsBoundFlag == 0x01 {
 		var mysqlType, flags byte
-		for i := uint16(0); i < prepareStat.ParamsCount; i++ {
+		for i := uint16(0); i < prepareStmt.ParamsCount; i++ {
 			mysqlType, pos, ok = readByte(payload, pos)
 			if !ok {
 				return stmtID, 0, errors.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "reading parameter type failed")
@@ -841,14 +841,14 @@ func (c *Conn) parseComStmtExecute(stmts *sync.Map, data []byte) (uint32, byte, 
 				return stmtID, 0, errors.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "MySQLToType(%v,%v) failed: %v", mysqlType, flags, err)
 			}
 
-			prepareStat.ParamsType[i] = int32(valType)
+			prepareStmt.ParamsType[i] = int32(valType)
 		}
 	}
 
-	for i := 0; i < len(prepareStat.ParamsType); i++ {
+	for i := 0; i < len(prepareStmt.ParamsType); i++ {
 		var val interface{}
 		parameterID := fmt.Sprintf("v%d", i+1)
-		if v, ok := prepareStat.BindVars[parameterID]; ok {
+		if v, ok := prepareStmt.BindVars[parameterID]; ok {
 			if v != nil {
 				continue
 			}
@@ -857,13 +857,13 @@ func (c *Conn) parseComStmtExecute(stmts *sync.Map, data []byte) (uint32, byte, 
 		if (bitMap[i/8] & (1 << uint(i%8))) > 0 {
 			val, pos, ok = c.parseStmtArgs(nil, mysql.FieldTypeNULL, pos)
 		} else {
-			val, pos, ok = c.parseStmtArgs(payload, mysql.FieldType(prepareStat.ParamsType[i]), pos)
+			val, pos, ok = c.parseStmtArgs(payload, mysql.FieldType(prepareStmt.ParamsType[i]), pos)
 		}
 		if !ok {
-			return stmtID, 0, errors.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "decoding parameter value failed: %v", prepareStat.ParamsType[i])
+			return stmtID, 0, errors.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "decoding parameter value failed: %v", prepareStmt.ParamsType[i])
 		}
 
-		prepareStat.BindVars[parameterID] = val
+		prepareStmt.BindVars[parameterID] = val
 	}
 
 	return stmtID, cursorType, nil
