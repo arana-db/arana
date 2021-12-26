@@ -5,6 +5,8 @@ services:
     container_name: arana-mysql
     networks:
       - local
+    ports:
+      - "8888:3306"
     environment:
       MYSQL_ROOT_PASSWORD: "123456"
     volumes:
