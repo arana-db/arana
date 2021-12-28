@@ -18,3 +18,4 @@
 .tmp/
 /docker/data/
 /docker/mysqld/
+/dist
