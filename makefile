@@ -38,7 +38,3 @@ clean:
 	@rm -rf dist
 	@rm -rf docker/data
 	@rm -rf docker/mysqld
-
-lint:
-	# Configured via .golangci.yml.
-	golangci-lint run
