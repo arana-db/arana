@@ -60,6 +60,7 @@ type Config struct {
 	Timeout          time.Duration     // Dial timeout
 	ReadTimeout      time.Duration     // I/O read timeout
 	WriteTimeout     time.Duration     // I/O write timeout
+	MaxRows          uint64            // maxRows is the max result set rows
 
 	AllowAllFiles           bool // Allow all files to be used with LOAD DATA LOCAL INFILE
 	AllowCleartextPasswords bool // Allows the cleartext client side plugin
@@ -222,7 +223,10 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 				}
 			}
 			cfg.DBName = dsn[i+1 : j]
-
+			// Temporarily disabled
+			//if cfg.MaxRows == 0 {
+			//	cfg.MaxRows = uint64(math.MaxUint64)
+			//}
 			break
 		}
 	}
@@ -407,6 +411,11 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 			}
 		case "maxAllowedPacket":
 			cfg.MaxAllowedPacket, err = strconv.Atoi(value)
+			if err != nil {
+				return
+			}
+		case "maxRows":
+			cfg.MaxRows, err = strconv.ParseUint(value, 10, 64)
 			if err != nil {
 				return
 			}
@@ -1141,7 +1150,7 @@ func (c *Conn) parseRow(data []byte, fields []proto.Field) (proto.Row, error) {
 }
 
 // ReadQueryResult gets the result from the last written query.
-func (conn *BackendConnection) ReadQueryResult(maxrows int, wantfields bool) (result *Result, more bool, warnings uint16, err error) {
+func (conn *BackendConnection) ReadQueryResult(wantFields bool) (result *Result, more bool, warnings uint16, err error) {
 	// Get the result.
 	affectedRows, lastInsertID, colNumber, more, warnings, err := conn.c.readComQueryResponse()
 	if err != nil {
@@ -1166,7 +1175,7 @@ func (conn *BackendConnection) ReadQueryResult(maxrows int, wantfields bool) (re
 		field := &Field{}
 		result.Fields[i] = field
 
-		if wantfields {
+		if wantFields {
 			if err := conn.readColumnDefinition(field, i); err != nil {
 				return nil, false, 0, err
 			}
@@ -1206,7 +1215,7 @@ func (conn *BackendConnection) ReadQueryResult(maxrows int, wantfields bool) (re
 
 		if isEOFPacket(data) {
 			// Strip the partial Fields before returning.
-			if !wantfields {
+			if !wantFields {
 				result.Fields = nil
 			}
 			result.AffectedRows = uint64(len(result.Rows))
@@ -1233,13 +1242,14 @@ func (conn *BackendConnection) ReadQueryResult(maxrows int, wantfields bool) (re
 			return nil, false, 0, ParseErrorPacket(data)
 		}
 
+		// Temporarily disabled
 		// Check we're not over the limit before we add more.
-		if len(result.Rows) == maxrows {
-			if err := conn.drainResults(); err != nil {
-				return nil, false, 0, err
-			}
-			return nil, false, 0, err2.NewSQLError(mysql.ERVitessMaxRowsExceeded, mysql.SSUnknownSQLState, "Row count exceeded %d", maxrows)
-		}
+		//if uint64(len(result.Rows)) == conn.conf.MaxRows {
+		//	if err := conn.drainResults(); err != nil {
+		//		return nil, false, 0, err
+		//	}
+		//	return nil, false, 0, err2.NewSQLError(mysql.ERVitessMaxRowsExceeded, mysql.SSUnknownSQLState, "Row count exceeded %d", conn.conf.MaxRows)
+		//}
 
 		// Regular row.
 		row, err := conn.c.parseRow(data, result.Fields)
@@ -1261,8 +1271,9 @@ func (conn *BackendConnection) drainResults() error {
 			conn.c.recycleReadPacket()
 			return nil
 		} else if isErrorPacket(data) {
-			defer conn.c.recycleReadPacket()
-			return ParseErrorPacket(data)
+			err = ParseErrorPacket(data)
+			conn.c.recycleReadPacket()
+			return err
 		}
 		conn.c.recycleReadPacket()
 	}
@@ -1291,15 +1302,15 @@ func (conn *BackendConnection) drainResults() error {
 //
 // 2. if the server closes the connection when a command is in flight,
 //    readComQueryResponse will fail, and we'll return CRServerLost(2013).
-func (conn *BackendConnection) Execute(query string, maxrows int, wantfields bool) (result *Result, err error) {
-	result, _, err = conn.ExecuteMulti(query, maxrows, wantfields)
+func (conn *BackendConnection) Execute(query string, wantFields bool) (result *Result, err error) {
+	result, _, err = conn.ExecuteMulti(query, wantFields)
 	return result, err
 }
 
 // ExecuteMulti is for fetching multiple results from a multi-statement result.
 // It returns an additional 'more' flag. If it is set, you must fetch the additional
 // results using ReadQueryResult.
-func (conn *BackendConnection) ExecuteMulti(query string, maxrows int, wantfields bool) (result *Result, more bool, err error) {
+func (conn *BackendConnection) ExecuteMulti(query string, wantFields bool) (result *Result, more bool, err error) {
 	defer func() {
 		if err != nil {
 			if sqlerr, ok := err.(*err2.SQLError); ok {
@@ -1313,14 +1324,14 @@ func (conn *BackendConnection) ExecuteMulti(query string, maxrows int, wantfield
 		return nil, false, err
 	}
 
-	res, more, _, err := conn.ReadQueryResult(maxrows, wantfields)
+	res, more, _, err := conn.ReadQueryResult(wantFields)
 	return res, more, err
 }
 
 // ExecuteWithWarningCount is for fetching results and a warning count
 // Note: In a future iteration this should be abolished and merged into the
 // Execute API.
-func (conn *BackendConnection) ExecuteWithWarningCount(query string, maxrows int, wantfields bool) (result *Result, warnings uint16, err error) {
+func (conn *BackendConnection) ExecuteWithWarningCount(query string, wantFields bool) (result *Result, warnings uint16, err error) {
 	defer func() {
 		if err != nil {
 			if sqlerr, ok := err.(*err2.SQLError); ok {
@@ -1334,7 +1345,7 @@ func (conn *BackendConnection) ExecuteWithWarningCount(query string, maxrows int
 		return nil, 0, err
 	}
 
-	res, _, warnings, err := conn.ReadQueryResult(maxrows, wantfields)
+	res, _, warnings, err := conn.ReadQueryResult(wantFields)
 	return res, warnings, err
 }
 
