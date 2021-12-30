@@ -168,12 +168,12 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 
 	backendConn := r.(*mysql.BackendConnection)
 	executor.doPreFilter(ctx)
-	result, warn, err := backendConn.ExecuteWithWarningCount(query, 1, true)
+	result, warn, err := backendConn.ExecuteWithWarningCount(query, true)
 	executor.doPostFilter(ctx, result)
 	return result, warn, err
 }
 
-func (executor *RedirectExecutor) ExecutorComPrepareExecute(ctx *proto.Context) (proto.Result, uint16, error) {
+func (executor *RedirectExecutor) ExecutorComStmtExecute(ctx *proto.Context) (proto.Result, uint16, error) {
 	var r pools.Resource
 	var err error
 	r, ok := executor.localTransactionMap[ctx.ConnectionID]
@@ -195,7 +195,7 @@ func (executor *RedirectExecutor) ExecutorComPrepareExecute(ctx *proto.Context) 
 		return nil, 0, err
 	}
 	executor.doPreFilter(ctx)
-	result, warn, err := backendConn.ExecuteWithWarningCount(query, 1000, true)
+	result, warn, err := backendConn.PrepareQuery(query, ctx.Data)
 	executor.doPostFilter(ctx, result)
 	return result, warn, err
 }
@@ -208,7 +208,7 @@ func (executor *RedirectExecutor) ConnectionClose(ctx *proto.Context) {
 			resourcePool.Put(r)
 		}()
 		backendConn := r.(*mysql.BackendConnection)
-		_, _, err := backendConn.ExecuteWithWarningCount("rollback", 0, true)
+		_, _, err := backendConn.ExecuteWithWarningCount("rollback", true)
 		if err != nil {
 			log.Error(err)
 		}

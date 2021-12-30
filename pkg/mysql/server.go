@@ -36,9 +36,7 @@ import (
 import (
 	"github.com/pingcap/parser"
 	_ "github.com/pingcap/parser/test_driver"
-
 	err2 "github.com/pkg/errors"
-
 	"go.uber.org/atomic"
 )
 
@@ -187,10 +185,12 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32) {
 			return
 		}
 
+		content := make([]byte, len(data))
+		copy(content, data)
 		ctx := &proto.Context{
 			Context:      context.Background(),
 			ConnectionID: l.connectionID,
-			Data:         data,
+			Data:         content,
 		}
 		err = l.ExecuteCommand(c, ctx)
 		if err != nil {
@@ -630,7 +630,7 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 			prepareStmt, _ := l.stmts.Load(stmtID)
 			ctx.Stmt = prepareStmt.(*proto.Stmt)
 
-			result, warn, err := l.executor.ExecutorComPrepareExecute(ctx)
+			result, warn, err := l.executor.ExecutorComStmtExecute(ctx)
 			if err != nil {
 				if werr := c.writeErrorPacketFromError(err); werr != nil {
 					log.Error("Error writing query error to client %v: %v", l.connectionID, werr)
@@ -669,8 +669,7 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 			l.stmts.Delete(stmtID)
 		}
 	case mysql.ComStmtSendLongData: // no response
-		values := make([]byte, len(ctx.Data))
-		copy(values, ctx.Data)
+		// todo
 	case mysql.ComStmtReset:
 		stmtID, _, ok := readUint32(ctx.Data, 1)
 		c.recycleReadPacket()
@@ -1329,8 +1328,8 @@ func (c *Conn) writeBinaryRow(fields []proto.Field, row []*proto.Value) error {
 	return c.writeEphemeralPacket()
 }
 
-// writeBinaryRows sends the rows of a Result with binary form.
-func (c *Conn) writeBinaryRows(result proto.Result) error {
+// writeTextToBinaryRows sends the rows of a Result with binary form.
+func (c *Conn) writeTextToBinaryRows(result proto.Result) error {
 	rlt := result.(*Result)
 	for _, row := range rlt.Rows {
 		r := row.(*Row)
@@ -1712,4 +1711,15 @@ func val2MySQLLen(v *proto.Value) (int, error) {
 		return 0, err
 	}
 	return length, nil
+}
+
+func (c *Conn) writeBinaryRows(result proto.Result) error {
+	rlt := result.(*Result)
+	for _, row := range rlt.Rows {
+		r := row.(*Row)
+		if err := c.writePacket(r.Data()); err != nil {
+			return err
+		}
+	}
+	return nil
 }

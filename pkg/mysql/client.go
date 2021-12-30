@@ -61,27 +61,29 @@ type Config struct {
 	ReadTimeout      time.Duration     // I/O read timeout
 	WriteTimeout     time.Duration     // I/O write timeout
 
-	AllowAllFiles           bool // Allow all files to be used with LOAD DATA LOCAL INFILE
-	AllowCleartextPasswords bool // Allows the cleartext client side plugin
-	AllowNativePasswords    bool // Allows the native password authentication method
-	AllowOldPasswords       bool // Allows the old insecure password method
-	CheckConnLiveness       bool // Check connections for liveness before using them
-	ClientFoundRows         bool // Return number of matching rows instead of rows changed
-	ColumnsWithAlias        bool // Prepend table alias to column names
-	InterpolateParams       bool // Interpolate placeholders into query string
-	MultiStatements         bool // Allow multiple statements in one query
-	ParseTime               bool // Parse time values to time.Time
-	RejectReadOnly          bool // Reject read-only connections
+	AllowAllFiles             bool // Allow all files to be used with LOAD DATA LOCAL INFILE
+	AllowCleartextPasswords   bool // Allows the cleartext client side plugin
+	AllowNativePasswords      bool // Allows the native password authentication method
+	AllowOldPasswords         bool // Allows the old insecure password method
+	CheckConnLiveness         bool // Check connections for liveness before using them
+	ClientFoundRows           bool // Return number of matching rows instead of rows changed
+	ColumnsWithAlias          bool // Prepend table alias to column names
+	InterpolateParams         bool // Interpolate placeholders into query string
+	MultiStatements           bool // Allow multiple statements in one query
+	ParseTime                 bool // Parse time values to time.Time
+	RejectReadOnly            bool // Reject read-only connections
+	DisableClientDeprecateEOF bool // Disable client deprecate EOF
 }
 
 // NewConfig creates a new ServerConfig and sets default values.
 func NewConfig() *Config {
 	return &Config{
-		Collation:            mysql.DefaultCollation,
-		Loc:                  time.UTC,
-		MaxAllowedPacket:     mysql.DefaultMaxAllowedPacket,
-		AllowNativePasswords: true,
-		CheckConnLiveness:    true,
+		Collation:                 mysql.DefaultCollation,
+		Loc:                       time.UTC,
+		MaxAllowedPacket:          mysql.DefaultMaxAllowedPacket,
+		AllowNativePasswords:      true,
+		CheckConnLiveness:         true,
+		DisableClientDeprecateEOF: true,
 	}
 }
 
@@ -361,6 +363,14 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 				return errors.New("invalid bool value: " + value)
 			}
 
+		// Disable client deprecate EOF
+		case "disableClientDeprecateEOF":
+			var isBool bool
+			cfg.DisableClientDeprecateEOF, isBool = readBool(value)
+			if !isBool {
+				return errors.New("invalid bool value: " + value)
+			}
+
 		// Server public key
 		case "serverPubKey":
 			name, err := url.QueryUnescape(value)
@@ -453,7 +463,7 @@ func NewConnector(config json.RawMessage) (*Connector, error) {
 
 func (c *Connector) NewBackendConnection(ctx context.Context) (pools.Resource, error) {
 	conn := &BackendConnection{conf: c.conf}
-	err := conn.connect()
+	err := conn.Connect(ctx)
 	return conn, err
 }
 
@@ -471,14 +481,16 @@ type BackendConnection struct {
 	// and CapabilityClientFoundRows.
 	capabilities uint32
 
-	Flags uint32
-
 	serverVersion string
 
 	characterSet uint8
 }
 
-func (conn *BackendConnection) connect() error {
+func (conn *BackendConnection) DBName() string {
+	return conn.conf.DBName
+}
+
+func (conn *BackendConnection) Connect(ctx context.Context) error {
 	if conn.c != nil {
 		conn.c.Close()
 	}
@@ -500,8 +512,13 @@ func (conn *BackendConnection) connect() error {
 	// in hopes of sending fewer packets (Nagle's algorithm).
 	// The default is true (no delay),
 	// meaning that Content is sent as soon as possible after a Write.
-	tcpConn.SetNoDelay(true)
-	tcpConn.SetKeepAlive(true)
+	if err := tcpConn.SetNoDelay(true); err != nil {
+		return err
+	}
+	if err := tcpConn.SetKeepAlive(true); err != nil {
+		return err
+	}
+
 	conn.c = newConn(tcpConn)
 
 	return conn.clientHandshake()
@@ -517,7 +534,11 @@ func (conn *BackendConnection) clientHandshake() error {
 	if err != nil {
 		return err
 	}
-	conn.capabilities = capabilities
+
+	conn.capabilities = 0
+	if !conn.conf.DisableClientDeprecateEOF {
+		conn.capabilities = capabilities & (mysql.CapabilityClientDeprecateEOF)
+	}
 
 	//// Password encryption.
 	//scrambledPassword := ScramblePassword(salt, []byte(conn.Passwd))
@@ -529,7 +550,7 @@ func (conn *BackendConnection) clientHandshake() error {
 
 	// Build and send our handshake response 41.
 	// Note this one will never have SSL flag on.
-	if err := conn.writeHandshakeResponse41(authResp, plugin); err != nil {
+	if err := conn.writeHandshakeResponse41(capabilities, authResp, plugin); err != nil {
 		return err
 	}
 
@@ -624,7 +645,7 @@ func (conn *BackendConnection) parseInitialHandshakePacket(data []byte) (uint32,
 	if !ok {
 		return 0, nil, "", err2.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "parseInitialHandshakePacket: packet has no capability flags (lower 2 bytes)")
 	}
-	capabilities := uint32(capLower)
+	var capabilities = uint32(capLower)
 
 	// The packet can end here.
 	if pos == len(data) {
@@ -699,9 +720,6 @@ func (conn *BackendConnection) parseInitialHandshakePacket(data []byte) (uint32,
 			authPluginName = string(data[pos : len(data)-1])
 		}
 
-		//if authPluginName != MysqlNativePassword {
-		//	return 0, nil, NewSQLError(CRMalformedPacket, SSUnknownSQLState, "parseInitialHandshakePacket: only support %v auth plugin name, but got %v", MysqlNativePassword, authPluginName)
-		//}
 		return capabilities, authPluginData, authPluginName, nil
 	}
 
@@ -710,7 +728,7 @@ func (conn *BackendConnection) parseInitialHandshakePacket(data []byte) (uint32,
 
 // writeHandshakeResponse41 writes the handshake response.
 // Returns a SQLError.
-func (conn *BackendConnection) writeHandshakeResponse41(scrambledPassword []byte, plugin string) error {
+func (conn *BackendConnection) writeHandshakeResponse41(capabilities uint32, scrambledPassword []byte, plugin string) error {
 	// Build our flags.
 	var flags uint32 = mysql.CapabilityClientLongPassword |
 		mysql.CapabilityClientLongFlag |
@@ -723,9 +741,12 @@ func (conn *BackendConnection) writeHandshakeResponse41(scrambledPassword []byte
 		mysql.CapabilityClientPluginAuthLenencClientData |
 		// If the server supported
 		// CapabilityClientDeprecateEOF, we also support it.
-		conn.capabilities&mysql.CapabilityClientDeprecateEOF |
+		conn.capabilities&mysql.CapabilityClientDeprecateEOF
+
+	if conn.conf.ClientFoundRows {
 		// Pass-through ClientFoundRows flag.
-		mysql.CapabilityClientFoundRows&conn.Flags
+		flags |= mysql.CapabilityClientFoundRows
+	}
 
 	// FIXME(alainjobart) add multi statement.
 
@@ -741,12 +762,12 @@ func (conn *BackendConnection) writeHandshakeResponse41(scrambledPassword []byte
 			1 // terminating zero.
 
 	// Add the DB name if the server supports it.
-	if conn.conf.DBName != "" && (conn.capabilities&mysql.CapabilityClientConnectWithDB != 0) {
+	if conn.conf.DBName != "" && (capabilities&mysql.CapabilityClientConnectWithDB != 0) {
 		flags |= mysql.CapabilityClientConnectWithDB
 		length += lenNullString(conn.conf.DBName)
 	}
 
-	if conn.capabilities&mysql.CapabilityClientPluginAuthLenencClientData != 0 {
+	if capabilities&mysql.CapabilityClientPluginAuthLenencClientData != 0 {
 		length += lenEncIntSize(uint64(len(scrambledPassword)))
 	} else {
 		length++
@@ -772,7 +793,7 @@ func (conn *BackendConnection) writeHandshakeResponse41(scrambledPassword []byte
 
 	// Scrambled password.  The length is encoded as variable length if
 	// CapabilityClientPluginAuthLenencClientData is set.
-	if conn.capabilities&mysql.CapabilityClientPluginAuthLenencClientData != 0 {
+	if capabilities&mysql.CapabilityClientPluginAuthLenencClientData != 0 {
 		pos = writeLenEncInt(data, pos, uint64(len(scrambledPassword)))
 	} else {
 		data[pos] = byte(len(scrambledPassword))
@@ -781,7 +802,7 @@ func (conn *BackendConnection) writeHandshakeResponse41(scrambledPassword []byte
 	pos += copy(data[pos:], scrambledPassword)
 
 	// DbName, only if server supports it.
-	if conn.conf.DBName != "" && (conn.capabilities&mysql.CapabilityClientConnectWithDB != 0) {
+	if conn.conf.DBName != "" && (capabilities&mysql.CapabilityClientConnectWithDB != 0) {
 		pos = writeNullString(data, pos, conn.conf.DBName)
 	}
 
@@ -840,74 +861,172 @@ func (conn *BackendConnection) WriteComSetOption(operation uint16) error {
 	return nil
 }
 
-// get the column definitions of a table
-// As of MySQL 5.7.11, COM_FIELD_LIST is deprecated and will be removed in a future version of MySQL
 func (conn *BackendConnection) WriteComFieldList(table string, wildcard string) error {
 	conn.c.sequence = 0
 	length := 1 +
 		lenNullString(table) +
 		lenNullString(wildcard)
 
-	data := make([]byte, length, length)
+	data := conn.c.startEphemeralPacket(length)
 	pos := 0
 
-	writeByte(data, 0, mysql.ComFieldList)
-	writeNullString(data, pos, table)
+	pos = writeByte(data, 0, mysql.ComFieldList)
+	pos = writeNullString(data, pos, table)
 	writeNullString(data, pos, wildcard)
 
-	if err := conn.c.writePacket(data); err != nil {
+	if err := conn.c.writeEphemeralPacket(); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// WriteComCreateDB create a schema
-func (conn *BackendConnection) WriteComCreateDB(db string) error {
-	data := conn.c.startEphemeralPacket(len(db) + 1)
-	data[0] = mysql.ComCreateDB
-	copy(data[1:], db)
-	if err := conn.c.writeEphemeralPacket(); err != nil {
-		return err2.NewSQLError(mysql.CRServerGone, mysql.SSUnknownSQLState, err.Error())
+// ReadQueryResult gets the result from the last written query.
+func (conn *BackendConnection) ReadQueryResult(wantFields bool) (result *Result, more bool, warnings uint16, err error) {
+	// Get the result.
+	affectedRows, lastInsertID, colNumber, more, warnings, err := conn.ReadComQueryResponse()
+	if err != nil {
+		return nil, false, 0, err
 	}
-	return nil
+
+	if colNumber == 0 {
+		// OK packet, means no results. Just use the numbers.
+		return &Result{
+			AffectedRows: affectedRows,
+			InsertId:     lastInsertID,
+		}, more, warnings, nil
+	}
+
+	result = &Result{
+		Fields: make([]proto.Field, colNumber),
+	}
+
+	// Read column headers. One packet per column.
+	// Build the fields.
+	for i := 0; i < colNumber; i++ {
+		field := &Field{}
+		result.Fields[i] = field
+
+		if wantFields {
+			if err := conn.ReadColumnDefinition(field, i); err != nil {
+				return nil, false, 0, err
+			}
+		} else {
+			if err := conn.ReadColumnDefinitionType(field, i); err != nil {
+				return nil, false, 0, err
+			}
+		}
+	}
+
+	if conn.capabilities&mysql.CapabilityClientDeprecateEOF == 0 {
+		// EOF is only present here if it's not deprecated.
+		data, err := conn.c.readEphemeralPacket()
+		if err != nil {
+			return nil, false, 0, err2.NewSQLError(mysql.CRServerLost, mysql.SSUnknownSQLState, "%v", err)
+		}
+		if isEOFPacket(data) {
+
+			// This is what we expect.
+			// Warnings and status flags are ignored.
+			conn.c.recycleReadPacket()
+			// goto: read row loop
+
+		} else if isErrorPacket(data) {
+			defer conn.c.recycleReadPacket()
+			return nil, false, 0, ParseErrorPacket(data)
+		} else {
+			defer conn.c.recycleReadPacket()
+			return nil, false, 0, fmt.Errorf("unexpected packet after fields: %v", data)
+		}
+	}
+
+	// read each row until EOF or OK packet.
+	for {
+		data, err := conn.c.ReadPacket()
+		if err != nil {
+			return nil, false, 0, err
+		}
+
+		if isEOFPacket(data) {
+			// Strip the partial Fields before returning.
+			if !wantFields {
+				result.Fields = nil
+			}
+			result.AffectedRows = uint64(len(result.Rows))
+
+			// The deprecated EOF packets change means that this is either an
+			// EOF packet or an OK packet with the EOF type code.
+			if conn.capabilities&mysql.CapabilityClientDeprecateEOF == 0 {
+				warnings, more, err = parseEOFPacket(data)
+				if err != nil {
+					return nil, false, 0, err
+				}
+			} else {
+				var statusFlags uint16
+				_, _, statusFlags, warnings, err = parseOKPacket(data)
+				if err != nil {
+					return nil, false, 0, err
+				}
+				more = (statusFlags & mysql.ServerMoreResultsExists) != 0
+			}
+			return result, more, warnings, nil
+
+		} else if isErrorPacket(data) {
+			// Error packet.
+			return nil, false, 0, ParseErrorPacket(data)
+		}
+
+		//// Check we're not over the limit before we add more.
+		//if len(result.Rows) == maxrows {
+		//	if err := conn.DrainResults(); err != nil {
+		//		return nil, false, 0, err
+		//	}
+		//	return nil, false, 0, err2.NewSQLError(mysql.ERVitessMaxRowsExceeded, mysql.SSUnknownSQLState, "Row count exceeded %d")
+		//}
+
+		// Regular row.
+		row, err := conn.parseRow(data, result.Fields)
+		if err != nil {
+			return nil, false, 0, err
+		}
+		result.Rows = append(result.Rows, row)
+	}
 }
 
-// WriteComDropDB drop a schema
-func (conn *BackendConnection) WriteComDropDB(db string) error {
-	data := conn.c.startEphemeralPacket(len(db) + 1)
-	data[0] = mysql.ComDropDB
-	copy(data[1:], db)
-	if err := conn.c.writeEphemeralPacket(); err != nil {
-		return err2.NewSQLError(mysql.CRServerGone, mysql.SSUnknownSQLState, err.Error())
+func (conn *BackendConnection) ReadComQueryResponse() (affectedRows uint64, lastInsertID uint64, status int, more bool, warnings uint16, err error) {
+	data, err := conn.c.readEphemeralPacket()
+	if err != nil {
+		return 0, 0, 0, false, 0, err2.NewSQLError(mysql.CRServerLost, mysql.SSUnknownSQLState, "%v", err)
 	}
-	return nil
+	defer conn.c.recycleReadPacket()
+	if len(data) == 0 {
+		return 0, 0, 0, false, 0, err2.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "invalid empty COM_QUERY response packet")
+	}
+
+	switch data[0] {
+	case mysql.OKPacket:
+		affectedRows, lastInsertID, status, warnings, err := parseOKPacket(data)
+		return affectedRows, lastInsertID, 0, (status & mysql.ServerMoreResultsExists) != 0, warnings, err
+	case mysql.ErrPacket:
+		// Error
+		return 0, 0, 0, false, 0, ParseErrorPacket(data)
+	case 0xfb:
+		// Local infile
+		return 0, 0, 0, false, 0, fmt.Errorf("not implemented")
+	}
+	n, pos, ok := readLenEncInt(data, 0)
+	if !ok {
+		return 0, 0, 0, false, 0, err2.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "cannot get column number")
+	}
+	if pos != len(data) {
+		return 0, 0, 0, false, 0, err2.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "extra Content in COM_QUERY response")
+	}
+	return 0, 0, int(n), false, 0, nil
 }
 
-// As of MySQL 5.7.11, COM_REFRESH is deprecated and will be removed in a future version of MySQL.
-func (conn *BackendConnection) WriteComRefresh(subCommand uint16) error {
-	data := conn.c.startEphemeralPacket(16 + 1)
-	data[0] = mysql.ComRefresh
-	writeUint16(data, 1, subCommand)
-	if err := conn.c.writeEphemeralPacket(); err != nil {
-		return err2.NewSQLError(mysql.CRServerGone, mysql.SSUnknownSQLState, err.Error())
-	}
-	return nil
-}
-
-// Get a human readable string of internal statistics.
-func (conn *BackendConnection) WriteComStatistics() error {
-	data := conn.c.startEphemeralPacket(1)
-	data[0] = mysql.ComStatistics
-	if err := conn.c.writeEphemeralPacket(); err != nil {
-		return err2.NewSQLError(mysql.CRServerGone, mysql.SSUnknownSQLState, err.Error())
-	}
-	return nil
-}
-
-// readColumnDefinition reads the next Column Definition packet.
+// ReadColumnDefinition reads the next Column Definition packet.
 // Returns a SQLError.
-func (conn *BackendConnection) readColumnDefinition(field *Field, index int) error {
+func (conn *BackendConnection) ReadColumnDefinition(field *Field, index int) error {
 	colDef, err := conn.c.readEphemeralPacket()
 	if err != nil {
 		return err2.NewSQLError(mysql.CRServerLost, mysql.SSUnknownSQLState, "%v", err)
@@ -987,9 +1106,9 @@ func (conn *BackendConnection) readColumnDefinition(field *Field, index int) err
 	}
 	field.decimals = decimals
 
-	// if more Content, command was field list
+	//if more Content, command was field list
 	if len(colDef) > pos+8 {
-		// length of default value lenenc-int
+		//length of default value lenenc-int
 		field.defaultValueLength, pos, ok = readUint64(colDef, pos)
 		if !ok {
 			return err2.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "extracting col %v default value failed", index)
@@ -999,16 +1118,16 @@ func (conn *BackendConnection) readColumnDefinition(field *Field, index int) err
 			return err2.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "extracting col %v default value failed", index)
 		}
 
-		// default value string[$len]
+		//default value string[$len]
 		field.defaultValue = colDef[pos:(pos + int(field.defaultValueLength))]
 	}
 	return nil
 }
 
-// readColumnDefinitionType is a faster version of
-// readColumnDefinition that only fills in the Type.
+// ReadColumnDefinitionType is a faster version of
+// ReadColumnDefinition that only fills in the Type.
 // Returns a SQLError.
-func (conn *BackendConnection) readColumnDefinitionType(field *Field, index int) error {
+func (conn *BackendConnection) ReadColumnDefinitionType(field *Field, index int) error {
 	colDef, err := conn.c.readEphemeralPacket()
 	if err != nil {
 		return err2.NewSQLError(mysql.CRServerLost, mysql.SSUnknownSQLState, "%v", err)
@@ -1080,57 +1199,9 @@ func (conn *BackendConnection) readColumnDefinitionType(field *Field, index int)
 	return nil
 }
 
-func (conn *BackendConnection) ReadColumnDefinitions() ([]proto.Field, error) {
-	result := make([]proto.Field, 0)
-	i := 0
-	for {
-		field := &Field{}
-		err := conn.readColumnDefinition(field, i)
-		if err == io.EOF {
-			return result, nil
-		}
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, field)
-		i++
-	}
-}
-
-func (c *Conn) readComQueryResponse() (affectedRows uint64, lastInsertID uint64, status int, more bool, warnings uint16, err error) {
-	data, err := c.readEphemeralPacket()
-	if err != nil {
-		return 0, 0, 0, false, 0, err2.NewSQLError(mysql.CRServerLost, mysql.SSUnknownSQLState, "%v", err)
-	}
-	defer c.recycleReadPacket()
-	if len(data) == 0 {
-		return 0, 0, 0, false, 0, err2.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "invalid empty COM_QUERY response packet")
-	}
-
-	switch data[0] {
-	case mysql.OKPacket:
-		affectedRows, lastInsertID, status, warnings, err := parseOKPacket(data)
-		return affectedRows, lastInsertID, 0, (status & mysql.ServerMoreResultsExists) != 0, warnings, err
-	case mysql.ErrPacket:
-		// Error
-		return 0, 0, 0, false, 0, ParseErrorPacket(data)
-	case 0xfb:
-		// Local infile
-		return 0, 0, 0, false, 0, fmt.Errorf("not implemented")
-	}
-	n, pos, ok := readLenEncInt(data, 0)
-	if !ok {
-		return 0, 0, 0, false, 0, err2.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "cannot get column number")
-	}
-	if pos != len(data) {
-		return 0, 0, 0, false, 0, err2.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "extra Content in COM_QUERY response")
-	}
-	return 0, 0, int(n), false, 0, nil
-}
-
 // parseRow parses an individual row.
 // Returns a SQLError.
-func (c *Conn) parseRow(data []byte, fields []proto.Field) (proto.Row, error) {
+func (conn *BackendConnection) parseRow(data []byte, fields []proto.Field) (proto.Row, error) {
 	row := &Row{
 		Content: data,
 		ResultSet: &ResultSet{
@@ -1140,118 +1211,8 @@ func (c *Conn) parseRow(data []byte, fields []proto.Field) (proto.Row, error) {
 	return row, nil
 }
 
-// ReadQueryResult gets the result from the last written query.
-func (conn *BackendConnection) ReadQueryResult(maxrows int, wantfields bool) (result *Result, more bool, warnings uint16, err error) {
-	// Get the result.
-	affectedRows, lastInsertID, colNumber, more, warnings, err := conn.c.readComQueryResponse()
-	if err != nil {
-		return nil, false, 0, err
-	}
-
-	if colNumber == 0 {
-		// OK packet, means no results. Just use the numbers.
-		return &Result{
-			AffectedRows: affectedRows,
-			InsertId:     lastInsertID,
-		}, more, warnings, nil
-	}
-
-	result = &Result{
-		Fields: make([]proto.Field, colNumber),
-	}
-
-	// Read column headers. One packet per column.
-	// Build the fields.
-	for i := 0; i < colNumber; i++ {
-		field := &Field{}
-		result.Fields[i] = field
-
-		if wantfields {
-			if err := conn.readColumnDefinition(field, i); err != nil {
-				return nil, false, 0, err
-			}
-		} else {
-			if err := conn.readColumnDefinitionType(field, i); err != nil {
-				return nil, false, 0, err
-			}
-		}
-	}
-
-	if conn.capabilities&mysql.CapabilityClientDeprecateEOF == 0 {
-		// EOF is only present here if it's not deprecated.
-		data, err := conn.c.readEphemeralPacket()
-		if err != nil {
-			return nil, false, 0, err2.NewSQLError(mysql.CRServerLost, mysql.SSUnknownSQLState, "%v", err)
-		}
-		if isEOFPacket(data) {
-			// This is what we expect.
-			// Warnings and status flags are ignored.
-			conn.c.recycleReadPacket()
-			// goto: read row loop
-		} else if isErrorPacket(data) {
-			defer conn.c.recycleReadPacket()
-			return nil, false, 0, ParseErrorPacket(data)
-		} else {
-			defer conn.c.recycleReadPacket()
-			return nil, false, 0, fmt.Errorf("unexpected packet after fields: %v", data)
-		}
-	}
-
-	// read each row until EOF or OK packet.
-	for {
-		data, err := conn.c.ReadPacket()
-		if err != nil {
-			return nil, false, 0, err
-		}
-
-		if isEOFPacket(data) {
-			// Strip the partial Fields before returning.
-			if !wantfields {
-				result.Fields = nil
-			}
-			result.AffectedRows = uint64(len(result.Rows))
-
-			// The deprecated EOF packets change means that this is either an
-			// EOF packet or an OK packet with the EOF type code.
-			if conn.capabilities&mysql.CapabilityClientDeprecateEOF == 0 {
-				warnings, more, err = parseEOFPacket(data)
-				if err != nil {
-					return nil, false, 0, err
-				}
-			} else {
-				var statusFlags uint16
-				_, _, statusFlags, warnings, err = parseOKPacket(data)
-				if err != nil {
-					return nil, false, 0, err
-				}
-				more = (statusFlags & mysql.ServerMoreResultsExists) != 0
-			}
-			return result, more, warnings, nil
-
-		} else if isErrorPacket(data) {
-			// Error packet.
-			return nil, false, 0, ParseErrorPacket(data)
-		}
-
-		// Check we're not over the limit before we add more.
-		if len(result.Rows) == maxrows {
-			if err := conn.drainResults(); err != nil {
-				return nil, false, 0, err
-			}
-			return nil, false, 0, err2.NewSQLError(mysql.ERVitessMaxRowsExceeded, mysql.SSUnknownSQLState, "Row count exceeded %d", maxrows)
-		}
-
-		// Regular row.
-		row, err := conn.c.parseRow(data, result.Fields)
-		if err != nil {
-			return nil, false, 0, err
-		}
-		result.Rows = append(result.Rows, row)
-	}
-}
-
-// drainResults will read all packets for a result set and ignore them.
-func (conn *BackendConnection) drainResults() error {
+// DrainResults will read all packets for a result set and ignore them.
+func (conn *BackendConnection) DrainResults() error {
 	for {
 		data, err := conn.c.readEphemeralPacket()
 		if err != nil {
@@ -1268,6 +1229,23 @@ func (conn *BackendConnection) drainResults() error {
 	}
 }
 
+func (conn *BackendConnection) ReadColumnDefinitions() ([]proto.Field, error) {
+	result := make([]proto.Field, 0)
+	i := 0
+	for {
+		field := &Field{}
+		err := conn.ReadColumnDefinition(field, i)
+		if err == io.EOF {
+			return result, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, field)
+		i++
+	}
+}
+
 // Execute executes a query and returns the result.
 // Returns a SQLError. Depending on the transport used, the error
 // returned might be different for the same condition:
@@ -1277,7 +1255,7 @@ func (conn *BackendConnection) drainResults() error {
 //   1.1 unix: WriteComQuery will fail with a 'broken pipe', and we'll
 //       return CRServerGone(2006).
 //
-//   1.2 tcp: WriteComQuery will most likely work, but readComQueryResponse
+//   1.2 tcp: WriteComQuery will most likely work, but ReadComQueryResponse
 //       will fail, and we'll return CRServerLost(2013).
 //
 //       This is because closing a TCP socket on the server side sends
@@ -1290,16 +1268,16 @@ func (conn *BackendConnection) drainResults() error {
 //       So CRServerGone(2006) will almost never be seen with TCP.
 //
 // 2. if the server closes the connection when a command is in flight,
-//    readComQueryResponse will fail, and we'll return CRServerLost(2013).
-func (conn *BackendConnection) Execute(query string, maxrows int, wantfields bool) (result *Result, err error) {
-	result, _, err = conn.ExecuteMulti(query, maxrows, wantfields)
-	return result, err
+//    ReadComQueryResponse will fail, and we'll return CRServerLost(2013).
+func (conn *BackendConnection) Execute(query string, wantFields bool) (result *Result, err error) {
+	result, _, err = conn.ExecuteMulti(query, wantFields)
+	return
 }
 
 // ExecuteMulti is for fetching multiple results from a multi-statement result.
 // It returns an additional 'more' flag. If it is set, you must fetch the additional
 // results using ReadQueryResult.
-func (conn *BackendConnection) ExecuteMulti(query string, maxrows int, wantfields bool) (result *Result, more bool, err error) {
+func (conn *BackendConnection) ExecuteMulti(query string, wantFields bool) (result *Result, more bool, err error) {
 	defer func() {
 		if err != nil {
 			if sqlerr, ok := err.(*err2.SQLError); ok {
@@ -1313,14 +1291,14 @@ func (conn *BackendConnection) ExecuteMulti(query string, maxrows int, wantfield
 		return nil, false, err
 	}
 
-	res, more, _, err := conn.ReadQueryResult(maxrows, wantfields)
-	return res, more, err
+	result, more, _, err = conn.ReadQueryResult(wantFields)
+	return
 }
 
 // ExecuteWithWarningCount is for fetching results and a warning count
 // Note: In a future iteration this should be abolished and merged into the
 // Execute API.
-func (conn *BackendConnection) ExecuteWithWarningCount(query string, maxrows int, wantfields bool) (result *Result, warnings uint16, err error) {
+func (conn *BackendConnection) ExecuteWithWarningCount(query string, wantFields bool) (result *Result, warnings uint16, err error) {
 	defer func() {
 		if err != nil {
 			if sqlerr, ok := err.(*err2.SQLError); ok {
@@ -1334,8 +1312,73 @@ func (conn *BackendConnection) ExecuteWithWarningCount(query string, maxrows int
 		return nil, 0, err
 	}
 
-	res, _, warnings, err := conn.ReadQueryResult(maxrows, wantfields)
-	return res, warnings, err
+	result, _, warnings, err = conn.ReadQueryResult(wantFields)
+	return
+}
+
+func (conn *BackendConnection) PrepareExecuteArgs(query string, args []interface{}) (result *Result, warnings uint16, err error) {
+	stmt, err := conn.prepare(query)
+	if err != nil {
+		return nil, 0, err
+	}
+	return stmt.execArgs(args)
+}
+
+func (conn *BackendConnection) PrepareQueryArgs(query string, data []interface{}) (Result *Result, warnings uint16, err error) {
+	stmt, err := conn.prepare(query)
+	if err != nil {
+		return nil, 0, err
+	}
+	return stmt.queryArgs(data)
+}
+
+func (conn *BackendConnection) PrepareExecute(query string, data []byte) (result *Result, warnings uint16, err error) {
+	stmt, err := conn.prepare(query)
+	if err != nil {
+		return nil, 0, err
+	}
+	return stmt.exec(data)
+}
+
+func (conn *BackendConnection) PrepareQuery(query string, data []byte) (Result *Result, warnings uint16, err error) {
+	stmt, err := conn.prepare(query)
+	if err != nil {
+		return nil, 0, err
+	}
+	return stmt.query(data)
+}
+
+func (conn *BackendConnection) prepare(query string) (*BackendStatement, error) {
+	// This is a new command, need to reset the sequence.
+	conn.c.sequence = 0
+
+	data := conn.c.startEphemeralPacket(len(query) + 1)
+	data[0] = mysql.ComPrepare
+	copy(data[1:], query)
+	if err := conn.c.writeEphemeralPacket(); err != nil {
+		return nil, err2.NewSQLError(mysql.CRServerGone, mysql.SSUnknownSQLState, err.Error())
+	}
+
+	stmt := &BackendStatement{
+		conn: conn,
+		sql:  query,
+	}
+
+	// Read Result
+	columnCount, err := stmt.readPrepareResultPacket()
+	if err == nil {
+		if stmt.paramCount > 0 {
+			if err = conn.DrainResults(); err != nil {
+				return nil, err
+			}
+		}
+
+		if columnCount > 0 {
+			err = conn.DrainResults()
+		}
+	}
+
+	return stmt, err
 }
 
 func (conn *BackendConnection) Close() {

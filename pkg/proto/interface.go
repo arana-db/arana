@@ -101,7 +101,7 @@ type (
 
 		ExecutorComQuery(ctx *Context) (Result, uint16, error)
 
-		ExecutorComPrepareExecute(ctx *Context) (Result, uint16, error)
+		ExecutorComStmtExecute(ctx *Context) (Result, uint16, error)
 
 		ConnectionClose(ctx *Context)
 	}
