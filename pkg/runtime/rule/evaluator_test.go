@@ -57,7 +57,7 @@ func makeTestRule(mod int) *rule.Rule {
 	for i := 0; i < mod; i++ {
 		s = append(s, i)
 	}
-	topo.SetTopology(0, s...) // 单库多表
+	topo.SetTopology(0, s...) // single database, multiple tables
 	topo.SetRender(func(_ int) string {
 		return fakeDB
 	}, func(i int) string {
@@ -110,7 +110,7 @@ func TestEvaluator_Eval(t *testing.T) {
 
 		l := k1.Or(k2).And(k3.Or(k4).Or(k5))
 
-		// 逻辑运算优化, 最终优化为 id > 1
+		// should be optimized to 'id > 1'
 		// (id > 1 or uid = 10003 ) and (id > 1 or uid = 10004 or uid = 10005)
 		// ( id > 1 OR ( uid = 10003 AND uid = 10005 ) OR ( uid = 10003 AND uid = 10004 ) )
 		// id > 1
@@ -124,7 +124,7 @@ func TestEvaluator_Eval(t *testing.T) {
 		l2 := NewKeyed("uid", cmp.Cgte, 7).ToLogical()
 		l3 := NewKeyed("uid", cmp.Clt, 8).ToLogical()
 
-		l := l1.And(l2).And(l3) // 永假: uid >= 4 AND uid >= 7 AND uid < 8
+		l := l1.And(l2).And(l3) // always false: uid >= 4 AND uid >= 7 AND uid < 8
 
 		v, err := Eval(l, "fake_table", ru4)
 		assert.NoError(t, err)

@@ -60,7 +60,7 @@ func TestRule(t *testing.T) {
 			Computer: c2,
 		})
 
-		// 表拓扑, 4库16表
+		// table topology: 4 databases, 16 tables
 		var topo Topology
 		topo.SetTopology(0, 0, 4, 8, 12)
 		topo.SetTopology(1, 1, 5, 9, 13)
