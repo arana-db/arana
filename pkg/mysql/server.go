@@ -1329,7 +1329,7 @@ func (c *Conn) writeBinaryRow(fields []proto.Field, row []*proto.Value) error {
 }
 
 // writeTextToBinaryRows sends the rows of a Result with binary form.
-func (c *Conn) writeTextToBinaryRows(result proto.Result) error {
+func (c *Conn)writeTextToBinaryRows(result proto.Result) error {
 	rlt := result.(*Result)
 	for _, row := range rlt.Rows {
 		r := row.(*Row)
