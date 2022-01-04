@@ -37,7 +37,7 @@ func TestInsert(t *testing.T) {
 	defer db.Close()
 
 	result, err := db.Exec(`INSERT INTO employees ( emp_no, birth_date, first_name, last_name, gender, hire_date )
-		VALUES (?, ?, ?, ?, ?, ?)`, 100001, "1949-10-01", "共和国", "中华人民", "M", "1949-10-01")
+		VALUES (?, ?, ?, ?, ?, ?)`, 100001, "1992-01-07", "scott", "lewis", "M", "2014-09-01")
 	assert.NoErrorf(t, err, "insert row error: %v", err)
 	affected, err := result.RowsAffected()
 	assert.NoErrorf(t, err, "insert row error: %v", err)
@@ -65,7 +65,7 @@ func TestSelect(t *testing.T) {
 			t.Error(err)
 		}
 	}
-	assert.Equal(t, "共和国", firstName)
+	assert.Equal(t, "scott", firstName)
 }
 
 func TestSelectLimit1(t *testing.T) {
@@ -88,7 +88,7 @@ func TestSelectLimit1(t *testing.T) {
 			t.Error(err)
 		}
 	}
-	assert.Equal(t, "共和国", firstName)
+	assert.Equal(t, "scott", firstName)
 }
 
 func TestUpdate(t *testing.T) {
@@ -96,7 +96,7 @@ func TestUpdate(t *testing.T) {
 	assert.NoErrorf(t, err, "connection error: %v", err)
 	defer db.Close()
 
-	result, err := db.Exec(`UPDATE employees set last_name = ? where emp_no = ?`, "伟大的中华人民", 100001)
+	result, err := db.Exec(`UPDATE employees set last_name = ? where emp_no = ?`, "louis", 100001)
 	assert.NoErrorf(t, err, "update row error: %v", err)
 	affected, err := result.RowsAffected()
 	assert.NoErrorf(t, err, "update row error: %v", err)

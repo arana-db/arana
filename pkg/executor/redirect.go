@@ -173,7 +173,7 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 	return result, warn, err
 }
 
-func (executor *RedirectExecutor) ExecutorComPrepareExecute(ctx *proto.Context) (proto.Result, uint16, error) {
+func (executor *RedirectExecutor) ExecutorComStmtExecute(ctx *proto.Context) (proto.Result, uint16, error) {
 	var r pools.Resource
 	var err error
 	r, ok := executor.localTransactionMap[ctx.ConnectionID]
@@ -195,7 +195,7 @@ func (executor *RedirectExecutor) ExecutorComPrepareExecute(ctx *proto.Context) 
 		return nil, 0, err
 	}
 	executor.doPreFilter(ctx)
-	result, warn, err := backendConn.ExecuteWithWarningCount(query, true)
+	result, warn, err := backendConn.PrepareQuery(query, ctx.Data)
 	executor.doPostFilter(ctx, result)
 	return result, warn, err
 }
