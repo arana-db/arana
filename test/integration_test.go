@@ -27,12 +27,18 @@ import (
 
 import (
 	_ "github.com/go-sql-driver/mysql" // register mysql
-
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	driverName string = "mysql"
+
+	// user:password@tcp(127.0.0.1:3306)/dbName?
+	dataSourceName string = "dksl:123456@tcp(127.0.0.1:13306)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8"
+)
+
 func TestInsert(t *testing.T) {
-	db, err := sql.Open("mysql", "dksl:123456@tcp(127.0.0.1:13306)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8")
+	db, err := sql.Open(driverName, dataSourceName)
 	assert.NoErrorf(t, err, "connection error: %v", err)
 	defer db.Close()
 
@@ -45,7 +51,7 @@ func TestInsert(t *testing.T) {
 }
 
 func TestSelect(t *testing.T) {
-	db, err := sql.Open("mysql", "dksl:123456@tcp(127.0.0.1:13306)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8")
+	db, err := sql.Open(driverName, dataSourceName)
 	assert.NoErrorf(t, err, "connection error: %v", err)
 	defer db.Close()
 
@@ -69,7 +75,7 @@ func TestSelect(t *testing.T) {
 }
 
 func TestSelectLimit1(t *testing.T) {
-	db, err := sql.Open("mysql", "dksl:123456@tcp(127.0.0.1:13306)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8")
+	db, err := sql.Open(driverName, dataSourceName)
 	assert.NoErrorf(t, err, "connection error: %v", err)
 	defer db.Close()
 
@@ -92,7 +98,7 @@ func TestSelectLimit1(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
-	db, err := sql.Open("mysql", "dksl:123456@tcp(127.0.0.1:13306)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8")
+	db, err := sql.Open(driverName, dataSourceName)
 	assert.NoErrorf(t, err, "connection error: %v", err)
 	defer db.Close()
 
@@ -105,7 +111,7 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	db, err := sql.Open("mysql", "dksl:123456@tcp(127.0.0.1:13306)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8")
+	db, err := sql.Open(driverName, dataSourceName)
 	assert.NoErrorf(t, err, "connection error: %v", err)
 	defer db.Close()
 
