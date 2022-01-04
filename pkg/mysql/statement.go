@@ -151,7 +151,7 @@ func (stmt *BackendStatement) writeExecutePacket(args []interface{}) error {
 		data = stmt.conn.c.startEphemeralPacket(minPktLen)
 	} else {
 		data = stmt.conn.c.startEphemeralPacket(mysql.MaxPacketSize)
-		// In this case the len(data) == cap(data) which is used to optimise the flow below.
+		// In this case the len(data) == cap(data) which is used to optimize the flow below.
 	}
 	defer bc.c.recycleWritePacket()
 
