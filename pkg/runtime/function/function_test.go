@@ -39,13 +39,13 @@ func TestEval(t *testing.T) {
 
 func TestCastUnsigned(t *testing.T) {
 	first := map[string]interface{}{
-		"foo": 10,
-		"bar": 1000055,
+		"foo":    10,
+		"bar":    1000055,
+		"foobar": 1,
 	}
-	v, err := EvalString("$CAST_UNSIGNED(($IF(parseInt(arguments[0].TDDLX_e120910b) == 0 ? null : parseFloat(arguments[0].foo) / parseFloat(arguments[0].bar)>10002, 3.1415, 2.1718)))", first)
+	v, err := EvalString("$CAST_UNSIGNED(($IF(parseInt(arguments[0].foobar) == 0 ? null : parseFloat(arguments[0].foo) / parseFloat(arguments[0].bar)>10002, 3.1415, 2.1718)))", first)
 	assert.NoError(t, err)
 	t.Log("v:", v)
-
 }
 
 func TestEvalString(t *testing.T) {
