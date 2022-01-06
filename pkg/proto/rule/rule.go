@@ -49,6 +49,14 @@ type VTable struct {
 	shards   map[string][2]*ShardMetadata // column -> [db shard metadata,table shard metadata]
 }
 
+func (vt *VTable) GetShardKeys() []string {
+	keys := make([]string, 0, len(vt.shards))
+	for k := range vt.shards {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
 // Topology returns the topology of VTable.
 func (vt *VTable) Topology() *Topology {
 	return vt.topology

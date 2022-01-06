@@ -27,17 +27,23 @@ import (
 
 import (
 	_ "github.com/go-sql-driver/mysql" // register mysql
-
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	driverName string = "mysql"
+
+	// user:password@tcp(127.0.0.1:3306)/dbName?
+	dataSourceName string = "dksl:123456@tcp(127.0.0.1:13306)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8"
+)
+
 func TestInsert(t *testing.T) {
-	db, err := sql.Open("mysql", "dksl:123456@tcp(127.0.0.1:13306)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8")
+	db, err := sql.Open(driverName, dataSourceName)
 	assert.NoErrorf(t, err, "connection error: %v", err)
 	defer db.Close()
 
 	result, err := db.Exec(`INSERT INTO employees ( emp_no, birth_date, first_name, last_name, gender, hire_date )
-		VALUES (?, ?, ?, ?, ?, ?)`, 100001, "1949-10-01", "共和国", "中华人民", "M", "1949-10-01")
+		VALUES (?, ?, ?, ?, ?, ?)`, 100001, "1992-01-07", "scott", "lewis", "M", "2014-09-01")
 	assert.NoErrorf(t, err, "insert row error: %v", err)
 	affected, err := result.RowsAffected()
 	assert.NoErrorf(t, err, "insert row error: %v", err)
@@ -45,7 +51,7 @@ func TestInsert(t *testing.T) {
 }
 
 func TestSelect(t *testing.T) {
-	db, err := sql.Open("mysql", "dksl:123456@tcp(127.0.0.1:13306)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8")
+	db, err := sql.Open(driverName, dataSourceName)
 	assert.NoErrorf(t, err, "connection error: %v", err)
 	defer db.Close()
 
@@ -65,11 +71,11 @@ func TestSelect(t *testing.T) {
 			t.Error(err)
 		}
 	}
-	assert.Equal(t, "共和国", firstName)
+	assert.Equal(t, "scott", firstName)
 }
 
 func TestSelectLimit1(t *testing.T) {
-	db, err := sql.Open("mysql", "dksl:123456@tcp(127.0.0.1:13306)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8")
+	db, err := sql.Open(driverName, dataSourceName)
 	assert.NoErrorf(t, err, "connection error: %v", err)
 	defer db.Close()
 
@@ -88,15 +94,15 @@ func TestSelectLimit1(t *testing.T) {
 			t.Error(err)
 		}
 	}
-	assert.Equal(t, "共和国", firstName)
+	assert.Equal(t, "scott", firstName)
 }
 
 func TestUpdate(t *testing.T) {
-	db, err := sql.Open("mysql", "dksl:123456@tcp(127.0.0.1:13306)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8")
+	db, err := sql.Open(driverName, dataSourceName)
 	assert.NoErrorf(t, err, "connection error: %v", err)
 	defer db.Close()
 
-	result, err := db.Exec(`UPDATE employees set last_name = ? where emp_no = ?`, "伟大的中华人民", 100001)
+	result, err := db.Exec(`UPDATE employees set last_name = ? where emp_no = ?`, "louis", 100001)
 	assert.NoErrorf(t, err, "update row error: %v", err)
 	affected, err := result.RowsAffected()
 	assert.NoErrorf(t, err, "update row error: %v", err)
@@ -105,7 +111,7 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	db, err := sql.Open("mysql", "dksl:123456@tcp(127.0.0.1:13306)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8")
+	db, err := sql.Open(driverName, dataSourceName)
 	assert.NoErrorf(t, err, "connection error: %v", err)
 	defer db.Close()
 

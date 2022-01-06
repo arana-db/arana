@@ -31,13 +31,13 @@ import (
 )
 
 type (
-	// DataSourceRole
+	// DataSourceRole is the data source role
 	DataSourceRole int
 
-	// DataSourceType
+	// DataSourceType is the data source type
 	DataSourceType int
 
-	// DataSource
+	// DataSource is the data source
 	DataSource struct {
 		Role           DataSourceRole  `yaml:"role" json:"role"`
 		Type           DataSourceType  `yaml:"type" json:"type"`

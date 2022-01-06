@@ -36,6 +36,7 @@ import (
 	"github.com/dubbogo/arana/pkg/runtime/cmp"
 	"github.com/dubbogo/arana/pkg/runtime/logical"
 	"github.com/dubbogo/arana/pkg/runtime/misc"
+	"github.com/dubbogo/arana/pkg/runtime/xxast"
 )
 
 var (
@@ -158,7 +159,7 @@ func (t *KeyedEvaluator) toComparative(metadata *rule.ShardMetadata) *cmp.Compar
 
 	// convert nil
 	if val == nil {
-		val = misc.Null{}
+		val = xxast.Null{}
 	}
 
 	switch v := val.(type) {
@@ -212,7 +213,7 @@ func (t *KeyedEvaluator) toComparative(metadata *rule.ShardMetadata) *cmp.Compar
 			s = strconv.FormatInt(int64(v), 10)
 		}
 		k = cmp.Kint
-	case misc.Null:
+	case xxast.Null:
 		return nil
 	default:
 		panic(fmt.Sprintf("invalid compare value type %T!", v))

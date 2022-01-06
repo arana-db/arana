@@ -185,7 +185,7 @@ func (dt DatabaseTables) And(other DatabaseTables) DatabaseTables {
 		fuzz := tbls["*"]
 		delete(tbls, "*")
 
-		// 子库全匹配
+		// fuzz match all sub databases
 		if fuzz&flagA != 0 && fuzz&flagB != 0 {
 			ret[db] = append(ret[db], "*")
 			continue

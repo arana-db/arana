@@ -16,6 +16,18 @@
 // under the License.
 //
 
-package misc
+package xxast
 
-type Null struct{}
+import (
+	"testing"
+)
+
+import (
+	"github.com/stretchr/testify/assert"
+)
+
+func TestParse(t *testing.T) {
+	stmt, err := Parse("select * from student as foo where `name` = if(1>2, 1, 2)")
+	assert.NoError(t, err, "parse+conv ast failed")
+	t.Log("stmt:", stmt)
+}
