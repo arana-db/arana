@@ -24,11 +24,11 @@ import (
 )
 
 import (
-	"github.com/pingcap/parser"
-	"github.com/pingcap/parser/ast"
-	"github.com/pingcap/parser/opcode"
-	"github.com/pingcap/parser/test_driver"
-	_ "github.com/pingcap/parser/test_driver"
+	"github.com/dubbogo/parser"
+	"github.com/dubbogo/parser/ast"
+	"github.com/dubbogo/parser/opcode"
+	"github.com/dubbogo/parser/test_driver"
+	_ "github.com/dubbogo/parser/test_driver"
 
 	"github.com/pkg/errors"
 )
