@@ -25,8 +25,8 @@ import (
 )
 
 import (
-	"github.com/pingcap/parser"
-	"github.com/pingcap/parser/ast"
+	"github.com/dubbogo/parser"
+	"github.com/dubbogo/parser/ast"
 )
 
 import (

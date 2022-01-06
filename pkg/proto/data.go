@@ -20,7 +20,7 @@
 package proto
 
 import (
-	"github.com/pingcap/parser/ast"
+	"github.com/dubbogo/parser/ast"
 )
 
 import (
