@@ -1,6 +1,8 @@
 # arana
 [![LICENSE](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/dubbogo/arana/blob/master/LICENSE)
 
+![](./docs/pics/arana-logo.png)
+
 ## Introduction | [中文](https://github.com/dubbogo/arana/blob/master/docs/README_ZH.md)
 hello, db.
 
