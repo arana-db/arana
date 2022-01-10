@@ -113,7 +113,9 @@ func (o OrderByItem) InTables(tables map[string]struct{}) error {
 
 func (o OrderByItem) String() string {
 	var sb strings.Builder
-	sb.WriteString(o.Expr.String())
+	if err := o.Expr.Restore(&sb, nil); err != nil {
+		panic(err.Error())
+	}
 	if o.Desc {
 		sb.WriteString(" DESC")
 	}
@@ -227,10 +229,6 @@ var (
 	_ Statement = (*SelectStatement)(nil)
 	_ Statement = (*DeleteStatement)(nil)
 	_ Statement = (*UpdateStatement)(nil)
-
-	_ paramsCounter = (*SelectStatement)(nil)
-	_ paramsCounter = (*DeleteStatement)(nil)
-	_ paramsCounter = (*UpdateStatement)(nil)
 )
 
 const (
@@ -317,46 +315,6 @@ func (ss *SelectStatement) GetSQLType() SQLType {
 	return Squery
 }
 
-func (ss *SelectStatement) CntParams() int {
-	var cnt int
-
-	for _, it := range ss.From {
-		if sq := it.SubQuery(); sq != nil {
-			cnt += sq.CntParams()
-		}
-	}
-
-	if ss.Where != nil {
-		cnt += ss.Where.CntParams()
-	}
-
-	if ss.GroupBy != nil {
-		for _, it := range ss.GroupBy.Items {
-			cnt += it.Expr().CntParams()
-		}
-	}
-
-	if ss.Having != nil {
-		cnt += ss.Having.CntParams()
-	}
-
-	if len(ss.OrderBy) > 0 {
-		for _, it := range ss.OrderBy {
-			cnt += it.Expr.CntParams()
-		}
-	}
-
-	if ss.Limit != nil {
-		if ss.Limit.IsLimitVar() {
-			cnt += 1
-		}
-		if ss.Limit.IsOffsetVar() {
-			cnt += 1
-		}
-	}
-	return cnt
-}
-
 const (
 	_flagDeleteLowPriority uint8 = 1 << iota
 	_flagDeleteQuick
@@ -373,17 +331,6 @@ type DeleteStatement struct {
 
 func (ds *DeleteStatement) Validate() error {
 	return nil
-}
-
-func (ds *DeleteStatement) CntParams() int {
-	var n int
-	if ds.Where != nil {
-		n += ds.Where.CntParams()
-	}
-	if limit := ds.Limit; limit != nil && limit.IsLimitVar() {
-		n++
-	}
-	return n
 }
 
 func (ds *DeleteStatement) GetSQLType() SQLType {
@@ -417,13 +364,6 @@ func (ds *DeleteStatement) enableIgnore() {
 type UpdateElement struct {
 	Column ColumnNameExpressionAtom
 	Value  ExpressionNode
-}
-
-func (u *UpdateElement) CntParams() int {
-	if u.Value == nil {
-		return 0
-	}
-	return u.Value.CntParams()
 }
 
 const (
@@ -461,25 +401,6 @@ func (u *UpdateStatement) enableIgnore() {
 	u.flag |= _flagUpdateIgnore
 }
 
-func (u *UpdateStatement) CntParams() int {
-	var n int
-	for _, it := range u.Updated {
-		n += it.CntParams()
-	}
-	if u.Where != nil {
-		n += u.Where.CntParams()
-	}
-	if u.Limit != nil {
-		if u.Limit.IsLimitVar() {
-			n++
-		}
-		if u.Limit.IsOffsetVar() {
-			n++
-		}
-	}
-	return n
-}
-
 func (u *UpdateStatement) GetSQLType() SQLType {
 	return Supdate
 }
@@ -501,7 +422,6 @@ var (
 
 type BaseInsertStatement interface {
 	Statement
-	paramsCounter
 	IsSetSyntax() bool
 	IsIgnore() bool
 	Priority() (string, bool)
@@ -592,18 +512,6 @@ func (r *ReplaceStatement) GetSQLType() SQLType {
 	return Sreplace
 }
 
-func (r *ReplaceStatement) CntParams() int {
-	var n int
-	for _, row := range r.values {
-		for _, col := range row {
-			if col != nil {
-				n += col.CntParams()
-			}
-		}
-	}
-	return n
-}
-
 type InsertStatement struct {
 	*baseInsertStatement
 	duplicatedUpdates []*UpdateElement
@@ -620,23 +528,6 @@ func (is *InsertStatement) DuplicatedUpdates() []*UpdateElement {
 
 func (is *InsertStatement) Values() [][]ExpressionNode {
 	return is.values
-}
-
-func (is *InsertStatement) CntParams() int {
-	var n int
-	for _, row := range is.values {
-		for _, col := range row {
-			if col != nil {
-				n += col.CntParams()
-			}
-		}
-	}
-
-	for _, dup := range is.duplicatedUpdates {
-		n += dup.CntParams()
-	}
-
-	return n
 }
 
 func (is *InsertStatement) GetSQLType() SQLType {
@@ -656,10 +547,6 @@ func (r *ReplaceSelectStatement) Select() *SelectStatement {
 	return r.sel
 }
 
-func (r *ReplaceSelectStatement) CntParams() int {
-	return r.sel.CntParams()
-}
-
 func (r *ReplaceSelectStatement) GetSQLType() SQLType {
 	return Sreplace
 }
@@ -675,10 +562,6 @@ func (is *InsertSelectStatement) Validate() error {
 
 func (is *InsertSelectStatement) Select() *SelectStatement {
 	return is.sel
-}
-
-func (is *InsertSelectStatement) CntParams() int {
-	return is.sel.CntParams()
 }
 
 func (is *InsertSelectStatement) GetSQLType() SQLType {

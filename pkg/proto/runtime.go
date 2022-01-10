@@ -41,13 +41,13 @@ type (
 	// QueryPlan represents a plan for query command.
 	QueryPlan interface {
 		// Query executes the query command.
-		Query(ctx context.Context, conn *VConn) (Rows, error)
+		Query(ctx context.Context, conn VConn) (Rows, error)
 	}
 
 	// ExecPlan represents a plan for query command.
 	ExecPlan interface {
 		// Exec executes the exec command.
-		Exec(ctx context.Context, conn *VConn) (Rows, error)
+		Exec(ctx context.Context, conn VConn) (Rows, error)
 	}
 
 	// Optimizer represents a sql statement optimizer which can be used to create QueryPlan or ExecPlan.

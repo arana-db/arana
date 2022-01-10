@@ -102,7 +102,9 @@ func (s *SelectElementExpr) InTables(tables map[string]struct{}) error {
 }
 
 func (s *SelectElementExpr) ToSelectString() string {
-	return s.Expression().String()
+	var sb strings.Builder
+	_ = s.Expression().Restore(&sb, nil)
+	return sb.String()
 }
 
 func (s *SelectElementExpr) Expression() ExpressionNode {
@@ -132,18 +134,20 @@ func (s *SelectElementFunction) InTables(tables map[string]struct{}) error {
 }
 
 func (s *SelectElementFunction) ToSelectString() string {
+	var sb strings.Builder
 	switch fun := s.inner.(type) {
 	case *Function:
-		return fun.String()
+		_ = fun.Restore(&sb, nil)
 	case *AggrFunction:
-		return fun.String()
+		_ = fun.Restore(&sb, nil)
 	case *CastFunction:
-		return fun.String()
+		_ = fun.Restore(&sb, nil)
 	case *CaseWhenElseFunction:
-		return fun.String()
+		_ = fun.Restore(&sb, nil)
 	default:
 		panic("unreachable")
 	}
+	return sb.String()
 }
 
 func (s *SelectElementFunction) SetCaseWhenElseFunction(fn *CaseWhenElseFunction) {
@@ -194,7 +198,9 @@ func (s *SelectElementColumn) InTables(tables map[string]struct{}) error {
 }
 
 func (s *SelectElementColumn) ToSelectString() string {
-	return ColumnNameExpressionAtom(s.name).String()
+	var sb strings.Builder
+	_ = ColumnNameExpressionAtom(s.name).Restore(&sb, nil)
+	return sb.String()
 }
 
 func (s *SelectElementColumn) Name() []string {

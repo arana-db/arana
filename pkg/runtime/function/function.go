@@ -327,7 +327,7 @@ func handleArg(sb *strings.Builder, arg *xxast.FunctionArg) error {
 	case xxast.FunctionArgColumn:
 		return ErrCannotEvalWithColumnName
 	case xxast.FunctionArgConstant:
-		sb.WriteString(arg.String())
+		_ = arg.Restore(sb, nil)
 	case xxast.FunctionArgExpression:
 		pn := arg.Value().(*xxast.PredicateExpressionNode).P
 		switch p := pn.(type) {

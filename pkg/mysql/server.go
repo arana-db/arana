@@ -36,7 +36,9 @@ import (
 import (
 	"github.com/dubbogo/parser"
 	_ "github.com/dubbogo/parser/test_driver"
+
 	err2 "github.com/pkg/errors"
+
 	"go.uber.org/atomic"
 )
 

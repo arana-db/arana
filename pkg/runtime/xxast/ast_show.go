@@ -22,12 +22,24 @@ import (
 	"strings"
 )
 
+import (
+	"github.com/pkg/errors"
+)
+
 var (
 	_ Statement = (*ShowTables)(nil)
 	_ Statement = (*ShowCreate)(nil)
 	_ Statement = (*ShowDatabases)(nil)
 	_ Statement = (*ShowColumns)(nil)
 	_ Statement = (*ShowIndex)(nil)
+)
+
+var (
+	_ Restorer = (*ShowTables)(nil)
+	_ Restorer = (*ShowCreate)(nil)
+	_ Restorer = (*ShowDatabases)(nil)
+	_ Restorer = (*ShowColumns)(nil)
+	_ Restorer = (*ShowIndex)(nil)
 )
 
 type baseShow struct {
@@ -43,10 +55,6 @@ func (bs *baseShow) Where() (ExpressionNode, bool) {
 	return v, ok
 }
 
-func (bs *baseShow) CntParams() int {
-	return 0
-}
-
 func (bs *baseShow) GetSQLType() SQLType {
 	return Squery
 }
@@ -55,12 +63,22 @@ type ShowDatabases struct {
 	*baseShow
 }
 
+func (s ShowDatabases) Restore(sb *strings.Builder, args *[]int) error {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (s ShowDatabases) Validate() error {
 	return nil
 }
 
 type ShowTables struct {
 	*baseShow
+}
+
+func (s ShowTables) Restore(sb *strings.Builder, args *[]int) error {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (s ShowTables) Validate() error {
@@ -103,6 +121,11 @@ type ShowCreate struct {
 	tgt string
 }
 
+func (s *ShowCreate) Restore(sb *strings.Builder, args *[]int) error {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (s *ShowCreate) Validate() error {
 	return nil
 }
@@ -113,10 +136,6 @@ func (s *ShowCreate) GetShowCreateType() ShowCreateType {
 
 func (s *ShowCreate) Target() string {
 	return s.tgt
-}
-
-func (s *ShowCreate) CntParams() int {
-	return 0
 }
 
 func (s *ShowCreate) GetSQLType() SQLType {
@@ -155,8 +174,7 @@ func (s *ShowIndex) Validate() error {
 	return nil
 }
 
-func (s *ShowIndex) String() string {
-	var sb strings.Builder
+func (s *ShowIndex) Restore(sb *strings.Builder, args *[]int) error {
 	sb.WriteString("SHOW")
 	sb.WriteByte(' ')
 	sb.WriteString(s.typ.String())
@@ -166,10 +184,12 @@ func (s *ShowIndex) String() string {
 
 	if where, ok := s.Where(); ok {
 		sb.WriteString(" WHERE ")
-		sb.WriteString(where.String())
+		if err := where.Restore(sb, args); err != nil {
+			return errors.WithStack(err)
+		}
 	}
 
-	return sb.String()
+	return nil
 }
 
 func (s *ShowIndex) GetType() ShowIndexType {
@@ -185,13 +205,6 @@ func (s *ShowIndex) Where() (ExpressionNode, bool) {
 		return s.where, true
 	}
 	return nil, false
-}
-
-func (s *ShowIndex) CntParams() int {
-	if s.where == nil {
-		return 0
-	}
-	return s.where.CntParams()
 }
 
 func (s *ShowIndex) GetSQLType() SQLType {
@@ -211,16 +224,17 @@ type ShowColumns struct {
 	tableName TableName
 }
 
+func (sh *ShowColumns) Restore(sb *strings.Builder, args *[]int) error {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (sh *ShowColumns) Validate() error {
 	return nil
 }
 
 func (sh *ShowColumns) Table() TableName {
 	return sh.tableName
-}
-
-func (sh *ShowColumns) CntParams() int {
-	return 0
 }
 
 func (sh *ShowColumns) GetSQLType() SQLType {
