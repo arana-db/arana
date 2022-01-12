@@ -56,9 +56,8 @@ var (
 )
 
 type ExpressionAtom interface {
-	fmt.Stringer
-	paramsCounter
 	inTablesChecker
+	Restorer
 	Mode() ExpressionAtomMode
 }
 
@@ -79,12 +78,12 @@ func (u *UnaryExpressionAtom) IsOperatorNot() bool {
 	return false
 }
 
-func (u *UnaryExpressionAtom) String() string {
-	return u.Operator + u.Inner.String()
-}
-
-func (u *UnaryExpressionAtom) CntParams() int {
-	return u.Inner.CntParams()
+func (u *UnaryExpressionAtom) Restore(sb *strings.Builder, args *[]int) error {
+	sb.WriteString(u.Operator)
+	if err := u.Inner.Restore(sb, args); err != nil {
+		return errors.WithStack(err)
+	}
+	return nil
 }
 
 func (u *UnaryExpressionAtom) Mode() ExpressionAtomMode {
@@ -95,8 +94,179 @@ type ConstantExpressionAtom struct {
 	Inner interface{}
 }
 
+func (c *ConstantExpressionAtom) String() string {
+	return constant2string(c.Inner)
+}
+
 func (c *ConstantExpressionAtom) InTables(_ map[string]struct{}) error {
 	return nil
+}
+
+func (c ConstantExpressionAtom) Restore(sb *strings.Builder, args *[]int) error {
+	sb.WriteString(constant2string(c.Inner))
+	return nil
+}
+
+func (c *ConstantExpressionAtom) Value() interface{} {
+	return c.Inner
+}
+
+func (c *ConstantExpressionAtom) Mode() ExpressionAtomMode {
+	return EamConst
+}
+
+func (c *ConstantExpressionAtom) CntParams() int {
+	return 0
+}
+
+type ColumnNameExpressionAtom []string
+
+func (c ColumnNameExpressionAtom) InTables(tables map[string]struct{}) error {
+	if len(c) == 1 {
+		return nil
+	}
+	if _, ok := tables[c.Prefix()]; ok {
+		return nil
+	}
+	return errors.Errorf("unknown column '%s'", strings.Join(c, "."))
+}
+
+func (c ColumnNameExpressionAtom) Prefix() string {
+	if len(c) > 1 {
+		return c[0]
+	}
+	return ""
+}
+
+func (c ColumnNameExpressionAtom) Suffix() string {
+	return c[len(c)-1]
+}
+
+func (c ColumnNameExpressionAtom) Restore(sb *strings.Builder, args *[]int) error {
+	misc.Wrap(sb, '`', c[0])
+	for i := 1; i < len(c); i++ {
+		sb.WriteByte('.')
+		misc.Wrap(sb, '`', c[i])
+	}
+	return nil
+}
+
+func (c ColumnNameExpressionAtom) CntParams() int {
+	return 0
+}
+
+func (c ColumnNameExpressionAtom) Mode() ExpressionAtomMode {
+	return EamCol
+}
+
+type VariableExpressionAtom int
+
+func (v VariableExpressionAtom) InTables(_ map[string]struct{}) error {
+	return nil
+}
+
+func (v VariableExpressionAtom) Restore(sb *strings.Builder, args *[]int) error {
+	sb.WriteByte('?')
+	*args = append(*args, v.N())
+	return nil
+}
+
+func (v VariableExpressionAtom) N() int {
+	return int(v)
+}
+
+func (v VariableExpressionAtom) CntParams() int {
+	return 1
+}
+
+func (v VariableExpressionAtom) Mode() ExpressionAtomMode {
+	return EamVar
+}
+
+type MathExpressionAtom struct {
+	Left     ExpressionAtom
+	Operator string
+	Right    ExpressionAtom
+}
+
+func (m *MathExpressionAtom) InTables(tables map[string]struct{}) error {
+	if err := m.Left.InTables(tables); err != nil {
+		return err
+	}
+	if err := m.Right.InTables(tables); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *MathExpressionAtom) Restore(sb *strings.Builder, args *[]int) error {
+	if err := m.Left.Restore(sb, args); err != nil {
+		return errors.WithStack(err)
+	}
+	misc.Wrap(sb, ' ', m.Operator)
+
+	if err := m.Right.Restore(sb, args); err != nil {
+		return errors.WithStack(err)
+	}
+
+	return nil
+}
+
+func (m *MathExpressionAtom) Mode() ExpressionAtomMode {
+	return EamMath
+}
+
+type NestedExpressionAtom struct {
+	First ExpressionNode
+}
+
+func (n *NestedExpressionAtom) InTables(tables map[string]struct{}) error {
+	return n.First.InTables(tables)
+}
+
+func (n *NestedExpressionAtom) Restore(sb *strings.Builder, args *[]int) error {
+	sb.WriteByte('(')
+
+	if err := n.First.Restore(sb, args); err != nil {
+		return errors.WithStack(err)
+	}
+
+	sb.WriteByte(')')
+
+	return nil
+}
+
+func (n *NestedExpressionAtom) Mode() ExpressionAtomMode {
+	return EamNested
+}
+
+type FunctionCallExpressionAtom struct {
+	F interface{} // *Function OR *AggrFunction OR *CaseWhenElseFunction OR *CastFunction
+}
+
+func (f *FunctionCallExpressionAtom) InTables(tables map[string]struct{}) error {
+	if c, ok := f.F.(inTablesChecker); ok {
+		if err := c.InTables(tables); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (f *FunctionCallExpressionAtom) Restore(sb *strings.Builder, args *[]int) error {
+	switch v := f.F.(type) {
+	case Restorer:
+		if err := v.Restore(sb, args); err != nil {
+			return errors.WithStack(err)
+		}
+		return nil
+	default:
+		panic("unreachable")
+	}
+}
+
+func (f *FunctionCallExpressionAtom) Mode() ExpressionAtomMode {
+	return EamFunc
 }
 
 func constant2string(value interface{}) string {
@@ -143,200 +313,4 @@ func constant2string(value interface{}) string {
 	default:
 		panic(fmt.Sprintf("todo: render %T to string!", v))
 	}
-}
-
-func (c *ConstantExpressionAtom) String() string {
-	return constant2string(c.Inner)
-}
-
-func (c *ConstantExpressionAtom) Value() interface{} {
-	return c.Inner
-}
-
-func (c *ConstantExpressionAtom) Mode() ExpressionAtomMode {
-	return EamConst
-}
-
-func (c *ConstantExpressionAtom) CntParams() int {
-	return 0
-}
-
-type ColumnNameExpressionAtom []string
-
-func (c ColumnNameExpressionAtom) InTables(tables map[string]struct{}) error {
-	if len(c) == 1 {
-		return nil
-	}
-	if _, ok := tables[c.Prefix()]; ok {
-		return nil
-	}
-	return errors.Errorf("unknown column '%s'", c.String())
-}
-
-func (c ColumnNameExpressionAtom) Prefix() string {
-	if len(c) > 1 {
-		return c[0]
-	}
-	return ""
-}
-
-func (c ColumnNameExpressionAtom) Suffix() string {
-	return c[len(c)-1]
-}
-
-func (c ColumnNameExpressionAtom) String() string {
-	var sb strings.Builder
-	sb.WriteByte('`')
-	sb.WriteString(c[0])
-	sb.WriteByte('`')
-
-	for i := 1; i < len(c); i++ {
-		sb.WriteByte('.')
-		sb.WriteByte('`')
-		sb.WriteString(c[i])
-		sb.WriteByte('`')
-	}
-
-	return sb.String()
-}
-
-func (c ColumnNameExpressionAtom) CntParams() int {
-	return 0
-}
-
-func (c ColumnNameExpressionAtom) Mode() ExpressionAtomMode {
-	return EamCol
-}
-
-type VariableExpressionAtom int
-
-func (v VariableExpressionAtom) InTables(_ map[string]struct{}) error {
-	return nil
-}
-
-func (v VariableExpressionAtom) String() string {
-	var sb strings.Builder
-	sb.WriteString("#{")
-	sb.WriteString(strconv.FormatInt(int64(v.N()), 10))
-	sb.WriteByte('}')
-	return sb.String()
-}
-
-func (v VariableExpressionAtom) N() int {
-	return int(v)
-}
-
-func (v VariableExpressionAtom) CntParams() int {
-	return 1
-}
-
-func (v VariableExpressionAtom) Mode() ExpressionAtomMode {
-	return EamVar
-}
-
-type MathExpressionAtom struct {
-	Left     ExpressionAtom
-	Operator string
-	Right    ExpressionAtom
-}
-
-func (m *MathExpressionAtom) InTables(tables map[string]struct{}) error {
-	if err := m.Left.InTables(tables); err != nil {
-		return err
-	}
-	if err := m.Right.InTables(tables); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (m *MathExpressionAtom) String() string {
-	var sb strings.Builder
-	sb.WriteString(m.Left.String())
-	sb.WriteByte(' ')
-	sb.WriteString(m.Operator)
-	sb.WriteByte(' ')
-	sb.WriteString(m.Right.String())
-	return sb.String()
-}
-
-func (m *MathExpressionAtom) CntParams() int {
-	return m.Left.CntParams() + m.Right.CntParams()
-}
-
-func (m *MathExpressionAtom) Mode() ExpressionAtomMode {
-	return EamMath
-}
-
-type NestedExpressionAtom struct {
-	First ExpressionNode
-}
-
-func (n *NestedExpressionAtom) InTables(tables map[string]struct{}) error {
-	return n.First.InTables(tables)
-}
-
-func (n *NestedExpressionAtom) String() string {
-	var sb strings.Builder
-
-	sb.WriteByte('(')
-	sb.WriteString(n.First.String())
-	sb.WriteByte(')')
-
-	return sb.String()
-}
-
-func (n *NestedExpressionAtom) CntParams() (ret int) {
-	return n.First.CntParams()
-}
-
-func (n *NestedExpressionAtom) Mode() ExpressionAtomMode {
-	return EamNested
-}
-
-type FunctionCallExpressionAtom struct {
-	F interface{} // *Function OR *AggrFunction OR *CaseWhenElseFunction OR *CastFunction
-}
-
-func (f *FunctionCallExpressionAtom) InTables(tables map[string]struct{}) error {
-	if c, ok := f.F.(inTablesChecker); ok {
-		if err := c.InTables(tables); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (f *FunctionCallExpressionAtom) String() string {
-	switch v := f.F.(type) {
-	case *Function:
-		return v.String()
-	case *AggrFunction:
-		return v.String()
-	case *CaseWhenElseFunction:
-		return v.String()
-	case *CastFunction:
-		return v.String()
-	default:
-		panic("unreachable")
-	}
-}
-
-func (f *FunctionCallExpressionAtom) CntParams() int {
-	switch v := f.F.(type) {
-	case *Function:
-		return v.CntParams()
-	case *AggrFunction:
-		return 0
-	case *CastFunction:
-		return v.CntParams()
-	case *CaseWhenElseFunction:
-		return v.CntParams()
-	default:
-		panic("unreachable")
-	}
-}
-
-func (f *FunctionCallExpressionAtom) Mode() ExpressionAtomMode {
-	return EamFunc
 }

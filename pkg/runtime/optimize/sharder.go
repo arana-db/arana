@@ -19,6 +19,7 @@
 package optimize
 
 import (
+	stdErrors "errors"
 	"fmt"
 	"strings"
 )
@@ -36,6 +37,15 @@ import (
 	rrule "github.com/dubbogo/arana/pkg/runtime/rule"
 	"github.com/dubbogo/arana/pkg/runtime/xxast"
 )
+
+var (
+	errArgumentOutOfRange = stdErrors.New("argument is out of bounds")
+)
+
+// IsErrArgumentOutOfRange returns true if target error is caused by argument out of range.
+func IsErrArgumentOutOfRange(err error) bool {
+	return errors.Is(err, errArgumentOutOfRange)
+}
 
 // Sharder computes the shards from a SQL statement.
 type Sharder rule.Rule
@@ -122,12 +132,10 @@ func (sh *Sharder) processLogicalExpression(sc *shardCtx, n *xxast.LogicalExpres
 	}
 
 	switch n.Op {
-	case logical.Land:
-		return left.And(right), nil
 	case logical.Lor:
 		return left.Or(right), nil
 	default:
-		panic("unreachable")
+		return left.And(right), nil
 	}
 }
 
@@ -404,9 +412,14 @@ type shardCtx struct {
 	keys      []string
 }
 
-func (sc *shardCtx) arg(i int) (interface{}, error) {
+func (sc shardCtx) arg(i int) (interface{}, error) {
 	if i < 0 || i >= len(sc.args) {
-		return nil, errors.New("arg i is out of range")
+		switch len(sc.args) {
+		case 1:
+			return nil, errors.Wrapf(errArgumentOutOfRange, "failed to get the #%d one from 1 argument", i)
+		default:
+			return nil, errors.Wrapf(errArgumentOutOfRange, "failed to get the #%d one from %d arguments", i, len(sc.args))
+		}
 	}
 	return sc.args[i], nil
 }

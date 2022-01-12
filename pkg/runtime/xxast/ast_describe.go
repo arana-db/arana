@@ -118,10 +118,6 @@ func (e *ExplainStatement) Target() Statement {
 	return e.tgt
 }
 
-func (e *ExplainStatement) CntParams() int {
-	return e.tgt.CntParams()
-}
-
 func (e *ExplainStatement) GetSQLType() SQLType {
 	return Squery
 }

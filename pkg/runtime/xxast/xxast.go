@@ -28,7 +28,6 @@ import (
 	"github.com/dubbogo/parser/ast"
 	"github.com/dubbogo/parser/opcode"
 	"github.com/dubbogo/parser/test_driver"
-	_ "github.com/dubbogo/parser/test_driver"
 
 	"github.com/pkg/errors"
 )
@@ -79,21 +78,10 @@ func WithCollation(collation string) ParseOption {
 	}
 }
 
-// Parse parses the SQL string to Statement.
-func Parse(sql string, options ...ParseOption) (Statement, error) {
-	var o parseOption
-	for _, it := range options {
-		it(&o)
-	}
-
-	p := parser.New()
-	s, err := p.ParseOneStmt(sql, o.charset, o.collation)
-	if err != nil {
-		return nil, errors.Wrap(err, "parse sql ast failed")
-	}
-
+// FromStmtNode converts raw ast node to Statement.
+func FromStmtNode(node ast.StmtNode) (Statement, error) {
 	var cc convCtx
-	switch stmt := s.(type) {
+	switch stmt := node.(type) {
 	case *ast.SelectStmt:
 		var (
 			nSelect = cc.convFieldList(stmt.Fields)
@@ -112,6 +100,22 @@ func Parse(sql string, options ...ParseOption) (Statement, error) {
 	}
 	// TODO: other sql statement
 	return nil, nil
+}
+
+// Parse parses the SQL string to Statement.
+func Parse(sql string, options ...ParseOption) (Statement, error) {
+	var o parseOption
+	for _, it := range options {
+		it(&o)
+	}
+
+	p := parser.New()
+	s, err := p.ParseOneStmt(sql, o.charset, o.collation)
+	if err != nil {
+		return nil, errors.Wrap(err, "parse sql ast failed")
+	}
+
+	return FromStmtNode(s)
 }
 
 // MustParse parses the SQL string to Statement, panic if failed.

@@ -25,8 +25,7 @@ const (
 )
 
 var (
-	_ Statement     = (*UnionSelectStatement)(nil)
-	_ paramsCounter = (*UnionSelectStatement)(nil)
+	_ Statement = (*UnionSelectStatement)(nil)
 )
 
 type UnionType uint8
@@ -59,17 +58,6 @@ func (u *UnionSelectStatement) Validate() error {
 	}
 
 	return nil
-}
-
-func (u *UnionSelectStatement) CntParams() int {
-	var cnt int
-
-	cnt += u.first.CntParams()
-	for _, it := range u.others {
-		cnt += it.ss.CntParams()
-	}
-
-	return cnt
 }
 
 func (u *UnionSelectStatement) GetSQLType() SQLType {

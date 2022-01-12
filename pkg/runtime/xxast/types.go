@@ -49,16 +49,10 @@ func (s SQLType) String() string {
 
 // Statement represents the SQL statement.
 type Statement interface {
-	paramsCounter
 	// Validate validates the current Statement.
 	Validate() error
 	// GetSQLType returns the SQLType of current Statement.
 	GetSQLType() SQLType
-}
-
-type paramsCounter interface {
-	// CntParams returns the amount of params.
-	CntParams() int
 }
 
 type inTablesChecker interface {
