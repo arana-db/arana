@@ -2,15 +2,32 @@
 [![LICENSE](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/dubbogo/arana/blob/master/LICENSE)
 
 ## 简介
-你好, db.
+
+Arana 是一个数据库代理。部署方式灵活，可以通过 sidecar 部署，也可以单独部署。
 
 ## 架构
 
 ## 功能
 
+| 特性 | 完成情况 |
+| -- | -- |
+| 单库代理 | √ |
+| 读写分离 | × |
+| sql 执行追踪 | × |
+| sql 执行指标 | × |
+| sql 审计 | × |
+| 分库分表 | × |
+| 多租户 | × |
+
 ## 启动方法
 
+```
+arana start -c ${configFilePath}
+```
+
 ### 前提条件
+
++ MySQL server 5.7+
 
 ## 设计与实现
 
