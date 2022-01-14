@@ -39,6 +39,6 @@ func (srv *Server) AddListener(listener proto.Listener) {
 
 func (srv *Server) Start() {
 	for _, l := range srv.listeners {
-		l.Listen()
+		go l.Listen()
 	}
 }

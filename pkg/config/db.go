@@ -45,8 +45,8 @@ type (
 		Conf           json.RawMessage `yaml:"conf" json:"conf"`
 		Capacity       int             `yaml:"capacity" json:"capacity"`         // connection pool capacity
 		MaxCapacity    int             `yaml:"max_capacity" json:"max_capacity"` // max connection pool capacity
-		IdleTimeout    time.Duration   `yaml:"idle_timeout" json:"_"`            // close backend direct connection after idle_timeout
-		IdleTimeoutStr string          `yaml:"_" json:"idle_timeout"`
+		IdleTimeout    time.Duration   `yaml:"idle_timeout" json:"-"`            // close backend direct connection after idle_timeout
+		IdleTimeoutStr string          `yaml:"-" json:"idle_timeout"`
 	}
 )
 
