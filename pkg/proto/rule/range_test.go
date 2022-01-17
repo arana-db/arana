@@ -20,11 +20,30 @@ package rule
 
 import (
 	"testing"
+	"time"
 )
 
 import (
 	"github.com/stretchr/testify/assert"
 )
+
+func TestStepper_Date_After(t *testing.T) {
+	hourSt := Stepper{
+		N: 2,
+		U: Uhour,
+	}
+	daySt := Stepper{
+		N: 2,
+		U: Uday,
+	}
+	testTime := time.Date(2021, 1, 17, 17, 45, 04, 0, time.UTC)
+	hour, err := hourSt.After(testTime)
+	assert.NoError(t, err)
+	assert.Equal(t, 19, hour.(time.Time).Hour())
+	day, err := daySt.After(testTime)
+	assert.NoError(t, err)
+	assert.Equal(t, 19, day.(time.Time).Day())
+}
 
 func TestStepper_After(t *testing.T) {
 	st := Stepper{

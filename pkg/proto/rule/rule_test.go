@@ -110,4 +110,7 @@ func TestRule(t *testing.T) {
 	assert.True(t, ok)
 
 	t.Logf("shard result: %s.%s\n", db, tbl)
+
+	_, _, noDataErr := vtab.Shard("name", 42)
+	assert.Error(t, noDataErr)
 }
