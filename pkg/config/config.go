@@ -148,6 +148,25 @@ func parse(path string) *Configuration {
 	return cfg
 }
 
+func parseV2(path string) *ConfigMap {
+	log.Infof("load config from :  %s", path)
+	content, err := ioutil.ReadFile(path)
+	if err != nil {
+		log.Fatalf("[config] [default load] load config failed, error: %v", err)
+	}
+	cfg := &ConfigMap{}
+	if yamlFormat(path) {
+		err = yaml.Unmarshal(content, cfg)
+	} else {
+		err = errors.Errorf("[config] [default load] unsupport config file format")
+	}
+	if err != nil {
+		log.Fatalf("[config] [default load] json unmarshal config failed, error: %v", err)
+	}
+
+	return cfg
+}
+
 func yamlFormat(path string) bool {
 	ext := filepath.Ext(path)
 	if ext == ".yaml" || ext == ".yml" {
@@ -157,8 +176,16 @@ func yamlFormat(path string) bool {
 }
 
 // Load config file and parse
+// todo been deleted
 func Load(path string) *Configuration {
 	configPath, _ := filepath.Abs(path)
 	cfg := parse(configPath)
+	return cfg
+}
+
+// todo been renamed function name to Load
+func LoadV2(path string) *ConfigMap {
+	configPath, _ := filepath.Abs(path)
+	cfg := parseV2(configPath)
 	return cfg
 }

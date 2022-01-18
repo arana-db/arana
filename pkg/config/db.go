@@ -48,6 +48,98 @@ type (
 		IdleTimeout    time.Duration   `yaml:"idle_timeout" json:"_"`            // close backend direct connection after idle_timeout
 		IdleTimeoutStr string          `yaml:"_" json:"idle_timeout"`
 	}
+
+	ConfigMap struct {
+		TypeMeta
+		Metadata *ObjectMeta `yaml:"metadata" json:"metadata"`
+		Data     *ConfigData `validate:"required" yaml:"data" json:"data"`
+	}
+
+	TypeMeta struct {
+		Kind       string `yaml:"kind" json:"kind,omitempty"`
+		APIVersion string ` yaml:"apiVersion" json:"apiVersion,omitempty"`
+	}
+
+	ObjectMeta struct {
+		Name string `json:"name,omitempty" yaml:"apiVersion,omitempty"`
+	}
+
+	ConfigData struct {
+		// todo add Listeners and Executors config
+		// Listeners          []*Listener          `validate:"required" yaml:"listeners" json:"listeners"`
+		// Executors          []*Executor          `validate:"required" yaml:"executors" json:"executors"`
+		Filters            []string             `yaml:"filters" json:"filters"`
+		DataSourceClusters []*DataSourceCluster `validate:"required" yaml:"dataSourceClusters" json:"dataSourceClusters"`
+		ShardingRule       *ShardingRule        `yaml:"shardingRule,omitempty" json:"shardingRule,omitempty"`
+	}
+
+	DataSourceCluster struct {
+		Name        string         `yaml:"name" json:"name"`
+		Type        DataSourceType `yaml:"type" json:"type"`
+		SqlMaxLimit int            `default:"-1" yaml:"sqlMaxLimit" json:"sqlMaxLimit,omitempty"`
+		Tenant      string         `yaml:"tenant" json:"tenant"`
+		ConnProps   *ConnProp      `yaml:"connProps" json:"connProps,omitempty"`
+		Groups      []*Group       `yaml:"groups" json:"groups"`
+	}
+
+	ConnProp struct {
+		Capacity    int `yaml:"capacity" json:"capacity,omitempty"`       // connection pool capacity
+		MaxCapacity int `yaml:"maxCapacity" json:"maxCapacity,omitempty"` // max connection pool capacity
+		IdleTimeout int `yaml:"idleTimeout" json:"idleTimeout,omitempty"` // close backend direct connection after idle_timeout
+	}
+
+	Group struct {
+		Name    string `yaml:"name" json:"name"`
+		AtomDbs []*Dsn `yaml:"atomDbs" json:"atomDbs"`
+	}
+
+	Dsn struct {
+		Host     string         `yaml:"host" json:"host"`
+		Port     int            `yaml:"port" json:"port"`
+		Username string         `yaml:"username" json:"username"`
+		Password string         `yaml:"password" json:"password"`
+		Database string         `yaml:"database" json:"database"`
+		DsnProps *DsnConnProp   `yaml:"connProps" json:"connProps,omitempty"`
+		Role     DataSourceRole `yaml:"role" json:"role"`
+		Weight   string         `default:"r10w10" yaml:"weight" json:"weight"`
+	}
+
+	DsnConnProp struct {
+		ReadTimeout  string `yaml:"readTimeout" json:"readTimeout,omitempty"`
+		WriteTimeout string `yaml:"writeTimeout" json:"writeTimeout,omitempty"`
+		ParseTime    bool   `default:"true" yaml:"parseTime,omitempty" json:"parseTime,omitempty"`
+		Loc          string `yaml:"loc" json:"loc,omitempty"`
+		Charset      string `yaml:"charset" json:"charset,omitempty"`
+	}
+
+	ShardingRule struct {
+		Tables []*Table `yaml:"tables" json:"tables"`
+	}
+
+	Table struct {
+		Name            string    `yaml:"name" json:"name"`
+		AllowFullScan   bool      `yaml:"allowFullScan" json:"allowFullScan,omitempty"`
+		ActualDataNodes []string  `yaml:"actualDataNodes" json:"actualDataNodes"`
+		DbRules         []*Rule   `yaml:"dbRules" json:"dbRules"`
+		TblRules        []*Rule   `yaml:"tblRules" json:"tblRules"`
+		TblProps        *TblProps `yaml:"otherProps" json:"otherProps,omitempty"`
+		Topology        *Topology `yaml:"topology" json:"topology"`
+		ShadowTopology  *Topology `yaml:"shadowTopology" json:"shadowTopology"`
+	}
+
+	Rule struct {
+		Column string `yaml:"column" json:"column"`
+		Expr   string `yaml:"expr" json:"expr"`
+	}
+
+	TblProps struct {
+		SqlMaxLimit int `default:"-1" yaml:"sqlMaxLimit" json:"sqlMaxLimit"` // connection pool capacity
+	}
+
+	Topology struct {
+		DbPattern  string `yaml:"dbPattern" json:"dbPattern"`
+		TblPattern string `yaml:"tblPattern" json:"tblPattern"`
+	}
 )
 
 const (
