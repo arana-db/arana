@@ -5,7 +5,7 @@
 
 ## Introduction | [中文](https://github.com/dubbogo/arana/blob/master/docs/README_ZH.md)
 
-Arana is a db proxy. It can be deployed as a sidecar, also can be deployed standalone.
+Arana is a db proxy. It can be deployed as a sidecar.
 
 ## Architecture
 
