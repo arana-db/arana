@@ -104,10 +104,6 @@ func (m *mockConn) SetWriteDeadline(t time.Time) error {
 	return nil
 }
 
-func (m *mockConn) GetWritten() []byte {
-	return m.written
-}
-
 func TestComQuit(t *testing.T) {
 	c := newConn(new(mockConn))
 	assert.False(t, c.IsClosed())
