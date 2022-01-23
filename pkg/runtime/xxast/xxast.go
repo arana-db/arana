@@ -97,6 +97,18 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 			Where:       nWhere,
 			Limit:       nLimit,
 		}, nil
+	case *ast.DeleteStmt:
+		var (
+			//TODO Now only support single table delete clause, need to fill flag OrderBy field
+			nTable = convFrom(stmt.TableRefs)[0].source.(TableName)[0]
+			nWhere = toExpressionNode(cc.convExpr(stmt.Where))
+			nLimit = cc.convLimit(stmt.Limit)
+		)
+		return &DeleteStatement{
+			Table: TableName{nTable},
+			Where: nWhere,
+			Limit: nLimit,
+		}, nil
 	}
 	// TODO: other sql statement
 	return nil, nil
