@@ -109,9 +109,28 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 			Where: nWhere,
 			Limit: nLimit,
 		}, nil
+	case *ast.InsertStmt:
+		var (
+			nTable   = convFrom(stmt.Table)[0].source.(TableName)[0]
+			nColumns = convInsertColumns(stmt.Columns)
+		)
+
+		return &InsertStatement{
+			baseInsertStatement: &baseInsertStatement{
+				table:   TableName{nTable},
+				columns: nColumns,
+			},
+		}, nil
 	}
-	// TODO: other sql statement
 	return nil, nil
+}
+
+func convInsertColumns(columnNames []*ast.ColumnName) []string {
+	var result = make([]string, len(columnNames))
+	for _, cn := range columnNames {
+		result = append(result, cn.Name.O)
+	}
+	return result
 }
 
 // Parse parses the SQL string to Statement.
