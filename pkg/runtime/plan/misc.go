@@ -21,6 +21,8 @@ package plan
 import (
 	"fmt"
 	"strings"
+
+	"github.com/dubbogo/arana/pkg/proto"
 )
 
 import (
@@ -31,6 +33,26 @@ import (
 	"github.com/dubbogo/arana/pkg/runtime/misc"
 	"github.com/dubbogo/arana/pkg/runtime/xxast"
 )
+
+type queryResult struct {
+	proto.Rows
+}
+
+func (q queryResult) LastInsertId() (uint64, error) {
+	return 0, errors.New("unsupported operation")
+}
+
+func (q queryResult) RowsAffected() (uint64, error) {
+	return 0, errors.New("unsupported operation")
+}
+
+type execResult struct {
+	proto.Result
+}
+
+func (e execResult) Next() proto.Row {
+	return nil
+}
 
 func generateSelect(table string, stmt *xxast.SelectStatement, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("SELECT ")
