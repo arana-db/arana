@@ -1,6 +1,8 @@
 # arana
 [![LICENSE](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/dubbogo/arana/blob/master/LICENSE)
 
+![](./docs/pics/arana-logo.png)
+
 ## 简介
 
 Arana 是一个数据库代理。可以通过 sidecar 方式部署。
