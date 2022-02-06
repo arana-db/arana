@@ -21,8 +21,6 @@ package plan
 import (
 	"fmt"
 	"strings"
-
-	"github.com/dubbogo/arana/pkg/proto"
 )
 
 import (
@@ -30,6 +28,7 @@ import (
 )
 
 import (
+	"github.com/dubbogo/arana/pkg/proto"
 	"github.com/dubbogo/arana/pkg/runtime/misc"
 	"github.com/dubbogo/arana/pkg/runtime/xxast"
 )
