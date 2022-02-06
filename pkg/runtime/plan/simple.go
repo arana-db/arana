@@ -32,6 +32,8 @@ import (
 	"github.com/dubbogo/arana/pkg/runtime/xxast"
 )
 
+var _ proto.Plan = (*SimpleQueryPlan)(nil)
+
 type SimpleQueryPlan struct {
 	Database string
 	Tables   []string
@@ -39,7 +41,11 @@ type SimpleQueryPlan struct {
 	Args     []interface{}
 }
 
-func (s *SimpleQueryPlan) Query(ctx context.Context, conn proto.VConn) (proto.Rows, error) {
+func (s *SimpleQueryPlan) Type() proto.PlanType {
+	return proto.PlanTypeQuery
+}
+
+func (s *SimpleQueryPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.MixinResult, error) {
 	var (
 		sb         strings.Builder
 		argIndexes []int
@@ -51,7 +57,11 @@ func (s *SimpleQueryPlan) Query(ctx context.Context, conn proto.VConn) (proto.Ro
 	}
 
 	if len(argIndexes) < 1 {
-		return conn.Query(ctx, s.Database, sb.String())
+		var rows proto.Rows
+		if rows, err = conn.Query(ctx, s.Database, sb.String()); err != nil {
+			return nil, errors.WithStack(err)
+		}
+		return queryResult{rows}, nil
 	}
 
 	args := make([]interface{}, 0, len(argIndexes))
@@ -59,7 +69,11 @@ func (s *SimpleQueryPlan) Query(ctx context.Context, conn proto.VConn) (proto.Ro
 		args = append(args, s.Args[idx])
 	}
 
-	return conn.Query(ctx, s.Database, sb.String(), args...)
+	var rows proto.Rows
+	if rows, err = conn.Query(ctx, s.Database, sb.String(), args...); err != nil {
+		return nil, errors.WithStack(err)
+	}
+	return queryResult{rows}, nil
 }
 
 func (s *SimpleQueryPlan) generate(sb *strings.Builder, args *[]int) (err error) {

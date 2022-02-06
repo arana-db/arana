@@ -27,10 +27,14 @@ import (
 )
 
 type UnionPlan struct {
-	Plans []proto.QueryPlan
+	Plans []proto.Plan
 }
 
-func (u UnionPlan) Query(ctx context.Context, conn proto.VConn) (proto.Rows, error) {
+func (u UnionPlan) Type() proto.PlanType {
+	return proto.PlanTypeQuery
+}
+
+func (u UnionPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.MixinResult, error) {
 	//TODO lazy union result sets
 	panic("implement me")
 }
