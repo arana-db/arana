@@ -27,6 +27,10 @@ import (
 
 import (
 	"github.com/dubbogo/arana/pkg/constants/mysql"
+	errors2 "github.com/dubbogo/arana/pkg/mysql/errors"
+)
+
+import (
 	"github.com/stretchr/testify/assert"
 )
 
@@ -62,7 +66,6 @@ func (m *mockConn) Read(b []byte) (n int, err error) {
 
 	n = copy(b, m.data)
 	m.read += n
-	m.data = m.data[n:]
 	return
 }
 func (m *mockConn) Write(b []byte) (n int, err error) {
@@ -112,4 +115,94 @@ func TestComQuit(t *testing.T) {
 	assert.Equal(t, mysql.ComQuit, int(c.conn.(*mockConn).written[4]))
 	c.Close()
 	assert.True(t, c.IsClosed())
+}
+
+func TestParseErrorPacket(t *testing.T) {
+	response := make([]byte, 10)
+	response[0] = mysql.ErrPacket
+	response[1] = 400 & 0xff
+	response[2] = 400 >> 8
+	response[3] = 35
+	err := ParseErrorPacket(response)
+	assert.Equal(t, "\x00\x00\x00\x00\x00", err.(*errors2.SQLError).State)
+	assert.Equal(t, "\x00", err.(*errors2.SQLError).Message)
+}
+
+func TestWriteOKPacket(t *testing.T) {
+	c := newConn(new(mockConn))
+	assert.False(t, c.IsClosed())
+	err := c.writeOKPacket(1, 1, 0, 0)
+	assert.NoError(t, err)
+	written := c.conn.(*mockConn).written
+	assert.Equal(t, 7, int(written[0]))
+	assert.Equal(t, mysql.OKPacket, int(written[4]))
+	assert.Equal(t, 1, int(written[5]))
+	assert.Equal(t, 1, int(written[6]))
+	c.Close()
+	assert.True(t, c.IsClosed())
+}
+
+func TestWriteOKPacketWithEOFHeader(t *testing.T) {
+	c := newConn(new(mockConn))
+	assert.False(t, c.IsClosed())
+	err := c.writeOKPacketWithEOFHeader(1, 1, 0, 0)
+	assert.NoError(t, err)
+	written := c.conn.(*mockConn).written
+	assert.Equal(t, 7, int(written[0]))
+	assert.Equal(t, mysql.EOFPacket, int(written[4]))
+	assert.Equal(t, 1, int(written[5]))
+	assert.Equal(t, 1, int(written[6]))
+	c.Close()
+	assert.True(t, c.IsClosed())
+}
+
+func TestWriteEOFPacket(t *testing.T) {
+	c := newConn(new(mockConn))
+	assert.False(t, c.IsClosed())
+	err := c.writeEOFPacket(1, 1)
+	assert.NoError(t, err)
+	written := c.conn.(*mockConn).written
+	assert.Equal(t, mysql.EOFPacket, int(written[4]))
+	c.Close()
+	assert.True(t, c.IsClosed())
+}
+
+func TestWriteErrorPacket(t *testing.T) {
+	c := newConn(new(mockConn))
+	assert.False(t, c.IsClosed())
+	err2Send := errors2.NewSQLError(mysql.CRVersionError, mysql.SSUnknownSQLState, "bad protocol version: %v", 0)
+	err := c.writeErrorPacketFromError(err2Send)
+	assert.NoError(t, err)
+	written := c.conn.(*mockConn).written
+	assert.Equal(t, 9+len(err2Send.Message), int(written[0]))
+	assert.Equal(t, mysql.ErrPacket, int(written[4]))
+	code := int(written[5]) + int(written[6])<<8
+	assert.Equal(t, mysql.CRVersionError, code)
+	assert.Equal(t, mysql.SSUnknownSQLState, string(written[8:13]))
+	assert.Equal(t, err2Send.Message, string(written[13:13+len(err2Send.Message)]))
+	c.Close()
+	assert.True(t, c.IsClosed())
+}
+
+func TestParseOKPacket(t *testing.T) {
+	response := make([]byte, 7)
+	response[1] = 1
+	response[2] = 1
+	affectedRows, lastInsertID, status, warnings, err := parseOKPacket(response)
+	assert.NoError(t, err)
+	assert.Equal(t, uint64(0x1), affectedRows)
+	assert.Equal(t, uint64(0x1), lastInsertID)
+	assert.Equal(t, 0, int(status))
+	assert.Equal(t, 0, int(warnings))
+}
+
+func TestReadEphemeralPacket(t *testing.T) {
+	c := newConn(new(mockConn))
+	buf := make([]byte, 10)
+	buf[0] = 6
+	buf[4] = 1
+	c.conn.(*mockConn).data = buf
+	response, err := c.readEphemeralPacket()
+	assert.NoError(t, err)
+	assert.Equal(t, buf[4:], response)
 }

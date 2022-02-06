@@ -25,6 +25,9 @@ import (
 import (
 	"github.com/dubbogo/arana/pkg/constants/mysql"
 	"github.com/dubbogo/arana/pkg/mysql/errors"
+)
+
+import (
 	"github.com/stretchr/testify/assert"
 )
 
@@ -86,6 +89,14 @@ func TestDSNWithParam(t *testing.T) {
 
 	assert.True(t, cfg.AllowAllFiles)
 	assert.True(t, cfg.AllowCleartextPasswords)
+
+	clone := cfg.Clone()
+	assert.Equal(t, "127.0.0.1:3306", clone.Addr)
+	assert.Equal(t, "admin", clone.User)
+	assert.Equal(t, "123456", clone.Passwd)
+	assert.Equal(t, "pass", clone.DBName)
+	assert.True(t, clone.AllowAllFiles)
+	assert.True(t, clone.AllowCleartextPasswords)
 }
 
 func TestParseInitialHandshakePacket(t *testing.T) {
@@ -176,4 +187,110 @@ func TestParseInitialHandshakePacket(t *testing.T) {
 	_, authData, authName, _ := conn.parseInitialHandshakePacket(data)
 	assert.Equal(t, "A", authName)
 	assert.Equal(t, "\x00\x00\x00\x00\x00\x00\x00\x00", string(authData))
+}
+
+func TestSimpleConnAuth(t *testing.T) {
+	dsn := "admin:123456@tcp(127.0.0.1:3306)/pass?allowAllFiles=true&allowCleartextPasswords=true"
+	cfg, _ := ParseDSN(dsn)
+	conn := &BackendConnection{conf: cfg}
+	conn.c = newConn(new(mockConn))
+	data := make([]byte, 1)
+	data[0] = 65
+	plugin := "caching_sha2_password"
+	authResp, err := conn.auth(data, plugin)
+	assert.NoError(t, err)
+	assert.NotNil(t, authResp)
+}
+
+func TestWriteHandshakeResponse41(t *testing.T) {
+	dsn := "admin:123456@tcp(127.0.0.1:3306)/pass?allowAllFiles=true&allowCleartextPasswords=true"
+	cfg, _ := ParseDSN(dsn)
+	conn := &BackendConnection{conf: cfg}
+	conn.c = newConn(new(mockConn))
+	data := make([]byte, 1)
+	data[0] = 65
+	plugin := "caching_sha2_password"
+	authResp, _ := conn.auth(data, plugin)
+	assert.NotNil(t, authResp)
+	err := conn.writeHandshakeResponse41(0, authResp, plugin)
+	assert.NoError(t, err)
+	written := conn.c.conn.(*mockConn).written
+	length := int(written[0]) + (int(written[1]) << 8) + (int(written[2]) << 16)
+	assert.Equal(t, len(written)-4, length)
+	flag := 2859525
+	flagInWritten := int(written[4]) + (int(written[5]) << 8) + (int(written[6]) << 16) + (int(written[7]) << 24)
+	assert.Equal(t, flag, flagInWritten)
+	assert.Equal(t, cfg.User, string(written[36:41]))
+	assert.Equal(t, authResp, written[43:43+len(authResp)])
+	assert.Equal(t, plugin, string(written[43+len(authResp):43+len(authResp)+len(plugin)]))
+}
+
+func TestWriteComInitDB(t *testing.T) {
+	dsn := "admin:123456@tcp(127.0.0.1:3306)/pass?allowAllFiles=true&allowCleartextPasswords=true"
+	cfg, _ := ParseDSN(dsn)
+	conn := &BackendConnection{conf: cfg}
+	conn.c = newConn(new(mockConn))
+	err := conn.WriteComInitDB("demo")
+	assert.NoError(t, err)
+	written := conn.c.conn.(*mockConn).written
+	assert.Equal(t, uint8(len("demo")+1), written[0])
+	assert.Equal(t, mysql.ComInitDB, int(written[4]))
+	assert.Equal(t, "demo", string(written[5:5+len("demo")]))
+}
+
+func TestWriteComQuery(t *testing.T) {
+	dsn := "admin:123456@tcp(127.0.0.1:3306)/pass?allowAllFiles=true&allowCleartextPasswords=true"
+	cfg, _ := ParseDSN(dsn)
+	conn := &BackendConnection{conf: cfg}
+	conn.c = newConn(new(mockConn))
+	query := "SELECT 1"
+	err := conn.WriteComQuery(query)
+	assert.NoError(t, err)
+	written := conn.c.conn.(*mockConn).written
+	assert.Equal(t, uint8(len(query)+1), written[0])
+	assert.Equal(t, mysql.ComQuery, int(written[4]))
+	assert.Equal(t, query, string(written[5:5+len(query)]))
+}
+
+func TestWriteComSetOption(t *testing.T) {
+	dsn := "admin:123456@tcp(127.0.0.1:3306)/pass?allowAllFiles=true&allowCleartextPasswords=true"
+	cfg, _ := ParseDSN(dsn)
+	conn := &BackendConnection{conf: cfg}
+	conn.c = newConn(new(mockConn))
+	err := conn.WriteComSetOption(1)
+	assert.NoError(t, err)
+	written := conn.c.conn.(*mockConn).written
+	assert.Equal(t, uint8(17), written[0])
+	assert.Equal(t, mysql.ComSetOption, int(written[4]))
+}
+
+func TestWriteComFieldList(t *testing.T) {
+	dsn := "admin:123456@tcp(127.0.0.1:3306)/pass?allowAllFiles=true&allowCleartextPasswords=true"
+	cfg, _ := ParseDSN(dsn)
+	conn := &BackendConnection{conf: cfg}
+	conn.c = newConn(new(mockConn))
+	table := "demo"
+	column := "date"
+	err := conn.WriteComFieldList(table, column)
+	assert.NoError(t, err)
+	written := conn.c.conn.(*mockConn).written
+	assert.Equal(t, uint8(1+len(table)+len(column)+2), written[0])
+	assert.Equal(t, mysql.ComFieldList, int(written[4]))
+	assert.Equal(t, table, string(written[5:5+len(table)]))
+	assert.Equal(t, column, string(written[5+len(table)+1:5+len(table)+1+len(column)]))
+}
+
+func TestPrepare(t *testing.T) {
+	dsn := "admin:123456@tcp(127.0.0.1:3306)/pass?allowAllFiles=true&allowCleartextPasswords=true"
+	cfg, _ := ParseDSN(dsn)
+	conn := &BackendConnection{conf: cfg}
+	conn.c = newConn(new(mockConn))
+	buf := make([]byte, 13)
+	buf[0] = 9
+	buf[3] = 1
+	buf[4] = mysql.OKPacket
+	conn.c.conn.(*mockConn).data = buf
+	stmt, err := conn.prepare("SELECT 1")
+	assert.NoError(t, err)
+	assert.Equal(t, 0, stmt.paramCount)
 }
