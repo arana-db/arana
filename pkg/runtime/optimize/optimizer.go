@@ -44,10 +44,20 @@ var (
 	errDenyFullScan = stdErrors.New("the full-scan query is not allowed")
 )
 
+// IsNoRuleFoundErr returns true if target error is caused by NO-RULE-FOUND.
+func IsNoRuleFoundErr(err error) bool {
+	return errors.Is(err, errNoRuleFound)
+}
+
+// IsDenyFullScanErr returns true if target error is caused by DENY-FULL-SCAN.
+func IsDenyFullScanErr(err error) bool {
+	return errors.Is(err, errDenyFullScan)
+}
+
 type optimizer struct {
 }
 
-func (o optimizer) Optimize(ctx context.Context, sql string, args ...interface{}) (interface{}, error) {
+func (o optimizer) Optimize(ctx context.Context, sql string, args ...interface{}) (proto.Plan, error) {
 	stmt, err := xxast.Parse(sql)
 	if err != nil {
 		return nil, errors.Wrap(err, "optimize failed")
@@ -65,7 +75,7 @@ func (o optimizer) Optimize(ctx context.Context, sql string, args ...interface{}
 	panic("implement me")
 }
 
-func (o optimizer) optimizeSelect(ctx context.Context, stmt *xxast.SelectStatement, args []interface{}) (proto.QueryPlan, error) {
+func (o optimizer) optimizeSelect(ctx context.Context, stmt *xxast.SelectStatement, args []interface{}) (proto.Plan, error) {
 	var ru *rule.Rule
 	if ru = xxcontext.Rule(ctx); ru == nil {
 		return nil, errors.WithStack(errNoRuleFound)
@@ -93,7 +103,7 @@ func (o optimizer) optimizeSelect(ctx context.Context, stmt *xxast.SelectStateme
 		}
 	}
 
-	plans := make([]proto.QueryPlan, 0, len(shards))
+	plans := make([]proto.Plan, 0, len(shards))
 	for k, v := range shards {
 		plans = append(plans, &plan.SimpleQueryPlan{
 			Database: k,

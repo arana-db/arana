@@ -3,7 +3,7 @@
 
 ![](./docs/pics/arana-logo.png)
 
-## Introduction | [中文](https://github.com/dubbogo/arana/blob/master/docs/README_ZH.md)
+## Introduction | [中文](https://github.com/dubbogo/arana/blob/master/README_CN.md)
 
 Arana is a db proxy. It can be deployed as a sidecar.
 

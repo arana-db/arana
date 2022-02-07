@@ -28,6 +28,9 @@ import (
 import (
 	"github.com/dubbogo/arana/pkg/constants/mysql"
 	errors2 "github.com/dubbogo/arana/pkg/mysql/errors"
+)
+
+import (
 	"github.com/stretchr/testify/assert"
 )
 

@@ -57,7 +57,6 @@ func TestOptimizer_OptimizeSelect(t *testing.T) {
 
 	plan, err := opt.Optimize(xxcontext.WithRule(ctx, rule), sql, 1, 2, 3)
 	assert.NoError(t, err)
-	assert.Implements(t, (*proto.QueryPlan)(nil), plan, "should implement proto.QueryPlan")
 
-	_, _ = plan.(proto.QueryPlan).Query(ctx, conn)
+	_, _ = plan.ExecIn(ctx, conn)
 }
