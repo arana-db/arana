@@ -67,8 +67,8 @@ type (
 	}
 
 	DataSourceGroup struct {
-		Master string   `yaml:"master" json:"master"`
-		Slaves []string `yaml:"slaves,omitempty" json:"slaves,omitempty"`
+		Master *Source   `yaml:"master" json:"master"`
+		Slaves []*Source `yaml:"slaves,omitempty" json:"slaves,omitempty"`
 	}
 
 	Executor struct {
@@ -77,6 +77,11 @@ type (
 		DataSources                   []*DataSourceGroup `yaml:"data_sources" json:"data_sources"`
 		Filters                       []string           `yaml:"filters" json:"filters"`
 		ProcessDistributedTransaction bool               `yaml:"process_distributed_transaction,omitempty" json:"process_distributed_transaction,omitempty"`
+	}
+
+	Source struct {
+		Name   string `yaml:"name" json:"name"`
+		Weight *int   `yaml:"weight,omitempty" json:"weight,omitempty"`
 	}
 
 	Listener struct {
