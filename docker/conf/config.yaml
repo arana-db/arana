@@ -11,9 +11,15 @@ listeners:
 
 executors:
   - name: redirect
-    mode: singledb
+    mode: readwritesplitting
     data_sources:
-      - master: employees
+      - master:
+          name: employees
+        slaves:
+          - name: employees1
+            weight: 50
+          - name: employees2
+            weight: 50
 
 data_source_cluster:
   - role: master
@@ -23,4 +29,20 @@ data_source_cluster:
     max_capacity: 20
     idle_timeout: 60s
     conf:
-      dsn: root:123456@tcp(arana-mysql:3306)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8
+      dsn: root:123456@tcp(arana-mysql:3306)/employees?timeout=11s&readTimeout=11s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8
+  - role: slave
+    type: mysql
+    name: employees1
+    capacity: 10
+    max_capacity: 20
+    idle_timeout: 60s
+    conf:
+      dsn: root:123456@tcp(arana-mysql:3306)/employees?timeout=11s&readTimeout=1s&writeTimeout=11s&parseTime=true&loc=Local&charset=utf8mb4,utf8
+  - role: slave
+    type: mysql
+    name: employees2
+    capacity: 10
+    max_capacity: 20
+    idle_timeout: 60s
+    conf:
+      dsn: root:123456@tcp(arana-mysql:3306)/employees?timeout=11s&readTimeout=1s&writeTimeout=11s&parseTime=true&loc=Local&charset=utf8mb4,utf8

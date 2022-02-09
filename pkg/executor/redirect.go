@@ -34,6 +34,7 @@ import (
 	"github.com/dubbogo/arana/pkg/mysql"
 	"github.com/dubbogo/arana/pkg/proto"
 	"github.com/dubbogo/arana/pkg/resource"
+	"github.com/dubbogo/arana/pkg/selector"
 	"github.com/dubbogo/arana/pkg/util/log"
 	"github.com/dubbogo/arana/third_party/pools"
 )
@@ -44,16 +45,30 @@ type RedirectExecutor struct {
 	postFilters         []proto.PostFilter
 	dataSources         []*config.DataSourceGroup
 	localTransactionMap map[uint32]pools.Resource
+	dbSelector          selector.Selector
 }
 
 func NewRedirectExecutor(conf *config.Executor) proto.Executor {
-	return &RedirectExecutor{
+	executor := &RedirectExecutor{
 		mode:                conf.Mode,
 		preFilters:          make([]proto.PreFilter, 0),
 		postFilters:         make([]proto.PostFilter, 0),
 		dataSources:         conf.DataSources,
 		localTransactionMap: make(map[uint32]pools.Resource, 0),
 	}
+
+	if conf.Mode == proto.ReadWriteSplitting && len(conf.DataSources) > 0 {
+		weights := make([]int, 0, len(conf.DataSources[0].Slaves))
+		for _, v := range conf.DataSources[0].Slaves {
+			if v.Weight == nil {
+				v.Weight = &selector.DefaultWeight
+			}
+			weights = append(weights, *v.Weight)
+		}
+		executor.dbSelector = selector.NewWeightRandomSelector(weights)
+	}
+
+	return executor
 }
 
 func (executor *RedirectExecutor) AddPreFilter(filter proto.PreFilter) {
@@ -90,7 +105,7 @@ func (executor *RedirectExecutor) InGlobalTransaction(ctx *proto.Context) bool {
 }
 
 func (executor *RedirectExecutor) ExecuteUseDB(ctx *proto.Context) error {
-	resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(executor.dataSources[0].Master)
+	resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(executor.dataSources[0].Master.Name)
 	r, err := resourcePool.Get(ctx)
 	defer func() {
 		resourcePool.Put(r)
@@ -107,7 +122,7 @@ func (executor *RedirectExecutor) ExecuteFieldList(ctx *proto.Context) ([]proto.
 	index := bytes.IndexByte(ctx.Data, 0x00)
 	table := string(ctx.Data[0:index])
 	wildcard := string(ctx.Data[index+1:])
-	resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(executor.dataSources[0].Master)
+	resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(executor.dataSources[0].Master.Name)
 	r, err := resourcePool.Get(ctx)
 	defer func() {
 		resourcePool.Put(r)
@@ -136,7 +151,7 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 	}
 	log.Debugf("ComQuery: %s", query)
 
-	resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(executor.dataSources[0].Master)
+	resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(executor.dataSources[0].Master.Name)
 	switch act.(type) {
 	case *ast.BeginStmt:
 		r, err = resourcePool.Get(ctx)
@@ -156,6 +171,11 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 			delete(executor.localTransactionMap, ctx.ConnectionID)
 			resourcePool.Put(r)
 		}()
+	case *ast.SelectStmt:
+		switch executor.ExecuteMode() {
+		case proto.ReadWriteSplitting:
+			return executor.slaveComQueryExecute(ctx, query)
+		}
 	default:
 		r, err = resourcePool.Get(ctx)
 		defer func() {
@@ -178,7 +198,7 @@ func (executor *RedirectExecutor) ExecutorComStmtExecute(ctx *proto.Context) (pr
 	var err error
 	r, ok := executor.localTransactionMap[ctx.ConnectionID]
 	if !ok {
-		resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(executor.dataSources[0].Master)
+		resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(executor.dataSources[0].Master.Name)
 		r, err = resourcePool.Get(ctx)
 		defer func() {
 			resourcePool.Put(r)
@@ -188,12 +208,18 @@ func (executor *RedirectExecutor) ExecutorComStmtExecute(ctx *proto.Context) (pr
 		}
 	}
 
-	backendConn := r.(*mysql.BackendConnection)
-	query, err := generateSql(ctx.Stmt)
-	log.Infof(query)
-	if err != nil {
-		return nil, 0, err
+	switch executor.ExecuteMode() {
+	case proto.ReadWriteSplitting:
+		switch ctx.Stmt.StmtNode.(type) {
+		case *ast.SelectStmt:
+			return executor.slaveComStmtExecute(ctx)
+		}
 	}
+
+	backendConn := r.(*mysql.BackendConnection)
+	query := ctx.Stmt.StmtNode.Text()
+	log.Infof(query)
+
 	executor.doPreFilter(ctx)
 	result, warn, err := backendConn.PrepareQuery(query, ctx.Data)
 	executor.doPostFilter(ctx, result)
@@ -201,7 +227,7 @@ func (executor *RedirectExecutor) ExecutorComStmtExecute(ctx *proto.Context) (pr
 }
 
 func (executor *RedirectExecutor) ConnectionClose(ctx *proto.Context) {
-	resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(executor.dataSources[0].Master)
+	resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(executor.dataSources[0].Master.Name)
 	r, ok := executor.localTransactionMap[ctx.ConnectionID]
 	if ok {
 		defer func() {
@@ -243,34 +269,50 @@ func (executor *RedirectExecutor) doPostFilter(ctx *proto.Context, result proto.
 	}
 }
 
-func generateSql(stmt *proto.Stmt) (string, error) {
-	var result []byte
-	j := 0
-	sql := []byte(stmt.PrepareStmt)
-	for i := 0; i < len(sql); i++ {
-		if sql[i] != '?' {
-			result = append(result, sql[i])
-		} else {
-			k := fmt.Sprintf("v%d", j+1)
-			quote, val := encodeValue(stmt.BindVars[k])
-			if quote {
-				val = fmt.Sprintf("'%s'", val)
-			}
-			result = append(result, []byte(val)...)
-			j++
-		}
+func (executor *RedirectExecutor) slaveComQueryExecute(ctx *proto.Context, query string) (proto.Result, uint16, error) {
+
+	dsNo := executor.dbSelector.GetDataSourceNo()
+	resourcePool := resource.GetDataSourceManager().GetSlaveResourcePool(executor.dataSources[0].Slaves[dsNo].Name)
+	r, err := resourcePool.Get(ctx)
+	defer func() {
+		resourcePool.Put(r)
+	}()
+	if err != nil {
+		return nil, 0, err
 	}
-	return string(result), nil
+
+	backendConn := r.(*mysql.BackendConnection)
+
+	executor.doPreFilter(ctx)
+	result, warn, err := backendConn.ExecuteWithWarningCount(query, true)
+	executor.doPostFilter(ctx, result)
+	return result, warn, err
 }
 
-// EncodeValue interface to string
-func encodeValue(a interface{}) (bool, string) {
-	switch a.(type) {
-	case nil:
-		return false, "NULL"
-	case []byte:
-		return true, string(a.([]byte))
-	default:
-		return false, fmt.Sprintf("%v", a)
+func (executor *RedirectExecutor) slaveComStmtExecute(ctx *proto.Context) (proto.Result, uint16, error) {
+	var (
+		r           pools.Resource
+		backendConn *mysql.BackendConnection
+		err         error
+	)
+	dsNo := executor.dbSelector.GetDataSourceNo()
+	fmt.Println(dsNo)
+	resourcePool := resource.GetDataSourceManager().GetSlaveResourcePool(executor.dataSources[0].Slaves[dsNo].Name)
+	r, err = resourcePool.Get(ctx)
+	defer func() {
+		resourcePool.Put(r)
+	}()
+	if err != nil {
+		return nil, 0, err
 	}
+
+	backendConn = r.(*mysql.BackendConnection)
+
+	query := ctx.Stmt.StmtNode.Text()
+	log.Infof(query)
+
+	executor.doPreFilter(ctx)
+	result, warn, err := backendConn.PrepareQuery(query, ctx.Data)
+	executor.doPostFilter(ctx, result)
+	return result, warn, err
 }
