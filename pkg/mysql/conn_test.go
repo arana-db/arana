@@ -206,3 +206,27 @@ func TestReadEphemeralPacket(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, buf[4:], response)
 }
+
+func TestReadOnePacket(t *testing.T) {
+	c := newConn(new(mockConn))
+	buf := make([]byte, 10)
+	buf[0] = 6
+	buf[4] = 1
+	c.conn.(*mockConn).data = buf
+	response, err := c.readOnePacket()
+	assert.NoError(t, err)
+	assert.Equal(t, buf[4:], response)
+}
+
+func TestReadPacket(t *testing.T) {
+	c := newConn(new(mockConn))
+	buf := make([]byte, mysql.MaxPacketSize+3)
+	buf[0] = 254
+	buf[1] = 255
+	buf[2] = 255
+	buf[4] = 1
+	c.conn.(*mockConn).data = buf
+	response, err := c.readPacket()
+	assert.NoError(t, err)
+	assert.Equal(t, mysql.MaxPacketSize-1, len(response))
+}
