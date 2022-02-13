@@ -31,18 +31,19 @@ func TestUnmarshalTextForProtocolTypeNil(t *testing.T) {
 	var protocolType ProtocolType
 	var text = []byte("http")
 	err := protocolType.UnmarshalText(text)
-	assert.Error(t, err)
+	assert.Equal(t, err == nil, true)
+	assert.Equal(t, protocolType, Http)
 }
 
 func TestUnmarshalTextForUnrecognizedProtocolType(t *testing.T) {
-	var protocolType ProtocolType = Http
+	var protocolType = Http
 	var text = []byte("PostgreSQL")
 	err := protocolType.UnmarshalText(text)
 	assert.Error(t, err)
 }
 
 func TestUnmarshalText(t *testing.T) {
-	var protocolType ProtocolType = Http
+	var protocolType = Http
 	var text = []byte("mysql")
 	err := protocolType.UnmarshalText(text)
 	assert.Equal(t, err == nil, true)
@@ -55,6 +56,6 @@ func TestLoad(t *testing.T) {
 	assert.Equal(t, cfg.Executors[0].Name, "redirect")
 	assert.Equal(t, len(cfg.DataSources), 3)
 	assert.Equal(t, cfg.DataSources[0].Name, "employees")
-	assert.Equal(t, cfg.DataSources[0].Role, "master")
-	assert.Equal(t, cfg.DataSources[0].Type, "mysql")
+	assert.Equal(t, cfg.DataSources[0].Role, Master)
+	assert.Equal(t, cfg.DataSources[0].Type, DBMysql)
 }
