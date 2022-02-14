@@ -28,7 +28,6 @@ import (
 	"github.com/dubbogo/parser/ast"
 	"github.com/dubbogo/parser/opcode"
 	"github.com/dubbogo/parser/test_driver"
-	_ "github.com/dubbogo/parser/test_driver"
 
 	"github.com/pkg/errors"
 )
@@ -79,21 +78,10 @@ func WithCollation(collation string) ParseOption {
 	}
 }
 
-// Parse parses the SQL string to Statement.
-func Parse(sql string, options ...ParseOption) (Statement, error) {
-	var o parseOption
-	for _, it := range options {
-		it(&o)
-	}
-
-	p := parser.New()
-	s, err := p.ParseOneStmt(sql, o.charset, o.collation)
-	if err != nil {
-		return nil, errors.Wrap(err, "parse sql ast failed")
-	}
-
+// FromStmtNode converts raw ast node to Statement.
+func FromStmtNode(node ast.StmtNode) (Statement, error) {
 	var cc convCtx
-	switch stmt := s.(type) {
+	switch stmt := node.(type) {
 	case *ast.SelectStmt:
 		var (
 			nSelect = cc.convFieldList(stmt.Fields)
@@ -109,9 +97,56 @@ func Parse(sql string, options ...ParseOption) (Statement, error) {
 			Where:       nWhere,
 			Limit:       nLimit,
 		}, nil
+	case *ast.DeleteStmt:
+		var (
+			//TODO Now only support single table delete clause, need to fill flag OrderBy field
+			nTable = convFrom(stmt.TableRefs)[0].source.(TableName)[0]
+			nWhere = toExpressionNode(cc.convExpr(stmt.Where))
+			nLimit = cc.convLimit(stmt.Limit)
+		)
+		return &DeleteStatement{
+			Table: TableName{nTable},
+			Where: nWhere,
+			Limit: nLimit,
+		}, nil
+	case *ast.InsertStmt:
+		var (
+			nTable   = convFrom(stmt.Table)[0].source.(TableName)[0]
+			nColumns = convInsertColumns(stmt.Columns)
+		)
+
+		return &InsertStatement{
+			baseInsertStatement: &baseInsertStatement{
+				table:   TableName{nTable},
+				columns: nColumns,
+			},
+		}, nil
 	}
-	// TODO: other sql statement
 	return nil, nil
+}
+
+func convInsertColumns(columnNames []*ast.ColumnName) []string {
+	var result = make([]string, len(columnNames))
+	for _, cn := range columnNames {
+		result = append(result, cn.Name.O)
+	}
+	return result
+}
+
+// Parse parses the SQL string to Statement.
+func Parse(sql string, options ...ParseOption) (Statement, error) {
+	var o parseOption
+	for _, it := range options {
+		it(&o)
+	}
+
+	p := parser.New()
+	s, err := p.ParseOneStmt(sql, o.charset, o.collation)
+	if err != nil {
+		return nil, errors.Wrap(err, "parse sql ast failed")
+	}
+
+	return FromStmtNode(s)
 }
 
 // MustParse parses the SQL string to Statement, panic if failed.

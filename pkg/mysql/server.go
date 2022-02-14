@@ -36,7 +36,9 @@ import (
 import (
 	"github.com/dubbogo/parser"
 	_ "github.com/dubbogo/parser/test_driver"
+
 	err2 "github.com/pkg/errors"
+
 	"go.uber.org/atomic"
 )
 
@@ -531,7 +533,11 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 			if err != nil {
 				return err
 			}
-			return c.writeEOFPacket(c.StatusFlags, warn)
+			if err := c.writeEndResult(l.capabilities, false, 0, 0, warn); err != nil {
+				log.Errorf("Error writing result to %s: %v", c, err)
+				return err
+			}
+			return nil
 		}()
 		if err != nil {
 			return err
@@ -657,7 +663,11 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 			if err != nil {
 				return err
 			}
-			return c.writeEOFPacket(c.StatusFlags, warn)
+			if err := c.writeEndResult(l.capabilities, false, 0, 0, warn); err != nil {
+				log.Errorf("Error writing result to %s: %v", c, err)
+				return err
+			}
+			return nil
 		}()
 		if err != nil {
 			return err

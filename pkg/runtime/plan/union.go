@@ -1,4 +1,3 @@
-//
 // Licensed to Apache Software Foundation (ASF) under one or more contributor
 // license agreements. See the NOTICE file distributed with
 // this work for additional information regarding copyright
@@ -17,28 +16,25 @@
 // under the License.
 //
 
-package server
+package plan
+
+import (
+	"context"
+)
 
 import (
 	"github.com/dubbogo/arana/pkg/proto"
 )
 
-type Server struct {
-	listeners []proto.Listener
+type UnionPlan struct {
+	Plans []proto.Plan
 }
 
-func NewServer() *Server {
-	return &Server{
-		listeners: make([]proto.Listener, 0),
-	}
+func (u UnionPlan) Type() proto.PlanType {
+	return proto.PlanTypeQuery
 }
 
-func (srv *Server) AddListener(listener proto.Listener) {
-	srv.listeners = append(srv.listeners, listener)
-}
-
-func (srv *Server) Start() {
-	for _, l := range srv.listeners {
-		go l.Listen()
-	}
+func (u UnionPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.MixinResult, error) {
+	//TODO lazy union result sets
+	panic("implement me")
 }

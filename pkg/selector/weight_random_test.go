@@ -1,4 +1,3 @@
-//
 // Licensed to Apache Software Foundation (ASF) under one or more contributor
 // license agreements. See the NOTICE file distributed with
 // this work for additional information regarding copyright
@@ -17,28 +16,19 @@
 // under the License.
 //
 
-package server
+package selector
 
 import (
-	"github.com/dubbogo/arana/pkg/proto"
+	"testing"
 )
 
-type Server struct {
-	listeners []proto.Listener
-}
-
-func NewServer() *Server {
-	return &Server{
-		listeners: make([]proto.Listener, 0),
+func TestGetDatasourceNo(t *testing.T) {
+	weights := []int{
+		1, 2, 3,
 	}
-}
-
-func (srv *Server) AddListener(listener proto.Listener) {
-	srv.listeners = append(srv.listeners, listener)
-}
-
-func (srv *Server) Start() {
-	for _, l := range srv.listeners {
-		go l.Listen()
+	selector := NewWeightRandomSelector(weights)
+	no := selector.GetDataSourceNo()
+	if no < 0 || no > 2 {
+		t.Errorf("No.%d invalid", no)
 	}
 }

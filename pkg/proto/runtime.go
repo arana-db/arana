@@ -16,11 +16,16 @@
 // under the License.
 //
 
-//go:generate mockgen -destination=../../testdata/mock_runtime.go -package=testdata . Rows,VConn,QueryPlan,ExecPlan,Optimizer
+//go:generate mockgen -destination=../../testdata/mock_runtime.go -package=testdata . Rows,VConn,MixinResult,Plan,Optimizer
 package proto
 
 import (
 	"context"
+)
+
+const (
+	PlanTypeQuery PlanType = iota // QUERY
+	PlanTypeExec                  // EXEC
 )
 
 type (
@@ -28,6 +33,12 @@ type (
 	Rows interface {
 		// Next returns the next Row, nil if EOF.
 		Next() Row
+	}
+
+	// MixinResult mixin the Rows and Result.
+	MixinResult interface {
+		Rows
+		Result
 	}
 
 	// VConn represents a virtual connection which can be used to query/exec from a db.
@@ -38,21 +49,20 @@ type (
 		Exec(ctx context.Context, db string, query string, args ...interface{}) (Result, error)
 	}
 
-	// QueryPlan represents a plan for query command.
-	QueryPlan interface {
-		// Query executes the query command.
-		Query(ctx context.Context, conn *VConn) (Rows, error)
-	}
+	// PlanType represents the type of Plan.
+	PlanType uint8
 
-	// ExecPlan represents a plan for query command.
-	ExecPlan interface {
-		// Exec executes the exec command.
-		Exec(ctx context.Context, conn *VConn) (Rows, error)
+	// Plan represents a plan for query/execute command.
+	Plan interface {
+		// Type returns the type of Plan.
+		Type() PlanType
+		// ExecIn executes the current Plan.
+		ExecIn(ctx context.Context, conn VConn) (MixinResult, error)
 	}
 
 	// Optimizer represents a sql statement optimizer which can be used to create QueryPlan or ExecPlan.
 	Optimizer interface {
-		// Optimize optimizes the sql with arguments then returns a QueryPlan/ExecPlan.
-		Optimize(ctx context.Context, sql string, args ...interface{}) (interface{}, error)
+		// Optimize optimizes the sql with arguments then returns a Plan.
+		Optimize(ctx context.Context, sql string, args ...interface{}) (Plan, error)
 	}
 )

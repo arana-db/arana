@@ -542,7 +542,6 @@ func (conn *BackendConnection) clientHandshake() error {
 
 	//// Password encryption.
 	//scrambledPassword := ScramblePassword(salt, []byte(conn.Passwd))
-
 	authResp, err := conn.auth(salt, plugin)
 	if err != nil {
 		return err
@@ -730,7 +729,7 @@ func (conn *BackendConnection) parseInitialHandshakePacket(data []byte) (uint32,
 // Returns a SQLError.
 func (conn *BackendConnection) writeHandshakeResponse41(capabilities uint32, scrambledPassword []byte, plugin string) error {
 	// Build our flags.
-	var flags uint32 = mysql.CapabilityClientLongPassword |
+	var flags = mysql.CapabilityClientLongPassword |
 		mysql.CapabilityClientLongFlag |
 		mysql.CapabilityClientProtocol41 |
 		mysql.CapabilityClientTransactions |

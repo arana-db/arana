@@ -24,6 +24,10 @@ import (
 	"strings"
 )
 
+import (
+	"github.com/pkg/errors"
+)
+
 const (
 	_ FunctionArgType = iota
 	FunctionArgConstant
@@ -69,6 +73,14 @@ var (
 	_ inTablesChecker = (*CastFunction)(nil)
 )
 
+var (
+	_ Restorer = (*FunctionArg)(nil)
+	_ Restorer = (*Function)(nil)
+	_ Restorer = (*AggrFunction)(nil)
+	_ Restorer = (*CaseWhenElseFunction)(nil)
+	_ Restorer = (*CastFunction)(nil)
+)
+
 type Function struct {
 	typ  FunctionType
 	name string
@@ -101,29 +113,24 @@ func (f *Function) Args() []*FunctionArg {
 	return f.args
 }
 
-func (f *Function) String() string {
-	var sb strings.Builder
+func (f *Function) Restore(sb *strings.Builder, args *[]int) error {
 	sb.WriteString(f.Name())
 	sb.WriteByte('(')
 
-	for i := 0; i < len(f.args); i++ {
-		if i > 0 {
-			sb.WriteByte(',')
-			sb.WriteByte(' ')
+	if n := len(f.args); n > 0 {
+		if err := f.args[0].Restore(sb, args); err != nil {
+			return errors.WithStack(err)
 		}
-		sb.WriteString(f.args[i].String())
+		for i := 1; i < n; i++ {
+			sb.WriteString(", ")
+			if err := f.args[0].Restore(sb, args); err != nil {
+				return errors.WithStack(err)
+			}
+		}
 	}
 
 	sb.WriteByte(')')
-	return sb.String()
-}
-
-func (f *Function) CntParams() int {
-	var n int
-	for _, it := range f.args {
-		n += it.CntParams()
-	}
-	return n
+	return nil
 }
 
 type FunctionArg struct {
@@ -160,33 +167,32 @@ func (f *FunctionArg) Value() interface{} {
 	return f.value
 }
 
-func (f *FunctionArg) String() string {
+func (f *FunctionArg) Restore(sb *strings.Builder, args *[]int) error {
+	var restorer Restorer
 	switch f.typ {
 	case FunctionArgColumn:
-		return ColumnNameExpressionAtom(f.value.([]string)).String()
+		restorer = ColumnNameExpressionAtom(f.value.([]string))
 	case FunctionArgExpression:
-		return f.value.(ExpressionNode).String()
+		restorer = f.value.(ExpressionNode)
 	case FunctionArgConstant:
-		return constant2string(f.value)
+		restorer = ConstantExpressionAtom{Inner: f.value}
 	case FunctionArgFunction:
-		return f.value.(*Function).String()
+		restorer = f.value.(*Function)
 	case FunctionArgAggrFunction:
-		return f.value.(*AggrFunction).String()
+		restorer = f.value.(*AggrFunction)
 	case FunctionArgCaseWhenElseFunction:
-		return f.value.(*CaseWhenElseFunction).String()
+		restorer = f.value.(*CaseWhenElseFunction)
 	case FunctionArgCastFunction:
-		return f.value.(*CastFunction).String()
+		restorer = f.value.(*CastFunction)
 	default:
 		panic("unreachable")
 	}
-}
 
-func (f *FunctionArg) CntParams() int {
-	c, ok := f.value.(paramsCounter)
-	if ok {
-		return c.CntParams()
+	if err := restorer.Restore(sb, args); err != nil {
+		return errors.WithStack(err)
 	}
-	return 0
+
+	return nil
 }
 
 const (
@@ -219,14 +225,13 @@ func (af *AggrFunction) InTables(tables map[string]struct{}) error {
 	return nil
 }
 
-func (af *AggrFunction) String() string {
-	var sb strings.Builder
+func (af *AggrFunction) Restore(sb *strings.Builder, args *[]int) error {
 	sb.WriteString(af.name)
 	sb.WriteByte('(')
 	if af.IsCountStar() {
 		sb.WriteByte('*')
 		sb.WriteByte(')')
-		return sb.String()
+		return nil
 	}
 
 	if len(af.aggregator) > 0 {
@@ -236,19 +241,21 @@ func (af *AggrFunction) String() string {
 
 	if len(af.args) < 1 {
 		sb.WriteByte(')')
-		return sb.String()
+		return nil
 	}
 
-	sb.WriteString(af.args[0].String())
+	if err := af.args[0].Restore(sb, args); err != nil {
+		return errors.WithStack(err)
+	}
 
 	for i := 1; i < len(af.args); i++ {
-		sb.WriteByte(',')
-		sb.WriteByte(' ')
-		sb.WriteString(af.args[i].String())
+		sb.WriteString(", ")
+		if err := af.args[i].Restore(sb, args); err != nil {
+			return errors.WithStack(err)
+		}
 	}
-
 	sb.WriteByte(')')
-	return sb.String()
+	return nil
 }
 
 func (af *AggrFunction) Aggreator() (string, bool) {
@@ -327,43 +334,36 @@ func (c *CaseWhenElseFunction) Else() (*FunctionArg, bool) {
 	return nil, false
 }
 
-func (c *CaseWhenElseFunction) String() string {
-	var sb strings.Builder
+func (c *CaseWhenElseFunction) Restore(sb *strings.Builder, args *[]int) error {
 	sb.WriteString("CASE")
 
 	if c.caseBlock != nil {
 		sb.WriteByte(' ')
-		sb.WriteString(c.caseBlock.String())
+		if err := c.caseBlock.Restore(sb, args); err != nil {
+			return errors.WithStack(err)
+		}
 	}
 
 	for _, it := range c.branches {
 		sb.WriteString(" WHEN ")
-		sb.WriteString(it[0].String())
+		if err := it[0].Restore(sb, args); err != nil {
+			return errors.WithStack(err)
+		}
 		sb.WriteString(" THEN ")
-		sb.WriteString(it[1].String())
+		if err := it[1].Restore(sb, args); err != nil {
+			return errors.WithStack(err)
+		}
 	}
 
 	if c.elseBlock != nil {
 		sb.WriteString(" ELSE ")
-		sb.WriteString(c.elseBlock.String())
+		if err := c.elseBlock.Restore(sb, args); err != nil {
+			return errors.WithStack(err)
+		}
 	}
 
 	sb.WriteString(" END")
-	return sb.String()
-}
-
-func (c *CaseWhenElseFunction) CntParams() (n int) {
-	if c.caseBlock != nil {
-		n += c.caseBlock.CntParams()
-	}
-	for _, it := range c.branches {
-		n += it[0].CntParams()
-		n += it[1].CntParams()
-	}
-	if c.elseBlock != nil {
-		n += c.elseBlock.CntParams()
-	}
-	return
+	return nil
 }
 
 type castFunctionFlag uint8
@@ -397,17 +397,16 @@ func (c *CastFunction) GetCast() (*ConvertDataType, bool) {
 	return t, ok
 }
 
-func (c *CastFunction) String() string {
-	var sb strings.Builder
-	sb.Grow(128)
-
+func (c *CastFunction) Restore(sb *strings.Builder, args *[]int) error {
 	if c.flag&castFunctionFlagCast != 0 {
 		sb.WriteString("CAST")
 	} else {
 		sb.WriteString("CONVERT")
 	}
 	sb.WriteByte('(')
-	sb.WriteString(c.src.String())
+	if err := c.src.Restore(sb, args); err != nil {
+		return errors.WithStack(err)
+	}
 
 	switch cast := c.cast.(type) {
 	case string:
@@ -419,15 +418,11 @@ func (c *CastFunction) String() string {
 		} else {
 			sb.WriteString(", ")
 		}
-		cast.writeTo(&sb)
+		cast.writeTo(sb)
 	}
 	sb.WriteByte(')')
 
-	return sb.String()
-}
-
-func (c *CastFunction) CntParams() int {
-	return c.src.CntParams()
+	return nil
 }
 
 const (
