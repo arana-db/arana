@@ -58,6 +58,8 @@ type (
 		Data() []byte
 
 		Decode() ([]*Value, error)
+
+		GetColumnValue(column string) (interface{}, error)
 	}
 
 	// Result is the result of a query execution.
