@@ -1,0 +1,111 @@
+//
+// Licensed to Apache Software Foundation (ASF) under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. Apache Software Foundation (ASF) licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+//
+
+package group_by_test
+
+import (
+	"testing"
+)
+
+import (
+	"github.com/dubbogo/arana/pkg/merge"
+	"github.com/dubbogo/arana/pkg/merge/merge_impl/group_by"
+	"github.com/dubbogo/arana/pkg/proto"
+	"github.com/dubbogo/arana/pkg/runtime/xxast"
+	"github.com/dubbogo/arana/testdata"
+
+	"github.com/golang/mock/gomock"
+
+	"github.com/stretchr/testify/assert"
+)
+
+const (
+	countScore = "count(score)"
+	age        = "age"
+)
+
+type (
+	student map[string]int64
+)
+
+func TestGroupByStreamMergeRows(t *testing.T) {
+	// todo If you have group by statement parsing logic, you can not use mock
+	selectElement := testdata.NewMockSelectElementFunction(gomock.NewController(t))
+	selectElement.EXPECT().ToSelectString().Return("count(score)").AnyTimes()
+	selectElement.EXPECT().Alias().Return("").AnyTimes()
+
+	stmt := xxast.SelectStatement{
+		Select: []xxast.SelectElement{
+			selectElement,
+		},
+		OrderBy: xxast.OrderByNode{
+			{
+				Alias: "",
+				Expr:  xxast.ColumnNameExpressionAtom{age},
+				Desc:  true,
+			},
+		},
+		GroupBy: &xxast.GroupByNode{
+			RollUp: true,
+			Items:  []*xxast.GroupByItem{{}},
+		},
+	}
+	rows := buildMergeRows(t, [][]student{
+		{{countScore: 85, age: 81}, {countScore: 75, age: 70}, {countScore: 65, age: 60}},
+		{{countScore: 90, age: 81}, {countScore: 75, age: 68}, {countScore: 70, age: 40}},
+		{{countScore: 85, age: 70}, {countScore: 78, age: 60}},
+	})
+
+	mergeRow := group_by.NewGroupByStreamMergeRow(rows, stmt)
+
+	res := make([]student, 0)
+	for {
+		row := mergeRow.Next()
+		if row == nil {
+			break
+		}
+		v1, _ := row.GetColumnValue(countScore)
+		v2, _ := row.GetColumnValue(age)
+		res = append(res, student{countScore: v1.(int64), age: v2.(int64)})
+	}
+	assert.Equal(t, []student{
+		{countScore: 175, age: 81}, {countScore: 160, age: 70}, {countScore: 75, age: 68},
+		{countScore: 143, age: 60}, {countScore: 70, age: 40},
+	}, res)
+}
+
+func buildMergeRows(t *testing.T, vals [][]student) []*merge.MergeRows {
+	rows := make([]*merge.MergeRows, 0)
+	for _, v := range vals {
+		rows = append(rows, buildMergeRow(t, v))
+	}
+	return rows
+}
+
+func buildMergeRow(t *testing.T, vals []student) *merge.MergeRows {
+	rows := make([]proto.Row, 0)
+	for _, val := range vals {
+		row := testdata.NewMockRow(gomock.NewController(t))
+		for k, v := range val {
+			row.EXPECT().GetColumnValue(k).Return(v, nil).AnyTimes()
+		}
+		rows = append(rows, row)
+	}
+	return merge.NewMergeRows(rows)
+}

@@ -88,6 +88,19 @@ func (row *Row) Decode() ([]*proto.Value, error) {
 	return nil, nil
 }
 
+func (row *Row) GetColumnValue(column string) (interface{}, error) {
+	values, err := row.Decode()
+	if err != nil {
+		return nil, err
+	}
+	for _, value := range values {
+		if string(value.Raw) == column {
+			return value.Val, nil
+		}
+	}
+	return nil, nil
+}
+
 func (rows *TextRow) Decode() ([]*proto.Value, error) {
 	dest := make([]*proto.Value, len(rows.ResultSet.Columns))
 
