@@ -16,6 +16,7 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/pkg/errors v0.9.1
 	github.com/rogpeppe/go-internal v1.8.0 // indirect
+	github.com/shopspring/decimal v1.3.1
 	github.com/spf13/cobra v1.2.1
 	github.com/stretchr/testify v1.7.0
 	github.com/tidwall/gjson v1.14.0
