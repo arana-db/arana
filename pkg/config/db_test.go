@@ -27,8 +27,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const configPath = "./testdata/config.yaml"
+
 func TestMetadataConf(t *testing.T) {
-	configPath := "./testdata/config.yaml"
 	conf := LoadV2(configPath)
 	assert.NotNil(t, conf)
 
@@ -38,11 +39,30 @@ func TestMetadataConf(t *testing.T) {
 }
 
 func TestListenersConf(t *testing.T) {
-	// todo
+	conf := LoadV2(configPath)
+	assert.NotNil(t, conf)
+
+	assert.Equal(t, 1, len(conf.Data.Listeners))
+	dataListeners := conf.Data.Listeners[0]
+	assert.Equal(t, "mysql", dataListeners.ProtocolType)
+	assert.Equal(t, "0.0.0.0", dataListeners.SocketAddress.Address)
+	assert.Equal(t, 13306, dataListeners.SocketAddress.Port)
+	assert.NotNil(t, dataListeners.Config)
+	assert.Equal(t, "123456", dataListeners.Config.Users.Dksl)
+	assert.Equal(t, "5.7.0", dataListeners.Config.ServerVersion)
+	assert.Equal(t, "redirect", dataListeners.Executor)
 }
 
-func TestExcutorsConf(t *testing.T) {
-	// todo
+func TestExecutorsConf(t *testing.T) {
+	conf := LoadV2(configPath)
+	assert.NotNil(t, conf)
+
+	assert.Equal(t, 1, len(conf.Data.Executors))
+	dataExecutors := conf.Data.Executors[0]
+	assert.Equal(t, "redirect", dataExecutors.Name)
+	assert.Equal(t, "singledb", dataExecutors.Mode)
+	assert.NotNil(t, dataExecutors.DataSources)
+	assert.Equal(t, "employees", dataExecutors.DataSources[0].Master)
 }
 
 func TestFiltersConf(t *testing.T) {
@@ -50,7 +70,6 @@ func TestFiltersConf(t *testing.T) {
 }
 
 func TestDataSourceClustersConf(t *testing.T) {
-	configPath := "./testdata/config.yaml"
 	conf := LoadV2(configPath)
 	assert.NotEqual(t, nil, conf)
 
@@ -85,7 +104,6 @@ func TestDataSourceClustersConf(t *testing.T) {
 }
 
 func TestShardingRuleConf(t *testing.T) {
-	configPath := "./testdata/config.yaml"
 	conf := LoadV2(configPath)
 	assert.NotEqual(t, nil, conf)
 

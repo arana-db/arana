@@ -19,3 +19,4 @@
 /docker/data/
 /docker/mysqld/
 /dist
+/default.etcd

@@ -65,10 +65,8 @@ type (
 	}
 
 	ConfigData struct {
-		// todo add Listeners and Executors config
-		// Listeners          []*Listener          `validate:"required" yaml:"listeners" json:"listeners"`
-		// Executors          []*Executor          `validate:"required" yaml:"executors" json:"executors"`
-		Filters            []string             `yaml:"filters" json:"filters"`
+		Listeners          []*ListenerV2        `validate:"required" yaml:"listeners" json:"listeners"`
+		Executors          []*ExecutorV2        `validate:"required" yaml:"executors" json:"executors"`
 		DataSourceClusters []*DataSourceCluster `validate:"required" yaml:"dataSourceClusters" json:"dataSourceClusters"`
 		ShardingRule       *ShardingRule        `yaml:"shardingRule,omitempty" json:"shardingRule,omitempty"`
 	}
@@ -114,6 +112,32 @@ type (
 
 	ShardingRule struct {
 		Tables []*Table `yaml:"tables" json:"tables"`
+	}
+
+	ListenerV2 struct {
+		ProtocolType  string            `yaml:"protocol_type" json:"protocol_type"`
+		SocketAddress *SocketAddress    `yaml:"socket_address" json:"socket_address"`
+		Config        *ListenerV2Config `yaml:"config" json:"config"`
+		Executor      string            `yaml:"executor" json:"executor"`
+	}
+
+	ListenerV2Config struct {
+		ServerVersion string `yaml:"server_version" json:"server_version"`
+		Users         *Users `yaml:"users" json:"users"`
+	}
+
+	Users struct {
+		Dksl string `yaml:"dksl" json:"dksl"`
+	}
+
+	ExecutorV2 struct {
+		Name        string                   `yaml:"name" json:"name"`
+		Mode        string                   `yaml:"mode" json:"mode"`
+		DataSources []*ExecutorV2DataSources `yaml:"data_sources" json:"data_sources"`
+	}
+
+	ExecutorV2DataSources struct {
+		Master string `yaml:"master" json:"master"`
 	}
 
 	Table struct {
