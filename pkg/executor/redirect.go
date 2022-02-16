@@ -68,6 +68,35 @@ func NewRedirectExecutor(conf *config.Executor) proto.Executor {
 	return executor
 }
 
+func NewRedirectExecutorV2(conf *config.Executor, cluster *config.DataSourceCluster) proto.Executor {
+	executor := &RedirectExecutor{
+		mode:                conf.Mode,
+		preFilters:          make([]proto.PreFilter, 0),
+		postFilters:         make([]proto.PostFilter, 0),
+		dataSources:         conf.DataSources,
+		localTransactionMap: make(map[uint32]pools.Resource, 0),
+	}
+
+	for _, group := range cluster.Groups {
+		weights := make([]int, 0, len(group.AtomDbs))
+		for _, db := range group.AtomDbs {
+			if db.Role == config.Slave {
+				readWeight, _, err := db.GetReadAndWriteWeight()
+				if err != nil {
+					log.Errorf("weight config not right, err is %v, use default weight 10", err)
+					readWeight = selector.DefaultWeight
+				}
+				weights = append(weights, readWeight)
+			}
+		}
+		if len(weights) > 0 {
+			executor.dbSelector = selector.NewWeightRandomSelector(weights)
+		}
+	}
+
+	return executor
+}
+
 func (executor *RedirectExecutor) AddPreFilter(filter proto.PreFilter) {
 	executor.preFilters = append(executor.preFilters, filter)
 }
