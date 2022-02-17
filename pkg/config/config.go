@@ -81,7 +81,7 @@ type (
 
 	Source struct {
 		Name   string `yaml:"name" json:"name"`
-		Weight *int   `yaml:"weight,omitempty" json:"weight,omitempty"`
+		Weight int    `default:"10" yaml:"weight,omitempty" json:"weight,omitempty"`
 	}
 
 	Listener struct {

@@ -60,10 +60,7 @@ func NewRedirectExecutor(conf *config.Executor) proto.Executor {
 	if conf.Mode == proto.ReadWriteSplitting && len(conf.DataSources) > 0 {
 		weights := make([]int, 0, len(conf.DataSources[0].Slaves))
 		for _, v := range conf.DataSources[0].Slaves {
-			if v.Weight == nil {
-				v.Weight = &selector.DefaultWeight
-			}
-			weights = append(weights, *v.Weight)
+			weights = append(weights, v.Weight)
 		}
 		executor.dbSelector = selector.NewWeightRandomSelector(weights)
 	}
