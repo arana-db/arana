@@ -32,125 +32,125 @@ func TestMySQLToType(t *testing.T) {
 	assert.Equal(t, fieldType, FieldTypeDecimal)
 	fieldType, _ = MySQLToType(0, 32)
 	assert.Equal(t, fieldType, FieldTypeDecimal)
-	fieldType, _ = MySQLToType(1, 0);
+	fieldType, _ = MySQLToType(1, 0)
 	assert.Equal(t, fieldType, FieldTypeTiny)
-	fieldType, _ = MySQLToType(1, 32);
+	fieldType, _ = MySQLToType(1, 32)
 	assert.Equal(t, fieldType, FieldTypeUint8)
-	fieldType, _ = MySQLToType(2, 0);
+	fieldType, _ = MySQLToType(2, 0)
 	assert.Equal(t, fieldType, FieldTypeShort)
-	fieldType, _ = MySQLToType(2, 32);
+	fieldType, _ = MySQLToType(2, 32)
 	assert.Equal(t, fieldType, FieldTypeUint16)
-	fieldType, _ = MySQLToType(3, 0);
+	fieldType, _ = MySQLToType(3, 0)
 	assert.Equal(t, fieldType, FieldTypeLong)
-	fieldType, _ = MySQLToType(3, 32);
+	fieldType, _ = MySQLToType(3, 32)
 	assert.Equal(t, fieldType, FieldTypeUint32)
-	fieldType, _ = MySQLToType(4, 0);
+	fieldType, _ = MySQLToType(4, 0)
 	assert.Equal(t, fieldType, FieldTypeFloat)
-	fieldType, _ = MySQLToType(4, 32);
+	fieldType, _ = MySQLToType(4, 32)
 	assert.Equal(t, fieldType, FieldTypeFloat)
-	fieldType, _ = MySQLToType(5, 0);
+	fieldType, _ = MySQLToType(5, 0)
 	assert.Equal(t, fieldType, FieldTypeDouble)
-	fieldType, _ = MySQLToType(5, 32);
+	fieldType, _ = MySQLToType(5, 32)
 	assert.Equal(t, fieldType, FieldTypeDouble)
-	fieldType, _ = MySQLToType(6, 0);
+	fieldType, _ = MySQLToType(6, 0)
 	assert.Equal(t, fieldType, FieldTypeNULL)
-	fieldType, _ = MySQLToType(6, 32);
+	fieldType, _ = MySQLToType(6, 32)
 	assert.Equal(t, fieldType, FieldTypeNULL)
-	fieldType, _ = MySQLToType(7, 0);
+	fieldType, _ = MySQLToType(7, 0)
 	assert.Equal(t, fieldType, FieldTypeTimestamp)
-	fieldType, _ = MySQLToType(7, 32);
+	fieldType, _ = MySQLToType(7, 32)
 	assert.Equal(t, fieldType, FieldTypeTimestamp)
-	fieldType, _ = MySQLToType(8, 0);
+	fieldType, _ = MySQLToType(8, 0)
 	assert.Equal(t, fieldType, FieldTypeLongLong)
-	fieldType, _ = MySQLToType(8, 32);
+	fieldType, _ = MySQLToType(8, 32)
 	assert.Equal(t, fieldType, FieldTypeUint64)
-	fieldType, _ = MySQLToType(9, 0);
+	fieldType, _ = MySQLToType(9, 0)
 	assert.Equal(t, fieldType, FieldTypeInt24)
-	fieldType, _ = MySQLToType(9, 32);
+	fieldType, _ = MySQLToType(9, 32)
 	assert.Equal(t, fieldType, FieldTypeUint24)
-	fieldType, _ = MySQLToType(10, 0);
+	fieldType, _ = MySQLToType(10, 0)
 	assert.Equal(t, fieldType, FieldTypeDate)
-	fieldType, _ = MySQLToType(10, 32);
+	fieldType, _ = MySQLToType(10, 32)
 	assert.Equal(t, fieldType, FieldTypeDate)
-	fieldType, _ = MySQLToType(11, 0);
+	fieldType, _ = MySQLToType(11, 0)
 	assert.Equal(t, fieldType, FieldTypeTime)
-	fieldType, _ = MySQLToType(11, 32);
+	fieldType, _ = MySQLToType(11, 32)
 	assert.Equal(t, fieldType, FieldTypeTime)
-	fieldType, _ = MySQLToType(12, 0);
+	fieldType, _ = MySQLToType(12, 0)
 	assert.Equal(t, fieldType, FieldTypeDateTime)
-	fieldType, _ = MySQLToType(12, 32);
+	fieldType, _ = MySQLToType(12, 32)
 	assert.Equal(t, fieldType, FieldTypeDateTime)
-	fieldType, _ = MySQLToType(13, 0);
+	fieldType, _ = MySQLToType(13, 0)
 	assert.Equal(t, fieldType, FieldTypeYear)
-	fieldType, _ = MySQLToType(13, 32);
+	fieldType, _ = MySQLToType(13, 32)
 	assert.Equal(t, fieldType, FieldTypeYear)
-	fieldType, _ = MySQLToType(14, 0);
+	fieldType, _ = MySQLToType(14, 0)
 	assert.Equal(t, fieldType, FieldTypeNewDate)
-	fieldType, _ = MySQLToType(14, 32);
+	fieldType, _ = MySQLToType(14, 32)
 	assert.Equal(t, fieldType, FieldTypeNewDate)
-	fieldType, _ = MySQLToType(15, 0);
+	fieldType, _ = MySQLToType(15, 0)
 	assert.Equal(t, fieldType, FieldTypeVarChar)
-	fieldType, _ = MySQLToType(15, 32);
+	fieldType, _ = MySQLToType(15, 32)
 	assert.Equal(t, fieldType, FieldTypeVarChar)
-	fieldType, _ = MySQLToType(16, 0);
+	fieldType, _ = MySQLToType(16, 0)
 	assert.Equal(t, fieldType, FieldTypeBit)
-	fieldType, _ = MySQLToType(16, 32);
+	fieldType, _ = MySQLToType(16, 32)
 	assert.Equal(t, fieldType, FieldTypeBit)
-	fieldType, _ = MySQLToType(17, 0);
+	fieldType, _ = MySQLToType(17, 0)
 	assert.Equal(t, fieldType, FieldTypeTimestamp)
-	fieldType, _ = MySQLToType(17, 32);
+	fieldType, _ = MySQLToType(17, 32)
 	assert.Equal(t, fieldType, FieldTypeTimestamp)
-	fieldType, _ = MySQLToType(18, 0);
+	fieldType, _ = MySQLToType(18, 0)
 	assert.Equal(t, fieldType, FieldTypeDateTime)
-	fieldType, _ = MySQLToType(18, 32);
+	fieldType, _ = MySQLToType(18, 32)
 	assert.Equal(t, fieldType, FieldTypeDateTime)
-	fieldType, _ = MySQLToType(19, 0);
+	fieldType, _ = MySQLToType(19, 0)
 	assert.Equal(t, fieldType, FieldTypeTime)
-	fieldType, _ = MySQLToType(19, 32);
+	fieldType, _ = MySQLToType(19, 32)
 	assert.Equal(t, fieldType, FieldTypeTime)
-	fieldType, _ = MySQLToType(245, 0);
+	fieldType, _ = MySQLToType(245, 0)
 	assert.Equal(t, fieldType, FieldTypeJSON)
-	fieldType, _ = MySQLToType(245, 32);
+	fieldType, _ = MySQLToType(245, 32)
 	assert.Equal(t, fieldType, FieldTypeJSON)
-	fieldType, _ = MySQLToType(246, 0);
+	fieldType, _ = MySQLToType(246, 0)
 	assert.Equal(t, fieldType, FieldTypeDecimal)
-	fieldType, _ = MySQLToType(246, 32);
+	fieldType, _ = MySQLToType(246, 32)
 	assert.Equal(t, fieldType, FieldTypeDecimal)
-	fieldType, _ = MySQLToType(247, 0);
+	fieldType, _ = MySQLToType(247, 0)
 	assert.Equal(t, fieldType, FieldTypeEnum)
-	fieldType, _ = MySQLToType(247, 32);
+	fieldType, _ = MySQLToType(247, 32)
 	assert.Equal(t, fieldType, FieldTypeEnum)
-	fieldType, _ = MySQLToType(248, 0);
+	fieldType, _ = MySQLToType(248, 0)
 	assert.Equal(t, fieldType, FieldTypeSet)
-	fieldType, _ = MySQLToType(248, 32);
+	fieldType, _ = MySQLToType(248, 32)
 	assert.Equal(t, fieldType, FieldTypeSet)
-	fieldType, _ = MySQLToType(249, 0);
+	fieldType, _ = MySQLToType(249, 0)
 	assert.Equal(t, fieldType, FieldTypeTinyBLOB)
-	fieldType, _ = MySQLToType(249, 32);
+	fieldType, _ = MySQLToType(249, 32)
 	assert.Equal(t, fieldType, FieldTypeTinyBLOB)
-	fieldType, _ = MySQLToType(250, 0);
+	fieldType, _ = MySQLToType(250, 0)
 	assert.Equal(t, fieldType, FieldTypeMediumBLOB)
-	fieldType, _ = MySQLToType(250, 32);
+	fieldType, _ = MySQLToType(250, 32)
 	assert.Equal(t, fieldType, FieldTypeMediumBLOB)
-	fieldType, _ = MySQLToType(251, 0);
+	fieldType, _ = MySQLToType(251, 0)
 	assert.Equal(t, fieldType, FieldTypeLongBLOB)
-	fieldType, _ = MySQLToType(251, 32);
+	fieldType, _ = MySQLToType(251, 32)
 	assert.Equal(t, fieldType, FieldTypeLongBLOB)
-	fieldType, _ = MySQLToType(252, 0);
+	fieldType, _ = MySQLToType(252, 0)
 	assert.Equal(t, fieldType, FieldTypeBLOB)
-	fieldType, _ = MySQLToType(252, 32);
+	fieldType, _ = MySQLToType(252, 32)
 	assert.Equal(t, fieldType, FieldTypeBLOB)
-	fieldType, _ = MySQLToType(253, 0);
+	fieldType, _ = MySQLToType(253, 0)
 	assert.Equal(t, fieldType, FieldTypeVarString)
-	fieldType, _ = MySQLToType(253, 32);
+	fieldType, _ = MySQLToType(253, 32)
 	assert.Equal(t, fieldType, FieldTypeVarString)
-	fieldType, _ = MySQLToType(254, 0);
+	fieldType, _ = MySQLToType(254, 0)
 	assert.Equal(t, fieldType, FieldTypeString)
-	fieldType, _ = MySQLToType(254, 32);
+	fieldType, _ = MySQLToType(254, 32)
 	assert.Equal(t, fieldType, FieldTypeString)
-	fieldType, _ = MySQLToType(255, 0);
+	fieldType, _ = MySQLToType(255, 0)
 	assert.Equal(t, fieldType, FieldTypeGeometry)
-	fieldType, _ = MySQLToType(255, 32);
+	fieldType, _ = MySQLToType(255, 32)
 	assert.Equal(t, fieldType, FieldTypeGeometry)
 }
 
