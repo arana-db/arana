@@ -44,4 +44,10 @@ func TestParse(t *testing.T) {
 	insertStmtWithValues, err := Parse("insert into sink values(1, '2')")
 	assert.NoError(t, err, "parse+conv ast failed")
 	t.Logf("stmt:%+v", insertStmtWithValues)
+
+	insertStmtWithOnDuplicateUpdates, err := Parse(
+		"insert into sink (a, b) values(1, '2') on duplicate key update a=a+1",
+	)
+	assert.NoError(t, err, "parse+conv ast failed")
+	t.Logf("stmt:%+v", insertStmtWithOnDuplicateUpdates)
 }

@@ -111,11 +111,33 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		}, nil
 	case *ast.InsertStmt:
 		var (
-			nTable   = convFrom(stmt.Table)[0].source.(TableName)[0]
-			nColumns []string
-			nValues  [][]ExpressionNode
+			nTable           = convFrom(stmt.Table)[0].source.(TableName)[0]
+			nColumns         []string
+			nValues          [][]ExpressionNode
+			nUpdatedElements []*UpdateElement
 		)
-		if stmt.Setlist != nil && len(stmt.Setlist) != 0 {
+		if stmt.OnDuplicate != nil && len(stmt.OnDuplicate) != 0 {
+			for _, onDuplicatedElem := range stmt.OnDuplicate {
+				var nColumn ColumnNameExpressionAtom
+				column := onDuplicatedElem.Column
+				if column.Schema.O != "" {
+					nColumn = append(nColumn, column.Schema.O)
+				}
+				if column.Table.O != "" {
+					nColumn = append(nColumn, column.Table.O)
+				}
+				if column.Name.O != "" {
+					nColumn = append(nColumn, column.Name.O)
+				}
+				nValue := cc.convExpr(onDuplicatedElem.Expr).(PredicateNode)
+				nUpdatedElements = append(nUpdatedElements, &UpdateElement{
+					Column: nColumn,
+					Value:  &PredicateExpressionNode{nValue},
+				})
+			}
+		}
+		if len(stmt.Setlist) != 0 {
+			// insert into sink set a=b
 			nValues = append(nValues, make([]ExpressionNode, 0))
 			setList := stmt.Setlist
 			for _, set := range setList {
@@ -125,6 +147,7 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 				})
 			}
 		} else {
+			// insert into sink value(a, b)
 			nColumns = convInsertColumns(stmt.Columns)
 			for i, list := range stmt.Lists {
 				nValues = append(nValues, make([]ExpressionNode, 0))
@@ -141,14 +164,15 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 				table:   TableName{nTable},
 				columns: nColumns,
 			},
-			values: nValues,
+			duplicatedUpdates: nUpdatedElements,
+			values:            nValues,
 		}, nil
 	}
 	return nil, nil
 }
 
 func convInsertColumns(columnNames []*ast.ColumnName) []string {
-	var result = make([]string, len(columnNames))
+	var result = make([]string, 0)
 	for _, cn := range columnNames {
 		result = append(result, cn.Name.O)
 	}
