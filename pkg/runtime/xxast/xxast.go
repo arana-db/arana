@@ -100,26 +100,48 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 	case *ast.DeleteStmt:
 		var (
 			//TODO Now only support single table delete clause, need to fill flag OrderBy field
-			nTable = convFrom(stmt.TableRefs)[0].source.(TableName)[0]
+			nFrom  = convFrom(stmt.TableRefs)
 			nWhere = toExpressionNode(cc.convExpr(stmt.Where))
 			nLimit = cc.convLimit(stmt.Limit)
 		)
 		return &DeleteStatement{
-			Table: TableName{nTable},
+			From:  nFrom,
 			Where: nWhere,
 			Limit: nLimit,
 		}, nil
 	case *ast.InsertStmt:
 		var (
 			nTable   = convFrom(stmt.Table)[0].source.(TableName)[0]
-			nColumns = convInsertColumns(stmt.Columns)
+			nColumns []string
+			nValues  [][]ExpressionNode
 		)
+		if stmt.Setlist != nil && len(stmt.Setlist) != 0 {
+			nValues = append(nValues, make([]ExpressionNode, 0))
+			setList := stmt.Setlist
+			for _, set := range setList {
+				nColumns = append(nColumns, set.Column.Name.O)
+				nValues[0] = append(nValues[0], &PredicateExpressionNode{
+					cc.convExpr(set.Expr).(PredicateNode),
+				})
+			}
+		} else {
+			nColumns = convInsertColumns(stmt.Columns)
+			for i, list := range stmt.Lists {
+				nValues = append(nValues, make([]ExpressionNode, 0))
+				for _, elem := range list {
+					nValues[i] = append(nValues[i], &PredicateExpressionNode{
+						cc.convExpr(elem).(PredicateNode),
+					})
+				}
+			}
+		}
 
 		return &InsertStatement{
 			baseInsertStatement: &baseInsertStatement{
 				table:   TableName{nTable},
 				columns: nColumns,
 			},
+			values: nValues,
 		}, nil
 	}
 	return nil, nil

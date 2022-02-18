@@ -27,7 +27,21 @@ import (
 )
 
 func TestParse(t *testing.T) {
+	// 1. select statement
 	stmt, err := Parse("select * from student as foo where `name` = if(1>2, 1, 2)")
 	assert.NoError(t, err, "parse+conv ast failed")
-	t.Log("stmt:", stmt)
+	t.Logf("stmt:%+v", stmt)
+
+	// 2. delete statement
+	deleteStmt, err := Parse("delete from student as foo where `name` = if(1>2, 1, 2)")
+	assert.NoError(t, err, "parse+conv ast failed")
+	t.Logf("stmt:%+v", deleteStmt)
+
+	insertStmtWithSetClause, err := Parse("insert into sink set a=77, b='88'")
+	assert.NoError(t, err, "parse+conv ast failed")
+	t.Logf("stmt:%+v", insertStmtWithSetClause)
+
+	insertStmtWithValues, err := Parse("insert into sink values(1, '2')")
+	assert.NoError(t, err, "parse+conv ast failed")
+	t.Logf("stmt:%+v", insertStmtWithValues)
 }
