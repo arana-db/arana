@@ -88,6 +88,7 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 			nFrom   = convFrom(stmt.From)
 			nWhere  = toExpressionNode(cc.convExpr(stmt.Where))
 			nLimit  = cc.convLimit(stmt.Limit)
+			nOrder  = cc.convOrderBy(stmt.OrderBy)
 		)
 
 		return &SelectStatement{
@@ -96,6 +97,7 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 			From:        nFrom,
 			Where:       nWhere,
 			Limit:       nLimit,
+			OrderBy:     nOrder,
 		}, nil
 	case *ast.DeleteStmt:
 		var (
@@ -111,30 +113,13 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		}, nil
 	case *ast.InsertStmt:
 		var (
-			nTable           = convFrom(stmt.Table)[0].source.(TableName)[0]
+			nTable           = convFrom(stmt.Table)[0]
 			nColumns         []string
 			nValues          [][]ExpressionNode
 			nUpdatedElements []*UpdateElement
 		)
 		if stmt.OnDuplicate != nil && len(stmt.OnDuplicate) != 0 {
-			for _, onDuplicatedElem := range stmt.OnDuplicate {
-				var nColumn ColumnNameExpressionAtom
-				column := onDuplicatedElem.Column
-				if column.Schema.O != "" {
-					nColumn = append(nColumn, column.Schema.O)
-				}
-				if column.Table.O != "" {
-					nColumn = append(nColumn, column.Table.O)
-				}
-				if column.Name.O != "" {
-					nColumn = append(nColumn, column.Name.O)
-				}
-				nValue := cc.convExpr(onDuplicatedElem.Expr).(PredicateNode)
-				nUpdatedElements = append(nUpdatedElements, &UpdateElement{
-					Column: nColumn,
-					Value:  &PredicateExpressionNode{nValue},
-				})
-			}
+			nUpdatedElements = cc.convAssignment(stmt.OnDuplicate)
 		}
 		if len(stmt.Setlist) != 0 {
 			// insert into sink set a=b
@@ -161,11 +146,28 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 
 		return &InsertStatement{
 			baseInsertStatement: &baseInsertStatement{
-				table:   TableName{nTable},
+				table:   nTable.TableName(),
 				columns: nColumns,
 			},
 			duplicatedUpdates: nUpdatedElements,
 			values:            nValues,
+		}, nil
+	case *ast.UpdateStmt:
+		var (
+			nTable   = convFrom(stmt.TableRefs)[0]
+			nExprs   = cc.convAssignment(stmt.List)
+			nWhere   = toExpressionNode(cc.convExpr(stmt.Where))
+			nLimit   = cc.convLimit(stmt.Limit)
+			nOrderBy = cc.convOrderBy(stmt.Order)
+		)
+		return &UpdateStatement{
+			flag:       0,
+			Table:      nTable.TableName(),
+			TableAlias: nTable.Alias(),
+			Updated:    nExprs,
+			Where:      nWhere,
+			OrderBy:    nOrderBy,
+			Limit:      nLimit,
 		}, nil
 	}
 	return nil, nil
@@ -270,13 +272,58 @@ func (cc *convCtx) convFieldList(node *ast.FieldList) []SelectElement {
 	return ret
 }
 
+// convert assignment, like a = 1.
+func (cc *convCtx) convAssignment(assignments []*ast.Assignment) []*UpdateElement {
+	var result []*UpdateElement
+	for _, assignment := range assignments {
+		var nColumn ColumnNameExpressionAtom
+		column := assignment.Column
+		if column.Schema.O != "" {
+			nColumn = append(nColumn, column.Schema.O)
+		}
+		if column.Table.O != "" {
+			nColumn = append(nColumn, column.Table.O)
+		}
+		if column.Name.O != "" {
+			nColumn = append(nColumn, column.Name.O)
+		}
+		nValue := cc.convExpr(assignment.Expr).(PredicateNode)
+		result = append(result, &UpdateElement{
+			Column: nColumn,
+			Value:  &PredicateExpressionNode{nValue},
+		})
+	}
+	return result
+}
+
+func (cc *convCtx) convOrderBy(ob *ast.OrderByClause) OrderByNode {
+	if ob == nil {
+		return nil
+	}
+	var result OrderByNode
+	for _, item := range ob.Items {
+		result = append(result, &OrderByItem{
+			Expr: cc.convExpr(item.Expr).(*AtomPredicateNode).A,
+		})
+	}
+	return result
+}
+
 func (cc *convCtx) convLimit(li *ast.Limit) *LimitNode {
+	var (
+		offset int64
+		limit  int64
+	)
 	if li == nil {
 		return nil
 	}
+	if li.Offset != nil {
+		offset = int64(li.Offset.(ast.ValueExpr).GetValue().(uint64))
+	}
+	limit = int64(li.Count.(ast.ValueExpr).GetValue().(uint64))
 	n := &LimitNode{
-		offset: int64(li.Offset.(ast.ValueExpr).GetValue().(uint64)),
-		limit:  int64(li.Count.(ast.ValueExpr).GetValue().(uint64)),
+		offset: offset,
+		limit:  limit,
 	}
 	return n
 }

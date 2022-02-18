@@ -28,7 +28,7 @@ import (
 
 func TestParse(t *testing.T) {
 	// 1. select statement
-	stmt, err := Parse("select * from student as foo where `name` = if(1>2, 1, 2)")
+	stmt, err := Parse("select * from student as foo where `name` = if(1>2, 1, 2) order by age")
 	assert.NoError(t, err, "parse+conv ast failed")
 	t.Logf("stmt:%+v", stmt)
 
@@ -37,6 +37,7 @@ func TestParse(t *testing.T) {
 	assert.NoError(t, err, "parse+conv ast failed")
 	t.Logf("stmt:%+v", deleteStmt)
 
+	// 3. insert statements
 	insertStmtWithSetClause, err := Parse("insert into sink set a=77, b='88'")
 	assert.NoError(t, err, "parse+conv ast failed")
 	t.Logf("stmt:%+v", insertStmtWithSetClause)
@@ -50,4 +51,11 @@ func TestParse(t *testing.T) {
 	)
 	assert.NoError(t, err, "parse+conv ast failed")
 	t.Logf("stmt:%+v", insertStmtWithOnDuplicateUpdates)
+
+	// 4. update statement
+	updateStmt, err := Parse(
+		"update source set a=a+1, b=b+2 where a>1 order by a limit 5",
+	)
+	assert.NoError(t, err, "parse+conv ast failed")
+	t.Logf("stmt:%+v", updateStmt)
 }
