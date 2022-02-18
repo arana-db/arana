@@ -20,7 +20,6 @@
 package executor
 
 import (
-	"github.com/dubbogo/arana/pkg/proto"
 	"testing"
 )
 
@@ -30,33 +29,39 @@ import (
 
 import (
 	"github.com/dubbogo/arana/pkg/config"
+	"github.com/dubbogo/arana/pkg/proto"
 )
 
 func TestNewRedirectExecutor(t *testing.T) {
 	a := 20
-	slaveSourceA := &config.Source{
-		Name:   "slave_a",
-		Weight: &a,
-	}
-	slaveSourceB := &config.Source{
-		Name:   "slave_b",
-		Weight: nil,
-	}
-	slaveSources := []*config.Source{slaveSourceA, slaveSourceB}
 	dataSources := &config.DataSourceGroup{
 		Master: &config.Source{
 			Name:   "master",
-			Weight: nil,
+			Weight: &a,
 		},
-		Slaves: slaveSources,
+		Slaves: []*config.Source{{
+			Name:   "slave_a",
+			Weight: &a,
+		}, {
+			Name:   "slave_b",
+			Weight: &a,
+		}},
 	}
 	conf := &config.Executor{
 		Name:                          "arana",
-		Mode:                          1,
+		Mode:                          proto.SingleDB,
 		DataSources:                   []*config.DataSourceGroup{dataSources},
-		Filters:                       nil,
+		Filters:                       make([]string, 0),
 		ProcessDistributedTransaction: true,
 	}
-	executor := NewRedirectExecutor(conf)
-	assert.False(t, executor == nil)
+	redirect, ok := NewRedirectExecutor(conf).(*RedirectExecutor)
+	assert.True(t, ok)
+	assert.Equal(t, redirect.mode, proto.SingleDB)
+	assert.Equal(t, len(redirect.dataSources), 1)
+	assert.Equal(t, redirect.dataSources[0].Master.Name, "master")
+	assert.Equal(t, *redirect.dataSources[0].Master.Weight, 20)
+	assert.Equal(t, redirect.dataSources[0].Slaves[0].Name, "slave_a")
+	assert.Equal(t, *redirect.dataSources[0].Slaves[0].Weight, 20)
+	assert.Equal(t, redirect.dataSources[0].Slaves[1].Name, "slave_b")
+	assert.Equal(t, *redirect.dataSources[0].Slaves[1].Weight, 20)
 }
