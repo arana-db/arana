@@ -39,13 +39,7 @@ func TestNewRedirectExecutorForSingleDB(t *testing.T) {
 			Weight: 10,
 		},
 	}
-	conf := &config.Executor{
-		Name:                          "arana",
-		Mode:                          proto.SingleDB,
-		DataSources:                   []*config.DataSourceGroup{dataSources},
-		Filters:                       make([]string, 0),
-		ProcessDistributedTransaction: true,
-	}
+	conf := createExecutor(proto.SingleDB, []*config.DataSourceGroup{dataSources})
 	redirect, ok := NewRedirectExecutor(conf).(*RedirectExecutor)
 	assert.True(t, ok)
 	assert.Equal(t, redirect.mode, proto.SingleDB)
@@ -78,7 +72,7 @@ func TestNewRedirectExecutorForReadWriteSplitting(t *testing.T) {
 	assert.Equal(t, redirect.dataSources[0].Slaves[1].Name, "slave_b")
 	assert.Equal(t, redirect.dataSources[0].Slaves[1].Weight, 5)
 	assert.True(t, redirect.dbSelector != nil)
-	assert.True(t, redirect.dbSelector.GetDataSourceNo() > 0)
+	assert.True(t, redirect.dbSelector.GetDataSourceNo() >= 0)
 }
 
 func TestAddPreFilter(t *testing.T) {
