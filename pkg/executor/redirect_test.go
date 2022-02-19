@@ -140,7 +140,7 @@ type PreFilterTest struct {
 	proto.PreFilter
 }
 
-func (a *PreFilterTest) GetName() string {
+func (filter *PreFilterTest) GetName() string {
 	return "PreFilterTest"
 }
 
@@ -148,6 +148,6 @@ type PostFilterTest struct {
 	proto.PostFilter
 }
 
-func (a *PostFilterTest) GetName() string {
+func (filter *PostFilterTest) GetName() string {
 	return "PostFilterTest"
 }
