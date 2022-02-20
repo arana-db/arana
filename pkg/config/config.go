@@ -22,7 +22,6 @@ package config
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"time"
@@ -116,7 +115,7 @@ func (t *ProtocolType) UnmarshalText(text []byte) error {
 		return errors.New("can't unmarshal a nil *ProtocolType")
 	}
 	if !t.unmarshalText(bytes.ToLower(text)) {
-		return fmt.Errorf("unrecognized protocol type: %q", text)
+		return errors.Errorf("unrecognized protocol type: %q", text)
 	}
 	return nil
 }
@@ -219,7 +218,7 @@ func NewClient(endpiont []string) (*Client, error) {
 		etcdv3.WithEndpoints(endpiont...),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("Init etcd client fail error %v", err)
+		return nil, errors.Errorf("Init etcd client fail error %v", err)
 	}
 	Client := &Client{
 		client: tmpClient,
@@ -232,7 +231,7 @@ func (c *Client) PutConfigToEtcd(configPath string) error {
 	config := LoadV2(configPath)
 	configJson, err := json.Marshal(config)
 	if err != nil {
-		return fmt.Errorf("config json.marshal failed  %v err:", err)
+		return errors.Errorf("config json.marshal failed  %v err:", err)
 	}
 
 	if err = c.client.Put(defaultConfigPath, string(configJson)); err != nil {
@@ -262,7 +261,7 @@ func (c *Client) PutConfigToEtcd(configPath string) error {
 func (c *Client) LoadConfigFromEtcd(configKey string) (string, error) {
 	resp, err := c.client.Get(configKey)
 	if err != nil {
-		return "", fmt.Errorf("Get remote config fail error %v", err)
+		return "", errors.Errorf("Get remote config fail error %v", err)
 	}
 	return resp, nil
 }

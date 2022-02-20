@@ -22,7 +22,6 @@ package config
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"time"
 )
 
@@ -127,7 +126,8 @@ type (
 	}
 
 	Users struct {
-		Dksl string `yaml:"dksl" json:"dksl"`
+		Username string `yaml:"username" json:"username"`
+		Password string `yaml:"password" json:"password"`
 	}
 
 	ExecutorV2 struct {
@@ -182,7 +182,7 @@ func (r *DataSourceRole) UnmarshalText(text []byte) error {
 		return errors.New("can't unmarshal a nil *DataSourceRole")
 	}
 	if !r.unmarshalText(bytes.ToLower(text)) {
-		return fmt.Errorf("unrecognized datasource role: %q", text)
+		return errors.Errorf("unrecognized datasource role: %q", text)
 	}
 	return nil
 }
@@ -207,7 +207,7 @@ func (t *DataSourceType) UnmarshalText(text []byte) error {
 		return errors.New("can't unmarshal a nil *DataSourceType")
 	}
 	if !t.unmarshalText(bytes.ToLower(text)) {
-		return fmt.Errorf("unrecognized datasource type: %q", text)
+		return errors.Errorf("unrecognized datasource type: %q", text)
 	}
 	return nil
 }

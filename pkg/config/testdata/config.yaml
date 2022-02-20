@@ -10,7 +10,8 @@ data:
         port: 13306
       config:
         users:
-          dksl: "123456"
+          username: root
+          password: "123456"
         server_version: 5.7.0
       executor: redirect
       
