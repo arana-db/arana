@@ -149,7 +149,7 @@ func (suite *ClientTestSuite) TestLoadConfigFromEtcd() {
 	configJson, _ := json.Marshal(config)
 
 	if resp != string(configJson) {
-		t.Fatalf("expect %v but get %s", nil, resp)
+		t.Fatalf("expect %s but get %s", string(configJson), resp)
 	}
 }
 
