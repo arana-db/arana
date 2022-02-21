@@ -123,7 +123,7 @@ func (f *Function) Restore(sb *strings.Builder, args *[]int) error {
 		}
 		for i := 1; i < n; i++ {
 			sb.WriteString(", ")
-			if err := f.args[0].Restore(sb, args); err != nil {
+			if err := f.args[i].Restore(sb, args); err != nil {
 				return errors.WithStack(err)
 			}
 		}
