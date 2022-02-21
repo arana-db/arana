@@ -123,7 +123,7 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		}
 		if len(stmt.Setlist) != 0 {
 			// insert into sink set a=b
-			nValues = append(nValues, make([]ExpressionNode, 0))
+			nValues = append(nValues, make([]ExpressionNode, 0, len(stmt.Setlist)))
 			setList := stmt.Setlist
 			for _, set := range setList {
 				nColumns = append(nColumns, set.Column.Name.O)
@@ -135,7 +135,7 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 			// insert into sink value(a, b)
 			nColumns = convInsertColumns(stmt.Columns)
 			for i, list := range stmt.Lists {
-				nValues = append(nValues, make([]ExpressionNode, 0))
+				nValues = append(nValues, make([]ExpressionNode, 0, len(list)))
 				for _, elem := range list {
 					nValues[i] = append(nValues[i], &PredicateExpressionNode{
 						cc.convExpr(elem).(PredicateNode),
@@ -174,7 +174,7 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 }
 
 func convInsertColumns(columnNames []*ast.ColumnName) []string {
-	var result = make([]string, 0)
+	var result = make([]string, 0, len(columnNames))
 	for _, cn := range columnNames {
 		result = append(result, cn.Name.O)
 	}
@@ -274,7 +274,7 @@ func (cc *convCtx) convFieldList(node *ast.FieldList) []SelectElement {
 
 // convert assignment, like a = 1.
 func (cc *convCtx) convAssignment(assignments []*ast.Assignment) []*UpdateElement {
-	var result []*UpdateElement
+	result := make([]*UpdateElement, 0, len(assignments))
 	for _, assignment := range assignments {
 		var nColumn ColumnNameExpressionAtom
 		column := assignment.Column
@@ -300,7 +300,7 @@ func (cc *convCtx) convOrderBy(ob *ast.OrderByClause) OrderByNode {
 	if ob == nil {
 		return nil
 	}
-	var result OrderByNode
+	result := make([]*OrderByItem, 0, len(ob.Items))
 	for _, item := range ob.Items {
 		result = append(result, &OrderByItem{
 			Expr: cc.convExpr(item.Expr).(*AtomPredicateNode).A,
