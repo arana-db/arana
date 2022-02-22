@@ -121,11 +121,11 @@ type (
 	}
 
 	ListenerV2Config struct {
-		ServerVersion string `yaml:"server_version" json:"server_version"`
-		Users         *Users `yaml:"users" json:"users"`
+		ServerVersion string  `yaml:"server_version" json:"server_version"`
+		Users         []*User `yaml:"users" json:"users"`
 	}
 
-	Users struct {
+	User struct {
 		Username string `yaml:"username" json:"username"`
 		Password string `yaml:"password" json:"password"`
 	}

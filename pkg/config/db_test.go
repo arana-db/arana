@@ -48,8 +48,8 @@ func TestListenersConf(t *testing.T) {
 	assert.Equal(t, "0.0.0.0", dataListeners.SocketAddress.Address)
 	assert.Equal(t, 13306, dataListeners.SocketAddress.Port)
 	assert.NotNil(t, dataListeners.Config)
-	assert.Equal(t, "root", dataListeners.Config.Users.Username)
-	assert.Equal(t, "123456", dataListeners.Config.Users.Password)
+	assert.Equal(t, "root", dataListeners.Config.Users[0].Username)
+	assert.Equal(t, "123456", dataListeners.Config.Users[0].Password)
 	assert.Equal(t, "5.7.0", dataListeners.Config.ServerVersion)
 	assert.Equal(t, "redirect", dataListeners.Executor)
 }
