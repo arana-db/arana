@@ -122,7 +122,23 @@ func TestProcessDistributedTransaction(t *testing.T) {
 func TestInGlobalTransaction(t *testing.T) {
 	conf := createExecutor(proto.SingleDB, make([]*config.DataSourceGroup, 0))
 	redirect, _ := NewRedirectExecutor(conf).(*RedirectExecutor)
-	assert.Equal(t, redirect.InGlobalTransaction(nil), false)
+	assert.Equal(t, redirect.InGlobalTransaction(createContext()), false)
+}
+
+func TestInLocalTransaction(t *testing.T) {
+	conf := createExecutor(proto.SingleDB, make([]*config.DataSourceGroup, 0))
+	redirect, _ := NewRedirectExecutor(conf).(*RedirectExecutor)
+	result := redirect.InLocalTransaction(createContext())
+	assert.False(t, result)
+}
+
+func createContext() *proto.Context {
+	result := &proto.Context{
+		ConnectionID: 0,
+		Data: make([]byte, 0),
+		Stmt: nil,
+	}
+	return result;
 }
 
 func createExecutor(mode proto.ExecuteMode, dataSources []*config.DataSourceGroup) *config.Executor {
