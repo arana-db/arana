@@ -135,10 +135,10 @@ func TestInLocalTransaction(t *testing.T) {
 func createContext() *proto.Context {
 	result := &proto.Context{
 		ConnectionID: 0,
-		Data: make([]byte, 0),
-		Stmt: nil,
+		Data:         make([]byte, 0),
+		Stmt:         nil,
 	}
-	return result;
+	return result
 }
 
 func createExecutor(mode proto.ExecuteMode, dataSources []*config.DataSourceGroup) *config.Executor {
