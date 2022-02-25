@@ -23,6 +23,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"strconv"
 	"time"
 )
 
@@ -57,7 +59,7 @@ type (
 
 	TypeMeta struct {
 		Kind       string `yaml:"kind" json:"kind,omitempty"`
-		APIVersion string ` yaml:"apiVersion" json:"apiVersion,omitempty"`
+		APIVersion string `yaml:"apiVersion" json:"apiVersion,omitempty"`
 	}
 
 	ObjectMeta struct {
@@ -199,4 +201,23 @@ func (t *DataSourceType) unmarshalText(text []byte) bool {
 		return false
 	}
 	return true
+}
+
+var reg = regexp.MustCompile(`^r([0-9]+)w([0-9]+)$`)
+
+func (d *Dsn) GetReadAndWriteWeight() (int, int, error) {
+	items := reg.FindStringSubmatch(d.Weight)
+	if len(items) != 3 {
+		return 0, 0, errors.New("weight config should be r10w10")
+	}
+	readWeight, err := strconv.Atoi(items[1])
+	if err != nil {
+		return 0, 0, err
+	}
+	writeWeight, err := strconv.Atoi(items[2])
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return readWeight, writeWeight, nil
 }
