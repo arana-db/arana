@@ -94,7 +94,6 @@ func TestDataSourceClustersConf(t *testing.T) {
 	assert.Equal(t, "root", atomDb.Username)
 	assert.Equal(t, "123456", atomDb.Password)
 	assert.Equal(t, "employees_0001", atomDb.Database)
-	assert.Equal(t, Master, atomDb.Role)
 	assert.Equal(t, "r0w10", atomDb.Weight)
 	assert.NotNil(t, atomDb.DsnProps)
 	assert.Equal(t, "1s", atomDb.DsnProps.ReadTimeout)

@@ -38,7 +38,6 @@ data:
               username: root
               password: "123456"
               database: employees_0001
-              role: master
               weight: r0w10
               connProps:
                 readTimeout: "1s"

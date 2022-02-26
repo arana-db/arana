@@ -91,14 +91,13 @@ type (
 	}
 
 	Dsn struct {
-		Host     string         `yaml:"host" json:"host"`
-		Port     int            `yaml:"port" json:"port"`
-		Username string         `yaml:"username" json:"username"`
-		Password string         `yaml:"password" json:"password"`
-		Database string         `yaml:"database" json:"database"`
-		DsnProps *DsnConnProp   `yaml:"connProps" json:"connProps,omitempty"`
-		Role     DataSourceRole `yaml:"role" json:"role"`
-		Weight   string         `default:"r10w10" yaml:"weight" json:"weight"`
+		Host     string       `yaml:"host" json:"host"`
+		Port     int          `yaml:"port" json:"port"`
+		Username string       `yaml:"username" json:"username"`
+		Password string       `yaml:"password" json:"password"`
+		Database string       `yaml:"database" json:"database"`
+		DsnProps *DsnConnProp `yaml:"connProps" json:"connProps,omitempty"`
+		Weight   string       `default:"r10w10" yaml:"weight" json:"weight"`
 	}
 
 	DsnConnProp struct {
