@@ -323,7 +323,7 @@ const (
 
 type DeleteStatement struct {
 	flag    uint8
-	Table   TableName
+	From    []*TableSourceNode
 	Where   ExpressionNode
 	OrderBy OrderByNode
 	Limit   *LimitNode
