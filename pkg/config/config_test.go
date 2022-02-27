@@ -73,6 +73,15 @@ func TestUnmarshalText(t *testing.T) {
 	assert.Equal(t, protocolType, Mysql)
 }
 
+func TestIsSlave(t *testing.T) {
+	Read := "r10w0"
+	assert.Equal(t, true, IsSlave(Read))
+	Write := "r0w10"
+	assert.Equal(t, false, IsSlave(Write))
+	ReadAndWrite := "r10w10"
+	assert.Equal(t, false, IsSlave(ReadAndWrite))
+}
+
 func TestLoad(t *testing.T) {
 	cfg := Load("../../docker/conf/config.yaml")
 	assert.Equal(t, cfg.Listeners[0].ProtocolType, Mysql)

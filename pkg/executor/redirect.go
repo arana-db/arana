@@ -80,7 +80,7 @@ func NewRedirectExecutorV2(conf *config.Executor, cluster *config.DataSourceClus
 	for _, group := range cluster.Groups {
 		weights := make([]int, 0, len(group.AtomDbs))
 		for _, db := range group.AtomDbs {
-			if db.Role == config.Slave {
+			if config.IsSlave(db.Weight) {
 				readWeight, _, err := db.GetReadAndWriteWeight()
 				if err != nil {
 					log.Errorf("weight config not right, err is %v, use default weight 10", err)

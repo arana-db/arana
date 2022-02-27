@@ -24,6 +24,8 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -163,6 +165,17 @@ func parse(path string) *Configuration {
 		}
 	}
 	return cfg
+}
+
+// IsSlave is used temporarily for Read/Write Splitting to judge slave
+func IsSlave(weight string) bool {
+	WriteWeightIndex := strings.Index(weight, "w")
+	WriteWeight := weight[WriteWeightIndex+1:]
+	Weight, _ := strconv.Atoi(WriteWeight)
+	if Weight < 1 {
+		return true
+	}
+	return false
 }
 
 func parseV2(path string) *ConfigMap {
