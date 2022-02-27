@@ -22,7 +22,6 @@ package config
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"time"
@@ -31,13 +30,18 @@ import (
 import (
 	"github.com/ghodss/yaml"
 
+	"github.com/tidwall/gjson"
+
 	"github.com/pkg/errors"
 )
 
 import (
 	"github.com/dubbogo/arana/pkg/proto"
 	"github.com/dubbogo/arana/pkg/util/log"
+	etcdv3 "github.com/dubbogo/gost/database/kv/etcd/v3"
 )
+
+var apiConfig *ConfigMap
 
 type Configuration struct {
 	Listeners []*Listener `yaml:"listeners" json:"listeners"`
@@ -98,12 +102,20 @@ const (
 	Mysql
 )
 
+const (
+	defaultConfigPath                   = "/dubbo-go-arana/config"
+	defaultConfigDataListenersPath      = "/dubbo-go-arana/config/data/listeners"
+	defaultConfigDataExecutorsPath      = "/dubbo-go-arana/config/data/executors"
+	defaultConfigDataSourceClustersPath = "/dubbo-go-arana/config/data/dataSourceClusters"
+	defaultConfigDataShardingRulePath   = "/dubbo-go-arana/config/data/shardingRule"
+)
+
 func (t *ProtocolType) UnmarshalText(text []byte) error {
 	if t == nil {
 		return errors.New("can't unmarshal a nil *ProtocolType")
 	}
 	if !t.unmarshalText(bytes.ToLower(text)) {
-		return fmt.Errorf("unrecognized protocol type: %q", text)
+		return errors.Errorf("unrecognized protocol type: %q", text)
 	}
 	return nil
 }
@@ -193,4 +205,73 @@ func LoadV2(path string) *ConfigMap {
 	configPath, _ := filepath.Abs(path)
 	cfg := parseV2(configPath)
 	return cfg
+}
+
+type Client struct {
+	client *etcdv3.Client
+}
+
+func NewClient(endpiont []string) (*Client, error) {
+	tmpClient, err := etcdv3.NewConfigClientWithErr(
+		etcdv3.WithName(etcdv3.RegistryETCDV3Client),
+		etcdv3.WithTimeout(10*time.Second),
+		etcdv3.WithEndpoints(endpiont...),
+	)
+	if err != nil {
+		return nil, errors.Errorf("Init etcd client fail error %v", err)
+	}
+	Client := &Client{
+		client: tmpClient,
+	}
+	return Client, nil
+}
+
+// PutConfigToEtcd initialize local file config into etcd，only be used in when etcd don't hava data.
+func (c *Client) PutConfigToEtcd(configPath string) error {
+	config := LoadV2(configPath)
+	configJson, err := json.Marshal(config)
+	if err != nil {
+		return errors.Errorf("config json.marshal failed  %v err:", err)
+	}
+
+	if err = c.client.Put(defaultConfigPath, string(configJson)); err != nil {
+		return err
+	}
+
+	if err = c.client.Put(defaultConfigDataListenersPath, gjson.Get(string(configJson), "data.listeners").String()); err != nil {
+		return err
+	}
+
+	if err = c.client.Put(defaultConfigDataExecutorsPath, gjson.Get(string(configJson), "data.executors").String()); err != nil {
+		return err
+	}
+
+	if err = c.client.Put(defaultConfigDataSourceClustersPath, gjson.Get(string(configJson), "data.dataSourceClusters").String()); err != nil {
+		return err
+	}
+
+	if err = c.client.Put(defaultConfigDataShardingRulePath, gjson.Get(string(configJson), "data.shardingRule").String()); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// LoadConfigFromEtcd get key value from etcd
+func (c *Client) LoadConfigFromEtcd(configKey string) (string, error) {
+	resp, err := c.client.Get(configKey)
+	if err != nil {
+		return "", errors.Errorf("Get remote config fail error %v", err)
+	}
+	return resp, nil
+}
+
+// UpdateConfigtoEtcd update key value in etcd
+func (c *Client) UpdateConfigToEtcd(configKey, configValue string) error {
+
+	if err := c.client.Put(configKey, configValue); err != nil {
+		return err
+	}
+
+	return nil
 }

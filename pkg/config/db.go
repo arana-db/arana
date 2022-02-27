@@ -22,7 +22,6 @@ package config
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"regexp"
 	"strconv"
 	"time"
@@ -67,10 +66,8 @@ type (
 	}
 
 	ConfigData struct {
-		// todo add Listeners and Executors config
-		// Listeners          []*Listener          `validate:"required" yaml:"listeners" json:"listeners"`
-		// Executors          []*Executor          `validate:"required" yaml:"executors" json:"executors"`
-		Filters            []string             `yaml:"filters" json:"filters"`
+		Listeners          []*ListenerV2        `validate:"required" yaml:"listeners" json:"listeners"`
+		Executors          []*ExecutorV2        `validate:"required" yaml:"executors" json:"executors"`
 		DataSourceClusters []*DataSourceCluster `validate:"required" yaml:"dataSourceClusters" json:"dataSourceClusters"`
 		ShardingRule       *ShardingRule        `yaml:"shardingRule,omitempty" json:"shardingRule,omitempty"`
 	}
@@ -96,14 +93,13 @@ type (
 	}
 
 	Dsn struct {
-		Host     string         `yaml:"host" json:"host"`
-		Port     int            `yaml:"port" json:"port"`
-		Username string         `yaml:"username" json:"username"`
-		Password string         `yaml:"password" json:"password"`
-		Database string         `yaml:"database" json:"database"`
-		DsnProps *DsnConnProp   `yaml:"connProps" json:"connProps,omitempty"`
-		Role     DataSourceRole `yaml:"role" json:"role"`
-		Weight   string         `default:"r10w10" yaml:"weight" json:"weight"`
+		Host     string       `yaml:"host" json:"host"`
+		Port     int          `yaml:"port" json:"port"`
+		Username string       `yaml:"username" json:"username"`
+		Password string       `yaml:"password" json:"password"`
+		Database string       `yaml:"database" json:"database"`
+		DsnProps *DsnConnProp `yaml:"connProps" json:"connProps,omitempty"`
+		Weight   string       `default:"r10w10" yaml:"weight" json:"weight"`
 	}
 
 	DsnConnProp struct {
@@ -116,6 +112,33 @@ type (
 
 	ShardingRule struct {
 		Tables []*Table `yaml:"tables" json:"tables"`
+	}
+
+	ListenerV2 struct {
+		ProtocolType  string            `yaml:"protocol_type" json:"protocol_type"`
+		SocketAddress *SocketAddress    `yaml:"socket_address" json:"socket_address"`
+		Config        *ListenerV2Config `yaml:"config" json:"config"`
+		Executor      string            `yaml:"executor" json:"executor"`
+	}
+
+	ListenerV2Config struct {
+		ServerVersion string  `yaml:"server_version" json:"server_version"`
+		Users         []*User `yaml:"users" json:"users"`
+	}
+
+	User struct {
+		Username string `yaml:"username" json:"username"`
+		Password string `yaml:"password" json:"password"`
+	}
+
+	ExecutorV2 struct {
+		Name        string                   `yaml:"name" json:"name"`
+		Mode        string                   `yaml:"mode" json:"mode"`
+		DataSources []*ExecutorV2DataSources `yaml:"data_sources" json:"data_sources"`
+	}
+
+	ExecutorV2DataSources struct {
+		Master string `yaml:"master" json:"master"`
 	}
 
 	Table struct {
@@ -160,7 +183,7 @@ func (r *DataSourceRole) UnmarshalText(text []byte) error {
 		return errors.New("can't unmarshal a nil *DataSourceRole")
 	}
 	if !r.unmarshalText(bytes.ToLower(text)) {
-		return fmt.Errorf("unrecognized datasource role: %q", text)
+		return errors.Errorf("unrecognized datasource role: %q", text)
 	}
 	return nil
 }
@@ -185,7 +208,7 @@ func (t *DataSourceType) UnmarshalText(text []byte) error {
 		return errors.New("can't unmarshal a nil *DataSourceType")
 	}
 	if !t.unmarshalText(bytes.ToLower(text)) {
-		return fmt.Errorf("unrecognized datasource type: %q", text)
+		return errors.Errorf("unrecognized datasource type: %q", text)
 	}
 	return nil
 }
