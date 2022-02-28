@@ -42,10 +42,10 @@ func TestNewRedirectExecutorForSingleDB(t *testing.T) {
 	conf := createExecutor(proto.SingleDB, []*config.DataSourceGroup{dataSources})
 	redirect, ok := NewRedirectExecutor(conf).(*RedirectExecutor)
 	assert.True(t, ok)
-	assert.Equal(t, redirect.mode, proto.SingleDB)
-	assert.Equal(t, len(redirect.dataSources), 1)
-	assert.Equal(t, redirect.dataSources[0].Master.Name, "master")
-	assert.Equal(t, redirect.dataSources[0].Master.Weight, 10)
+	assert.Equal(t, proto.SingleDB, redirect.mode)
+	assert.Equal(t, 1, len(redirect.dataSources))
+	assert.Equal(t, "master", redirect.dataSources[0].Master.Name)
+	assert.Equal(t, 10, redirect.dataSources[0].Master.Weight)
 }
 
 func TestNewRedirectExecutorForReadWriteSplitting(t *testing.T) {
@@ -65,12 +65,12 @@ func TestNewRedirectExecutorForReadWriteSplitting(t *testing.T) {
 	conf := createExecutor(proto.ReadWriteSplitting, []*config.DataSourceGroup{dataSources})
 	redirect, ok := NewRedirectExecutor(conf).(*RedirectExecutor)
 	assert.True(t, ok)
-	assert.Equal(t, redirect.mode, proto.ReadWriteSplitting)
-	assert.Equal(t, len(redirect.dataSources), 1)
-	assert.Equal(t, redirect.dataSources[0].Slaves[0].Name, "slave_a")
-	assert.Equal(t, redirect.dataSources[0].Slaves[0].Weight, 5)
-	assert.Equal(t, redirect.dataSources[0].Slaves[1].Name, "slave_b")
-	assert.Equal(t, redirect.dataSources[0].Slaves[1].Weight, 5)
+	assert.Equal(t, proto.ReadWriteSplitting, redirect.mode)
+	assert.Equal(t, 1, len(redirect.dataSources))
+	assert.Equal(t, "slave_a", redirect.dataSources[0].Slaves[0].Name)
+	assert.Equal(t, 5, redirect.dataSources[0].Slaves[0].Weight)
+	assert.Equal(t, "slave_b", redirect.dataSources[0].Slaves[1].Name)
+	assert.Equal(t, 5, redirect.dataSources[0].Slaves[1].Weight)
 	assert.True(t, redirect.dbSelector != nil)
 	assert.True(t, redirect.dbSelector.GetDataSourceNo() >= 0)
 }
@@ -79,50 +79,50 @@ func TestAddPreFilter(t *testing.T) {
 	conf := createExecutor(proto.SingleDB, make([]*config.DataSourceGroup, 0))
 	redirect, _ := NewRedirectExecutor(conf).(*RedirectExecutor)
 	redirect.AddPreFilter(&PreFilterTest{})
-	assert.Equal(t, len(redirect.preFilters), 1)
-	assert.Equal(t, redirect.preFilters[0].GetName(), "PreFilterTest")
+	assert.Equal(t, 1, len(redirect.preFilters))
+	assert.Equal(t, "PreFilterTest", redirect.preFilters[0].GetName())
 }
 
 func TestAddPostFilter(t *testing.T) {
 	conf := createExecutor(proto.SingleDB, make([]*config.DataSourceGroup, 0))
 	redirect, _ := NewRedirectExecutor(conf).(*RedirectExecutor)
 	redirect.AddPostFilter(&PostFilterTest{})
-	assert.Equal(t, len(redirect.postFilters), 1)
-	assert.Equal(t, redirect.postFilters[0].GetName(), "PostFilterTest")
+	assert.Equal(t, 1, len(redirect.postFilters))
+	assert.Equal(t, "PostFilterTest", redirect.postFilters[0].GetName())
 }
 
 func TestGetPreFilters(t *testing.T) {
 	conf := createExecutor(proto.SingleDB, make([]*config.DataSourceGroup, 0))
 	redirect, _ := NewRedirectExecutor(conf).(*RedirectExecutor)
 	redirect.AddPreFilter(&PreFilterTest{})
-	assert.Equal(t, len(redirect.GetPreFilters()), 1)
-	assert.Equal(t, redirect.GetPreFilters()[0].GetName(), "PreFilterTest")
+	assert.Equal(t, 1, len(redirect.GetPreFilters()))
+	assert.Equal(t, "PreFilterTest", redirect.GetPreFilters()[0].GetName())
 }
 
 func TestGetPostFilters(t *testing.T) {
 	conf := createExecutor(proto.SingleDB, make([]*config.DataSourceGroup, 0))
 	redirect, _ := NewRedirectExecutor(conf).(*RedirectExecutor)
 	redirect.AddPostFilter(&PostFilterTest{})
-	assert.Equal(t, len(redirect.GetPostFilters()), 1)
-	assert.Equal(t, redirect.GetPostFilters()[0].GetName(), "PostFilterTest")
+	assert.Equal(t, 1, len(redirect.GetPostFilters()))
+	assert.Equal(t, "PostFilterTest", redirect.GetPostFilters()[0].GetName())
 }
 
 func TestExecuteMode(t *testing.T) {
 	conf := createExecutor(proto.SingleDB, make([]*config.DataSourceGroup, 0))
 	redirect, _ := NewRedirectExecutor(conf).(*RedirectExecutor)
-	assert.Equal(t, redirect.ExecuteMode(), proto.SingleDB)
+	assert.Equal(t, proto.SingleDB, redirect.ExecuteMode())
 }
 
 func TestProcessDistributedTransaction(t *testing.T) {
 	conf := createExecutor(proto.SingleDB, make([]*config.DataSourceGroup, 0))
 	redirect, _ := NewRedirectExecutor(conf).(*RedirectExecutor)
-	assert.Equal(t, redirect.ProcessDistributedTransaction(), false)
+	assert.False(t, redirect.ProcessDistributedTransaction())
 }
 
 func TestInGlobalTransaction(t *testing.T) {
 	conf := createExecutor(proto.SingleDB, make([]*config.DataSourceGroup, 0))
 	redirect, _ := NewRedirectExecutor(conf).(*RedirectExecutor)
-	assert.Equal(t, redirect.InGlobalTransaction(createContext()), false)
+	assert.False(t, redirect.InGlobalTransaction(createContext()))
 }
 
 func TestInLocalTransaction(t *testing.T) {

@@ -42,14 +42,14 @@ func TestGetFilterFactory(t *testing.T) {
 	factory := GetFilterFactory(filterFactoryName)
 	assert.True(t, factory != nil)
 	filter, _ := factory.NewFilter(make([]byte, 0))
-	assert.Equal(t, filter.GetName(), "PreFilterTest")
+	assert.Equal(t, "PreFilterTest", filter.GetName())
 }
 
 func TestGetFilter(t *testing.T) {
 	RegisterFilter(filterName, &PreFilterTest{})
 	filter := GetFilter(filterName)
 	assert.True(t, filter != nil)
-	assert.Equal(t, filter.GetName(), "PreFilterTest")
+	assert.Equal(t, "PreFilterTest", filter.GetName())
 }
 
 type FilterFactoryTest struct {
