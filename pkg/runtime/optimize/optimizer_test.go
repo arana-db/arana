@@ -24,6 +24,8 @@ import (
 )
 
 import (
+	"github.com/dubbogo/parser"
+
 	"github.com/golang/mock/gomock"
 
 	"github.com/stretchr/testify/assert"
@@ -42,7 +44,7 @@ func TestOptimizer_OptimizeSelect(t *testing.T) {
 	conn := testdata.NewMockVConn(ctrl)
 
 	conn.EXPECT().Query(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, db string, sql string, args ...interface{}) (proto.Rows, error) {
+		DoAndReturn(func(ctx context.Context, db string, sql string, args ...interface{}) (proto.Result, error) {
 			t.Logf("fake query: db=%s, sql=%s, args=%v\n", db, sql, args)
 			return nil, nil
 		}).
@@ -55,7 +57,10 @@ func TestOptimizer_OptimizeSelect(t *testing.T) {
 		opt  optimizer
 	)
 
-	plan, err := opt.Optimize(xxcontext.WithRule(ctx, rule), sql, 1, 2, 3)
+	p := parser.New()
+	stmt, _ := p.ParseOneStmt(sql, "", "")
+
+	plan, err := opt.Optimize(xxcontext.WithRule(ctx, rule), stmt, 1, 2, 3)
 	assert.NoError(t, err)
 
 	_, _ = plan.ExecIn(ctx, conn)

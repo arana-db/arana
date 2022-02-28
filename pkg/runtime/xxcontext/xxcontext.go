@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 //
+
 package xxcontext
 
 import (
@@ -35,9 +36,15 @@ type (
 	keyFlag     struct{}
 	keyRule     struct{}
 	keySequence struct{}
+	keySql      struct{}
 )
 
 type cFlag uint8
+
+// WithSQL binds the original sql.
+func WithSQL(ctx context.Context, sql string) context.Context {
+	return context.WithValue(ctx, keySql{}, sql)
+}
 
 // WithMaster uses master datasource.
 func WithMaster(ctx context.Context) context.Context {
@@ -85,6 +92,14 @@ func IsMaster(ctx context.Context) bool {
 // IsSlave returns true if force using master.
 func IsSlave(ctx context.Context) bool {
 	return hasFlag(ctx, _flagSlave)
+}
+
+// SQL returns the original sql string.
+func SQL(ctx context.Context) string {
+	if sql, ok := ctx.Value(keySql{}).(string); ok {
+		return sql
+	}
+	return ""
 }
 
 func hasFlag(ctx context.Context, flag cFlag) bool {

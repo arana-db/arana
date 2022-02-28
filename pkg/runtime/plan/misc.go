@@ -28,30 +28,9 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/proto"
 	"github.com/dubbogo/arana/pkg/runtime/misc"
 	"github.com/dubbogo/arana/pkg/runtime/xxast"
 )
-
-type queryResult struct {
-	proto.Rows
-}
-
-func (q queryResult) LastInsertId() (uint64, error) {
-	return 0, errors.New("unsupported operation")
-}
-
-func (q queryResult) RowsAffected() (uint64, error) {
-	return 0, errors.New("unsupported operation")
-}
-
-type execResult struct {
-	proto.Result
-}
-
-func (e execResult) Next() proto.Row {
-	return nil
-}
 
 func generateSelect(table string, stmt *xxast.SelectStatement, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("SELECT ")
@@ -68,7 +47,7 @@ func generateSelect(table string, stmt *xxast.SelectStatement, sb *strings.Build
 		handleSelect(sb, stmt.Select[i])
 	}
 
-	if len(table) > 0 {
+	if len(stmt.From) > 0 {
 		sb.WriteString(" FROM ")
 		handleFrom(sb, table, stmt.From)
 	}
@@ -157,7 +136,12 @@ func handleFrom(sb *strings.Builder, table string, from []*xxast.TableSourceNode
 		misc.Wrap(sb, '`', first.TableName().Prefix())
 		sb.WriteByte('.')
 	}
-	misc.Wrap(sb, '`', table)
+
+	if len(table) > 0 {
+		misc.Wrap(sb, '`', table)
+	} else {
+		misc.Wrap(sb, '`', first.TableName().Suffix())
+	}
 
 	if len(first.Alias()) > 0 {
 		sb.WriteString(" AS ")

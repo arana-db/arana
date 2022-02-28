@@ -21,9 +21,12 @@ package optimize
 import (
 	"context"
 	stdErrors "errors"
+	"strings"
 )
 
 import (
+	"github.com/dubbogo/parser/ast"
+
 	"github.com/pkg/errors"
 )
 
@@ -54,15 +57,29 @@ func IsDenyFullScanErr(err error) bool {
 	return errors.Is(err, errDenyFullScan)
 }
 
+func GetOptimizer() proto.Optimizer {
+	return optimizer{}
+}
+
 type optimizer struct {
 }
 
-func (o optimizer) Optimize(ctx context.Context, sql string, args ...interface{}) (proto.Plan, error) {
-	stmt, err := xxast.Parse(sql)
-	if err != nil {
+func (o optimizer) Optimize(ctx context.Context, stmt ast.StmtNode, args ...interface{}) (plan proto.Plan, err error) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			err = errors.Errorf("cannot analyze sql %s", xxcontext.SQL(ctx))
+			log.Errorf("optimize panic: sql=%s, rec=%v", xxcontext.SQL(ctx), rec)
+		}
+	}()
+
+	var xxstmt xxast.Statement
+	if xxstmt, err = xxast.FromStmtNode(stmt); err != nil {
 		return nil, errors.Wrap(err, "optimize failed")
 	}
+	return o.doOptimize(ctx, xxstmt, args...)
+}
 
+func (o optimizer) doOptimize(ctx context.Context, stmt xxast.Statement, args ...interface{}) (proto.Plan, error) {
 	switch t := stmt.(type) {
 	case *xxast.SelectStatement:
 		return o.optimizeSelect(ctx, t, args)
@@ -75,10 +92,53 @@ func (o optimizer) Optimize(ctx context.Context, sql string, args ...interface{}
 	panic("implement me")
 }
 
+const (
+	_bypass uint32 = 1 << iota
+	_supported
+)
+
+func (o optimizer) getSelectFlag(ctx context.Context, stmt *xxast.SelectStatement) (flag uint32) {
+	switch len(stmt.From) {
+	case 1:
+		from := stmt.From[0]
+		tn := from.TableName()
+
+		if tn == nil { // only FROM table supported now
+			return
+		}
+
+		flag |= _supported
+
+		if len(tn) > 1 {
+			switch strings.ToLower(tn.Prefix()) {
+			case "mysql", "information_schema":
+				flag |= _bypass
+				return
+			}
+		}
+		if !xxcontext.Rule(ctx).Has(tn.Suffix()) {
+			flag |= _bypass
+		}
+	case 0:
+		flag |= _bypass
+		flag |= _supported
+	}
+	return
+}
+
 func (o optimizer) optimizeSelect(ctx context.Context, stmt *xxast.SelectStatement, args []interface{}) (proto.Plan, error) {
 	var ru *rule.Rule
 	if ru = xxcontext.Rule(ctx); ru == nil {
 		return nil, errors.WithStack(errNoRuleFound)
+	}
+
+	flag := o.getSelectFlag(ctx, stmt)
+	if flag&_supported == 0 {
+		return nil, errors.Errorf("unsupported sql: %s", xxcontext.SQL(ctx))
+	}
+
+	if flag&_bypass != 0 {
+		return &plan.SimpleQueryPlan{Stmt: stmt, Args: args}, nil
 	}
 
 	shards, fullScan, err := (*Sharder)(ru).Shard(stmt.From[0].TableName(), stmt.Where, args...)

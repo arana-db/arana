@@ -106,3 +106,51 @@ CREATE OR REPLACE VIEW current_dept_emp AS
     FROM dept_emp d
         INNER JOIN dept_emp_latest_date l
         ON d.emp_no=l.emp_no AND d.from_date=l.from_date AND l.to_date = d.to_date;
+
+
+CREATE TABLE IF NOT EXISTS `sequence`
+(
+    `id`           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `name`         VARCHAR(64)     NOT NULL,
+    `value`        BIGINT          NOT NULL,
+    `step`         INT             NOT NULL DEFAULT 10000,
+    `created_at`   TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at`  TIMESTAMP       NOT NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_name` (`name`)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8;
+
+DELIMITER //
+CREATE PROCEDURE sp_create_tab()
+BEGIN
+    SET @str = ' (
+`id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT ''主键'',
+`uid` BIGINT(20) UNSIGNED NOT NULL COMMENT ''UID'',
+`name` VARCHAR(255) NOT NULL COMMENT ''姓名'',
+`score` DECIMAL(6,2) DEFAULT ''0'' COMMENT ''评分'',
+`nickname` VARCHAR(255) DEFAULT NULL COMMENT ''昵称'',
+`gender` TINYINT(4) NULL COMMENT ''性别:1=男;0=女'',
+`birth_year` SMALLINT(5) UNSIGNED DEFAULT ''0'' COMMENT ''出生年份yyyy'',
+`created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT ''创建时间'',
+`modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT ''修改时间'',
+PRIMARY KEY (`id`),
+UNIQUE KEY `uk_uid` (`uid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT=''学生信息表''
+';
+
+    SET @j = 0;
+    WHILE @j < 32
+        DO
+            SET @table = CONCAT('student_', LPAD(@j, 4, '0'));
+            SET @ddl = CONCAT('CREATE TABLE IF NOT EXISTS ', @table, @str);
+            PREPARE ddl FROM @ddl;
+            EXECUTE ddl;
+            SET @j = @j + 1;
+        END WHILE;
+END
+//
+
+DELIMITER ;
+CALL sp_create_tab;
+DROP PROCEDURE sp_create_tab;

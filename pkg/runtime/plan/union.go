@@ -34,7 +34,7 @@ func (u UnionPlan) Type() proto.PlanType {
 	return proto.PlanTypeQuery
 }
 
-func (u UnionPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.MixinResult, error) {
+func (u UnionPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
 	//TODO lazy union result sets
 	panic("implement me")
 }

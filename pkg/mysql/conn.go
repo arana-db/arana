@@ -84,6 +84,9 @@ type Conn struct {
 	// If there are any ongoing reads or writes, they may get interrupted.
 	conn net.Conn
 
+	// Schema is the current database name.
+	Schema string
+
 	// ConnectionID is set:
 	// - at Connect() time for clients, with the value returned by
 	// the server.
