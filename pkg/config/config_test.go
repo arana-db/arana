@@ -31,8 +31,8 @@ func TestUnmarshalTextForProtocolTypeNil(t *testing.T) {
 	var protocolType ProtocolType
 	var text = []byte("http")
 	err := protocolType.UnmarshalText(text)
-	assert.Equal(t, err == nil, true)
-	assert.Equal(t, protocolType, Http)
+	assert.True(t, err == nil)
+	assert.Equal(t, Http, protocolType)
 }
 
 func TestUnmarshalTextForUnrecognizedProtocolType(t *testing.T) {
@@ -46,16 +46,16 @@ func TestUnmarshalText(t *testing.T) {
 	var protocolType = Http
 	var text = []byte("mysql")
 	err := protocolType.UnmarshalText(text)
-	assert.Equal(t, err == nil, true)
-	assert.Equal(t, protocolType, Mysql)
+	assert.True(t, err == nil)
+	assert.Equal(t, Mysql, protocolType)
 }
 
 func TestLoad(t *testing.T) {
 	cfg := Load("../../docker/conf/config.yaml")
-	assert.Equal(t, cfg.Listeners[0].ProtocolType, Mysql)
-	assert.Equal(t, cfg.Executors[0].Name, "redirect")
-	assert.Equal(t, len(cfg.DataSources), 3)
-	assert.Equal(t, cfg.DataSources[0].Name, "employees")
-	assert.Equal(t, cfg.DataSources[0].Role, Master)
-	assert.Equal(t, cfg.DataSources[0].Type, DBMysql)
+	assert.Equal(t, Mysql, cfg.Listeners[0].ProtocolType)
+	assert.Equal(t, "redirect", cfg.Executors[0].Name)
+	assert.Equal(t, 3, len(cfg.DataSources))
+	assert.Equal(t, "employees", cfg.DataSources[0].Name)
+	assert.Equal(t, Master, cfg.DataSources[0].Role)
+	assert.Equal(t, DBMysql, cfg.DataSources[0].Type)
 }
