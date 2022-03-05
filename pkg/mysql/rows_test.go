@@ -27,44 +27,113 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+import (
+	"github.com/dubbogo/arana/pkg/constants/mysql"
+	"github.com/dubbogo/arana/pkg/proto"
+)
+
 func TestFields(t *testing.T) {
-	columns := []Field{
-		{
-			database: "db_arana",
-			table:    "t_order",
-			name:     "id",
-		}, {
-			database: "db_arana",
-			table:    "t_order",
-			name:     "order_id",
-		}, {
-			database: "db_arana",
-			table:    "t_order",
-			name:     "order_amount",
-		},
-	}
-	columnsNames := []string{
-		"id", "order_id", "order_amount",
-	}
-
 	row := &Row{
-		Content: make([]byte, 0),
-		ResultSet: &ResultSet{
-			Columns:     columns,
-			ColumnNames: columnsNames,
-		},
+		Content:   createContent(),
+		ResultSet: createResultSet(),
 	}
-	assert.True(t, row == nil)
-
-	result := createResult()
-	insertId, err := result.LastInsertId()
-	assert.Equal(t, uint64(2000), insertId)
-	assert.True(t, err == nil)
+	fields := row.Fields()
+	assert.Equal(t, 3, len(fields))
+	assert.Equal(t, "db_arana", fields[0].DataBaseName())
+	assert.Equal(t, "t_order", fields[1].TableName())
+	assert.Equal(t, "DECIMAL", fields[2].TypeDatabaseName())
 }
 
 func TestData(t *testing.T) {
-	result := createResult()
-	affectedRows, err := result.RowsAffected()
-	assert.Equal(t, uint64(10), affectedRows)
+	row := &Row{
+		Content:   createContent(),
+		ResultSet: createResultSet(),
+	}
+	content := row.Data()
+	assert.Equal(t, 3, len(content))
+	assert.Equal(t, byte('1'), content[0])
+	assert.Equal(t, byte('2'), content[1])
+	assert.Equal(t, byte('3'), content[2])
+}
+
+func TestColumnsForColumnNames(t *testing.T) {
+	row := &Row{
+		Content:   createContent(),
+		ResultSet: createResultSet(),
+	}
+	columns := row.Columns()
+	assert.Equal(t, "t_order.id", columns[0])
+	assert.Equal(t, "t_order.order_id", columns[1])
+	assert.Equal(t, "t_order.order_amount", columns[2])
+}
+
+func TestColumnsForColumns(t *testing.T) {
+	row := &Row{
+		Content: createContent(),
+		ResultSet: &ResultSet{
+			Columns:     createColumns(),
+			ColumnNames: nil,
+		},
+	}
+	columns := row.Columns()
+	assert.Equal(t, "t_order.id", columns[0])
+	assert.Equal(t, "t_order.order_id", columns[1])
+	assert.Equal(t, "t_order.order_amount", columns[2])
+}
+
+func TestDecodeForRow(t *testing.T) {
+	row := &Row{
+		Content:   createContent(),
+		ResultSet: createResultSet(),
+	}
+	val, err := row.Decode()
+	//TODO row.Decode() is empty.
+	assert.True(t, val == nil)
 	assert.True(t, err == nil)
+}
+
+func createContent() []byte {
+	result := []byte{
+		'1', '2', '3',
+	}
+	return result
+}
+
+func createResultSet() *ResultSet {
+
+	result := &ResultSet{
+		Columns:     createColumns(),
+		ColumnNames: createColumnNames(),
+	}
+
+	return result
+}
+
+func createColumns() []proto.Field {
+	result := []proto.Field{
+		&Field{
+			database:  "db_arana",
+			table:     "t_order",
+			name:      "id",
+			fieldType: mysql.FieldTypeLong,
+		}, &Field{
+			database:  "db_arana",
+			table:     "t_order",
+			name:      "order_id",
+			fieldType: mysql.FieldTypeLong,
+		}, &Field{
+			database:  "db_arana",
+			table:     "t_order",
+			name:      "order_amount",
+			fieldType: mysql.FieldTypeDecimal,
+		},
+	}
+	return result
+}
+
+func createColumnNames() []string {
+	result := []string{
+		"t_order.id", "t_order.order_id", "t_order.order_amount",
+	}
+	return result
 }
