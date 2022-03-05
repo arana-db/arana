@@ -88,8 +88,8 @@ func TestDecodeForRow(t *testing.T) {
 	}
 	val, err := row.Decode()
 	//TODO row.Decode() is empty.
-	assert.True(t, val == nil)
-	assert.True(t, err == nil)
+	assert.Nil(t, val)
+	assert.Nil(t, err)
 }
 
 func createContent() []byte {

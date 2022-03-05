@@ -42,110 +42,51 @@ func TestDataBaseName(t *testing.T) {
 }
 
 func TestTypeDatabaseName(t *testing.T) {
-	field := createField(mysql.FieldTypeBit, mysql.Collations[mysql.DefaultCollation])
-	assert.Equal(t, "BIT", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeBLOB, mysql.Collations[mysql.DefaultCollation])
-	assert.Equal(t, "TEXT", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeBLOB, mysql.Collations[mysql.BinaryCollation])
-	assert.Equal(t, "BLOB", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeDate, mysql.Collations[mysql.DefaultCollation])
-	assert.Equal(t, "DATE", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeDateTime, mysql.Collations[mysql.DefaultCollation])
-	assert.Equal(t, "DATETIME", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeDecimal, mysql.Collations[mysql.DefaultCollation])
-	assert.Equal(t, "DECIMAL", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeDouble, mysql.Collations[mysql.DefaultCollation])
-	assert.Equal(t, "DOUBLE", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeEnum, mysql.Collations[mysql.DefaultCollation])
-	assert.Equal(t, "ENUM", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeFloat, mysql.Collations[mysql.DefaultCollation])
-	assert.Equal(t, "FLOAT", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeGeometry, mysql.Collations[mysql.DefaultCollation])
-	assert.Equal(t, "GEOMETRY", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeInt24, mysql.Collations[mysql.DefaultCollation])
-	assert.Equal(t, "MEDIUMINT", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeJSON, mysql.Collations[mysql.DefaultCollation])
-	assert.Equal(t, "JSON", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeLong, mysql.Collations[mysql.DefaultCollation])
-	assert.Equal(t, "INT", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeLongBLOB, mysql.Collations[mysql.BinaryCollation])
-	assert.Equal(t, "LONGBLOB", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeLongBLOB, mysql.Collations[mysql.DefaultCollation])
-	assert.Equal(t, "LONGTEXT", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeLongLong, mysql.Collations[mysql.DefaultCollation])
-	assert.Equal(t, "BIGINT", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeMediumBLOB, mysql.Collations[mysql.BinaryCollation])
-	assert.Equal(t, "MEDIUMBLOB", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeMediumBLOB, mysql.Collations[mysql.DefaultCollation])
-	assert.Equal(t, "MEDIUMTEXT", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeNewDate, mysql.Collations[mysql.DefaultCollation])
-	assert.Equal(t, "DATE", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeNewDecimal, mysql.Collations[mysql.DefaultCollation])
-	assert.Equal(t, "DECIMAL", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeNULL, mysql.Collations[mysql.DefaultCollation])
-	assert.Equal(t, "NULL", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeSet, mysql.Collations[mysql.DefaultCollation])
-	assert.Equal(t, "SET", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeShort, mysql.Collations[mysql.DefaultCollation])
-	assert.Equal(t, "SMALLINT", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeString, mysql.Collations[mysql.BinaryCollation])
-	assert.Equal(t, "BINARY", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeString, mysql.Collations[mysql.DefaultCollation])
-	assert.Equal(t, "CHAR", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeTime, mysql.Collations[mysql.DefaultCollation])
-	assert.Equal(t, "TIME", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeTimestamp, mysql.Collations[mysql.DefaultCollation])
-	assert.Equal(t, "TIMESTAMP", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeTiny, mysql.Collations[mysql.DefaultCollation])
-	assert.Equal(t, "TINYINT", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeTinyBLOB, mysql.Collations[mysql.BinaryCollation])
-	assert.Equal(t, "TINYBLOB", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeTinyBLOB, mysql.Collations[mysql.DefaultCollation])
-	assert.Equal(t, "TINYTEXT", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeVarChar, mysql.Collations[mysql.BinaryCollation])
-	assert.Equal(t, "VARBINARY", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeVarChar, mysql.Collations[mysql.DefaultCollation])
-	assert.Equal(t, "VARCHAR", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeVarString, mysql.Collations[mysql.BinaryCollation])
-	assert.Equal(t, "VARBINARY", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeVarString, mysql.Collations[mysql.DefaultCollation])
-	assert.Equal(t, "VARCHAR", field.TypeDatabaseName())
-
-	field = createField(mysql.FieldTypeYear, mysql.Collations[mysql.DefaultCollation])
-	assert.Equal(t, "YEAR", field.TypeDatabaseName())
+	unitTests := []struct {
+		field     mysql.FieldType
+		collation string
+		expected  string
+	}{
+		{mysql.FieldTypeBit, mysql.DefaultCollation, "BIT"},
+		{mysql.FieldTypeBLOB, mysql.DefaultCollation, "TEXT"},
+		{mysql.FieldTypeBLOB, mysql.BinaryCollation, "BLOB"},
+		{mysql.FieldTypeDate, mysql.DefaultCollation, "DATE"},
+		{mysql.FieldTypeDateTime, mysql.BinaryCollation, "DATETIME"},
+		{mysql.FieldTypeDecimal, mysql.DefaultCollation, "DECIMAL"},
+		{mysql.FieldTypeDouble, mysql.DefaultCollation, "DOUBLE"},
+		{mysql.FieldTypeEnum, mysql.BinaryCollation, "ENUM"},
+		{mysql.FieldTypeFloat, mysql.DefaultCollation, "FLOAT"},
+		{mysql.FieldTypeGeometry, mysql.DefaultCollation, "GEOMETRY"},
+		{mysql.FieldTypeInt24, mysql.BinaryCollation, "MEDIUMINT"},
+		{mysql.FieldTypeJSON, mysql.DefaultCollation, "JSON"},
+		{mysql.FieldTypeLong, mysql.DefaultCollation, "INT"},
+		{mysql.FieldTypeLongBLOB, mysql.BinaryCollation, "LONGBLOB"},
+		{mysql.FieldTypeLongBLOB, mysql.DefaultCollation, "LONGTEXT"},
+		{mysql.FieldTypeLongLong, mysql.DefaultCollation, "BIGINT"},
+		{mysql.FieldTypeMediumBLOB, mysql.BinaryCollation, "MEDIUMBLOB"},
+		{mysql.FieldTypeMediumBLOB, mysql.DefaultCollation, "MEDIUMTEXT"},
+		{mysql.FieldTypeNewDate, mysql.DefaultCollation, "DATE"},
+		{mysql.FieldTypeNewDecimal, mysql.DefaultCollation, "DECIMAL"},
+		{mysql.FieldTypeNULL, mysql.DefaultCollation, "NULL"},
+		{mysql.FieldTypeSet, mysql.DefaultCollation, "SET"},
+		{mysql.FieldTypeShort, mysql.DefaultCollation, "SMALLINT"},
+		{mysql.FieldTypeString, mysql.BinaryCollation, "BINARY"},
+		{mysql.FieldTypeString, mysql.DefaultCollation, "CHAR"},
+		{mysql.FieldTypeTime, mysql.DefaultCollation, "TIME"},
+		{mysql.FieldTypeTimestamp, mysql.DefaultCollation, "TIMESTAMP"},
+		{mysql.FieldTypeTiny, mysql.DefaultCollation, "TINYINT"},
+		{mysql.FieldTypeTinyBLOB, mysql.BinaryCollation, "TINYBLOB"},
+		{mysql.FieldTypeTinyBLOB, mysql.DefaultCollation, "TINYTEXT"},
+		{mysql.FieldTypeVarChar, mysql.BinaryCollation, "VARBINARY"},
+		{mysql.FieldTypeVarChar, mysql.DefaultCollation, "VARCHAR"},
+		{mysql.FieldTypeVarString, mysql.BinaryCollation, "VARBINARY"},
+		{mysql.FieldTypeVarString, mysql.DefaultCollation, "VARCHAR"},
+		{mysql.FieldTypeYear, mysql.DefaultCollation, "YEAR"},
+	}
+	for _, unit := range unitTests {
+		field := createField(unit.field, mysql.Collations[unit.collation])
+		assert.Equal(t, unit.expected, field.TypeDatabaseName())
+	}
 }
 
 func createField(fd mysql.FieldType, charSet uint16) *Field {

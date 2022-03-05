@@ -31,14 +31,14 @@ func TestLastInsertId(t *testing.T) {
 	result := createResult()
 	insertId, err := result.LastInsertId()
 	assert.Equal(t, uint64(2000), insertId)
-	assert.True(t, err == nil)
+	assert.Nil(t, err)
 }
 
 func TestRowsAffected(t *testing.T) {
 	result := createResult()
 	affectedRows, err := result.RowsAffected()
 	assert.Equal(t, uint64(10), affectedRows)
-	assert.True(t, err == nil)
+	assert.Nil(t, err)
 }
 
 func createResult() *Result {
