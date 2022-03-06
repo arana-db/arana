@@ -29,7 +29,7 @@ import (
 
 import (
 	"github.com/dubbogo/arana/pkg/proto"
-	"github.com/dubbogo/arana/pkg/runtime/xxast"
+	"github.com/dubbogo/arana/pkg/runtime/ast"
 )
 
 var _ proto.Plan = (*SimpleQueryPlan)(nil)
@@ -37,7 +37,7 @@ var _ proto.Plan = (*SimpleQueryPlan)(nil)
 type SimpleQueryPlan struct {
 	Database string
 	Tables   []string
-	Stmt     *xxast.SelectStatement
+	Stmt     *ast.SelectStatement
 	Args     []interface{}
 }
 

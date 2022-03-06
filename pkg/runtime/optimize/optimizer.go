@@ -33,9 +33,9 @@ import (
 import (
 	"github.com/dubbogo/arana/pkg/proto"
 	"github.com/dubbogo/arana/pkg/proto/rule"
+	rast "github.com/dubbogo/arana/pkg/runtime/ast"
+	rcontext "github.com/dubbogo/arana/pkg/runtime/context"
 	"github.com/dubbogo/arana/pkg/runtime/plan"
-	"github.com/dubbogo/arana/pkg/runtime/xxast"
-	"github.com/dubbogo/arana/pkg/runtime/xxcontext"
 	"github.com/dubbogo/arana/pkg/util/log"
 )
 
@@ -67,25 +67,25 @@ type optimizer struct {
 func (o optimizer) Optimize(ctx context.Context, stmt ast.StmtNode, args ...interface{}) (plan proto.Plan, err error) {
 	defer func() {
 		if rec := recover(); rec != nil {
-			err = errors.Errorf("cannot analyze sql %s", xxcontext.SQL(ctx))
-			log.Errorf("optimize panic: sql=%s, rec=%v", xxcontext.SQL(ctx), rec)
+			err = errors.Errorf("cannot analyze sql %s", rcontext.SQL(ctx))
+			log.Errorf("optimize panic: sql=%s, rec=%v", rcontext.SQL(ctx), rec)
 		}
 	}()
 
-	var xxstmt xxast.Statement
-	if xxstmt, err = xxast.FromStmtNode(stmt); err != nil {
+	var xxstmt rast.Statement
+	if xxstmt, err = rast.FromStmtNode(stmt); err != nil {
 		return nil, errors.Wrap(err, "optimize failed")
 	}
 	return o.doOptimize(ctx, xxstmt, args...)
 }
 
-func (o optimizer) doOptimize(ctx context.Context, stmt xxast.Statement, args ...interface{}) (proto.Plan, error) {
+func (o optimizer) doOptimize(ctx context.Context, stmt rast.Statement, args ...interface{}) (proto.Plan, error) {
 	switch t := stmt.(type) {
-	case *xxast.SelectStatement:
+	case *rast.SelectStatement:
 		return o.optimizeSelect(ctx, t, args)
-	case *xxast.InsertStatement:
-	case *xxast.DeleteStatement:
-	case *xxast.UpdateStatement:
+	case *rast.InsertStatement:
+	case *rast.DeleteStatement:
+	case *rast.UpdateStatement:
 	}
 
 	//TODO implement all statements
@@ -97,7 +97,7 @@ const (
 	_supported
 )
 
-func (o optimizer) getSelectFlag(ctx context.Context, stmt *xxast.SelectStatement) (flag uint32) {
+func (o optimizer) getSelectFlag(ctx context.Context, stmt *rast.SelectStatement) (flag uint32) {
 	switch len(stmt.From) {
 	case 1:
 		from := stmt.From[0]
@@ -116,7 +116,7 @@ func (o optimizer) getSelectFlag(ctx context.Context, stmt *xxast.SelectStatemen
 				return
 			}
 		}
-		if !xxcontext.Rule(ctx).Has(tn.Suffix()) {
+		if !rcontext.Rule(ctx).Has(tn.Suffix()) {
 			flag |= _bypass
 		}
 	case 0:
@@ -126,15 +126,15 @@ func (o optimizer) getSelectFlag(ctx context.Context, stmt *xxast.SelectStatemen
 	return
 }
 
-func (o optimizer) optimizeSelect(ctx context.Context, stmt *xxast.SelectStatement, args []interface{}) (proto.Plan, error) {
+func (o optimizer) optimizeSelect(ctx context.Context, stmt *rast.SelectStatement, args []interface{}) (proto.Plan, error) {
 	var ru *rule.Rule
-	if ru = xxcontext.Rule(ctx); ru == nil {
+	if ru = rcontext.Rule(ctx); ru == nil {
 		return nil, errors.WithStack(errNoRuleFound)
 	}
 
 	flag := o.getSelectFlag(ctx, stmt)
 	if flag&_supported == 0 {
-		return nil, errors.Errorf("unsupported sql: %s", xxcontext.SQL(ctx))
+		return nil, errors.Errorf("unsupported sql: %s", rcontext.SQL(ctx))
 	}
 
 	if flag&_bypass != 0 {

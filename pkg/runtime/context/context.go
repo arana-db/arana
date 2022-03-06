@@ -16,14 +16,14 @@
 // under the License.
 //
 
-package xxcontext
+package context
 
 import (
 	"context"
 )
 
 import (
-	sequence "github.com/dubbogo/arana/pkg/proto"
+	"github.com/dubbogo/arana/pkg/proto"
 	"github.com/dubbogo/arana/pkg/proto/rule"
 )
 
@@ -62,13 +62,13 @@ func WithRule(ctx context.Context, ru *rule.Rule) context.Context {
 }
 
 // WithSequencer binds a sequencer.
-func WithSequencer(ctx context.Context, sequencer sequence.Sequencer) context.Context {
+func WithSequencer(ctx context.Context, sequencer proto.Sequencer) context.Context {
 	return context.WithValue(ctx, keySequence{}, sequencer)
 }
 
 // Sequencer extracts the sequencer.
-func Sequencer(ctx context.Context) sequence.Sequencer {
-	s, ok := ctx.Value(keySequence{}).(sequence.Sequencer)
+func Sequencer(ctx context.Context) proto.Sequencer {
+	s, ok := ctx.Value(keySequence{}).(proto.Sequencer)
 	if !ok {
 		return nil
 	}

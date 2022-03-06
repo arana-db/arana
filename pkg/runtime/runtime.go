@@ -37,9 +37,9 @@ import (
 	"github.com/dubbogo/arana/pkg/mysql"
 	"github.com/dubbogo/arana/pkg/proto"
 	"github.com/dubbogo/arana/pkg/proto/rule"
+	rcontext "github.com/dubbogo/arana/pkg/runtime/context"
 	"github.com/dubbogo/arana/pkg/runtime/namespace"
 	"github.com/dubbogo/arana/pkg/runtime/optimize"
-	"github.com/dubbogo/arana/pkg/runtime/xxcontext"
 	"github.com/dubbogo/arana/third_party/pools"
 )
 
@@ -231,8 +231,8 @@ func (pi *defaultRuntime) Execute(ctx *proto.Context) (res proto.Result, warn ui
 		c    = ctx.Context
 	)
 
-	c = xxcontext.WithRule(c, ru)
-	c = xxcontext.WithSQL(c, ctx.GetQuery())
+	c = rcontext.WithRule(c, ru)
+	c = rcontext.WithSQL(c, ctx.GetQuery())
 
 	if plan, err = pi.ns.Optimizer().Optimize(c, ctx.Stmt.StmtNode, args...); err != nil {
 		err = errors.WithStack(err)

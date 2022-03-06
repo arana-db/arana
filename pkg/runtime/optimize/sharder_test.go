@@ -33,7 +33,7 @@ import (
 
 import (
 	"github.com/dubbogo/arana/pkg/proto/rule"
-	"github.com/dubbogo/arana/pkg/runtime/xxast"
+	"github.com/dubbogo/arana/pkg/runtime/ast"
 	"github.com/dubbogo/arana/testdata"
 )
 
@@ -56,7 +56,7 @@ func TestShard(t *testing.T) {
 		{"select * from student where uid = if(PI()<3, 1, ?)", []interface{}{0}, []int{0}},
 	} {
 		t.Run(it.sql, func(t *testing.T) {
-			stmt := xxast.MustParse(it.sql).(*xxast.SelectStatement)
+			stmt := ast.MustParse(it.sql).(*ast.SelectStatement)
 
 			result, _, err := (*Sharder)(fakeRule).Shard(stmt.From[0].TableName(), stmt.Where, it.args...)
 			assert.NoError(t, err, "shard failed")

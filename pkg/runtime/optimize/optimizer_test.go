@@ -33,7 +33,7 @@ import (
 
 import (
 	"github.com/dubbogo/arana/pkg/proto"
-	"github.com/dubbogo/arana/pkg/runtime/xxcontext"
+	rcontext "github.com/dubbogo/arana/pkg/runtime/context"
 	"github.com/dubbogo/arana/testdata"
 )
 
@@ -60,7 +60,7 @@ func TestOptimizer_OptimizeSelect(t *testing.T) {
 	p := parser.New()
 	stmt, _ := p.ParseOneStmt(sql, "", "")
 
-	plan, err := opt.Optimize(xxcontext.WithRule(ctx, rule), stmt, 1, 2, 3)
+	plan, err := opt.Optimize(rcontext.WithRule(ctx, rule), stmt, 1, 2, 3)
 	assert.NoError(t, err)
 
 	_, _ = plan.ExecIn(ctx, conn)

@@ -34,7 +34,7 @@ import (
 import (
 	"github.com/dubbogo/arana/pkg/proto"
 	"github.com/dubbogo/arana/pkg/proto/rule"
-	"github.com/dubbogo/arana/pkg/runtime/xxcontext"
+	rcontext "github.com/dubbogo/arana/pkg/runtime/context"
 	"github.com/dubbogo/arana/pkg/util/log"
 	"github.com/dubbogo/arana/pkg/util/rand2"
 )
@@ -137,10 +137,10 @@ func (ns *Namespace) DB(ctx context.Context, group string) proto.DB {
 		return nil
 	}
 
-	if xxcontext.IsMaster(ctx) {
+	if rcontext.IsMaster(ctx) {
 		// TODO: select master
 		log.Warn("todo: select master")
-	} else if xxcontext.IsSlave(ctx) {
+	} else if rcontext.IsSlave(ctx) {
 		// TODO: select slave
 		log.Warn("todo: select slave")
 	} else {
