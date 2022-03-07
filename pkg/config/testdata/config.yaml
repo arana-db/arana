@@ -10,7 +10,8 @@ data:
         port: 13306
       config:
         users:
-          dksl: "123456"
+        - username: root
+          password: "123456"
         server_version: 5.7.0
       executor: redirect
       
@@ -37,7 +38,6 @@ data:
               username: root
               password: "123456"
               database: employees_0001
-              role: master
               weight: r0w10
               connProps:
                 readTimeout: "1s"
