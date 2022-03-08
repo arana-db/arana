@@ -54,7 +54,7 @@ func TestUnmarshalTextForProtocolTypeNil(t *testing.T) {
 	var protocolType ProtocolType
 	var text = []byte("http")
 	err := protocolType.UnmarshalText(text)
-	assert.True(t, err == nil)
+	assert.Nil(t, err)
 	assert.Equal(t, Http, protocolType)
 }
 
@@ -69,7 +69,7 @@ func TestUnmarshalText(t *testing.T) {
 	var protocolType = Http
 	var text = []byte("mysql")
 	err := protocolType.UnmarshalText(text)
-	assert.True(t, err == nil)
+	assert.Nil(t, err)
 	assert.Equal(t, Mysql, protocolType)
 }
 

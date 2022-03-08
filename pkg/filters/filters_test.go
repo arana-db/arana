@@ -48,7 +48,7 @@ func TestGetFilterFactory(t *testing.T) {
 func TestGetFilter(t *testing.T) {
 	RegisterFilter(filterName, &PreFilterTest{})
 	filter := GetFilter(filterName)
-	assert.True(t, filter != nil)
+	assert.NotNil(t, filter)
 	assert.Equal(t, "PreFilterTest", filter.GetName())
 }
 
