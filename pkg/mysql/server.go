@@ -53,10 +53,12 @@ import (
 const initClientConnStatus = mysql.ServerStatusAutocommit
 
 type handshakeResult struct {
+	connectionID uint32
 	schema       string
 	username     string
 	authMethod   string
 	authResponse []byte
+	salt         []byte
 }
 
 type ServerConfig struct {
@@ -241,8 +243,10 @@ func (l *Listener) handshake(c *Conn) error {
 		log.Errorf("Cannot parse client handshake response from %s: %v", c, err)
 		return err
 	}
+	handshake.connectionID = c.ConnectionID
+	handshake.salt = salt
 
-	err = l.ValidateHash(handshake.schema, handshake.username, salt, handshake.authResponse)
+	err = l.ValidateHash(handshake)
 	if err != nil {
 		log.Errorf("Error authenticating user using MySQL native password: %v", err)
 		return err
@@ -483,17 +487,17 @@ func (l *Listener) parseClientHandshakePacket(firstTime bool, data []byte) (*han
 	}, nil
 }
 
-func (l *Listener) ValidateHash(db, user string, salt []byte, authResponse []byte) error {
+func (l *Listener) ValidateHash(handshake *handshakeResult) error {
 	// TODO: database isolate
-	password, ok := l.conf.Users[user]
+	password, ok := l.conf.Users[handshake.username]
 	if !ok {
-		return errors.NewSQLError(mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied for user '%v'", user)
+		return errors.NewSQLError(mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied for user '%v'", handshake.username)
 	}
-	computedAuthResponse := scramblePassword(salt, password)
-	if bytes.Equal(authResponse, computedAuthResponse) {
+	computedAuthResponse := scramblePassword(handshake.salt, password)
+	if bytes.Equal(handshake.authResponse, computedAuthResponse) {
 		return nil
 	}
-	return errors.NewSQLError(mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied for user '%v'", user)
+	return errors.NewSQLError(mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied for user '%v'", handshake.username)
 }
 
 func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
