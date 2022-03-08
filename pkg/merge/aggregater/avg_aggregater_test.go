@@ -17,15 +17,13 @@
 // under the License.
 //
 
-package aggregater_test
+package aggregater
 
 import (
 	"testing"
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/merge/aggregater"
-
 	"github.com/shopspring/decimal"
 
 	"github.com/stretchr/testify/assert"
@@ -61,7 +59,7 @@ func TestAvgAggregater(t *testing.T) {
 	}
 
 	for _, param := range params {
-		addAggr := aggregater.AvgAggregater{}
+		addAggr := AvgAggregater{}
 		for _, agg := range param.nums {
 			addAggr.Aggregate(agg)
 		}

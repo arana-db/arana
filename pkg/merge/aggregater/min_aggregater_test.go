@@ -17,15 +17,13 @@
 // under the License.
 //
 
-package aggregater_test
+package aggregater
 
 import (
 	"testing"
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/merge/aggregater"
-
 	"github.com/shopspring/decimal"
 
 	"github.com/stretchr/testify/assert"
@@ -68,7 +66,7 @@ func TestMinAggregater(t *testing.T) {
 	}
 
 	for _, param := range params {
-		addAggr := aggregater.MinAggregater{}
+		addAggr := MinAggregater{}
 		for _, agg := range param.nums {
 			addAggr.Aggregate(agg)
 		}

@@ -17,20 +17,21 @@
 // under the License.
 //
 
-package merge_test
+package merge
 
 import (
 	"testing"
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/merge"
-	"github.com/dubbogo/arana/pkg/proto"
-	"github.com/dubbogo/arana/testdata"
-
 	"github.com/golang/mock/gomock"
 
 	"github.com/stretchr/testify/assert"
+)
+
+import (
+	"github.com/dubbogo/arana/pkg/proto"
+	"github.com/dubbogo/arana/testdata"
 )
 
 const (
@@ -60,7 +61,7 @@ func TestGetCurrentRow(t *testing.T) {
 	assert.Equal(t, students, res)
 }
 
-func buildMergeRow(t *testing.T, vals []student) *merge.MergeRows {
+func buildMergeRow(t *testing.T, vals []student) *MergeRows {
 	rows := make([]proto.Row, 0)
 	for _, val := range vals {
 		row := testdata.NewMockRow(gomock.NewController(t))
@@ -69,5 +70,5 @@ func buildMergeRow(t *testing.T, vals []student) *merge.MergeRows {
 		}
 		rows = append(rows, row)
 	}
-	return merge.NewMergeRows(rows)
+	return NewMergeRows(rows)
 }

@@ -25,29 +25,25 @@ import (
 
 import (
 	"github.com/dubbogo/arana/pkg/proto"
-	"github.com/dubbogo/arana/pkg/runtime/xxast"
 )
 
 type GroupByValue struct {
-	GroupByNode *xxast.GroupByNode
-	GroupValues []interface{}
+	groupByColumns []string
+	groupByValues  []interface{}
 }
 
-func NewGroupByValue(groupByNode *xxast.GroupByNode, row proto.Row) *GroupByValue {
+func NewGroupByValue(groupByColumns []string, row proto.Row) *GroupByValue {
 	return &GroupByValue{
-		GroupByNode: groupByNode,
-		GroupValues: buildGroupValues(groupByNode, row),
+		groupByColumns: groupByColumns,
+		groupByValues:  buildGroupValues(groupByColumns, row),
 	}
 }
 
-func buildGroupValues(groupByNode *xxast.GroupByNode, row proto.Row) []interface{} {
+func buildGroupValues(groupByColumns []string, row proto.Row) []interface{} {
 	values := make([]interface{}, 0)
-	items := groupByNode.Items
 
-	for _, item := range items {
-		fmt.Printf("%v", item.Expr())
-		// todo age function used to facilitate the test, which will be changed back
-		value, err := row.GetColumnValue("age")
+	for _, column := range groupByColumns {
+		value, err := row.GetColumnValue(column)
 		if err != nil {
 			panic("get column value error:" + err.Error())
 		}
@@ -57,9 +53,9 @@ func buildGroupValues(groupByNode *xxast.GroupByNode, row proto.Row) []interface
 }
 
 func (g *GroupByValue) equals(row proto.Row) bool {
-	values := buildGroupValues(g.GroupByNode, row)
+	values := buildGroupValues(g.groupByColumns, row)
 	for k, _ := range values {
-		if fmt.Sprintf("%v", values[k]) != fmt.Sprintf("%v", g.GroupValues[k]) {
+		if fmt.Sprintf("%v", values[k]) != fmt.Sprintf("%v", g.groupByValues[k]) {
 			return false
 		}
 	}

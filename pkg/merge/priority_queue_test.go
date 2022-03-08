@@ -17,7 +17,7 @@
 // under the License.
 //
 
-package merge_test
+package merge
 
 import (
 	"container/heap"
@@ -25,8 +25,6 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/merge"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -36,7 +34,7 @@ func TestPriorityQueue(t *testing.T) {
 		{{score: 90, age: 72}, {score: 75, age: 68}, {score: 70, age: 40}},
 		{{score: 85, age: 70}, {score: 78, age: 60}, {score: 75, age: 80}, {score: 65, age: 80}, {score: 60, age: 40}},
 	})
-	queue := merge.NewPriorityQueue(rows, []merge.OrderByItem{
+	queue := NewPriorityQueue(rows, []OrderByItem{
 		{Column: score, Desc: true},
 		{Column: age, Desc: true},
 	})
@@ -46,7 +44,7 @@ func TestPriorityQueue(t *testing.T) {
 		if queue.Len() == 0 {
 			break
 		}
-		row := heap.Pop(&queue).(*merge.MergeRows)
+		row := heap.Pop(&queue).(*MergeRows)
 		v1, _ := row.GetCurrentRow().GetColumnValue(score)
 		v2, _ := row.GetCurrentRow().GetColumnValue(age)
 		res = append(res, student{score: v1.(int64), age: v2.(int64)})
@@ -68,7 +66,7 @@ func TestPriorityQueue2(t *testing.T) {
 		{{score: 70, age: 40}, {score: 75, age: 68}, {score: 90, age: 72}},
 		{{score: 60, age: 40}, {score: 65, age: 80}, {score: 75, age: 80}, {score: 78, age: 60}, {score: 85, age: 70}},
 	})
-	queue := merge.NewPriorityQueue(rows, []merge.OrderByItem{
+	queue := NewPriorityQueue(rows, []OrderByItem{
 		{Column: score, Desc: false},
 		{Column: age, Desc: false},
 	})
@@ -78,7 +76,7 @@ func TestPriorityQueue2(t *testing.T) {
 		if queue.Len() == 0 {
 			break
 		}
-		row := heap.Pop(&queue).(*merge.MergeRows)
+		row := heap.Pop(&queue).(*MergeRows)
 		v1, _ := row.GetCurrentRow().GetColumnValue(score)
 		v2, _ := row.GetCurrentRow().GetColumnValue(age)
 		res = append(res, student{score: v1.(int64), age: v2.(int64)})
@@ -94,8 +92,8 @@ func TestPriorityQueue2(t *testing.T) {
 	}, res)
 }
 
-func buildMergeRows(t *testing.T, vals [][]student) []*merge.MergeRows {
-	rows := make([]*merge.MergeRows, 0)
+func buildMergeRows(t *testing.T, vals [][]student) []*MergeRows {
+	rows := make([]*MergeRows, 0)
 	for _, v := range vals {
 		rows = append(rows, buildMergeRow(t, v))
 	}

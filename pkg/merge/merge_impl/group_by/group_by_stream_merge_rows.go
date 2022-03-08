@@ -25,37 +25,39 @@ import (
 )
 
 import (
+	"github.com/golang/mock/gomock"
+)
+
+import (
 	"github.com/dubbogo/arana/pkg/merge"
 	"github.com/dubbogo/arana/pkg/merge/aggregater"
 	"github.com/dubbogo/arana/pkg/proto"
 	"github.com/dubbogo/arana/pkg/runtime/xxast"
 	"github.com/dubbogo/arana/testdata"
-
-	"github.com/golang/mock/gomock"
 )
 
+type MergeRowStatement struct {
+	OrderBys []merge.OrderByItem
+	GroupBys []string
+	Selects  []SelectItem
+}
+
+type SelectItem struct {
+	Column       string
+	AggrFunction string
+}
+
 type GroupByStreamMergeRows struct {
-	stmt         xxast.SelectStatement
+	stmt         MergeRowStatement
 	queue        merge.PriorityQueue
 	currentRow   proto.Row
 	isFirstMerge bool
 }
 
-func NewGroupByStreamMergeRow(rows []*merge.MergeRows, stmt xxast.SelectStatement) *GroupByStreamMergeRows {
-	orderByItems := make([]merge.OrderByItem, 0)
-	for _, item := range stmt.OrderBy {
-		column := item.Alias
-		if column == "" {
-			column = item.Expr.(xxast.ColumnNameExpressionAtom)[0]
-		}
-		orderByItems = append(orderByItems, merge.OrderByItem{
-			Column: column,
-			Desc:   item.Desc,
-		})
-	}
+func NewGroupByStreamMergeRow(rows []*merge.MergeRows, stmt MergeRowStatement) *GroupByStreamMergeRows {
 	s := &GroupByStreamMergeRows{
 		stmt:         stmt,
-		queue:        merge.NewPriorityQueue(rows, orderByItems),
+		queue:        merge.NewPriorityQueue(rows, stmt.OrderBys),
 		isFirstMerge: true,
 	}
 	return s
@@ -65,19 +67,11 @@ func (s *GroupByStreamMergeRows) Next() proto.Row {
 	return s.merge()
 }
 
-func (s *GroupByStreamMergeRows) getAggrUnitMap(stmt xxast.SelectStatement) map[string]merge.Aggregater {
+func (s *GroupByStreamMergeRows) getAggrUnitMap(stmt MergeRowStatement) map[string]merge.Aggregater {
 	aggrMap := make(map[string]merge.Aggregater, 0)
-	for _, sel := range stmt.Select {
-		// todo Mock is temporarily used to facilitate the test, which will be changed back
-		//if fun, ok := sel.(*xxast.SelectElementFunction); ok {
-		if fun, ok := sel.(*testdata.MockSelectElementFunction); ok {
-			columnName := fun.ToSelectString()
-			if fun.Alias() != "" {
-				columnName = fun.Alias()
-			}
-			// todo Mock is temporarily used to facilitate the test, which will be changed back
-			//aggrMap[columnName] = s.getAggregater(fun.Function().(*xxast.AggrFunction).Name())
-			aggrMap[columnName] = s.getAggregater(xxast.AggrCount)
+	for _, sel := range stmt.Selects {
+		if sel.AggrFunction != "" {
+			aggrMap[sel.Column] = s.getAggregater(sel.AggrFunction)
 		}
 	}
 	return aggrMap
@@ -108,7 +102,12 @@ func (s *GroupByStreamMergeRows) merge() proto.Row {
 	}
 	aggrMap := s.getAggrUnitMap(s.stmt)
 	currentRow := s.currentRow
-	currentGroupValue := NewGroupByValue(s.stmt.GroupBy, currentRow)
+	groupByColumns := make([]string, 0)
+	for _, item := range s.stmt.GroupBys {
+		groupByColumns = append(groupByColumns, item)
+	}
+
+	currentGroupValue := NewGroupByValue(groupByColumns, currentRow)
 	for {
 		if currentGroupValue.equals(s.currentRow) {
 			s.aggregate(aggrMap, s.currentRow)
@@ -120,14 +119,17 @@ func (s *GroupByStreamMergeRows) merge() proto.Row {
 		}
 	}
 
-	// TODO Row needs to provide Encode method to modify the value of GetData() method
-	//return currentRow
-	//return proto.Row{}
-	age, _ := currentRow.GetColumnValue("age")
 	row := testdata.NewMockRow(gomock.NewController(nil))
-	row.EXPECT().GetColumnValue("age").Return(age, nil).AnyTimes()
-	res, _ := aggrMap["count(score)"].GetResult()
-	row.EXPECT().GetColumnValue("count(score)").Return(res.IntPart(), nil).AnyTimes()
+	for _, sel := range s.stmt.Selects {
+		if _, ok := aggrMap[sel.Column]; ok {
+			res, _ := aggrMap[sel.Column].GetResult()
+			// TODO use row encode() to build a new row result
+			row.EXPECT().GetColumnValue(sel.Column).Return(res.IntPart(), nil).AnyTimes()
+		} else {
+			res, _ := currentRow.GetColumnValue(sel.Column)
+			row.EXPECT().GetColumnValue(sel.Column).Return(res, nil).AnyTimes()
+		}
+	}
 	return row
 }
 

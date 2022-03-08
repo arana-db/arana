@@ -17,22 +17,23 @@
 // under the License.
 //
 
-package group_by_test
+package group_by
 
 import (
 	"testing"
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/merge"
-	"github.com/dubbogo/arana/pkg/merge/merge_impl/group_by"
-	"github.com/dubbogo/arana/pkg/proto"
-	"github.com/dubbogo/arana/pkg/runtime/xxast"
-	"github.com/dubbogo/arana/testdata"
-
 	"github.com/golang/mock/gomock"
 
 	"github.com/stretchr/testify/assert"
+)
+
+import (
+	"github.com/dubbogo/arana/pkg/merge"
+	"github.com/dubbogo/arana/pkg/proto"
+	"github.com/dubbogo/arana/pkg/runtime/xxast"
+	"github.com/dubbogo/arana/testdata"
 )
 
 const (
@@ -45,26 +46,24 @@ type (
 )
 
 func TestGroupByStreamMergeRows(t *testing.T) {
-	// todo If you have group by statement parsing logic, you can not use mock
-	selectElement := testdata.NewMockSelectElementFunction(gomock.NewController(t))
-	selectElement.EXPECT().ToSelectString().Return("count(score)").AnyTimes()
-	selectElement.EXPECT().Alias().Return("").AnyTimes()
 
-	stmt := xxast.SelectStatement{
-		Select: []xxast.SelectElement{
-			selectElement,
-		},
-		OrderBy: xxast.OrderByNode{
+	stmt := MergeRowStatement{
+		OrderBys: []merge.OrderByItem{
 			{
-				Alias: "",
-				Expr:  xxast.ColumnNameExpressionAtom{age},
-				Desc:  true,
+				Column: age,
+				Desc:   true,
 			},
 		},
-		GroupBy: &xxast.GroupByNode{
-			RollUp: true,
-			Items:  []*xxast.GroupByItem{{}},
+		Selects: []SelectItem{
+			{
+				Column:       countScore,
+				AggrFunction: xxast.AggrSum,
+			},
+			{
+				Column: age,
+			},
 		},
+		GroupBys: []string{age},
 	}
 	rows := buildMergeRows(t, [][]student{
 		{{countScore: 85, age: 81}, {countScore: 75, age: 70}, {countScore: 65, age: 60}},
@@ -72,7 +71,7 @@ func TestGroupByStreamMergeRows(t *testing.T) {
 		{{countScore: 85, age: 70}, {countScore: 78, age: 60}},
 	})
 
-	mergeRow := group_by.NewGroupByStreamMergeRow(rows, stmt)
+	mergeRow := NewGroupByStreamMergeRow(rows, stmt)
 
 	res := make([]student, 0)
 	for {
