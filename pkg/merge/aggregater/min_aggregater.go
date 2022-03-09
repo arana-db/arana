@@ -32,7 +32,7 @@ func (s *MinAggregater) Aggregate(values []interface{}) {
 	if len(values) == 0 {
 		return
 	}
-	
+
 	val, err := parseDecimal(values[0])
 	if err != nil {
 		panic(err)
