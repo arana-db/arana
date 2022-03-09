@@ -16,7 +16,7 @@
 // under the License.
 //
 
-package xxast
+package ast
 
 import (
 	"testing"
@@ -27,8 +27,33 @@ import (
 )
 
 func TestParse(t *testing.T) {
+	var (
+		stmt Statement
+		err  error
+	)
+
+	for _, sql := range []string{
+		"select connection_id()",
+		"select 1",
+		"select * from student as foo where `name` = if(1>2, 1, 2)",
+		"select * from employees limit 1",
+		`SELECT CONCAT("'", user, "'@'",host,"'") FROM mysql.user`,
+		"select * from student where uid = abs(-11)",
+		"select * from student where uid = 1 limit 3 offset ?",
+		"select case count(*) when 0 then -3.14 else 2.17 end as xxx from student where uid in (-1,-2,-3)",
+		"select * from tb_user a where (uid >= ? AND uid <= ?)",
+		"SELECT (2021 - birth_year) as AGE, count(1) as amount from student where uid between 1 and 10 group by (2021-birth_year)",
+		"select * from student where uid = !0",
+	} {
+		t.Run(sql, func(t *testing.T) {
+			stmt, err = Parse(sql)
+			assert.NoError(t, err)
+			t.Log("stmt:", stmt)
+		})
+	}
+
 	// 1. select statement
-	stmt, err := Parse("select * from student as foo where `name` = if(1>2, 1, 2) order by age")
+	stmt, err = Parse("select * from student as foo where `name` = if(1>2, 1, 2) order by age")
 	assert.NoError(t, err, "parse+conv ast failed")
 	t.Logf("stmt:%+v", stmt)
 

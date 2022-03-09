@@ -32,10 +32,12 @@ func TestStepper_Date_After(t *testing.T) {
 		N: 2,
 		U: Uhour,
 	}
+	t.Log(hourSt.String())
 	daySt := Stepper{
 		N: 2,
 		U: Uday,
 	}
+	t.Log(daySt.String())
 	testTime := time.Date(2021, 1, 17, 17, 45, 04, 0, time.UTC)
 	hour, err := hourSt.After(testTime)
 	assert.NoError(t, err)
@@ -95,4 +97,25 @@ func TestStepper_Descend(t *testing.T) {
 		vals = append(vals, rng.Next().(int))
 	}
 	assert.Equal(t, []int{100, 99, 98}, vals)
+}
+
+func TestStepUnit_String(t *testing.T) {
+	type tt struct {
+		u      StepUnit
+		isTime bool
+	}
+
+	for _, it := range []tt{
+		{Uyear, true},
+		{Umonth, true},
+		{Uday, true},
+		{Uweek, true},
+		{Uhour, true},
+		{Unum, false},
+		{Ustr, false},
+	} {
+		assert.NotEqual(t, "UNKNOWN", it.u.String())
+		assert.Equal(t, it.isTime, it.u.IsTime())
+	}
+	assert.Equal(t, "UNKNOWN", StepUnit(0x7F).String())
 }

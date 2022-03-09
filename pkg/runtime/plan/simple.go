@@ -29,7 +29,7 @@ import (
 
 import (
 	"github.com/dubbogo/arana/pkg/proto"
-	"github.com/dubbogo/arana/pkg/runtime/xxast"
+	"github.com/dubbogo/arana/pkg/runtime/ast"
 )
 
 var _ proto.Plan = (*SimpleQueryPlan)(nil)
@@ -37,7 +37,7 @@ var _ proto.Plan = (*SimpleQueryPlan)(nil)
 type SimpleQueryPlan struct {
 	Database string
 	Tables   []string
-	Stmt     *xxast.SelectStatement
+	Stmt     *ast.SelectStatement
 	Args     []interface{}
 }
 
@@ -45,10 +45,11 @@ func (s *SimpleQueryPlan) Type() proto.PlanType {
 	return proto.PlanTypeQuery
 }
 
-func (s *SimpleQueryPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.MixinResult, error) {
+func (s *SimpleQueryPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
 	var (
 		sb         strings.Builder
 		argIndexes []int
+		res        proto.Result
 		err        error
 	)
 
@@ -57,23 +58,20 @@ func (s *SimpleQueryPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.M
 	}
 
 	if len(argIndexes) < 1 {
-		var rows proto.Rows
-		if rows, err = conn.Query(ctx, s.Database, sb.String()); err != nil {
-			return nil, errors.WithStack(err)
+		res, err = conn.Query(ctx, s.Database, sb.String())
+	} else {
+		args := make([]interface{}, 0, len(argIndexes))
+		for _, idx := range argIndexes {
+			args = append(args, s.Args[idx])
 		}
-		return queryResult{rows}, nil
+		res, err = conn.Query(ctx, s.Database, sb.String(), args...)
 	}
 
-	args := make([]interface{}, 0, len(argIndexes))
-	for _, idx := range argIndexes {
-		args = append(args, s.Args[idx])
-	}
-
-	var rows proto.Rows
-	if rows, err = conn.Query(ctx, s.Database, sb.String(), args...); err != nil {
+	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	return queryResult{rows}, nil
+
+	return res, nil
 }
 
 func (s *SimpleQueryPlan) generate(sb *strings.Builder, args *[]int) (err error) {
