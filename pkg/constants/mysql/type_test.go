@@ -28,220 +28,122 @@ import (
 )
 
 func TestMySQLToType(t *testing.T) {
-	fieldType, _ := MySQLToType(0, 0)
-	assert.Equal(t, FieldTypeDecimal, fieldType)
-	fieldType, _ = MySQLToType(0, 32)
-	assert.Equal(t, FieldTypeDecimal, fieldType)
-	fieldType, _ = MySQLToType(1, 0)
-	assert.Equal(t, FieldTypeTiny, fieldType)
-	fieldType, _ = MySQLToType(1, 32)
-	assert.Equal(t, FieldTypeUint8, fieldType)
-	fieldType, _ = MySQLToType(2, 0)
-	assert.Equal(t, FieldTypeShort, fieldType)
-	fieldType, _ = MySQLToType(2, 32)
-	assert.Equal(t, FieldTypeUint16, fieldType)
-	fieldType, _ = MySQLToType(3, 0)
-	assert.Equal(t, FieldTypeLong, fieldType)
-	fieldType, _ = MySQLToType(3, 32)
-	assert.Equal(t, FieldTypeUint32, fieldType)
-	fieldType, _ = MySQLToType(4, 0)
-	assert.Equal(t, FieldTypeFloat, fieldType)
-	fieldType, _ = MySQLToType(4, 32)
-	assert.Equal(t, FieldTypeFloat, fieldType)
-	fieldType, _ = MySQLToType(5, 0)
-	assert.Equal(t, FieldTypeDouble, fieldType)
-	fieldType, _ = MySQLToType(5, 32)
-	assert.Equal(t, FieldTypeDouble, fieldType)
-	fieldType, _ = MySQLToType(6, 0)
-	assert.Equal(t, FieldTypeNULL, fieldType)
-	fieldType, _ = MySQLToType(6, 32)
-	assert.Equal(t, FieldTypeNULL, fieldType)
-	fieldType, _ = MySQLToType(7, 0)
-	assert.Equal(t, FieldTypeTimestamp, fieldType)
-	fieldType, _ = MySQLToType(7, 32)
-	assert.Equal(t, FieldTypeTimestamp, fieldType)
-	fieldType, _ = MySQLToType(8, 0)
-	assert.Equal(t, FieldTypeLongLong, fieldType)
-	fieldType, _ = MySQLToType(8, 32)
-	assert.Equal(t, FieldTypeUint64, fieldType)
-	fieldType, _ = MySQLToType(9, 0)
-	assert.Equal(t, FieldTypeInt24, fieldType)
-	fieldType, _ = MySQLToType(9, 32)
-	assert.Equal(t, FieldTypeUint24, fieldType)
-	fieldType, _ = MySQLToType(10, 0)
-	assert.Equal(t, FieldTypeDate, fieldType)
-	fieldType, _ = MySQLToType(10, 32)
-	assert.Equal(t, FieldTypeDate, fieldType)
-	fieldType, _ = MySQLToType(11, 0)
-	assert.Equal(t, FieldTypeTime, fieldType)
-	fieldType, _ = MySQLToType(11, 32)
-	assert.Equal(t, FieldTypeTime, fieldType)
-	fieldType, _ = MySQLToType(12, 0)
-	assert.Equal(t, FieldTypeDateTime, fieldType)
-	fieldType, _ = MySQLToType(12, 32)
-	assert.Equal(t, FieldTypeDateTime, fieldType)
-	fieldType, _ = MySQLToType(13, 0)
-	assert.Equal(t, FieldTypeYear, fieldType)
-	fieldType, _ = MySQLToType(13, 32)
-	assert.Equal(t, FieldTypeYear, fieldType)
-	fieldType, _ = MySQLToType(14, 0)
-	assert.Equal(t, FieldTypeNewDate, fieldType)
-	fieldType, _ = MySQLToType(14, 32)
-	assert.Equal(t, FieldTypeNewDate, fieldType)
-	fieldType, _ = MySQLToType(15, 0)
-	assert.Equal(t, FieldTypeVarChar, fieldType)
-	fieldType, _ = MySQLToType(15, 32)
-	assert.Equal(t, FieldTypeVarChar, fieldType)
-	fieldType, _ = MySQLToType(16, 0)
-	assert.Equal(t, FieldTypeBit, fieldType)
-	fieldType, _ = MySQLToType(16, 32)
-	assert.Equal(t, FieldTypeBit, fieldType)
-	fieldType, _ = MySQLToType(17, 0)
-	assert.Equal(t, FieldTypeTimestamp, fieldType)
-	fieldType, _ = MySQLToType(17, 32)
-	assert.Equal(t, FieldTypeTimestamp, fieldType)
-	fieldType, _ = MySQLToType(18, 0)
-	assert.Equal(t, FieldTypeDateTime, fieldType)
-	fieldType, _ = MySQLToType(18, 32)
-	assert.Equal(t, FieldTypeDateTime, fieldType)
-	fieldType, _ = MySQLToType(19, 0)
-	assert.Equal(t, FieldTypeTime, fieldType)
-	fieldType, _ = MySQLToType(19, 32)
-	assert.Equal(t, FieldTypeTime, fieldType)
-	fieldType, _ = MySQLToType(245, 0)
-	assert.Equal(t, FieldTypeJSON, fieldType)
-	fieldType, _ = MySQLToType(245, 32)
-	assert.Equal(t, FieldTypeJSON, fieldType)
-	fieldType, _ = MySQLToType(246, 0)
-	assert.Equal(t, FieldTypeDecimal, fieldType)
-	fieldType, _ = MySQLToType(246, 32)
-	assert.Equal(t, FieldTypeDecimal, fieldType)
-	fieldType, _ = MySQLToType(247, 0)
-	assert.Equal(t, FieldTypeEnum, fieldType)
-	fieldType, _ = MySQLToType(247, 32)
-	assert.Equal(t, FieldTypeEnum, fieldType)
-	fieldType, _ = MySQLToType(248, 0)
-	assert.Equal(t, FieldTypeSet, fieldType)
-	fieldType, _ = MySQLToType(248, 32)
-	assert.Equal(t, FieldTypeSet, fieldType)
-	fieldType, _ = MySQLToType(249, 0)
-	assert.Equal(t, FieldTypeTinyBLOB, fieldType)
-	fieldType, _ = MySQLToType(249, 32)
-	assert.Equal(t, FieldTypeTinyBLOB, fieldType)
-	fieldType, _ = MySQLToType(250, 0)
-	assert.Equal(t, FieldTypeMediumBLOB, fieldType)
-	fieldType, _ = MySQLToType(250, 32)
-	assert.Equal(t, FieldTypeMediumBLOB, fieldType)
-	fieldType, _ = MySQLToType(251, 0)
-	assert.Equal(t, FieldTypeLongBLOB, fieldType)
-	fieldType, _ = MySQLToType(251, 32)
-	assert.Equal(t, FieldTypeLongBLOB, fieldType)
-	fieldType, _ = MySQLToType(252, 0)
-	assert.Equal(t, FieldTypeBLOB, fieldType)
-	fieldType, _ = MySQLToType(252, 32)
-	assert.Equal(t, FieldTypeBLOB, fieldType)
-	fieldType, _ = MySQLToType(253, 0)
-	assert.Equal(t, FieldTypeVarString, fieldType)
-	fieldType, _ = MySQLToType(253, 32)
-	assert.Equal(t, FieldTypeVarString, fieldType)
-	fieldType, _ = MySQLToType(254, 0)
-	assert.Equal(t, FieldTypeString, fieldType)
-	fieldType, _ = MySQLToType(254, 32)
-	assert.Equal(t, FieldTypeString, fieldType)
-	fieldType, _ = MySQLToType(255, 0)
-	assert.Equal(t, FieldTypeGeometry, fieldType)
-	fieldType, _ = MySQLToType(255, 32)
-	assert.Equal(t, FieldTypeGeometry, fieldType)
+	unitTests := []struct {
+		mysqlType int64
+		flags     int64
+		expected  FieldType
+	}{
+		{0, 0, FieldTypeDecimal},
+		{0, 32, FieldTypeDecimal},
+		{1, 0, FieldTypeTiny},
+		{1, 32, FieldTypeUint8},
+		{2, 0, FieldTypeShort},
+		{2, 32, FieldTypeUint16},
+		{3, 0, FieldTypeLong},
+		{3, 32, FieldTypeUint32},
+		{4, 0, FieldTypeFloat},
+		{4, 32, FieldTypeFloat},
+		{5, 0, FieldTypeDouble},
+		{5, 32, FieldTypeDouble},
+		{6, 0, FieldTypeNULL},
+		{6, 32, FieldTypeNULL},
+		{7, 0, FieldTypeTimestamp},
+		{7, 32, FieldTypeTimestamp},
+		{8, 0, FieldTypeLongLong},
+		{8, 32, FieldTypeUint64},
+		{9, 0, FieldTypeInt24},
+		{9, 32, FieldTypeUint24},
+		{10, 0, FieldTypeDate},
+		{10, 32, FieldTypeDate},
+		{11, 0, FieldTypeTime},
+		{11, 32, FieldTypeTime},
+		{12, 0, FieldTypeDateTime},
+		{12, 32, FieldTypeDateTime},
+		{13, 0, FieldTypeYear},
+		{13, 32, FieldTypeYear},
+		{14, 0, FieldTypeNewDate},
+		{14, 32, FieldTypeNewDate},
+		{15, 0, FieldTypeVarChar},
+		{15, 32, FieldTypeVarChar},
+		{16, 0, FieldTypeBit},
+		{16, 32, FieldTypeBit},
+		{17, 0, FieldTypeTimestamp},
+		{17, 32, FieldTypeTimestamp},
+		{18, 0, FieldTypeDateTime},
+		{18, 32, FieldTypeDateTime},
+		{19, 0, FieldTypeTime},
+		{19, 32, FieldTypeTime},
+		{245, 0, FieldTypeJSON},
+		{245, 32, FieldTypeJSON},
+		{246, 0, FieldTypeDecimal},
+		{246, 32, FieldTypeDecimal},
+		{247, 0, FieldTypeEnum},
+		{247, 32, FieldTypeEnum},
+		{248, 0, FieldTypeSet},
+		{248, 32, FieldTypeSet},
+		{249, 0, FieldTypeTinyBLOB},
+		{249, 32, FieldTypeTinyBLOB},
+		{250, 0, FieldTypeMediumBLOB},
+		{250, 32, FieldTypeMediumBLOB},
+		{251, 0, FieldTypeLongBLOB},
+		{251, 32, FieldTypeLongBLOB},
+		{252, 0, FieldTypeBLOB},
+		{252, 32, FieldTypeBLOB},
+		{253, 0, FieldTypeVarString},
+		{253, 32, FieldTypeVarString},
+		{254, 0, FieldTypeString},
+		{254, 32, FieldTypeString},
+		{255, 0, FieldTypeGeometry},
+		{255, 32, FieldTypeGeometry},
+	}
+	for _, unit := range unitTests {
+		fieldType, ok := MySQLToType(unit.mysqlType, unit.flags)
+		assert.Equal(t, unit.expected, fieldType)
+		assert.Nil(t, ok)
+	}
 }
 
 func TestTypeToMySQL(t *testing.T) {
-	mysqlType, flags := TypeToMySQL(FieldTypeTiny)
-	assert.Equal(t, int64(1), mysqlType)
-	assert.Equal(t, int64(0), flags)
-	mysqlType, flags = TypeToMySQL(FieldTypeUint8)
-	assert.Equal(t, int64(1), mysqlType)
-	assert.Equal(t, int64(UnsignedFlag), flags)
-	mysqlType, flags = TypeToMySQL(FieldTypeShort)
-	assert.Equal(t, int64(2), mysqlType)
-	assert.Equal(t, int64(0), flags)
-	mysqlType, flags = TypeToMySQL(FieldTypeLong)
-	assert.Equal(t, int64(3), mysqlType)
-	assert.Equal(t, int64(0), flags)
-	mysqlType, flags = TypeToMySQL(FieldTypeUint32)
-	assert.Equal(t, int64(3), mysqlType)
-	assert.Equal(t, int64(UnsignedFlag), flags)
-	mysqlType, flags = TypeToMySQL(FieldTypeFloat)
-	assert.Equal(t, int64(4), mysqlType)
-	assert.Equal(t, int64(0), flags)
-	mysqlType, flags = TypeToMySQL(FieldTypeDouble)
-	assert.Equal(t, int64(5), mysqlType)
-	assert.Equal(t, int64(0), flags)
-	mysqlType, flags = TypeToMySQL(FieldTypeNULL)
-	assert.Equal(t, int64(6), mysqlType)
-	assert.Equal(t, int64(BinaryFlag), flags)
-	mysqlType, flags = TypeToMySQL(FieldTypeTimestamp)
-	assert.Equal(t, int64(7), mysqlType)
-	assert.Equal(t, int64(0), flags)
-	mysqlType, flags = TypeToMySQL(FieldTypeLongLong)
-	assert.Equal(t, int64(8), mysqlType)
-	assert.Equal(t, int64(0), flags)
-	mysqlType, flags = TypeToMySQL(FieldTypeUint64)
-	assert.Equal(t, int64(8), mysqlType)
-	assert.Equal(t, int64(UnsignedFlag), flags)
-	mysqlType, flags = TypeToMySQL(FieldTypeInt24)
-	assert.Equal(t, int64(9), mysqlType)
-	assert.Equal(t, int64(0), flags)
-	mysqlType, flags = TypeToMySQL(FieldTypeUint24)
-	assert.Equal(t, int64(9), mysqlType)
-	assert.Equal(t, int64(UnsignedFlag), flags)
-	mysqlType, flags = TypeToMySQL(FieldTypeDate)
-	assert.Equal(t, int64(10), mysqlType)
-	assert.Equal(t, int64(BinaryFlag), flags)
-	mysqlType, flags = TypeToMySQL(FieldTypeTime)
-	assert.Equal(t, int64(11), mysqlType)
-	assert.Equal(t, int64(BinaryFlag), flags)
-	mysqlType, flags = TypeToMySQL(FieldTypeDateTime)
-	assert.Equal(t, int64(12), mysqlType)
-	assert.Equal(t, int64(BinaryFlag), flags)
-	mysqlType, flags = TypeToMySQL(FieldTypeYear)
-	assert.Equal(t, int64(13), mysqlType)
-	assert.Equal(t, int64(UnsignedFlag), flags)
-	mysqlType, flags = TypeToMySQL(FieldTypeBit)
-	assert.Equal(t, int64(16), mysqlType)
-	assert.Equal(t, int64(UnsignedFlag), flags)
-	mysqlType, flags = TypeToMySQL(FieldTypeJSON)
-	assert.Equal(t, int64(245), mysqlType)
-	assert.Equal(t, int64(0), flags)
-	mysqlType, flags = TypeToMySQL(FieldTypeDecimal)
-	assert.Equal(t, int64(246), mysqlType)
-	assert.Equal(t, int64(0), flags)
-	mysqlType, flags = TypeToMySQL(FieldTypeEnum)
-	assert.Equal(t, int64(247), mysqlType)
-	assert.Equal(t, int64(0), flags)
-	mysqlType, flags = TypeToMySQL(FieldTypeSet)
-	assert.Equal(t, int64(248), mysqlType)
-	assert.Equal(t, int64(0), flags)
-	mysqlType, flags = TypeToMySQL(FieldTypeTinyBLOB)
-	assert.Equal(t, int64(249), mysqlType)
-	assert.Equal(t, int64(0), flags)
-	mysqlType, flags = TypeToMySQL(FieldTypeMediumBLOB)
-	assert.Equal(t, int64(250), mysqlType)
-	assert.Equal(t, int64(0), flags)
-	mysqlType, flags = TypeToMySQL(FieldTypeLongBLOB)
-	assert.Equal(t, int64(251), mysqlType)
-	assert.Equal(t, int64(0), flags)
-	mysqlType, flags = TypeToMySQL(FieldTypeBLOB)
-	assert.Equal(t, int64(252), mysqlType)
-	assert.Equal(t, int64(0), flags)
-	mysqlType, flags = TypeToMySQL(FieldTypeVarString)
-	assert.Equal(t, int64(253), mysqlType)
-	assert.Equal(t, int64(0), flags)
-	mysqlType, flags = TypeToMySQL(FieldTypeString)
-	assert.Equal(t, int64(254), mysqlType)
-	assert.Equal(t, int64(0), flags)
-	mysqlType, flags = TypeToMySQL(FieldTypeGeometry)
-	assert.Equal(t, int64(255), mysqlType)
-	assert.Equal(t, int64(0), flags)
+	unitTests := []struct {
+		fieldType         FieldType
+		expectedMySQLType int64
+		expectedFlags     int64
+	}{
+		{FieldTypeTiny, int64(1), int64(0)},
+		{FieldTypeUint8, int64(1), int64(UnsignedFlag)},
+		{FieldTypeShort, int64(2), int64(0)},
+		{FieldTypeLong, int64(3), int64(0)},
+		{FieldTypeUint32, int64(3), int64(UnsignedFlag)},
+		{FieldTypeFloat, int64(4), int64(0)},
+		{FieldTypeDouble, int64(5), int64(0)},
+		{FieldTypeNULL, int64(6), int64(BinaryFlag)},
+		{FieldTypeTimestamp, int64(7), int64(0)},
+		{FieldTypeLongLong, int64(8), int64(0)},
+		{FieldTypeUint64, int64(8), int64(UnsignedFlag)},
+		{FieldTypeInt24, int64(9), int64(0)},
+		{FieldTypeUint24, int64(9), int64(UnsignedFlag)},
+		{FieldTypeDate, int64(10), int64(BinaryFlag)},
+		{FieldTypeTime, int64(11), int64(BinaryFlag)},
+		{FieldTypeDateTime, int64(12), int64(BinaryFlag)},
+		{FieldTypeYear, int64(13), int64(UnsignedFlag)},
+		{FieldTypeBit, int64(16), int64(UnsignedFlag)},
+		{FieldTypeJSON, int64(245), int64(0)},
+		{FieldTypeDecimal, int64(246), int64(0)},
+		{FieldTypeEnum, int64(247), int64(0)},
+		{FieldTypeSet, int64(248), int64(0)},
+		{FieldTypeTinyBLOB, int64(249), int64(0)},
+		{FieldTypeMediumBLOB, int64(250), int64(0)},
+		{FieldTypeLongBLOB, int64(251), int64(0)},
+		{FieldTypeBLOB, int64(252), int64(0)},
+		{FieldTypeVarString, int64(253), int64(0)},
+		{FieldTypeString, int64(254), int64(0)},
+		{FieldTypeGeometry, int64(255), int64(0)},
+	}
+	for _, unit := range unitTests {
+		mysqlType, flags := TypeToMySQL(unit.fieldType)
+		assert.Equal(t, unit.expectedMySQLType, mysqlType)
+		assert.Equal(t, unit.expectedFlags, flags)
+	}
 }
 
 func TestHasNotNullFlag(t *testing.T) {

@@ -71,7 +71,7 @@ func TestNewRedirectExecutorForReadWriteSplitting(t *testing.T) {
 	assert.Equal(t, 5, redirect.dataSources[0].Slaves[0].Weight)
 	assert.Equal(t, "slave_b", redirect.dataSources[0].Slaves[1].Name)
 	assert.Equal(t, 5, redirect.dataSources[0].Slaves[1].Weight)
-	assert.True(t, redirect.dbSelector != nil)
+	assert.NotNil(t, redirect.dbSelector)
 	assert.True(t, redirect.dbSelector.GetDataSourceNo() >= 0)
 }
 
