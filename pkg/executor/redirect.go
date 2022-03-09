@@ -60,12 +60,38 @@ func NewRedirectExecutor(conf *config.Executor) proto.Executor {
 	if conf.Mode == proto.ReadWriteSplitting && len(conf.DataSources) > 0 {
 		weights := make([]int, 0, len(conf.DataSources[0].Slaves))
 		for _, v := range conf.DataSources[0].Slaves {
-			if v.Weight == nil {
-				v.Weight = &selector.DefaultWeight
-			}
-			weights = append(weights, *v.Weight)
+			weights = append(weights, v.Weight)
 		}
 		executor.dbSelector = selector.NewWeightRandomSelector(weights)
+	}
+
+	return executor
+}
+
+func NewRedirectExecutorV2(conf *config.Executor, cluster *config.DataSourceCluster) proto.Executor {
+	executor := &RedirectExecutor{
+		mode:                conf.Mode,
+		preFilters:          make([]proto.PreFilter, 0),
+		postFilters:         make([]proto.PostFilter, 0),
+		dataSources:         conf.DataSources,
+		localTransactionMap: make(map[uint32]pools.Resource, 0),
+	}
+
+	for _, group := range cluster.Groups {
+		weights := make([]int, 0, len(group.AtomDbs))
+		for _, db := range group.AtomDbs {
+			if config.IsSlave(db.Weight) {
+				readWeight, _, err := db.GetReadAndWriteWeight()
+				if err != nil {
+					log.Errorf("weight config not right, err is %v, use default weight 10", err)
+					readWeight = selector.DefaultWeight
+				}
+				weights = append(weights, readWeight)
+			}
+		}
+		if len(weights) > 0 {
+			executor.dbSelector = selector.NewWeightRandomSelector(weights)
+		}
 	}
 
 	return executor

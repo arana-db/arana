@@ -294,3 +294,119 @@ func TestPrepare(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 0, stmt.paramCount)
 }
+
+func TestReadComQueryResponse(t *testing.T) {
+	dsn := "admin:123456@tcp(127.0.0.1:3306)/pass?allowAllFiles=true&allowCleartextPasswords=true"
+	cfg, _ := ParseDSN(dsn)
+	conn := &BackendConnection{conf: cfg}
+	conn.c = newConn(new(mockConn))
+	buf := make([]byte, 13)
+	buf[0] = 9
+	buf[4] = mysql.OKPacket
+	buf[5] = 1
+	buf[6] = 1
+	conn.c.conn.(*mockConn).data = buf
+	affectedRows, lastInsertID, _, _, _, err := conn.ReadComQueryResponse()
+	assert.NoError(t, err)
+	assert.Equal(t, uint64(0x1), affectedRows)
+	assert.Equal(t, uint64(0x1), lastInsertID)
+}
+
+func TestReadColumnDefinition(t *testing.T) {
+	dsn := "admin:123456@tcp(127.0.0.1:3306)/pass?allowAllFiles=true&allowCleartextPasswords=true"
+	cfg, _ := ParseDSN(dsn)
+	conn := &BackendConnection{conf: cfg}
+	conn.c = newConn(new(mockConn))
+	buf := make([]byte, 100)
+	buf[0] = 96
+	buf[4] = 3
+	buf[5] = 'd'
+	buf[6] = 'e'
+	buf[7] = 'f'
+	buf[8] = 8
+	buf[9] = 't'
+	buf[10] = 'e'
+	buf[11] = 's'
+	buf[12] = 't'
+	buf[13] = 'b'
+	buf[14] = 'a'
+	buf[15] = 's'
+	buf[16] = 'e'
+	buf[17] = 9
+	buf[18] = 't'
+	buf[19] = 'e'
+	buf[20] = 's'
+	buf[21] = 't'
+	buf[22] = 't'
+	buf[23] = 'a'
+	buf[24] = 'b'
+	buf[25] = 'l'
+	buf[26] = 'e'
+	buf[28] = 4
+	buf[29] = 'n'
+	buf[30] = 'a'
+	buf[31] = 'm'
+	buf[32] = 'e'
+	buf[37] = 255
+	buf[41] = 15
+	buf[45] = 4
+	buf[53] = 'u'
+	buf[54] = 's'
+	buf[55] = 'e'
+	buf[56] = 'r'
+	conn.c.conn.(*mockConn).data = buf
+	field := &Field{}
+	err := conn.ReadColumnDefinition(field, 0)
+	assert.NoError(t, err)
+	assert.Equal(t, "testtable", field.table)
+	assert.Equal(t, "testbase", field.database)
+	assert.Equal(t, "name", field.name)
+	assert.Equal(t, mysql.FieldTypeVarChar, field.fieldType)
+	assert.Equal(t, uint64(0x4), field.defaultValueLength)
+	assert.Equal(t, "user", string(field.defaultValue))
+	assert.Equal(t, uint32(255), field.columnLength)
+}
+
+func TestReadColumnDefinitionType(t *testing.T) {
+	dsn := "admin:123456@tcp(127.0.0.1:3306)/pass?allowAllFiles=true&allowCleartextPasswords=true"
+	cfg, _ := ParseDSN(dsn)
+	conn := &BackendConnection{conf: cfg}
+	conn.c = newConn(new(mockConn))
+	buf := make([]byte, 100)
+	buf[0] = 96
+	buf[4] = 3
+	buf[5] = 'd'
+	buf[6] = 'e'
+	buf[7] = 'f'
+	buf[8] = 8
+	buf[9] = 't'
+	buf[10] = 'e'
+	buf[11] = 's'
+	buf[12] = 't'
+	buf[13] = 'b'
+	buf[14] = 'a'
+	buf[15] = 's'
+	buf[16] = 'e'
+	buf[17] = 9
+	buf[18] = 't'
+	buf[19] = 'e'
+	buf[20] = 's'
+	buf[21] = 't'
+	buf[22] = 't'
+	buf[23] = 'a'
+	buf[24] = 'b'
+	buf[25] = 'l'
+	buf[26] = 'e'
+	buf[28] = 4
+	buf[29] = 'n'
+	buf[30] = 'a'
+	buf[31] = 'm'
+	buf[32] = 'e'
+	buf[37] = 255
+	buf[41] = 15
+	conn.c.conn.(*mockConn).data = buf
+	field := &Field{}
+	err := conn.ReadColumnDefinitionType(field, 0)
+	assert.NoError(t, err)
+	assert.Equal(t, mysql.FieldTypeVarChar, field.fieldType)
+}
