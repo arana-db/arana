@@ -20,11 +20,11 @@
 package aggregater
 
 import (
-	"github.com/shopspring/decimal"
+	gxbig "github.com/dubbogo/gost/math/big"
 )
 
 type MinAggregater struct {
-	min  decimal.Decimal
+	min  *gxbig.Decimal
 	init bool
 }
 
@@ -33,7 +33,7 @@ func (s *MinAggregater) Aggregate(values []interface{}) {
 		return
 	}
 
-	val, err := parseDecimal(values[0])
+	val, err := parseDecimal2(values[0])
 	if err != nil {
 		panic(err)
 	}
@@ -41,14 +41,14 @@ func (s *MinAggregater) Aggregate(values []interface{}) {
 	if !s.init {
 		s.min = val
 		s.init = true
-	} else if s.min.GreaterThan(val) {
+	} else if s.min.Compare(val) > 0 {
 		s.min = val
 	}
 }
 
-func (s *MinAggregater) GetResult() (decimal.Decimal, bool) {
+func (s *MinAggregater) GetResult() (*gxbig.Decimal, bool) {
 	if s.init {
 		return s.min, true
 	}
-	return decimal.Zero, false
+	return nil, false
 }

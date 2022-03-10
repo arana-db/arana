@@ -25,12 +25,12 @@ import (
 )
 
 import (
-	"github.com/shopspring/decimal"
+	gxbig "github.com/dubbogo/gost/math/big"
 )
 
 type AvgAggregater struct {
-	sum   decimal.Decimal
-	count decimal.Decimal
+	sum   gxbig.Decimal
+	count gxbig.Decimal
 }
 
 func (s *AvgAggregater) Aggregate(values []interface{}) {
@@ -38,27 +38,29 @@ func (s *AvgAggregater) Aggregate(values []interface{}) {
 		return
 	}
 
-	val1, err := parseDecimal(values[0])
+	val1, err := parseDecimal2(values[0])
 	if err != nil {
 		panic(err)
 	}
-	val2, err := parseDecimal(values[1])
+	val2, err := parseDecimal2(values[1])
 	if err != nil {
 		panic(err)
 	}
 
-	s.sum = s.sum.Add(val1)
-	s.count = s.count.Add(val2)
+	gxbig.DecimalAdd(&s.sum, val1, &s.sum)
+	gxbig.DecimalAdd(&s.count, val2, &s.count)
 }
 
-func (s *AvgAggregater) GetResult() (decimal.Decimal, bool) {
+func (s *AvgAggregater) GetResult() (*gxbig.Decimal, bool) {
 	if s.count.IsZero() {
-		return decimal.Zero, false
+		return nil, false
 	}
-	return s.sum.Div(s.count), true
+	var res gxbig.Decimal
+	gxbig.DecimalDiv(&s.sum, &s.count, &res, gxbig.DivFracIncr)
+	return &res, true
 }
 
-func parseDecimal(val interface{}) (decimal.Decimal, error) {
+func parseDecimal2(val interface{}) (*gxbig.Decimal, error) {
 	kd := reflect.TypeOf(val).Kind()
 
 	elemPtrType := kd == reflect.Ptr
@@ -73,13 +75,15 @@ func parseDecimal(val interface{}) (decimal.Decimal, error) {
 
 	switch {
 	case floatType:
-		return decimal.NewFromFloat(value.Float()), nil
+		dec := &gxbig.Decimal{}
+		err := dec.FromFloat64(value.Float())
+		return dec, err
 	case intType:
-		return decimal.NewFromInt(value.Int()), nil
+		return gxbig.NewDecFromInt(value.Int()), nil
 	case uintType:
-		return decimal.NewFromInt(int64(value.Uint())), nil
+		return gxbig.NewDecFromUint(value.Uint()), nil
 	default:
-		return decimal.Zero, fmt.Errorf("invalid decimal value: %v", val)
+		return nil, fmt.Errorf("invalid decimal value: %v", val)
 	}
 }
 

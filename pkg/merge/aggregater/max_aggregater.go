@@ -20,11 +20,12 @@
 package aggregater
 
 import (
-	"github.com/shopspring/decimal"
+	gxbig "github.com/dubbogo/gost/math/big"
 )
 
 type MaxAggregater struct {
-	max  decimal.Decimal
+	//max  decimal.Decimal
+	max  *gxbig.Decimal
 	init bool
 }
 
@@ -33,7 +34,7 @@ func (s *MaxAggregater) Aggregate(values []interface{}) {
 		return
 	}
 
-	val, err := parseDecimal(values[0])
+	val, err := parseDecimal2(values[0])
 	if err != nil {
 		panic(err)
 	}
@@ -41,14 +42,14 @@ func (s *MaxAggregater) Aggregate(values []interface{}) {
 	if !s.init {
 		s.max = val
 		s.init = true
-	} else if s.max.LessThan(val) {
+	} else if s.max.Compare(val) < 0 {
 		s.max = val
 	}
 }
 
-func (s *MaxAggregater) GetResult() (decimal.Decimal, bool) {
+func (s *MaxAggregater) GetResult() (*gxbig.Decimal, bool) {
 	if s.init {
 		return s.max, true
 	}
-	return decimal.Zero, false
+	return nil, false
 }

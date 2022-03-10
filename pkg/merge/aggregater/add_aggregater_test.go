@@ -24,7 +24,7 @@ import (
 )
 
 import (
-	"github.com/shopspring/decimal"
+	gxbig "github.com/dubbogo/gost/math/big"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -32,21 +32,21 @@ import (
 func TestAddAggregater(t *testing.T) {
 	params := []struct {
 		nums   [][]interface{}
-		result decimal.Decimal
+		result *gxbig.Decimal
 		valid  bool
 	}{
 		{
 			nums: [][]interface{}{
 				{1}, {2}, {3}, {1.6}, {10}, {12.12},
 			},
-			result: decimal.NewFromFloat(29.72),
+			result: newDecFromFloat(29.72),
 			valid:  true,
 		},
 		{
 			nums: [][]interface{}{
 				{0.1}, {0.2}, {10.00}, {20.10}, {},
 			},
-			result: decimal.NewFromFloat(30.4),
+			result: newDecFromFloat(30.4),
 			valid:  true,
 		},
 	}
@@ -57,7 +57,17 @@ func TestAddAggregater(t *testing.T) {
 			addAggr.Aggregate(agg)
 		}
 		resp, err := addAggr.GetResult()
-		assert.EqualValues(t, param.result.BigFloat(), resp.BigFloat())
+		f1, err1 := param.result.ToFloat64()
+		f2, err2 := resp.ToFloat64()
+		assert.Nil(t, err1)
+		assert.Nil(t, err2)
+		assert.EqualValues(t, f1, f2)
 		assert.Equal(t, err, param.valid)
 	}
+}
+
+func newDecFromFloat(f float64) *gxbig.Decimal {
+	dec := &gxbig.Decimal{}
+	dec.FromFloat64(f)
+	return dec
 }

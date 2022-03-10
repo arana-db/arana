@@ -20,11 +20,11 @@
 package merge
 
 import (
-	"github.com/shopspring/decimal"
+	gxbig "github.com/dubbogo/gost/math/big"
 )
 
 type Aggregater interface {
 	Aggregate(values []interface{})
 
-	GetResult() (decimal.Decimal, bool)
+	GetResult() (*gxbig.Decimal, bool)
 }

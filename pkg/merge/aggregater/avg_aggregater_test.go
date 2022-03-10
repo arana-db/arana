@@ -24,7 +24,7 @@ import (
 )
 
 import (
-	"github.com/shopspring/decimal"
+	gxbig "github.com/dubbogo/gost/math/big"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -32,28 +32,28 @@ import (
 func TestAvgAggregater(t *testing.T) {
 	params := []struct {
 		nums   [][]interface{}
-		result decimal.Decimal
+		result *gxbig.Decimal
 		valid  bool
 	}{
 		{
 			nums: [][]interface{}{
-				{1, 1}, {2, 2}, {3, 3}, {1.6, 2}, {10, 5}, {12.12, 4},
+				{1, 1}, {2, 2}, {7, 3}, {1.6, 2}, {10, 5}, {12.12, 3.86},
 			},
-			result: decimal.NewFromFloat(29.72).Div(decimal.NewFromFloat(17)),
+			result: newDecFromFloat(2),
 			valid:  true,
 		},
 		{
 			nums: [][]interface{}{
 				{10, 2},
 			},
-			result: decimal.NewFromFloat(5),
+			result: newDecFromFloat(5),
 			valid:  true,
 		},
 		{
 			nums: [][]interface{}{
 				{}, {123},
 			},
-			result: decimal.Zero,
+			result: nil,
 			valid:  false,
 		},
 	}
@@ -64,7 +64,15 @@ func TestAvgAggregater(t *testing.T) {
 			addAggr.Aggregate(agg)
 		}
 		resp, err := addAggr.GetResult()
-		assert.EqualValues(t, param.result.BigFloat(), resp.BigFloat())
-		assert.Equal(t, err, param.valid)
+		if param.result == nil {
+			assert.Nil(t, resp)
+		} else {
+			f1, err1 := param.result.ToFloat64()
+			f2, err2 := resp.ToFloat64()
+			assert.Nil(t, err1)
+			assert.Nil(t, err2)
+			assert.EqualValues(t, f1, f2)
+			assert.Equal(t, err, param.valid)
+		}
 	}
 }
