@@ -31,12 +31,35 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+import (
+	utils "github.com/dubbogo/arana/pkg/util/tableprint"
+)
+
 const (
 	driverName string = "mysql"
 
 	// user:password@tcp(127.0.0.1:3306)/dbName?
 	dataSourceName string = "dksl:123456@tcp(127.0.0.1:13306)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8"
 )
+
+func TestSimpleSharding(t *testing.T) {
+	db, err := sql.Open(driverName, dataSourceName)
+	assert.NoErrorf(t, err, "connection error: %v", err)
+	defer db.Close()
+
+	// insert into phy table
+	result, err := db.Exec(`INSERT INTO student_0031 (id,uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?,?)`, 10031, 31, 3.14, "fake_name_31", "fake_nickname_31", 1, 2022)
+	assert.NoErrorf(t, err, "insert row error: %v", err)
+	affected, err := result.RowsAffected()
+	assert.NoErrorf(t, err, "insert row error: %v", err)
+	assert.Equal(t, int64(1), affected)
+
+	// select from logical table
+	rows, err := db.Query("SELECT * FROM student WHERE uid = ?", 31)
+	assert.NoError(t, err, "should query from sharding table successfully")
+	data, _ := utils.PrintTable(rows)
+	assert.Equal(t, 1, len(data))
+}
 
 func TestInsert(t *testing.T) {
 	db, err := sql.Open(driverName, dataSourceName)

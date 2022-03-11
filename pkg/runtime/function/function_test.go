@@ -28,7 +28,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/runtime/xxast"
+	"github.com/dubbogo/arana/pkg/runtime/ast"
 )
 
 func TestEval(t *testing.T) {
@@ -104,11 +104,11 @@ func BenchmarkEval(b *testing.B) {
 	})
 }
 
-func mustGetMathAtom() *xxast.MathExpressionAtom {
-	stmt, err := xxast.Parse("select * from t where a = 1 + if(?,1,0)")
+func mustGetMathAtom() *ast.MathExpressionAtom {
+	stmt, err := ast.Parse("select * from t where a = 1 + if(?,1,0)")
 	if err != nil {
 		panic(err.Error())
 	}
-	sel, _ := stmt.(*xxast.SelectStatement)
-	return sel.Where.(*xxast.PredicateExpressionNode).P.(*xxast.BinaryComparisonPredicateNode).Right.(*xxast.AtomPredicateNode).A.(*xxast.MathExpressionAtom)
+	sel, _ := stmt.(*ast.SelectStatement)
+	return sel.Where.(*ast.PredicateExpressionNode).P.(*ast.BinaryComparisonPredicateNode).Right.(*ast.AtomPredicateNode).A.(*ast.MathExpressionAtom)
 }

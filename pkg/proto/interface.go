@@ -31,6 +31,7 @@ import (
 )
 
 import (
+	"github.com/dubbogo/arana/pkg/util/bytesconv"
 	"github.com/dubbogo/arana/third_party/pools"
 )
 
@@ -40,6 +41,8 @@ type (
 	// Context
 	Context struct {
 		context.Context
+
+		Schema string
 
 		ConnectionID uint32
 
@@ -143,4 +146,8 @@ func (m *ExecuteMode) unmarshalText(text []byte) bool {
 		return false
 	}
 	return true
+}
+
+func (c Context) GetQuery() string {
+	return bytesconv.BytesToString(c.Data[1:])
 }

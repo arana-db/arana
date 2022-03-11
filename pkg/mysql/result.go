@@ -30,6 +30,14 @@ type Result struct {
 	Rows         []proto.Row
 }
 
+func (res *Result) GetFields() []proto.Field {
+	return res.Fields
+}
+
+func (res *Result) GetRows() []proto.Row {
+	return res.Rows
+}
+
 func (res *Result) LastInsertId() (uint64, error) {
 	return res.InsertId, nil
 }

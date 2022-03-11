@@ -64,6 +64,12 @@ type (
 
 	// Result is the result of a query execution.
 	Result interface {
+		// GetFields returns the fields.
+		GetFields() []Field
+
+		// GetRows returns the rows.
+		GetRows() []Row
+
 		// LastInsertId returns the database's auto-generated ID
 		// after, for example, an INSERT into a table with primary
 		// key.

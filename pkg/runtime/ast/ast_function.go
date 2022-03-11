@@ -16,7 +16,7 @@
 // under the License.
 //
 
-package xxast
+package ast
 
 import (
 	"math"
@@ -171,7 +171,7 @@ func (f *FunctionArg) Restore(sb *strings.Builder, args *[]int) error {
 	var restorer Restorer
 	switch f.typ {
 	case FunctionArgColumn:
-		restorer = ColumnNameExpressionAtom(f.value.([]string))
+		restorer = f.value.(ColumnNameExpressionAtom)
 	case FunctionArgExpression:
 		restorer = f.value.(ExpressionNode)
 	case FunctionArgConstant:
@@ -205,6 +205,11 @@ const (
 	AggrMin   = "MIN"
 	AggrSum   = "SUM"
 	AggrCount = "COUNT"
+)
+
+const (
+	AggregatorAll      = "ALL"
+	AggregatorDistinct = "DISTINCT"
 )
 
 type AggrFunctionFlag uint8

@@ -23,12 +23,12 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/constants/mysql"
-	"github.com/dubbogo/arana/pkg/mysql/errors"
+	"github.com/stretchr/testify/assert"
 )
 
 import (
-	"github.com/stretchr/testify/assert"
+	"github.com/dubbogo/arana/pkg/constants/mysql"
+	"github.com/dubbogo/arana/pkg/mysql/errors"
 )
 
 func TestDSNParse(t *testing.T) {

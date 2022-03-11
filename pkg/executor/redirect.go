@@ -21,7 +21,6 @@ package executor
 
 import (
 	"bytes"
-	"fmt"
 )
 
 import (
@@ -34,6 +33,7 @@ import (
 	"github.com/dubbogo/arana/pkg/mysql"
 	"github.com/dubbogo/arana/pkg/proto"
 	"github.com/dubbogo/arana/pkg/resource"
+	"github.com/dubbogo/arana/pkg/runtime"
 	"github.com/dubbogo/arana/pkg/selector"
 	"github.com/dubbogo/arana/pkg/util/log"
 	"github.com/dubbogo/arana/third_party/pools"
@@ -170,12 +170,16 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 	var err error
 
 	p := parser.New()
-	query := string(ctx.Data[1:])
+	query := ctx.GetQuery()
 	act, err := p.ParseOneStmt(query, "", "")
 	if err != nil {
 		return nil, 0, err
 	}
 	log.Debugf("ComQuery: %s", query)
+
+	ctx.Stmt = &proto.Stmt{
+		StmtNode: act,
+	}
 
 	resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(executor.dataSources[0].Master.Name)
 	switch act.(type) {
@@ -296,49 +300,31 @@ func (executor *RedirectExecutor) doPostFilter(ctx *proto.Context, result proto.
 }
 
 func (executor *RedirectExecutor) slaveComQueryExecute(ctx *proto.Context, query string) (proto.Result, uint16, error) {
-
-	dsNo := executor.dbSelector.GetDataSourceNo()
-	resourcePool := resource.GetDataSourceManager().GetSlaveResourcePool(executor.dataSources[0].Slaves[dsNo].Name)
-	r, err := resourcePool.Get(ctx)
-	defer func() {
-		resourcePool.Put(r)
-	}()
-	if err != nil {
-		return nil, 0, err
-	}
-
-	backendConn := r.(*mysql.BackendConnection)
-
+	var (
+		rt     runtime.Runtime
+		result proto.Result
+		warn   uint16
+		err    error
+	)
 	executor.doPreFilter(ctx)
-	result, warn, err := backendConn.ExecuteWithWarningCount(query, true)
+	if rt, err = runtime.Load(ctx.Schema); err == nil {
+		result, warn, err = rt.Execute(ctx)
+	}
 	executor.doPostFilter(ctx, result)
 	return result, warn, err
 }
 
 func (executor *RedirectExecutor) slaveComStmtExecute(ctx *proto.Context) (proto.Result, uint16, error) {
 	var (
-		r           pools.Resource
-		backendConn *mysql.BackendConnection
-		err         error
+		rt     runtime.Runtime
+		result proto.Result
+		warn   uint16
+		err    error
 	)
-	dsNo := executor.dbSelector.GetDataSourceNo()
-	fmt.Println(dsNo)
-	resourcePool := resource.GetDataSourceManager().GetSlaveResourcePool(executor.dataSources[0].Slaves[dsNo].Name)
-	r, err = resourcePool.Get(ctx)
-	defer func() {
-		resourcePool.Put(r)
-	}()
-	if err != nil {
-		return nil, 0, err
-	}
-
-	backendConn = r.(*mysql.BackendConnection)
-
-	query := ctx.Stmt.StmtNode.Text()
-	log.Infof(query)
-
 	executor.doPreFilter(ctx)
-	result, warn, err := backendConn.PrepareQuery(query, ctx.Data)
+	if rt, err = runtime.Load(ctx.Schema); err == nil {
+		result, warn, err = rt.Execute(ctx)
+	}
 	executor.doPostFilter(ctx, result)
 	return result, warn, err
 }

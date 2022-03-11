@@ -16,16 +16,12 @@
 // under the License.
 //
 
-// Package testdata 测试资源包
+// Package testdata includes test resources.
 package testdata
 
 import (
 	"path/filepath"
 	"runtime"
-)
-
-import (
-	_ "github.com/golang/mock/gomock"
 )
 
 var basepath string
@@ -35,6 +31,7 @@ func init() {
 	basepath = filepath.Dir(currentFile)
 }
 
+// Path gets the absolute path.
 func Path(rel string) string {
 	if filepath.IsAbs(rel) {
 		return rel

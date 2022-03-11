@@ -28,32 +28,11 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/proto"
+	"github.com/dubbogo/arana/pkg/runtime/ast"
 	"github.com/dubbogo/arana/pkg/runtime/misc"
-	"github.com/dubbogo/arana/pkg/runtime/xxast"
 )
 
-type queryResult struct {
-	proto.Rows
-}
-
-func (q queryResult) LastInsertId() (uint64, error) {
-	return 0, errors.New("unsupported operation")
-}
-
-func (q queryResult) RowsAffected() (uint64, error) {
-	return 0, errors.New("unsupported operation")
-}
-
-type execResult struct {
-	proto.Result
-}
-
-func (e execResult) Next() proto.Row {
-	return nil
-}
-
-func generateSelect(table string, stmt *xxast.SelectStatement, sb *strings.Builder, args *[]int) error {
+func generateSelect(table string, stmt *ast.SelectStatement, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("SELECT ")
 
 	for _, it := range stmt.SelectSpecs {
@@ -68,7 +47,7 @@ func generateSelect(table string, stmt *xxast.SelectStatement, sb *strings.Build
 		handleSelect(sb, stmt.Select[i])
 	}
 
-	if len(table) > 0 {
+	if len(stmt.From) > 0 {
 		sb.WriteString(" FROM ")
 		handleFrom(sb, table, stmt.From)
 	}
@@ -112,30 +91,30 @@ func generateSelect(table string, stmt *xxast.SelectStatement, sb *strings.Build
 	return nil
 }
 
-func handleSelect(sb *strings.Builder, sel xxast.SelectElement) {
+func handleSelect(sb *strings.Builder, sel ast.SelectElement) {
 	switch n := sel.(type) {
-	case *xxast.SelectElementAll:
+	case *ast.SelectElementAll:
 		if len(n.Prefix()) > 0 {
 			sb.WriteString(n.Prefix())
 			sb.WriteByte('.')
 		}
 		sb.WriteByte('*')
-	case *xxast.SelectElementColumn:
-		_ = xxast.ColumnNameExpressionAtom(n.Name()).Restore(sb, nil)
-	case *xxast.SelectElementFunction:
+	case *ast.SelectElementColumn:
+		_ = ast.ColumnNameExpressionAtom(n.Name()).Restore(sb, nil)
+	case *ast.SelectElementFunction:
 		switch fn := n.Function().(type) {
-		case *xxast.Function:
+		case *ast.Function:
 			_ = fn.Restore(sb, nil)
-		case *xxast.AggrFunction:
+		case *ast.AggrFunction:
 			_ = fn.Restore(sb, nil)
-		case *xxast.CastFunction:
+		case *ast.CastFunction:
 			_ = fn.Restore(sb, nil)
-		case *xxast.CaseWhenElseFunction:
+		case *ast.CaseWhenElseFunction:
 			_ = fn.Restore(sb, nil)
 		default:
 			panic("unreachable")
 		}
-	case *xxast.SelectElementExpr:
+	case *ast.SelectElementExpr:
 		_ = n.Expression().Restore(sb, nil)
 	default:
 		panic("unreachable")
@@ -147,7 +126,7 @@ func handleSelect(sb *strings.Builder, sel xxast.SelectElement) {
 	}
 }
 
-func handleFrom(sb *strings.Builder, table string, from []*xxast.TableSourceNode) {
+func handleFrom(sb *strings.Builder, table string, from []*ast.TableSourceNode) {
 	if len(from) > 1 {
 		panic("todo: multiple from")
 	}
@@ -157,7 +136,12 @@ func handleFrom(sb *strings.Builder, table string, from []*xxast.TableSourceNode
 		misc.Wrap(sb, '`', first.TableName().Prefix())
 		sb.WriteByte('.')
 	}
-	misc.Wrap(sb, '`', table)
+
+	if len(table) > 0 {
+		misc.Wrap(sb, '`', table)
+	} else {
+		misc.Wrap(sb, '`', first.TableName().Suffix())
+	}
 
 	if len(first.Alias()) > 0 {
 		sb.WriteString(" AS ")
@@ -165,14 +149,14 @@ func handleFrom(sb *strings.Builder, table string, from []*xxast.TableSourceNode
 	}
 }
 
-func handleWhere(where xxast.ExpressionNode, sb *strings.Builder, args *[]int) error {
+func handleWhere(where ast.ExpressionNode, sb *strings.Builder, args *[]int) error {
 	if err := where.Restore(sb, args); err != nil {
 		return errors.Wrap(err, "failed to handle where")
 	}
 	return nil
 }
 
-func handleGroupBy(sb *strings.Builder, groupBy *xxast.GroupByItem) {
+func handleGroupBy(sb *strings.Builder, groupBy *ast.GroupByItem) {
 	_ = groupBy.Expr().Restore(sb, nil)
 	if !groupBy.HasOrder() {
 		return
@@ -185,7 +169,7 @@ func handleGroupBy(sb *strings.Builder, groupBy *xxast.GroupByItem) {
 	}
 }
 
-func writeOrderBy(sb *strings.Builder, orderBy xxast.OrderByNode, useAlias bool) {
+func writeOrderBy(sb *strings.Builder, orderBy ast.OrderByNode, useAlias bool) {
 	if len(orderBy) < 1 {
 		return
 	}
@@ -199,7 +183,7 @@ func writeOrderBy(sb *strings.Builder, orderBy xxast.OrderByNode, useAlias bool)
 	}
 }
 
-func writeOrderByItem(sb *strings.Builder, orderBy *xxast.OrderByItem, useAlias bool) {
+func writeOrderByItem(sb *strings.Builder, orderBy *ast.OrderByItem, useAlias bool) {
 	if useAlias && len(orderBy.Alias) > 0 {
 		misc.Wrap(sb, '`', orderBy.Alias)
 	} else {
@@ -212,7 +196,7 @@ func writeOrderByItem(sb *strings.Builder, orderBy *xxast.OrderByItem, useAlias 
 	}
 }
 
-func writeLimit(limit *xxast.LimitNode, sb *strings.Builder, args *[]int) {
+func writeLimit(limit *ast.LimitNode, sb *strings.Builder, args *[]int) {
 	if limit.HasOffset() {
 		if limit.IsOffsetVar() {
 			sb.WriteByte('?')

@@ -16,7 +16,7 @@
 // under the License.
 //
 
-package xxast
+package ast
 
 const (
 	_        SQLType = iota

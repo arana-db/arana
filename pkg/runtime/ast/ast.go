@@ -16,11 +16,12 @@
 // under the License.
 //
 
-package xxast
+package ast
 
 import (
 	"fmt"
-	"log"
+	"strconv"
+	"strings"
 )
 
 import (
@@ -84,11 +85,12 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 	switch stmt := node.(type) {
 	case *ast.SelectStmt:
 		var (
-			nSelect = cc.convFieldList(stmt.Fields)
-			nFrom   = convFrom(stmt.From)
-			nWhere  = toExpressionNode(cc.convExpr(stmt.Where))
-			nLimit  = cc.convLimit(stmt.Limit)
-			nOrder  = cc.convOrderBy(stmt.OrderBy)
+			nSelect  = cc.convFieldList(stmt.Fields)
+			nFrom    = convFrom(stmt.From)
+			nWhere   = toExpressionNode(cc.convExpr(stmt.Where))
+			nGroup   = cc.convGroupBy(stmt.GroupBy)
+			nOrderBy = cc.convOrderBy(stmt.OrderBy)
+			nLimit   = cc.convLimit(stmt.Limit)
 		)
 
 		return &SelectStatement{
@@ -96,8 +98,9 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 			SelectSpecs: nil,
 			From:        nFrom,
 			Where:       nWhere,
+			OrderBy:     nOrderBy,
+			GroupBy:     nGroup,
 			Limit:       nLimit,
-			OrderBy:     nOrder,
 		}, nil
 	case *ast.DeleteStmt:
 		var (
@@ -226,8 +229,20 @@ func (t *tblRefsVisitor) Enter(n ast.Node) (ast.Node, bool) {
 	case *ast.TableSource:
 		t.alias = append(t.alias, val.AsName.String())
 	case *ast.TableName:
+		var (
+			schema = val.Schema.String()
+			name   = val.Name.String()
+		)
+
+		var tableName TableName
+		if len(schema) < 1 {
+			tableName = []string{name}
+		} else {
+			tableName = []string{schema, name}
+		}
+
 		tn := &TableSourceNode{
-			source: TableName([]string{val.Name.String()}),
+			source: tableName,
 			alias:  "",
 		}
 		if len(t.alias) > 0 {
@@ -244,9 +259,55 @@ func (t tblRefsVisitor) Leave(n ast.Node) (ast.Node, bool) {
 }
 
 func convFrom(from *ast.TableRefsClause) []*TableSourceNode {
+	if from == nil {
+		return nil
+	}
 	var vis tblRefsVisitor
 	from.Accept(&vis)
 	return vis.v
+}
+
+func (cc *convCtx) convGroupBy(by *ast.GroupByClause) *GroupByNode {
+	if by == nil || len(by.Items) < 1 {
+		return nil
+	}
+
+	ret := &GroupByNode{
+		Items: make([]*GroupByItem, 0, len(by.Items)),
+	}
+	for _, it := range by.Items {
+		var next GroupByItem
+		if it.Desc {
+			next.flag = flagGroupByOrderDesc | flagGroupByHasOrder
+		}
+		next.expr = toExpressionNode(cc.convExpr(it.Expr))
+
+		ret.Items = append(ret.Items, &next)
+	}
+
+	return ret
+}
+
+func (cc *convCtx) convOrderBy(orderBy *ast.OrderByClause) (ret OrderByNode) {
+	if orderBy == nil || len(orderBy.Items) < 1 {
+		return nil
+	}
+
+	for _, it := range orderBy.Items {
+		var next OrderByItem
+		next.Desc = it.Desc
+		switch val := cc.convExpr(it.Expr).(type) {
+		case ExpressionAtom:
+			next.Expr = val
+		case *AtomPredicateNode:
+			next.Expr = val.A
+		default:
+			panic(fmt.Sprintf("unimplement: ORDER_BY_ITEM type %T!", val))
+		}
+		ret = append(ret, &next)
+	}
+
+	return
 }
 
 func (cc *convCtx) convFieldList(node *ast.FieldList) []SelectElement {
@@ -266,6 +327,33 @@ func (cc *convCtx) convFieldList(node *ast.FieldList) []SelectElement {
 					name:  a,
 					alias: alias,
 				})
+			case *FunctionCallExpressionAtom:
+				ret = append(ret, &SelectElementFunction{
+					inner: a.F,
+					alias: alias,
+				})
+			case *ConstantExpressionAtom:
+				ret = append(ret, &SelectElementExpr{
+					inner: exprAtomToNode(a),
+					alias: alias,
+				})
+			case *MathExpressionAtom:
+				ret = append(ret, &SelectElementExpr{
+					inner: exprAtomToNode(a),
+					alias: alias,
+				})
+			case *UnaryExpressionAtom:
+				ret = append(ret, &SelectElementExpr{
+					inner: exprAtomToNode(a),
+					alias: alias,
+				})
+			case *NestedExpressionAtom:
+				ret = append(ret, &SelectElementExpr{
+					inner: exprAtomToNode(a),
+					alias: alias,
+				})
+			default:
+				panic(fmt.Sprintf("todo: unsupported select element type %T!", a))
 			}
 		}
 	}
@@ -296,36 +384,36 @@ func (cc *convCtx) convAssignment(assignments []*ast.Assignment) []*UpdateElemen
 	return result
 }
 
-func (cc *convCtx) convOrderBy(ob *ast.OrderByClause) OrderByNode {
-	if ob == nil {
-		return nil
-	}
-	result := make([]*OrderByItem, 0, len(ob.Items))
-	for _, item := range ob.Items {
-		result = append(result, &OrderByItem{
-			Expr: cc.convExpr(item.Expr).(*AtomPredicateNode).A,
-		})
-	}
-	return result
-}
-
 func (cc *convCtx) convLimit(li *ast.Limit) *LimitNode {
-	var (
-		offset int64
-		limit  int64
-	)
 	if li == nil {
 		return nil
 	}
-	if li.Offset != nil {
-		offset = int64(li.Offset.(ast.ValueExpr).GetValue().(uint64))
+
+	var n LimitNode
+	if offset := li.Offset; offset != nil {
+		n.SetHasOffset()
+		switch t := offset.(type) {
+		case *test_driver.ParamMarkerExpr:
+			n.SetOffsetVar()
+			n.SetOffset(int64(cc.getParamIndex()))
+		case ast.ValueExpr:
+			n.SetOffset(int64(t.GetValue().(uint64)))
+		default:
+			panic(fmt.Sprintf("todo: unsupported limit offset type %T!", t))
+		}
 	}
-	limit = int64(li.Count.(ast.ValueExpr).GetValue().(uint64))
-	n := &LimitNode{
-		offset: offset,
-		limit:  limit,
+
+	switch t := li.Count.(type) {
+	case *test_driver.ParamMarkerExpr:
+		n.SetLimitVar()
+		n.SetLimit(int64(cc.getParamIndex()))
+	case ast.ValueExpr:
+		n.SetLimit(int64(t.GetValue().(uint64)))
+	default:
+		panic(fmt.Sprintf("todo: unsupported limit offset type %T!", t))
 	}
-	return n
+
+	return &n
 }
 
 func (cc *convCtx) convExpr(expr ast.ExprNode) interface{} {
@@ -349,50 +437,86 @@ func (cc *convCtx) convExpr(expr ast.ExprNode) interface{} {
 		return cc.convFuncCallExpr(node)
 	case ast.ValueExpr:
 		return cc.convValueExpr(node)
+	case *ast.UnaryOperationExpr:
+		return cc.convUnaryExpr(node)
+	case *ast.AggregateFuncExpr:
+		return cc.convAggregateFuncExpr(node)
+	case *ast.CaseExpr:
+		return cc.convCaseExpr(node)
 	default:
-		panic(fmt.Sprintf("todo: support %T!", node))
+		panic(fmt.Sprintf("unimplement: expr node type %T!", node))
+	}
+}
+
+func (cc *convCtx) convCaseExpr(node *ast.CaseExpr) PredicateNode {
+	caseBlock := cc.convExpr(node.Value)
+
+	branches := make([][2]*FunctionArg, 0, len(node.WhenClauses))
+	for _, it := range node.WhenClauses {
+		var branch [2]*FunctionArg
+		branch[0] = cc.toArg(it.Expr)
+		branch[1] = cc.toArg(it.Result)
+		branches = append(branches, branch)
+	}
+
+	elseBlock := cc.toArg(node.ElseClause)
+
+	f := &CaseWhenElseFunction{
+		branches:  branches,
+		elseBlock: elseBlock,
+	}
+
+	if caseBlock != nil {
+		switch it := caseBlock.(type) {
+		case PredicateNode:
+			f.caseBlock = &PredicateExpressionNode{P: it}
+		default:
+			panic(fmt.Sprintf("unimplement: case when block type %T!", it))
+		}
+	}
+
+	return &AtomPredicateNode{
+		A: &FunctionCallExpressionAtom{
+			F: f,
+		},
+	}
+}
+
+func (cc *convCtx) convAggregateFuncExpr(node *ast.AggregateFuncExpr) PredicateNode {
+	var (
+		fnName = strings.ToUpper(node.F)
+		args   = make([]*FunctionArg, 0, len(node.Args))
+	)
+
+	for _, it := range node.Args {
+		args = append(args, cc.toArg(it))
+	}
+
+	f := &AggrFunction{
+		name: fnName,
+		args: args,
+	}
+
+	if node.Distinct {
+		f.aggregator = AggregatorDistinct
+	}
+	// TODO: all?
+
+	return &AtomPredicateNode{
+		A: &FunctionCallExpressionAtom{
+			F: f,
+		},
 	}
 }
 
 func (cc *convCtx) convFuncCallExpr(expr *ast.FuncCallExpr) PredicateNode {
 	var (
-		fnName = expr.FnName.String()
-		args   []*FunctionArg
+		fnName = strings.ToUpper(expr.FnName.O)
+		args   = make([]*FunctionArg, 0, len(expr.Args))
 	)
 
-	toArg := func(arg ast.ExprNode) *FunctionArg {
-		switch next := cc.convExpr(arg).(type) {
-		case *AtomPredicateNode:
-			switch atom := next.A.(type) {
-			case ColumnNameExpressionAtom:
-				return &FunctionArg{
-					typ:   FunctionArgColumn,
-					value: atom,
-				}
-			case *ConstantExpressionAtom:
-				return &FunctionArg{
-					typ:   FunctionArgConstant,
-					value: atom.Value(),
-				}
-			case VariableExpressionAtom:
-				return &FunctionArg{
-					typ:   FunctionArgExpression,
-					value: &PredicateExpressionNode{P: next},
-				}
-			}
-		case *BinaryComparisonPredicateNode:
-			return &FunctionArg{
-				typ:   FunctionArgExpression,
-				value: &PredicateExpressionNode{P: next},
-			}
-		default:
-			log.Printf("next: %T\n", next)
-		}
-		panic("unreachable")
-	}
-
 	for _, it := range expr.Args {
-		args = append(args, toArg(it))
+		args = append(args, cc.toArg(it))
 	}
 
 	atom := &FunctionCallExpressionAtom{
@@ -404,6 +528,48 @@ func (cc *convCtx) convFuncCallExpr(expr *ast.FuncCallExpr) PredicateNode {
 	}
 
 	return &AtomPredicateNode{A: atom}
+}
+
+func (cc *convCtx) toArg(arg ast.ExprNode) *FunctionArg {
+	switch next := cc.convExpr(arg).(type) {
+	case *AtomPredicateNode:
+		switch atom := next.A.(type) {
+		case ColumnNameExpressionAtom:
+			return &FunctionArg{
+				typ:   FunctionArgColumn,
+				value: atom,
+			}
+		case *ConstantExpressionAtom:
+			return &FunctionArg{
+				typ:   FunctionArgConstant,
+				value: atom.Value(),
+			}
+		case VariableExpressionAtom:
+			return &FunctionArg{
+				typ:   FunctionArgExpression,
+				value: &PredicateExpressionNode{P: next},
+			}
+		case *UnaryExpressionAtom:
+			return &FunctionArg{
+				typ:   FunctionArgExpression,
+				value: &PredicateExpressionNode{P: next},
+			}
+		case *MathExpressionAtom:
+			return &FunctionArg{
+				typ:   FunctionArgExpression,
+				value: &PredicateExpressionNode{P: next},
+			}
+		default:
+			panic(fmt.Sprintf("unimplement: function arg atom type %T!", atom))
+		}
+	case *BinaryComparisonPredicateNode:
+		return &FunctionArg{
+			typ:   FunctionArgExpression,
+			value: &PredicateExpressionNode{P: next},
+		}
+	default:
+		panic(fmt.Sprintf("unimplement: function arg type %T!", next))
+	}
 }
 
 func (cc *convCtx) convPatternLikeExpr(expr *ast.PatternLikeExpr) PredicateNode {
@@ -419,15 +585,23 @@ func (cc *convCtx) convPatternLikeExpr(expr *ast.PatternLikeExpr) PredicateNode 
 }
 
 func (cc *convCtx) convParenthesesExpr(expr *ast.ParenthesesExpr) PredicateNode {
-	node := cc.convExpr(expr.Expr)
-	atom := &NestedExpressionAtom{
-		First: &PredicateExpressionNode{
-			P: node.(PredicateNode),
-		},
+	var atom ExpressionAtom
+	switch node := cc.convExpr(expr.Expr).(type) {
+	case ExpressionNode:
+		atom = &NestedExpressionAtom{
+			First: node,
+		}
+	case PredicateNode:
+		atom = &NestedExpressionAtom{
+			First: &PredicateExpressionNode{
+				P: node,
+			},
+		}
+	default:
+		panic(fmt.Sprintf("unimplement: nested type %T!", node))
 	}
-	return &AtomPredicateNode{
-		A: atom,
-	}
+
+	return &AtomPredicateNode{A: atom}
 }
 
 func (cc *convCtx) convBetweenExpr(expr *ast.BetweenExpr) PredicateNode {
@@ -459,14 +633,42 @@ func (cc *convCtx) convPatternInExpr(expr *ast.PatternInExpr) PredicateNode {
 	}
 }
 
+func (cc *convCtx) convUnaryExpr(expr *ast.UnaryOperationExpr) PredicateNode {
+	var atom ExpressionAtom
+
+	switch t := cc.convExpr(expr.V).(type) {
+	case ExpressionAtom:
+		atom = t
+	case *AtomPredicateNode:
+		atom = t.A
+	default:
+		panic(fmt.Sprintf("unsupport unary inner expr type %T!", t))
+	}
+
+	var sb strings.Builder
+	expr.Op.Format(&sb)
+
+	return &AtomPredicateNode{A: &UnaryExpressionAtom{
+		Operator: sb.String(),
+		Inner:    atom,
+	}}
+}
+
 func (cc *convCtx) convValueExpr(expr ast.ValueExpr) PredicateNode {
 	var atom ExpressionAtom
 	switch t := expr.(type) {
 	case *test_driver.ParamMarkerExpr:
 		atom = VariableExpressionAtom(cc.getParamIndex())
 	default:
-		val := t.GetValue()
-		atom = &ConstantExpressionAtom{Inner: val}
+		switch val := t.GetValue().(type) {
+		case *test_driver.MyDecimal:
+			// TODO: decimal or float?
+			f, _ := strconv.ParseFloat(val.String(), 64)
+			atom = &ConstantExpressionAtom{Inner: f}
+		default:
+			atom = &ConstantExpressionAtom{Inner: val}
+		}
+
 	}
 	return &AtomPredicateNode{A: atom}
 }
@@ -526,5 +728,13 @@ func toExpressionNode(src interface{}) ExpressionNode {
 		return v
 	default:
 		panic(fmt.Sprintf("todo: convert to ExpressionNode: type=%T", src))
+	}
+}
+
+func exprAtomToNode(atom ExpressionAtom) ExpressionNode {
+	return &PredicateExpressionNode{
+		P: &AtomPredicateNode{
+			A: atom,
+		},
 	}
 }
