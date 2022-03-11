@@ -41,7 +41,13 @@ type (
 		// Compute computes the shard index.
 		Compute(value interface{}) (int, error)
 	}
+
+	DirectShardComputer func(interface{}) (int, error)
 )
+
+func (d DirectShardComputer) Compute(value interface{}) (int, error) {
+	return d(value)
+}
 
 // VTable represents a virtual/logical table.
 type VTable struct {
@@ -135,6 +141,9 @@ func (ru *Rule) HasColumn(table, column string) bool {
 
 // Has return true if the table exists.
 func (ru *Rule) Has(table string) bool {
+	if ru == nil {
+		return false
+	}
 	ru.mu.RLock()
 	_, ok := ru.vtabs[table]
 	ru.mu.RUnlock()

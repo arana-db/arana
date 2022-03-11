@@ -15,14 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 //
-package xxcontext
+
+package context
 
 import (
 	"context"
 )
 
 import (
-	sequence "github.com/dubbogo/arana/pkg/proto"
+	"github.com/dubbogo/arana/pkg/proto"
 	"github.com/dubbogo/arana/pkg/proto/rule"
 )
 
@@ -35,9 +36,15 @@ type (
 	keyFlag     struct{}
 	keyRule     struct{}
 	keySequence struct{}
+	keySql      struct{}
 )
 
 type cFlag uint8
+
+// WithSQL binds the original sql.
+func WithSQL(ctx context.Context, sql string) context.Context {
+	return context.WithValue(ctx, keySql{}, sql)
+}
 
 // WithMaster uses master datasource.
 func WithMaster(ctx context.Context) context.Context {
@@ -55,13 +62,13 @@ func WithRule(ctx context.Context, ru *rule.Rule) context.Context {
 }
 
 // WithSequencer binds a sequencer.
-func WithSequencer(ctx context.Context, sequencer sequence.Sequencer) context.Context {
+func WithSequencer(ctx context.Context, sequencer proto.Sequencer) context.Context {
 	return context.WithValue(ctx, keySequence{}, sequencer)
 }
 
 // Sequencer extracts the sequencer.
-func Sequencer(ctx context.Context) sequence.Sequencer {
-	s, ok := ctx.Value(keySequence{}).(sequence.Sequencer)
+func Sequencer(ctx context.Context) proto.Sequencer {
+	s, ok := ctx.Value(keySequence{}).(proto.Sequencer)
 	if !ok {
 		return nil
 	}
@@ -85,6 +92,14 @@ func IsMaster(ctx context.Context) bool {
 // IsSlave returns true if force using master.
 func IsSlave(ctx context.Context) bool {
 	return hasFlag(ctx, _flagSlave)
+}
+
+// SQL returns the original sql string.
+func SQL(ctx context.Context) string {
+	if sql, ok := ctx.Value(keySql{}).(string); ok {
+		return sql
+	}
+	return ""
 }
 
 func hasFlag(ctx context.Context, flag cFlag) bool {

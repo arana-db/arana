@@ -21,18 +21,21 @@ package optimize
 import (
 	"context"
 	stdErrors "errors"
+	"strings"
 )
 
 import (
+	"github.com/dubbogo/parser/ast"
+
 	"github.com/pkg/errors"
 )
 
 import (
 	"github.com/dubbogo/arana/pkg/proto"
 	"github.com/dubbogo/arana/pkg/proto/rule"
+	rast "github.com/dubbogo/arana/pkg/runtime/ast"
+	rcontext "github.com/dubbogo/arana/pkg/runtime/context"
 	"github.com/dubbogo/arana/pkg/runtime/plan"
-	"github.com/dubbogo/arana/pkg/runtime/xxast"
-	"github.com/dubbogo/arana/pkg/runtime/xxcontext"
 	"github.com/dubbogo/arana/pkg/util/log"
 )
 
@@ -54,31 +57,88 @@ func IsDenyFullScanErr(err error) bool {
 	return errors.Is(err, errDenyFullScan)
 }
 
+func GetOptimizer() proto.Optimizer {
+	return optimizer{}
+}
+
 type optimizer struct {
 }
 
-func (o optimizer) Optimize(ctx context.Context, sql string, args ...interface{}) (proto.Plan, error) {
-	stmt, err := xxast.Parse(sql)
-	if err != nil {
+func (o optimizer) Optimize(ctx context.Context, stmt ast.StmtNode, args ...interface{}) (plan proto.Plan, err error) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			err = errors.Errorf("cannot analyze sql %s", rcontext.SQL(ctx))
+			log.Errorf("optimize panic: sql=%s, rec=%v", rcontext.SQL(ctx), rec)
+		}
+	}()
+
+	var xxstmt rast.Statement
+	if xxstmt, err = rast.FromStmtNode(stmt); err != nil {
 		return nil, errors.Wrap(err, "optimize failed")
 	}
+	return o.doOptimize(ctx, xxstmt, args...)
+}
 
+func (o optimizer) doOptimize(ctx context.Context, stmt rast.Statement, args ...interface{}) (proto.Plan, error) {
 	switch t := stmt.(type) {
-	case *xxast.SelectStatement:
+	case *rast.SelectStatement:
 		return o.optimizeSelect(ctx, t, args)
-	case *xxast.InsertStatement:
-	case *xxast.DeleteStatement:
-	case *xxast.UpdateStatement:
+	case *rast.InsertStatement:
+	case *rast.DeleteStatement:
+	case *rast.UpdateStatement:
 	}
 
 	//TODO implement all statements
 	panic("implement me")
 }
 
-func (o optimizer) optimizeSelect(ctx context.Context, stmt *xxast.SelectStatement, args []interface{}) (proto.Plan, error) {
+const (
+	_bypass uint32 = 1 << iota
+	_supported
+)
+
+func (o optimizer) getSelectFlag(ctx context.Context, stmt *rast.SelectStatement) (flag uint32) {
+	switch len(stmt.From) {
+	case 1:
+		from := stmt.From[0]
+		tn := from.TableName()
+
+		if tn == nil { // only FROM table supported now
+			return
+		}
+
+		flag |= _supported
+
+		if len(tn) > 1 {
+			switch strings.ToLower(tn.Prefix()) {
+			case "mysql", "information_schema":
+				flag |= _bypass
+				return
+			}
+		}
+		if !rcontext.Rule(ctx).Has(tn.Suffix()) {
+			flag |= _bypass
+		}
+	case 0:
+		flag |= _bypass
+		flag |= _supported
+	}
+	return
+}
+
+func (o optimizer) optimizeSelect(ctx context.Context, stmt *rast.SelectStatement, args []interface{}) (proto.Plan, error) {
 	var ru *rule.Rule
-	if ru = xxcontext.Rule(ctx); ru == nil {
+	if ru = rcontext.Rule(ctx); ru == nil {
 		return nil, errors.WithStack(errNoRuleFound)
+	}
+
+	flag := o.getSelectFlag(ctx, stmt)
+	if flag&_supported == 0 {
+		return nil, errors.Errorf("unsupported sql: %s", rcontext.SQL(ctx))
+	}
+
+	if flag&_bypass != 0 {
+		return &plan.SimpleQueryPlan{Stmt: stmt, Args: args}, nil
 	}
 
 	shards, fullScan, err := (*Sharder)(ru).Shard(stmt.From[0].TableName(), stmt.Where, args...)

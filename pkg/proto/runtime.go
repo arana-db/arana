@@ -16,11 +16,17 @@
 // under the License.
 //
 
-//go:generate mockgen -destination=../../testdata/mock_runtime.go -package=testdata . Rows,VConn,MixinResult,Plan,Optimizer
+//go:generate mockgen -destination=../../testdata/mock_runtime.go -package=testdata . VConn,Plan,Optimizer,DB
 package proto
 
 import (
 	"context"
+	"io"
+	"time"
+)
+
+import (
+	"github.com/dubbogo/parser/ast"
 )
 
 const (
@@ -29,22 +35,10 @@ const (
 )
 
 type (
-	// Rows represents a flow of Row.
-	Rows interface {
-		// Next returns the next Row, nil if EOF.
-		Next() Row
-	}
-
-	// MixinResult mixin the Rows and Result.
-	MixinResult interface {
-		Rows
-		Result
-	}
-
 	// VConn represents a virtual connection which can be used to query/exec from a db.
 	VConn interface {
 		// Query requests a query command.
-		Query(ctx context.Context, db string, query string, args ...interface{}) (Rows, error)
+		Query(ctx context.Context, db string, query string, args ...interface{}) (Result, error)
 		// Exec requests a exec command
 		Exec(ctx context.Context, db string, query string, args ...interface{}) (Result, error)
 	}
@@ -57,12 +51,43 @@ type (
 		// Type returns the type of Plan.
 		Type() PlanType
 		// ExecIn executes the current Plan.
-		ExecIn(ctx context.Context, conn VConn) (MixinResult, error)
+		ExecIn(ctx context.Context, conn VConn) (Result, error)
 	}
 
 	// Optimizer represents a sql statement optimizer which can be used to create QueryPlan or ExecPlan.
 	Optimizer interface {
 		// Optimize optimizes the sql with arguments then returns a Plan.
-		Optimize(ctx context.Context, sql string, args ...interface{}) (Plan, error)
+		Optimize(ctx context.Context, stmt ast.StmtNode, args ...interface{}) (Plan, error)
+	}
+
+	// Weight represents the read/write weight info.
+	Weight struct {
+		R int32 // read weight
+		W int32 // write weight
+	}
+
+	// DB represents an accessor to physical mysql, just like sql.DB.
+	DB interface {
+		io.Closer
+		// ID returns the unique id.
+		ID() string
+		// IdleTimeout returns the idle timeout.
+		IdleTimeout() time.Duration
+		// MaxCapacity returns the max capacity.
+		MaxCapacity() int
+		// Capacity returns the capacity.
+		Capacity() int
+		// Weight returns the weight.
+		Weight() Weight
+		// SetCapacity sets the capacity.
+		SetCapacity(capacity int) error
+		// SetMaxCapacity sets the max capacity.
+		SetMaxCapacity(maxCapacity int) error
+		// SetIdleTimeout sets the idle timeout.
+		SetIdleTimeout(idleTimeout time.Duration) error
+		// SetWeight sets the weight.
+		SetWeight(weight Weight) error
+		// Call executes a sql.
+		Call(ctx context.Context, sql string, args ...interface{}) (res Result, warn uint16, err error)
 	}
 )

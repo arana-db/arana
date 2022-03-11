@@ -44,7 +44,7 @@ func InitDataSourceManager(dataSources []*config.DataSource, factory func(config
 	metaResourcePool := make(map[string]*pools.ResourcePool, 0)
 	initResourcePool := func(dataSourceConfig *config.DataSource) *pools.ResourcePool {
 		resourcePool := pools.NewResourcePool(factory(dataSourceConfig.Conf), dataSourceConfig.Capacity,
-			dataSourceConfig.MaxCapacity, dataSourceConfig.IdleTimeout, 1, nil)
+			dataSourceConfig.MaxCapacity, dataSourceConfig.IdleTimeout, 0, nil)
 		return resourcePool
 	}
 	for i := 0; i < len(dataSources); i++ {

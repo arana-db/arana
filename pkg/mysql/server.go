@@ -52,6 +52,15 @@ import (
 
 const initClientConnStatus = mysql.ServerStatusAutocommit
 
+type handshakeResult struct {
+	connectionID uint32
+	schema       string
+	username     string
+	authMethod   string
+	authResponse []byte
+	salt         []byte
+}
+
 type ServerConfig struct {
 	Users         map[string]string `yaml:"users" json:"users"`
 	ServerVersion string            `yaml:"server_version" json:"server_version"`
@@ -191,6 +200,7 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32) {
 		copy(content, data)
 		ctx := &proto.Context{
 			Context:      context.Background(),
+			Schema:       c.Schema,
 			ConnectionID: l.connectionID,
 			Data:         content,
 		}
@@ -228,17 +238,22 @@ func (l *Listener) handshake(c *Conn) error {
 
 	c.recycleReadPacket()
 
-	user, _, authResponse, err := l.parseClientHandshakePacket(true, response)
+	handshake, err := l.parseClientHandshakePacket(true, response)
 	if err != nil {
 		log.Errorf("Cannot parse client handshake response from %s: %v", c, err)
 		return err
 	}
+	handshake.connectionID = c.ConnectionID
+	handshake.salt = salt
 
-	err = l.ValidateHash(user, salt, authResponse)
+	err = l.ValidateHash(handshake)
 	if err != nil {
 		log.Errorf("Error authenticating user using MySQL native password: %v", err)
 		return err
 	}
+
+	c.Schema = handshake.schema
+
 	return nil
 }
 
@@ -340,18 +355,18 @@ func (l *Listener) writeHandshakeV10(c *Conn, enableTLS bool, salt []byte) error
 }
 
 // parseClientHandshakePacket parses the handshake sent by the client.
-// Returns the username, auth method, auth Content, error.
+// Returns the database, username, auth method, auth Content, error.
 // The original Content is not pointed at, and can be freed.
-func (l *Listener) parseClientHandshakePacket(firstTime bool, data []byte) (string, string, []byte, error) {
+func (l *Listener) parseClientHandshakePacket(firstTime bool, data []byte) (*handshakeResult, error) {
 	pos := 0
 
 	// Client flags, 4 bytes.
 	clientFlags, pos, ok := readUint32(data, pos)
 	if !ok {
-		return "", "", nil, err2.Errorf("parseClientHandshakePacket: can't read client flags")
+		return nil, err2.New("parseClientHandshakePacket: can't read client flags")
 	}
 	if clientFlags&mysql.CapabilityClientProtocol41 == 0 {
-		return "", "", nil, err2.Errorf("parseClientHandshakePacket: only support protocol 4.1")
+		return nil, err2.New("parseClientHandshakePacket: only support protocol 4.1")
 	}
 
 	// Remember a subset of the capabilities, so we can use them
@@ -370,13 +385,13 @@ func (l *Listener) parseClientHandshakePacket(firstTime bool, data []byte) (stri
 	// See doc.go for more information.
 	_, pos, ok = readUint32(data, pos)
 	if !ok {
-		return "", "", nil, err2.Errorf("parseClientHandshakePacket: can't read maxPacketSize")
+		return nil, err2.New("parseClientHandshakePacket: can't read maxPacketSize")
 	}
 
 	// Character set. Need to handle it.
 	characterSet, pos, ok := readByte(data, pos)
 	if !ok {
-		return "", "", nil, err2.Errorf("parseClientHandshakePacket: can't read characterSet")
+		return nil, err2.New("parseClientHandshakePacket: can't read characterSet")
 	}
 	l.characterSet = characterSet
 
@@ -396,7 +411,7 @@ func (l *Listener) parseClientHandshakePacket(firstTime bool, data []byte) (stri
 	// username
 	username, pos, ok := readNullString(data, pos)
 	if !ok {
-		return "", "", nil, err2.Errorf("parseClientHandshakePacket: can't read username")
+		return nil, err2.New("parseClientHandshakePacket: can't read username")
 	}
 
 	// auth-response can have three forms.
@@ -405,41 +420,42 @@ func (l *Listener) parseClientHandshakePacket(firstTime bool, data []byte) (stri
 		var l uint64
 		l, pos, ok = readLenEncInt(data, pos)
 		if !ok {
-			return "", "", nil, err2.Errorf("parseClientHandshakePacket: can't read auth-response variable length")
+			return nil, err2.New("parseClientHandshakePacket: can't read auth-response variable length")
 		}
 		authResponse, pos, ok = readBytesCopy(data, pos, int(l))
 		if !ok {
-			return "", "", nil, err2.Errorf("parseClientHandshakePacket: can't read auth-response")
+			return nil, err2.New("parseClientHandshakePacket: can't read auth-response")
 		}
 
 	} else if clientFlags&mysql.CapabilityClientSecureConnection != 0 {
 		var l byte
 		l, pos, ok = readByte(data, pos)
 		if !ok {
-			return "", "", nil, err2.Errorf("parseClientHandshakePacket: can't read auth-response length")
+			return nil, err2.New("parseClientHandshakePacket: can't read auth-response length")
 		}
 
 		authResponse, pos, ok = readBytesCopy(data, pos, int(l))
 		if !ok {
-			return "", "", nil, err2.Errorf("parseClientHandshakePacket: can't read auth-response")
+			return nil, err2.New("parseClientHandshakePacket: can't read auth-response")
 		}
 	} else {
 		a := ""
 		a, pos, ok = readNullString(data, pos)
 		if !ok {
-			return "", "", nil, err2.Errorf("parseClientHandshakePacket: can't read auth-response")
+			return nil, err2.New("parseClientHandshakePacket: can't read auth-response")
 		}
 		authResponse = []byte(a)
 	}
 
 	// db name.
+	var schemaName string
 	if clientFlags&mysql.CapabilityClientConnectWithDB != 0 {
 		dbname := ""
 		dbname, pos, ok = readNullString(data, pos)
 		if !ok {
-			return "", "", nil, err2.Errorf("parseClientHandshakePacket: can't read dbname")
+			return nil, err2.New("parseClientHandshakePacket: can't read dbname")
 		}
-		l.schemaName = dbname
+		schemaName = dbname
 	}
 
 	// authMethod (with default)
@@ -447,7 +463,7 @@ func (l *Listener) parseClientHandshakePacket(firstTime bool, data []byte) (stri
 	if clientFlags&mysql.CapabilityClientPluginAuth != 0 {
 		authMethod, pos, ok = readNullString(data, pos)
 		if !ok {
-			return "", "", nil, err2.Errorf("parseClientHandshakePacket: can't read authMethod")
+			return nil, err2.New("parseClientHandshakePacket: can't read authMethod")
 		}
 	}
 
@@ -463,19 +479,25 @@ func (l *Listener) parseClientHandshakePacket(firstTime bool, data []byte) (stri
 		}
 	}
 
-	return username, authMethod, authResponse, nil
+	return &handshakeResult{
+		schema:       schemaName,
+		username:     username,
+		authMethod:   authMethod,
+		authResponse: authResponse,
+	}, nil
 }
 
-func (l *Listener) ValidateHash(user string, salt []byte, authResponse []byte) error {
-	password, ok := l.conf.Users[user]
+func (l *Listener) ValidateHash(handshake *handshakeResult) error {
+	// TODO: database isolate
+	password, ok := l.conf.Users[handshake.username]
 	if !ok {
-		return errors.NewSQLError(mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied for user '%v'", user)
+		return errors.NewSQLError(mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied for user '%v'", handshake.username)
 	}
-	computedAuthResponse := scramblePassword(salt, password)
-	if bytes.Equal(authResponse, computedAuthResponse) {
+	computedAuthResponse := scramblePassword(handshake.salt, password)
+	if bytes.Equal(handshake.authResponse, computedAuthResponse) {
 		return nil
 	}
-	return errors.NewSQLError(mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied for user '%v'", user)
+	return errors.NewSQLError(mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied for user '%v'", handshake.username)
 }
 
 func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
@@ -488,7 +510,7 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 	case mysql.ComInitDB:
 		db := string(ctx.Data)
 		c.recycleReadPacket()
-		l.schemaName = db
+		c.Schema = db
 		err := l.executor.ExecuteUseDB(ctx)
 		if err != nil {
 			return err

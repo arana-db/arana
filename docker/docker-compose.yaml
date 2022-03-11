@@ -10,7 +10,9 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: "123456"
     volumes:
-      - ./scripts/:/docker-entrypoint-initdb.d/:rw
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/0.sql
+      - ./scripts/sequence.sql:/docker-entrypoint-initdb.d/1.sql
+      - ./scripts/sharding.sql:/docker-entrypoint-initdb.d/2.sql
     command: ['mysqld', '--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci']
     healthcheck:
       test: ["CMD", "mysqladmin" ,"ping", "-h", "127.0.0.1"]

@@ -29,9 +29,9 @@ import (
 )
 
 import (
+	"github.com/dubbogo/arana/pkg/runtime/ast"
 	"github.com/dubbogo/arana/pkg/runtime/cmp"
 	"github.com/dubbogo/arana/pkg/runtime/misc"
-	"github.com/dubbogo/arana/pkg/runtime/xxast"
 )
 
 const _prefixMySQLFunc = "$"
@@ -49,7 +49,7 @@ func TranslateFunction(name string) string {
 	return _prefixMySQLFunc + name
 }
 
-func EvalCastFunction(node *xxast.CastFunction, args ...interface{}) (interface{}, error) {
+func EvalCastFunction(node *ast.CastFunction, args ...interface{}) (interface{}, error) {
 	s, err := globalCalculator.buildCastFunction(node)
 	if err != nil {
 		return nil, err
@@ -57,7 +57,7 @@ func EvalCastFunction(node *xxast.CastFunction, args ...interface{}) (interface{
 	return EvalString(s, args...)
 }
 
-func EvalCaseWhenFunction(node *xxast.CaseWhenElseFunction, args ...interface{}) (interface{}, error) {
+func EvalCaseWhenFunction(node *ast.CaseWhenElseFunction, args ...interface{}) (interface{}, error) {
 	s, err := globalCalculator.buildCaseWhenFunction(node)
 	if err != nil {
 		return nil, err
@@ -66,7 +66,7 @@ func EvalCaseWhenFunction(node *xxast.CaseWhenElseFunction, args ...interface{})
 }
 
 // EvalFunction calculates the result of math expression with custom args.
-func EvalFunction(node *xxast.Function, args ...interface{}) (interface{}, error) {
+func EvalFunction(node *ast.Function, args ...interface{}) (interface{}, error) {
 	s, err := globalCalculator.buildFunction(node)
 	if err != nil {
 		return nil, err
@@ -75,7 +75,7 @@ func EvalFunction(node *xxast.Function, args ...interface{}) (interface{}, error
 }
 
 // Eval calculates the result of math expression with custom args.
-func Eval(node *xxast.MathExpressionAtom, args ...interface{}) (interface{}, error) {
+func Eval(node *ast.MathExpressionAtom, args ...interface{}) (interface{}, error) {
 	s, err := globalCalculator.buildMath(node)
 	if err != nil {
 		return nil, err
@@ -93,7 +93,7 @@ func EvalString(script string, args ...interface{}) (interface{}, error) {
 type calculator struct {
 }
 
-func (c *calculator) buildCaseWhenFunction(node *xxast.CaseWhenElseFunction) (string, error) {
+func (c *calculator) buildCaseWhenFunction(node *ast.CaseWhenElseFunction) (string, error) {
 	var sb strings.Builder
 	if err := caseWhenFunction2script(&sb, node); err != nil {
 		return "", err
@@ -101,7 +101,7 @@ func (c *calculator) buildCaseWhenFunction(node *xxast.CaseWhenElseFunction) (st
 	return sb.String(), nil
 }
 
-func (c *calculator) buildCastFunction(node *xxast.CastFunction) (string, error) {
+func (c *calculator) buildCastFunction(node *ast.CastFunction) (string, error) {
 	var sb strings.Builder
 	if err := castFunction2script(&sb, node); err != nil {
 		return "", err
@@ -109,7 +109,7 @@ func (c *calculator) buildCastFunction(node *xxast.CastFunction) (string, error)
 	return sb.String(), nil
 }
 
-func (c *calculator) buildFunction(node *xxast.Function) (string, error) {
+func (c *calculator) buildFunction(node *ast.Function) (string, error) {
 	var sb strings.Builder
 	if err := function2script(&sb, node); err != nil {
 		return "", err
@@ -117,7 +117,7 @@ func (c *calculator) buildFunction(node *xxast.Function) (string, error) {
 	return sb.String(), nil
 }
 
-func (c *calculator) buildMath(node *xxast.MathExpressionAtom) (string, error) {
+func (c *calculator) buildMath(node *ast.MathExpressionAtom) (string, error) {
 	var sb strings.Builder
 	if err := math2script(&sb, node); err != nil {
 		return "", err
@@ -125,15 +125,15 @@ func (c *calculator) buildMath(node *xxast.MathExpressionAtom) (string, error) {
 	return sb.String(), nil
 }
 
-func exprAtom2script(sb *strings.Builder, node xxast.ExpressionAtom) error {
+func exprAtom2script(sb *strings.Builder, node ast.ExpressionAtom) error {
 	switch v := node.(type) {
-	case *xxast.MathExpressionAtom:
+	case *ast.MathExpressionAtom:
 		if err := math2script(sb, v); err != nil {
 			return err
 		}
-	case *xxast.ConstantExpressionAtom:
+	case *ast.ConstantExpressionAtom:
 		sb.WriteString(v.String())
-	case *xxast.UnaryExpressionAtom:
+	case *ast.UnaryExpressionAtom:
 		sb.WriteString(FuncUnary)
 		sb.WriteString("('")
 		sb.WriteString(v.Operator)
@@ -142,30 +142,30 @@ func exprAtom2script(sb *strings.Builder, node xxast.ExpressionAtom) error {
 			return err
 		}
 		sb.WriteByte(')')
-	case xxast.ColumnNameExpressionAtom:
+	case ast.ColumnNameExpressionAtom:
 		return ErrCannotEvalWithColumnName
-	case *xxast.NestedExpressionAtom:
-		next := v.First.(*xxast.PredicateExpressionNode).P.(*xxast.AtomPredicateNode).A
+	case *ast.NestedExpressionAtom:
+		next := v.First.(*ast.PredicateExpressionNode).P.(*ast.AtomPredicateNode).A
 		sb.WriteByte('(')
 		if err := exprAtom2script(sb, next); err != nil {
 			return err
 		}
 		sb.WriteByte(')')
-	case xxast.VariableExpressionAtom:
+	case ast.VariableExpressionAtom:
 		writeVariable(sb, v.N())
-	case *xxast.FunctionCallExpressionAtom:
+	case *ast.FunctionCallExpressionAtom:
 		switch fn := v.F.(type) {
-		case *xxast.Function:
+		case *ast.Function:
 			if err := function2script(sb, fn); err != nil {
 				return err
 			}
-		case *xxast.AggrFunction:
+		case *ast.AggrFunction:
 			return errors.New("aggr function should not appear here")
-		case *xxast.CastFunction:
+		case *ast.CastFunction:
 			if err := castFunction2script(sb, fn); err != nil {
 				return err
 			}
-		case *xxast.CaseWhenElseFunction:
+		case *ast.CaseWhenElseFunction:
 			if err := caseWhenFunction2script(sb, fn); err != nil {
 				return err
 			}
@@ -178,7 +178,7 @@ func exprAtom2script(sb *strings.Builder, node xxast.ExpressionAtom) error {
 	return nil
 }
 
-func math2script(sb *strings.Builder, node *xxast.MathExpressionAtom) error {
+func math2script(sb *strings.Builder, node *ast.MathExpressionAtom) error {
 	if err := exprAtom2script(sb, node.Left); err != nil {
 		return err
 	}
@@ -200,19 +200,19 @@ func writeVariable(sb *strings.Builder, n int) {
 	sb.WriteByte(']')
 }
 
-func castFunction2script(sb *strings.Builder, node *xxast.CastFunction) error {
+func castFunction2script(sb *strings.Builder, node *ast.CastFunction) error {
 	if cast, ok := node.GetCast(); ok {
 		switch cast.Type() {
-		case xxast.CastToUnsigned, xxast.CastToUnsignedInteger:
+		case ast.CastToUnsigned, ast.CastToUnsignedInteger:
 			writeFuncName(sb, "CAST_UNSIGNED")
 			sb.WriteByte('(')
-		case xxast.CastToSigned, xxast.CastToSignedInteger:
+		case ast.CastToSigned, ast.CastToSignedInteger:
 			writeFuncName(sb, "CAST_SIGNED")
 			sb.WriteByte('(')
-		case xxast.CastToBinary:
+		case ast.CastToBinary:
 			// TODO: support binary
 			return errors.New("cast to binary is not supported yet")
-		case xxast.CastToNChar:
+		case ast.CastToNChar:
 			writeFuncName(sb, "CAST_NCHAR")
 			sb.WriteByte('(')
 			if d, _ := cast.Dimensions(); d > 0 {
@@ -221,7 +221,7 @@ func castFunction2script(sb *strings.Builder, node *xxast.CastFunction) error {
 				sb.WriteByte('0')
 			}
 			sb.WriteString(", ")
-		case xxast.CastToChar:
+		case ast.CastToChar:
 			writeFuncName(sb, "CAST_CHAR")
 			sb.WriteByte('(')
 			if d, _ := cast.Dimensions(); d > 0 {
@@ -241,19 +241,19 @@ func castFunction2script(sb *strings.Builder, node *xxast.CastFunction) error {
 			}
 
 			sb.WriteString(", ")
-		case xxast.CastToDate:
+		case ast.CastToDate:
 			writeFuncName(sb, "CAST_DATE")
 			sb.WriteByte('(')
-		case xxast.CastToDateTime:
+		case ast.CastToDateTime:
 			writeFuncName(sb, "CAST_DATETIME")
 			sb.WriteByte('(')
-		case xxast.CastToTime:
+		case ast.CastToTime:
 			writeFuncName(sb, "CAST_TIME")
 			sb.WriteByte('(')
-		case xxast.CastToJson:
+		case ast.CastToJson:
 			// TODO: support cast json
 			return errors.New("cast to json is not supported yet")
-		case xxast.CastToDecimal:
+		case ast.CastToDecimal:
 			writeFuncName(sb, "CAST_DECIMAL")
 			sb.WriteByte('(')
 			d0, d1 := cast.Dimensions()
@@ -283,7 +283,7 @@ func castFunction2script(sb *strings.Builder, node *xxast.CastFunction) error {
 		panic("unreachable")
 	}
 
-	next := node.Source().(*xxast.PredicateExpressionNode).P.(*xxast.AtomPredicateNode).A
+	next := node.Source().(*ast.PredicateExpressionNode).P.(*ast.AtomPredicateNode).A
 	if err := exprAtom2script(sb, next); err != nil {
 		return err
 	}
@@ -293,7 +293,7 @@ func castFunction2script(sb *strings.Builder, node *xxast.CastFunction) error {
 	return nil
 }
 
-func function2script(sb *strings.Builder, node *xxast.Function) error {
+func function2script(sb *strings.Builder, node *ast.Function) error {
 	writeFuncName(sb, node.Name())
 	sb.WriteByte('(')
 	for i, arg := range node.Args() {
@@ -309,11 +309,11 @@ func function2script(sb *strings.Builder, node *xxast.Function) error {
 	return nil
 }
 
-func handleArg(sb *strings.Builder, arg *xxast.FunctionArg) error {
+func handleArg(sb *strings.Builder, arg *ast.FunctionArg) error {
 
-	handleCompareAtom := func(sb *strings.Builder, node xxast.PredicateNode) error {
+	handleCompareAtom := func(sb *strings.Builder, node ast.PredicateNode) error {
 		switch l := node.(type) {
-		case *xxast.AtomPredicateNode:
+		case *ast.AtomPredicateNode:
 			if err := exprAtom2script(sb, l.A); err != nil {
 				return err
 			}
@@ -324,19 +324,19 @@ func handleArg(sb *strings.Builder, arg *xxast.FunctionArg) error {
 	}
 
 	switch arg.Type() {
-	case xxast.FunctionArgColumn:
+	case ast.FunctionArgColumn:
 		return ErrCannotEvalWithColumnName
-	case xxast.FunctionArgConstant:
+	case ast.FunctionArgConstant:
 		_ = arg.Restore(sb, nil)
-	case xxast.FunctionArgExpression:
-		pn := arg.Value().(*xxast.PredicateExpressionNode).P
+	case ast.FunctionArgExpression:
+		pn := arg.Value().(*ast.PredicateExpressionNode).P
 		switch p := pn.(type) {
-		case *xxast.AtomPredicateNode:
+		case *ast.AtomPredicateNode:
 			next := p.A
 			if err := exprAtom2script(sb, next); err != nil {
 				return err
 			}
-		case *xxast.BinaryComparisonPredicateNode:
+		case *ast.BinaryComparisonPredicateNode:
 			if err := handleCompareAtom(sb, p.Left); err != nil {
 				return err
 			}
@@ -360,16 +360,16 @@ func handleArg(sb *strings.Builder, arg *xxast.FunctionArg) error {
 			return errors.Errorf("unsupported %T", p)
 		}
 
-	case xxast.FunctionArgFunction:
-		if err := function2script(sb, arg.Value().(*xxast.Function)); err != nil {
+	case ast.FunctionArgFunction:
+		if err := function2script(sb, arg.Value().(*ast.Function)); err != nil {
 			return err
 		}
-	case xxast.FunctionArgCastFunction:
-		if err := castFunction2script(sb, arg.Value().(*xxast.CastFunction)); err != nil {
+	case ast.FunctionArgCastFunction:
+		if err := castFunction2script(sb, arg.Value().(*ast.CastFunction)); err != nil {
 			return err
 		}
-	case xxast.FunctionArgCaseWhenElseFunction:
-		if err := caseWhenFunction2script(sb, arg.Value().(*xxast.CaseWhenElseFunction)); err != nil {
+	case ast.FunctionArgCaseWhenElseFunction:
+		if err := caseWhenFunction2script(sb, arg.Value().(*ast.CaseWhenElseFunction)); err != nil {
 			return err
 		}
 	}
@@ -377,7 +377,7 @@ func handleArg(sb *strings.Builder, arg *xxast.FunctionArg) error {
 	return nil
 }
 
-func caseWhenFunction2script(sb *strings.Builder, node *xxast.CaseWhenElseFunction) error {
+func caseWhenFunction2script(sb *strings.Builder, node *ast.CaseWhenElseFunction) error {
 	var caseScript string
 
 	// convert CASE header to script
@@ -386,9 +386,9 @@ func caseWhenFunction2script(sb *strings.Builder, node *xxast.CaseWhenElseFuncti
 	if c := node.Case(); c != nil {
 		var b strings.Builder
 		switch v := c.(type) {
-		case *xxast.PredicateExpressionNode:
+		case *ast.PredicateExpressionNode:
 			switch p := v.P.(type) {
-			case *xxast.AtomPredicateNode:
+			case *ast.AtomPredicateNode:
 				if err := exprAtom2script(&b, p.A); err != nil {
 					return err
 				}
