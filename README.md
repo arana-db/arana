@@ -1,5 +1,7 @@
 # arana
 [![LICENSE](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/dubbogo/arana/blob/master/LICENSE)
+[![codecov](https://codecov.io/gh/dubbogo/arana/branch/master/graph/badge.svg)](https://codecov.io/gh/dubbogo/arana)
+
 
 ![](./docs/pics/arana-logo.png)
 
