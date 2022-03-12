@@ -32,7 +32,7 @@ import (
 	"github.com/dubbogo/arana/pkg/merge"
 	"github.com/dubbogo/arana/pkg/merge/aggregater"
 	"github.com/dubbogo/arana/pkg/proto"
-	"github.com/dubbogo/arana/pkg/runtime/xxast"
+	"github.com/dubbogo/arana/pkg/runtime/ast"
 	"github.com/dubbogo/arana/testdata"
 )
 
@@ -79,13 +79,13 @@ func (s *GroupByStreamMergeRows) getAggrUnitMap(stmt MergeRowStatement) map[stri
 
 func (s *GroupByStreamMergeRows) getAggregater(aggrName string) merge.Aggregater {
 	switch aggrName {
-	case xxast.AggrAvg:
+	case ast.AggrAvg:
 		return new(aggregater.AvgAggregater)
-	case xxast.AggrMax:
+	case ast.AggrMax:
 		return new(aggregater.MaxAggregater)
-	case xxast.AggrMin:
+	case ast.AggrMin:
 		return new(aggregater.MinAggregater)
-	case xxast.AggrSum, xxast.AggrCount:
+	case ast.AggrSum, ast.AggrCount:
 		return new(aggregater.AddAggregater)
 	default:
 		panic(fmt.Errorf("unsupported aggr source type: %s", aggrName))
@@ -124,7 +124,8 @@ func (s *GroupByStreamMergeRows) merge() proto.Row {
 		if _, ok := aggrMap[sel.Column]; ok {
 			res, _ := aggrMap[sel.Column].GetResult()
 			// TODO use row encode() to build a new row result
-			row.EXPECT().GetColumnValue(sel.Column).Return(res.IntPart(), nil).AnyTimes()
+			f, _ := res.ToInt()
+			row.EXPECT().GetColumnValue(sel.Column).Return(f, nil).AnyTimes()
 		} else {
 			res, _ := currentRow.GetColumnValue(sel.Column)
 			row.EXPECT().GetColumnValue(sel.Column).Return(res, nil).AnyTimes()

@@ -32,7 +32,7 @@ import (
 import (
 	"github.com/dubbogo/arana/pkg/merge"
 	"github.com/dubbogo/arana/pkg/proto"
-	"github.com/dubbogo/arana/pkg/runtime/xxast"
+	"github.com/dubbogo/arana/pkg/runtime/ast"
 	"github.com/dubbogo/arana/testdata"
 )
 
@@ -57,7 +57,7 @@ func TestGroupByStreamMergeRows(t *testing.T) {
 		Selects: []SelectItem{
 			{
 				Column:       countScore,
-				AggrFunction: xxast.AggrSum,
+				AggrFunction: ast.AggrSum,
 			},
 			{
 				Column: age,

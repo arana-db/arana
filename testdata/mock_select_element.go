@@ -9,7 +9,7 @@ import (
 )
 
 import (
-	xxast "github.com/dubbogo/arana/pkg/runtime/xxast"
+	xxast "github.com/dubbogo/arana/pkg/runtime/ast"
 
 	gomock "github.com/golang/mock/gomock"
 )

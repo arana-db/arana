@@ -13,6 +13,7 @@ require (
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/lestrrat-go/strftime v1.0.5
 	github.com/natefinch/lumberjack v2.0.0+incompatible
+	github.com/olekukonko/tablewriter v0.0.0-20170122224234-a0225b3f23b5
 	github.com/pkg/errors v0.9.1
 	github.com/rogpeppe/go-internal v1.8.0 // indirect
 	github.com/spf13/cobra v1.2.1
