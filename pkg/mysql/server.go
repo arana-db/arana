@@ -192,7 +192,10 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32) {
 		c.sequence = 0
 		data, err := c.readEphemeralPacket()
 		if err != nil {
-			c.recycleReadPacket()
+			// Don't log EOF errors. They cause too much spam.
+			if err != io.EOF && !strings.Contains(err.Error(), "use of closed network connection") {
+				log.Errorf("Error reading packet from %s: %v", c, err)
+			}
 			return
 		}
 
