@@ -5,9 +5,9 @@
 package testdata
 
 import (
-	context "context"
-	reflect "reflect"
-	time "time"
+	"context"
+	"reflect"
+	"time"
 )
 
 import (
