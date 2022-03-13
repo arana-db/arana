@@ -6,18 +6,15 @@ package testdata
 
 import (
 	context "context"
+	"github.com/dubbogo/parser/ast"
 	reflect "reflect"
-	time "time"
-)
-
-import (
-	ast "github.com/dubbogo/parser/ast"
-
-	gomock "github.com/golang/mock/gomock"
+	"time"
 )
 
 import (
 	proto "github.com/dubbogo/arana/pkg/proto"
+
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockVConn is a mock of VConn interface.
