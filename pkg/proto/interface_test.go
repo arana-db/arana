@@ -17,6 +17,33 @@
 // under the License.
 //
 
-package resource
+package proto
 
+import (
+	"github.com/stretchr/testify/assert"
+	"testing"
+)
 
+func TestUnmarshalTextForNil(t *testing.T) {
+	var mode ExecuteMode
+	error := mode.UnmarshalText(make([]byte, 0))
+	assert.NotNil(t, error)
+}
+
+func TestUnmarshalText(t *testing.T) {
+	mode := SingleDB
+	error := mode.UnmarshalText([]byte("singledb"))
+	assert.Nil(t, error)
+}
+
+func TestUnmarshalTextForUppercase(t *testing.T) {
+	mode := SingleDB
+	error := mode.UnmarshalText([]byte("SingleDB"))
+	assert.Nil(t, error)
+}
+
+func TestUnmarshalTextForErrorText(t *testing.T) {
+	mode := SingleDB
+	error := mode.UnmarshalText([]byte("single"))
+	assert.NotNil(t, error)
+}
