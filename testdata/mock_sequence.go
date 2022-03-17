@@ -10,9 +10,11 @@ import (
 )
 
 import (
-	sequence "github.com/arana-db/arana/pkg/proto"
-
 	gomock "github.com/golang/mock/gomock"
+)
+
+import (
+	sequence "github.com/arana-db/arana/pkg/proto"
 )
 
 // MockSequence is a mock of Sequence interface.

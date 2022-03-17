@@ -21,70 +21,73 @@ package runtime
 import (
 	"context"
 	"encoding/json"
+	stdErrors "errors"
 	"fmt"
 	"sort"
-	"strconv"
+	"sync"
 	"time"
 )
 
 import (
+	"github.com/bwmarrin/snowflake"
+
 	"github.com/pkg/errors"
 
 	"go.uber.org/atomic"
+
+	"golang.org/x/sync/errgroup"
 )
 
 import (
+	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/proto/rule"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/runtime/namespace"
-	"github.com/arana-db/arana/pkg/runtime/optimize"
+	"github.com/arana-db/arana/pkg/util/log"
+	"github.com/arana-db/arana/pkg/util/rand2"
 	"github.com/arana-db/arana/third_party/pools"
 )
 
 var (
 	_ Runtime     = (*defaultRuntime)(nil)
 	_ proto.VConn = (*defaultRuntime)(nil)
+	_ proto.VConn = (*compositeTx)(nil)
 )
 
-const (
-	fakeDatabase = "employees"
-	fakeGroup    = "employee1"
-	fakeDsn      = "root:123456@tcp(arana-mysql:3306)/employees?timeout=11s&readTimeout=11s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8"
+var (
+	errTxClosed = stdErrors.New("transaction is closed")
 )
 
-func init() {
-	// TODO:
-	// 1. how to initialize? using real configuration.
-	// 2. watch config modifications, then build and enqueue namespace command.
-
-	// FIXME: just fake init, put a fake namespace, remove it after feature completed.
-	db := &myDB{
-		id:     "fake-arana-mysql-1",
-		weight: proto.Weight{R: 10, W: 10},
+func NewAtomDB(node *config.Node) *AtomDB {
+	if node == nil {
+		return nil
+	}
+	r, w, err := node.GetReadAndWriteWeight()
+	if err != nil {
+		return nil
+	}
+	db := &AtomDB{
+		id:     node.Name,
+		weight: proto.Weight{R: int32(r), W: int32(w)},
 	}
 
 	raw, _ := json.Marshal(map[string]interface{}{
-		"dsn": fakeDsn,
+		"dsn": fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", node.Username, node.Password, node.Host, node.Port, node.Database),
 	})
 	connector, _ := mysql.NewConnector(raw)
 	db.pool = pools.NewResourcePool(connector.NewBackendConnection, 8, 16, 30*time.Minute, 1, nil)
 
-	ns := namespace.New(
-		fakeDatabase,
-		optimize.GetOptimizer(),
-		namespace.UpdateRule(fakeRule()),
-		namespace.UpsertDB(fakeGroup, db),
-	)
-
-	_ = namespace.Register(ns)
+	return db
 }
 
 // Runtime executes a sql statement.
 type Runtime interface {
-	// Execute executes the sql context.
-	Execute(ctx *proto.Context) (result proto.Result, warn uint16, err error)
+	proto.Executable
+	// Namespace returns the namespace.
+	Namespace() *namespace.Namespace
+	// Begin begins a new transaction.
+	Begin(ctx *proto.Context) (proto.Tx, error)
 }
 
 // Load loads a Runtime, here schema means logical database name.
@@ -96,7 +99,231 @@ func Load(schema string) (Runtime, error) {
 	return &defaultRuntime{ns: ns}, nil
 }
 
-type myDB struct {
+var (
+	_ proto.DB       = (*AtomDB)(nil)
+	_ proto.Callable = (*atomTx)(nil)
+	_ proto.Tx       = (*compositeTx)(nil)
+)
+
+type compositeTx struct {
+	closed atomic.Bool
+	id     int64
+
+	rt  *defaultRuntime
+	txs map[string]*atomTx
+}
+
+func (tx *compositeTx) Query(ctx context.Context, db string, query string, args ...interface{}) (proto.Result, error) {
+	if len(db) < 1 {
+		db = tx.rt.Namespace().DBGroups()[0]
+	}
+
+	atx, err := tx.begin(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+	res, _, err := atx.Call(ctx, query, args...)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	return res, nil
+}
+
+func (tx *compositeTx) Exec(ctx context.Context, db string, query string, args ...interface{}) (proto.Result, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (tx *compositeTx) begin(ctx context.Context, group string) (*atomTx, error) {
+	if exist, ok := tx.txs[group]; ok {
+		return exist, nil
+	}
+	newborn, err := tx.rt.Namespace().DB(ctx, group).(*AtomDB).begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	tx.txs[group] = newborn
+	return newborn, nil
+}
+
+func (tx *compositeTx) String() string {
+	return fmt.Sprintf("tx-%d", tx.id)
+}
+
+func (tx *compositeTx) Execute(ctx *proto.Context) (res proto.Result, warn uint16, err error) {
+	if tx.closed.Load() {
+		err = errTxClosed
+		return
+	}
+
+	var (
+		args = tx.rt.extractArgs(ctx)
+	)
+	if direct := rcontext.IsDirect(ctx.Context); direct {
+		var (
+			group = tx.rt.Namespace().DBGroups()[0]
+			atx   *atomTx
+			cctx  = rcontext.WithMaster(ctx.Context)
+		)
+		if atx, err = tx.begin(cctx, group); err != nil {
+			return
+		}
+		res, warn, err = atx.Call(cctx, ctx.GetQuery(), args...)
+		return
+	}
+
+	var (
+		ru   = tx.rt.ns.Rule()
+		plan proto.Plan
+		c    = ctx.Context
+	)
+
+	c = rcontext.WithMaster(c)
+	c = rcontext.WithRule(c, ru)
+	c = rcontext.WithSQL(c, ctx.GetQuery())
+
+	if plan, err = tx.rt.ns.Optimizer().Optimize(c, ctx.Stmt.StmtNode, args...); err != nil {
+		err = errors.WithStack(err)
+		return
+	}
+
+	if res, err = plan.ExecIn(c, tx); err != nil {
+		// TODO: how to warp error packet
+		err = errors.WithStack(err)
+		return
+	}
+
+	return
+}
+
+func (tx *compositeTx) ID() int64 {
+	return tx.id
+}
+
+func (tx *compositeTx) Commit(ctx context.Context) (proto.Result, uint16, error) {
+	if !tx.closed.CAS(false, true) {
+		return nil, 0, errTxClosed
+	}
+
+	defer func() { // cleanup
+		tx.rt = nil
+		tx.txs = nil
+	}()
+
+	var g errgroup.Group
+	for k, v := range tx.txs {
+		k := k
+		v := v
+		g.Go(func() error {
+			_, _, err := v.Commit(ctx)
+			if err != nil {
+				log.Errorf("commit %s for group %s failed: %v", tx, k, err)
+				return err
+			}
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return nil, 0, err
+	}
+
+	log.Debugf("commit %s success: total=%d", tx, len(tx.txs))
+
+	return &mysql.Result{}, 0, nil
+}
+
+func (tx *compositeTx) Rollback(ctx context.Context) (proto.Result, uint16, error) {
+	if !tx.closed.CAS(false, true) {
+		return nil, 0, errTxClosed
+	}
+
+	defer func() { // cleanup
+		tx.rt = nil
+		tx.txs = nil
+	}()
+
+	var g errgroup.Group
+	for k, v := range tx.txs {
+		k := k
+		v := v
+		g.Go(func() error {
+			_, _, err := v.Rollback(ctx)
+			if err != nil {
+				log.Errorf("rollback %s for group %s failed: %v", tx, k, err)
+				return err
+			}
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return nil, 0, err
+	}
+
+	log.Debugf("rollback %s success: total=%d", tx, len(tx.txs))
+
+	return &mysql.Result{}, 0, nil
+}
+
+type atomTx struct {
+	closed atomic.Bool
+	parent *AtomDB
+	bc     *mysql.BackendConnection
+}
+
+func (tx *atomTx) Commit(ctx context.Context) (res proto.Result, warn uint16, err error) {
+	if !tx.closed.CAS(false, true) {
+		err = errTxClosed
+		return
+	}
+	defer tx.dispose()
+	res, warn, err = tx.bc.ExecuteWithWarningCount("commit", true)
+	return
+}
+
+func (tx *atomTx) Rollback(ctx context.Context) (res proto.Result, warn uint16, err error) {
+	if !tx.closed.CAS(false, true) {
+		err = errTxClosed
+		return
+	}
+	defer tx.dispose()
+	res, warn, err = tx.bc.ExecuteWithWarningCount("rollback", true)
+	return
+}
+
+func (tx *atomTx) Call(ctx context.Context, sql string, args ...interface{}) (res proto.Result, warn uint16, err error) {
+	if len(args) > 0 {
+		res, warn, err = tx.bc.PrepareQueryArgs(sql, args)
+	} else {
+		res, warn, err = tx.bc.ExecuteWithWarningCount(sql, true)
+	}
+	return
+}
+
+func (tx *atomTx) CallFieldList(ctx context.Context, table, wildcard string) ([]proto.Field, error) {
+	// TODO: choose table
+	var err error
+	if err = tx.bc.WriteComFieldList(table, wildcard); err != nil {
+		return nil, errors.WithStack(err)
+	}
+	return tx.bc.ReadColumnDefinitions()
+}
+
+func (tx *atomTx) dispose() {
+	defer func() {
+		tx.parent = nil
+		tx.bc = nil
+	}()
+
+	cnt := tx.parent.pendingRequests.Dec()
+	tx.parent.returnConnection(tx.bc)
+	if cnt == 0 && tx.parent.closed.Load() {
+		tx.parent.pool.Close()
+	}
+}
+
+type AtomDB struct {
 	id string
 
 	weight proto.Weight
@@ -107,7 +334,60 @@ type myDB struct {
 	pendingRequests atomic.Int64
 }
 
-func (db *myDB) Call(ctx context.Context, sql string, args ...interface{}) (res proto.Result, warn uint16, err error) {
+func (db *AtomDB) begin(ctx context.Context) (*atomTx, error) {
+	if db.closed.Load() {
+		return nil, errors.Errorf("the db instance '%s' is closed already", db.id)
+	}
+
+	var (
+		bc  *mysql.BackendConnection
+		err error
+	)
+
+	if bc, err = db.borrowConnection(ctx); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	db.pendingRequests.Inc()
+
+	if _, _, err = bc.ExecuteWithWarningCount("begin", true); err != nil {
+		// cleanup if failed to begin tx
+		cnt := db.pendingRequests.Dec()
+		db.returnConnection(bc)
+		if cnt == 0 && db.closed.Load() {
+			db.pool.Close()
+		}
+		return nil, err
+	}
+
+	return &atomTx{parent: db, bc: bc}, nil
+}
+
+func (db *AtomDB) CallFieldList(ctx context.Context, table, wildcard string) ([]proto.Field, error) {
+	if db.closed.Load() {
+		return nil, errors.Errorf("the db instance '%s' is closed already", db.id)
+	}
+
+	var (
+		bc  *mysql.BackendConnection
+		err error
+	)
+
+	if bc, err = db.borrowConnection(ctx); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	defer db.returnConnection(bc)
+	defer db.pending()
+
+	if err = bc.WriteComFieldList(table, wildcard); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	return bc.ReadColumnDefinitions()
+}
+
+func (db *AtomDB) Call(ctx context.Context, sql string, args ...interface{}) (res proto.Result, warn uint16, err error) {
 	if db.closed.Load() {
 		err = errors.Errorf("the db instance '%s' is closed already", db.id)
 		return
@@ -131,61 +411,65 @@ func (db *myDB) Call(ctx context.Context, sql string, args ...interface{}) (res 
 	return
 }
 
-func (db *myDB) Close() error {
+func (db *AtomDB) Close() error {
 	if db.closed.CAS(false, true) {
-		// TODO: graceful shutdown, check pending requests.
-		db.pool.Close()
+		if db.pendingRequests.Load() == 0 {
+			db.pool.Close()
+		}
 	}
 	return nil
 }
 
-func (db *myDB) pending() func() {
+func (db *AtomDB) pending() func() {
 	db.pendingRequests.Inc()
 	return func() {
-		_ = db.pendingRequests.Dec()
+		// close pool if atom db is marked as closed, and no requests.
+		if cnt := db.pendingRequests.Dec(); cnt == 0 && db.closed.Load() {
+			db.pool.Close()
+		}
 	}
 }
 
-func (db *myDB) ID() string {
+func (db *AtomDB) ID() string {
 	return db.id
 }
 
-func (db *myDB) IdleTimeout() time.Duration {
+func (db *AtomDB) IdleTimeout() time.Duration {
 	return db.pool.IdleTimeout()
 }
 
-func (db *myDB) MaxCapacity() int {
+func (db *AtomDB) MaxCapacity() int {
 	return int(db.pool.MaxCap())
 }
 
-func (db *myDB) Capacity() int {
+func (db *AtomDB) Capacity() int {
 	return int(db.pool.Capacity())
 }
 
-func (db *myDB) Weight() proto.Weight {
+func (db *AtomDB) Weight() proto.Weight {
 	return db.weight
 }
 
-func (db *myDB) SetCapacity(capacity int) error {
+func (db *AtomDB) SetCapacity(capacity int) error {
 	return db.pool.SetCapacity(capacity)
 }
 
-func (db *myDB) SetMaxCapacity(maxCapacity int) error {
+func (db *AtomDB) SetMaxCapacity(maxCapacity int) error {
 	// TODO: how to set max capacity?
 	return nil
 }
 
-func (db *myDB) SetIdleTimeout(idleTimeout time.Duration) error {
+func (db *AtomDB) SetIdleTimeout(idleTimeout time.Duration) error {
 	db.pool.SetIdleTimeout(idleTimeout)
 	return nil
 }
 
-func (db *myDB) SetWeight(weight proto.Weight) error {
+func (db *AtomDB) SetWeight(weight proto.Weight) error {
 	db.weight = weight
 	return nil
 }
 
-func (db *myDB) borrowConnection(ctx context.Context) (*mysql.BackendConnection, error) {
+func (db *AtomDB) borrowConnection(ctx context.Context) (*mysql.BackendConnection, error) {
 	res, err := db.pool.Get(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -193,12 +477,26 @@ func (db *myDB) borrowConnection(ctx context.Context) (*mysql.BackendConnection,
 	return res.(*mysql.BackendConnection), nil
 }
 
-func (db *myDB) returnConnection(bc *mysql.BackendConnection) {
+func (db *AtomDB) returnConnection(bc *mysql.BackendConnection) {
 	db.pool.Put(bc)
 }
 
 type defaultRuntime struct {
 	ns *namespace.Namespace
+}
+
+func (pi *defaultRuntime) Begin(ctx *proto.Context) (proto.Tx, error) {
+	tx := &compositeTx{
+		id:  nextTxID(),
+		rt:  pi,
+		txs: make(map[string]*atomTx),
+	}
+	log.Debugf("begin transaction: %s", tx.String())
+	return tx, nil
+}
+
+func (pi *defaultRuntime) Namespace() *namespace.Namespace {
+	return pi.ns
 }
 
 func (pi *defaultRuntime) Query(ctx context.Context, db string, query string, args ...interface{}) (proto.Result, error) {
@@ -224,9 +522,14 @@ func (pi *defaultRuntime) Exec(ctx context.Context, db string, query string, arg
 }
 
 func (pi *defaultRuntime) Execute(ctx *proto.Context) (res proto.Result, warn uint16, err error) {
+	args := pi.extractArgs(ctx)
+
+	if direct := rcontext.IsDirect(ctx.Context); direct {
+		return pi.ns.DB0(ctx.Context).Call(rcontext.WithMaster(ctx.Context), ctx.GetQuery(), args...)
+	}
+
 	var (
 		ru   = pi.ns.Rule()
-		args = pi.extractArgs(ctx)
 		plan proto.Plan
 		c    = ctx.Context
 	)
@@ -268,43 +571,14 @@ func (pi *defaultRuntime) extractArgs(ctx *proto.Context) []interface{} {
 	return args
 }
 
-// fakeRule returns a fake rule.
-// TODO: remove it after using real config.
-func fakeRule() *rule.Rule {
-	// student -> [student_0000..student_0031]
-	var (
-		ru rule.Rule
-		vt rule.VTable
-		tp rule.Topology
-	)
-	var tbls []int
-	for i := 0; i < 32; i++ {
-		tbls = append(tbls, i)
-	}
-	tp.SetTopology(0, tbls...)
-	tp.SetRender(func(i int) string {
-		return fakeGroup
-	}, func(i int) string {
-		return fmt.Sprintf("student_%04d", i)
+var (
+	_txIds     *snowflake.Node
+	_txIdsOnce sync.Once
+)
+
+func nextTxID() int64 {
+	_txIdsOnce.Do(func() {
+		_txIds, _ = snowflake.NewNode(rand2.Int63n(1024))
 	})
-	vt.SetTopology(&tp)
-
-	sm := &rule.ShardMetadata{
-		Stepper: rule.Stepper{
-			N: 1,
-			U: rule.Unum,
-		},
-		Computer: rule.DirectShardComputer(func(i interface{}) (int, error) {
-			n, err := strconv.Atoi(fmt.Sprintf("%v", i))
-			if err != nil {
-				return 0, err
-			}
-			return n % 32, nil
-		}),
-	}
-
-	vt.SetShardMetadata("uid", nil, sm)
-	ru.SetVTable("student", &vt)
-
-	return &ru
+	return _txIds.Generate().Int64()
 }

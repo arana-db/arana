@@ -1,4 +1,4 @@
-kind: ConfigMap
+kind: Configuration
 apiVersion: "1.0"
 metadata:
   name: arana-config
@@ -15,11 +15,9 @@ data:
       users:
         - username: arana
           password: "123456"
-        - username: dksl
-          password: "123456"
 
   clusters:
-    - name: employees
+    - name: employee
       type: mysql
       sql_max_limit: -1
       tenant: arana
@@ -28,17 +26,17 @@ data:
         max_capacity: 20
         idle_timeout: 60
       groups:
-        - name: employees_0000
+        - name: employee_0000
           nodes:
-            - name: arana-node-1
-              host: arana-mysql
+            - name: node_1
+              host: 127.0.0.1
               port: 3306
               username: root
               password: "123456"
-              database: employees
+              database: employees_0001
               weight: r10w10
               labels:
-                zone: shanghai
+                zone: center
               conn_props:
                 readTimeout: "1s"
                 writeTimeout: "1s"
@@ -48,14 +46,20 @@ data:
 
   sharding_rule:
     tables:
-      - name: employees.student
+      - name: employee.student
         allow_full_scan: true
         db_rules:
+          - column: student_id
+            expr: modShard(3)
         tbl_rules:
-          - column: uid
-            expr: modShard(32)
+          - column: student_id
+            expr: modShard(8)
         topology:
-          db_pattern: employees_0000
-          tbl_Pattern: student_${0000...0031}
+          db_pattern: employee_0000
+          tbl_pattern: student_${0000...0007}
+        shadow_topology:
+          db_pattern: employee_0000
+          tbl_pattern: __test_student_${0000...0007}
         attributes:
           sqlMaxLimit: -1
+          foo: bar

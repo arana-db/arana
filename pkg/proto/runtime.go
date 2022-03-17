@@ -66,9 +66,18 @@ type (
 		W int32 // write weight
 	}
 
+	// Callable represents sql caller.
+	Callable interface {
+		// Call executes a sql.
+		Call(ctx context.Context, sql string, args ...interface{}) (res Result, warn uint16, err error)
+		// CallFieldList lists fields.
+		CallFieldList(ctx context.Context, table, wildcard string) ([]Field, error)
+	}
+
 	// DB represents an accessor to physical mysql, just like sql.DB.
 	DB interface {
 		io.Closer
+		Callable
 		// ID returns the unique id.
 		ID() string
 		// IdleTimeout returns the idle timeout.
@@ -87,7 +96,18 @@ type (
 		SetIdleTimeout(idleTimeout time.Duration) error
 		// SetWeight sets the weight.
 		SetWeight(weight Weight) error
-		// Call executes a sql.
-		Call(ctx context.Context, sql string, args ...interface{}) (res Result, warn uint16, err error)
+	}
+
+	// Executable represents an executor which can send sql request.
+	Executable interface {
+		// Execute executes the sql context.
+		Execute(ctx *Context) (result Result, warn uint16, err error)
+	}
+
+	Tx interface {
+		Executable
+		ID() int64
+		Commit(ctx context.Context) (Result, uint16, error)
+		Rollback(ctx context.Context) (Result, uint16, error)
 	}
 )
