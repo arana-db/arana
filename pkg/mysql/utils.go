@@ -38,7 +38,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/constants/mysql"
+	"github.com/arana-db/arana/pkg/constants/mysql"
 )
 
 // Registry for custom tls.Configs

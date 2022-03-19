@@ -32,9 +32,9 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/proto/rule"
-	"github.com/dubbogo/arana/pkg/runtime/ast"
-	"github.com/dubbogo/arana/testdata"
+	"github.com/arana-db/arana/pkg/proto/rule"
+	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/testdata"
 )
 
 func TestShard(t *testing.T) {

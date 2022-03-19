@@ -28,7 +28,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/runtime/cmp"
+	"github.com/arana-db/arana/pkg/runtime/cmp"
 )
 
 func TestRule_Route(t *testing.T) {

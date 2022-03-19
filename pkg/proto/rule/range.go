@@ -29,7 +29,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/util/rand2"
+	"github.com/arana-db/arana/pkg/util/rand2"
 )
 
 const (

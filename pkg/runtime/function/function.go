@@ -29,9 +29,9 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/runtime/ast"
-	"github.com/dubbogo/arana/pkg/runtime/cmp"
-	"github.com/dubbogo/arana/pkg/runtime/misc"
+	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/runtime/cmp"
+	"github.com/arana-db/arana/pkg/runtime/misc"
 )
 
 const _prefixMySQLFunc = "$"

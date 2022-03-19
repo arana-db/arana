@@ -31,8 +31,8 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/util/bytesconv"
-	"github.com/dubbogo/arana/third_party/pools"
+	"github.com/arana-db/arana/pkg/util/bytesconv"
+	"github.com/arana-db/arana/third_party/pools"
 )
 
 type (

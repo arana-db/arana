@@ -29,7 +29,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/runtime/misc"
+	"github.com/arana-db/arana/pkg/runtime/misc"
 )
 
 const (

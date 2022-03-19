@@ -43,11 +43,11 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/config"
-	"github.com/dubbogo/arana/pkg/constants/mysql"
-	"github.com/dubbogo/arana/pkg/mysql/errors"
-	"github.com/dubbogo/arana/pkg/proto"
-	"github.com/dubbogo/arana/pkg/util/log"
+	"github.com/arana-db/arana/pkg/config"
+	"github.com/arana-db/arana/pkg/constants/mysql"
+	"github.com/arana-db/arana/pkg/mysql/errors"
+	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/util/log"
 )
 
 const initClientConnStatus = mysql.ServerStatusAutocommit

@@ -25,8 +25,8 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/config"
-	"github.com/dubbogo/arana/third_party/pools"
+	"github.com/arana-db/arana/pkg/config"
+	"github.com/arana-db/arana/third_party/pools"
 )
 
 var dataSourceManager *DataSourceManager

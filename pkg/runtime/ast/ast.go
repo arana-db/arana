@@ -34,8 +34,8 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/runtime/cmp"
-	"github.com/dubbogo/arana/pkg/runtime/logical"
+	"github.com/arana-db/arana/pkg/runtime/cmp"
+	"github.com/arana-db/arana/pkg/runtime/logical"
 )
 
 var (

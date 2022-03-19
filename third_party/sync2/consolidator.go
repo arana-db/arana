@@ -41,7 +41,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/third_party/cache"
+	"github.com/arana-db/arana/third_party/cache"
 )
 
 // Consolidator consolidates duplicate queries from executing simulaneously

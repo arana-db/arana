@@ -31,7 +31,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/testdata"
+	"github.com/arana-db/arana/testdata"
 )
 
 func TestRule(t *testing.T) {

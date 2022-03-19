@@ -38,8 +38,8 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/proto"
-	"github.com/dubbogo/arana/pkg/util/log"
+	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/util/log"
 	etcdv3 "github.com/dubbogo/gost/database/kv/etcd/v3"
 )
 

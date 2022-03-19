@@ -42,7 +42,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/third_party/cache"
+	"github.com/arana-db/arana/third_party/cache"
 )
 
 // Numbered allows you to manage resources by tracking them with numbers.

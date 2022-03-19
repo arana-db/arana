@@ -32,7 +32,7 @@ import (
 )
 
 import (
-	utils "github.com/dubbogo/arana/pkg/util/tableprint"
+	utils "github.com/arana-db/arana/pkg/util/tableprint"
 )
 
 const (

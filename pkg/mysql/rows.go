@@ -27,9 +27,9 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/constants/mysql"
-	"github.com/dubbogo/arana/pkg/mysql/errors"
-	"github.com/dubbogo/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/constants/mysql"
+	"github.com/arana-db/arana/pkg/mysql/errors"
+	"github.com/arana-db/arana/pkg/proto"
 )
 
 type ResultSet struct {

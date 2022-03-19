@@ -1,11 +1,11 @@
 # arana
-[![LICENSE](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/dubbogo/arana/blob/master/LICENSE)
-[![codecov](https://codecov.io/gh/dubbogo/arana/branch/master/graph/badge.svg)](https://codecov.io/gh/dubbogo/arana)
+[![LICENSE](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/arana-db/arana/blob/master/LICENSE)
+[![codecov](https://codecov.io/gh/arana-db/arana/branch/master/graph/badge.svg)](https://codecov.io/gh/arana-db/arana)
 
 
 ![](./docs/pics/arana-logo.png)
 
-## Introduction | [中文](https://github.com/dubbogo/arana/blob/master/README_CN.md)
+## Introduction | [中文](https://github.com/arana-db/arana/blob/master/README_CN.md)
 
 Arana is a db proxy. It can be deployed as a sidecar.
 
@@ -45,4 +45,4 @@ arana start -c ${configFilePath}
 ## Contributing
 
 ## License
-Arana software is licenced under the Apache License Version 2.0. See the [LICENSE](https://github.com/dubbogo/arana/blob/master/LICENSE) file for details.
+Arana software is licenced under the Apache License Version 2.0. See the [LICENSE](https://github.com/arana-db/arana/blob/master/LICENSE) file for details.
