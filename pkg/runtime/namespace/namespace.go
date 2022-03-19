@@ -136,9 +136,10 @@ func (ns *Namespace) DB(ctx context.Context, group string) proto.DB {
 	if !ok {
 		return nil
 	}
-
-	var max int32 = -999
-	target := -1
+	var (
+		max    = int32(-999)
+		target = int(-1)
+	)
 	// select by weight
 	if rcontext.IsRead(ctx) {
 		for i, v := range exist {
