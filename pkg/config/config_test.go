@@ -20,34 +20,87 @@
 package config
 
 import (
-	"encoding/json"
-	"net/url"
-	"os"
 	"testing"
-	"time"
 )
 
 import (
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/suite"
-	"go.etcd.io/etcd/server/v3/embed"
 )
 
-const defaultEtcdV3WorkDir = "/tmp/dubbo-go-arana/config"
+import (
+	"github.com/arana-db/arana/testdata"
+)
 
-type ClientTestSuite struct {
-	suite.Suite
+var fakeConfigPath = testdata.Path("fake_config.yaml")
 
-	etcdConfig struct {
-		name      string
-		endpoints []string
-		timeout   time.Duration
-		heartbeat int
+func TestMetadataConf(t *testing.T) {
+	conf, err := LoadV2(fakeConfigPath)
+	assert.NoError(t, err)
+	assert.NotNil(t, conf)
+
+	assert.Equal(t, "Configuration", conf.Kind)
+	assert.Equal(t, "1.0", conf.APIVersion)
+	expectMetadata := map[string]interface{}{
+		"name": "arana-config",
 	}
+	assert.Equal(t, expectMetadata, conf.Metadata)
+}
 
-	etcd *embed.Etcd
+func TestDataSourceClustersConf(t *testing.T) {
+	conf, err := LoadV2(fakeConfigPath)
+	assert.NoError(t, err)
+	assert.NotEqual(t, nil, conf)
 
-	client *Client
+	assert.Equal(t, 1, len(conf.Data.DataSourceClusters))
+	dataSourceCluster := conf.Data.DataSourceClusters[0]
+	assert.Equal(t, "employee", dataSourceCluster.Name)
+	assert.Equal(t, DBMysql, dataSourceCluster.Type)
+	assert.Equal(t, -1, dataSourceCluster.SqlMaxLimit)
+	assert.Equal(t, "arana", dataSourceCluster.Tenant)
+	assert.NotNil(t, dataSourceCluster.ConnProps)
+	assert.Equal(t, 10, dataSourceCluster.ConnProps.Capacity)
+	assert.Equal(t, 20, dataSourceCluster.ConnProps.MaxCapacity)
+	assert.Equal(t, 60, dataSourceCluster.ConnProps.IdleTimeout)
+
+	assert.Equal(t, 1, len(dataSourceCluster.Groups))
+	group := dataSourceCluster.Groups[0]
+	assert.Equal(t, "employee_0000", group.Name)
+	assert.Equal(t, 1, len(group.Nodes))
+	node := group.Nodes[0]
+	assert.Equal(t, "127.0.0.1", node.Host)
+	assert.Equal(t, 3306, node.Port)
+	assert.Equal(t, "root", node.Username)
+	assert.Equal(t, "123456", node.Password)
+	assert.Equal(t, "employees_0001", node.Database)
+	assert.Equal(t, "r10w10", node.Weight)
+	assert.Len(t, node.Labels, 1)
+	assert.NotNil(t, node.ConnProps)
+}
+
+func TestShardingRuleConf(t *testing.T) {
+	conf, err := LoadV2(fakeConfigPath)
+	assert.NoError(t, err)
+	assert.NotEqual(t, nil, conf)
+
+	assert.NotNil(t, conf.Data.ShardingRule)
+	assert.Equal(t, 1, len(conf.Data.ShardingRule.Tables))
+	table := conf.Data.ShardingRule.Tables[0]
+	assert.Equal(t, table.Name, "employee.student")
+	assert.Equal(t, table.AllowFullScan, true)
+
+	assert.Len(t, table.DbRules, 1)
+	assert.Equal(t, "student_id", table.DbRules[0].Column)
+	assert.Equal(t, "modShard(3)", table.DbRules[0].Expr)
+
+	assert.Len(t, table.TblRules, 1)
+	assert.Equal(t, "student_id", table.TblRules[0].Column)
+	assert.Equal(t, "modShard(8)", table.TblRules[0].Expr)
+
+	assert.Equal(t, "employee_0000", table.Topology.DbPattern)
+	assert.Equal(t, "student_${0000...0007}", table.Topology.TblPattern)
+	assert.Equal(t, "employee_0000", table.ShadowTopology.DbPattern)
+	assert.Equal(t, "__test_student_${0000...0007}", table.ShadowTopology.TblPattern)
+	assert.Len(t, table.Attributes, 2)
 }
 
 func TestUnmarshalTextForProtocolTypeNil(t *testing.T) {
@@ -71,143 +124,4 @@ func TestUnmarshalText(t *testing.T) {
 	err := protocolType.UnmarshalText(text)
 	assert.Nil(t, err)
 	assert.Equal(t, Mysql, protocolType)
-}
-
-func TestIsSlave(t *testing.T) {
-	Read := "r10w0"
-	assert.Equal(t, true, IsSlave(Read))
-	Write := "r0w10"
-	assert.Equal(t, false, IsSlave(Write))
-	ReadAndWrite := "r10w10"
-	assert.Equal(t, false, IsSlave(ReadAndWrite))
-}
-
-func TestLoad(t *testing.T) {
-	cfg := Load("../../docker/conf/config.yaml")
-	assert.Equal(t, Mysql, cfg.Listeners[0].ProtocolType)
-	assert.Equal(t, "redirect", cfg.Executors[0].Name)
-	assert.Equal(t, 3, len(cfg.DataSources))
-	assert.Equal(t, "employees", cfg.DataSources[0].Name)
-	assert.Equal(t, Master, cfg.DataSources[0].Role)
-	assert.Equal(t, DBMysql, cfg.DataSources[0].Type)
-}
-
-// start etcd server
-func (suite *ClientTestSuite) SetupSuite() {
-	t := suite.T()
-	DefaultListenPeerURLs := "http://localhost:2382"
-	DefaultListenClientURLs := "http://localhost:2381"
-	lpurl, _ := url.Parse(DefaultListenPeerURLs)
-	lcurl, _ := url.Parse(DefaultListenClientURLs)
-	cfg := embed.NewConfig()
-	cfg.LPUrls = []url.URL{*lpurl}
-	cfg.LCUrls = []url.URL{*lcurl}
-	cfg.Dir = defaultEtcdV3WorkDir
-	e, err := embed.StartEtcd(cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	select {
-	case <-e.Server.ReadyNotify():
-		t.Log("Server is ready!")
-	case <-time.After(60 * time.Second):
-		e.Server.Stop() // trigger a shutdown
-		t.Logf("Server took too long to start!")
-	}
-
-	suite.etcd = e
-	return
-}
-
-// stop etcd server
-func (suite *ClientTestSuite) TearDownSuite() {
-	suite.etcd.Close()
-	if err := os.RemoveAll(defaultConfigPath); err != nil {
-		suite.FailNow(err.Error())
-	}
-}
-
-func (suite *ClientTestSuite) setUpClient() *Client {
-	c, err := NewClient(suite.etcdConfig.endpoints)
-	if err != nil {
-		suite.T().Fatal(err)
-	}
-	return c
-}
-
-func (suite *ClientTestSuite) SetupTest() {
-	c := suite.setUpClient()
-	suite.client = c
-	return
-}
-
-func (suite *ClientTestSuite) TestLoadConfigFromEtcd() {
-	t := suite.T()
-	c := suite.client
-	defer suite.client.client.Close()
-
-	if err := c.PutConfigToEtcd(configPath); err != nil {
-		t.Fatal(err)
-	}
-
-	resp, err := c.LoadConfigFromEtcd(defaultConfigPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	config := LoadV2(configPath)
-	configJson, _ := json.Marshal(config)
-
-	if resp != string(configJson) {
-		t.Fatalf("expect %s but get %s", string(configJson), resp)
-	}
-}
-
-func (suite *ClientTestSuite) TestUpdateConfigToEtcd() {
-	t := suite.T()
-	c := suite.client
-	defer suite.client.client.Close()
-
-	resp, err := c.LoadConfigFromEtcd(defaultConfigDataExecutorsPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	jsonSlice := make([]map[string]interface{}, 1)
-
-	json.Unmarshal([]byte(resp), &jsonSlice)
-
-	jsonSlice[0]["name"] = "test"
-
-	configJson, err := json.Marshal(jsonSlice)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = c.UpdateConfigToEtcd(defaultConfigDataExecutorsPath, string(configJson))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	resp, err = c.LoadConfigFromEtcd(defaultConfigDataExecutorsPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp != string(configJson) {
-		t.Fatalf("expect %s but get %s", configJson, resp)
-	}
-}
-
-func TestClientSuite(t *testing.T) {
-	suite.Run(t, &ClientTestSuite{
-		etcdConfig: struct {
-			name      string
-			endpoints []string
-			timeout   time.Duration
-			heartbeat int
-		}{
-			name:      "test",
-			endpoints: []string{"localhost:2381"},
-			timeout:   time.Second,
-			heartbeat: 1,
-		},
-	})
 }

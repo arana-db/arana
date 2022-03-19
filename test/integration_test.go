@@ -21,6 +21,7 @@ package test
 
 import (
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 )
@@ -32,6 +33,7 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/util/rand2"
 	utils "github.com/arana-db/arana/pkg/util/tableprint"
 )
 
@@ -42,17 +44,74 @@ const (
 	dataSourceName string = "dksl:123456@tcp(127.0.0.1:13306)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8"
 )
 
+func TestBasicTx(t *testing.T) {
+	db, err := sql.Open(driverName, dataSourceName)
+	assert.NoErrorf(t, err, "connection error: %v", err)
+	defer db.Close()
+
+	tx, err := db.Begin()
+	assert.NoError(t, err, "should begin a new tx")
+
+	var (
+		name  = fmt.Sprintf("fake_name_%d", time.Now().UnixNano())
+		value = rand2.Int31n(1000)
+	)
+
+	res, err := tx.Exec("INSERT INTO sequence(name,value,modified_at) VALUES(?,?,NOW())", name, value)
+	assert.NoError(t, err, "should insert ok")
+	affected, err := res.RowsAffected()
+	assert.NoError(t, err)
+	assert.Equal(t, int64(1), affected)
+
+	row := tx.QueryRow("SELECT COUNT(1) FROM sequence WHERE name=?", name)
+	assert.NoError(t, row.Err())
+	var cnt int
+	err = row.Scan(&cnt)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, cnt)
+
+	err = tx.Rollback()
+	assert.NoError(t, err, "should rollback ok")
+
+	row = db.QueryRow("SELECT COUNT(1) FROM sequence WHERE name=?", name)
+	assert.NoError(t, row.Err())
+	err = row.Scan(&cnt)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, cnt)
+
+	// test commit
+	tx, err = db.Begin()
+	assert.NoError(t, err)
+
+	res, err = tx.Exec("INSERT INTO sequence(name,value,modified_at) VALUES(?,?,NOW())", name, value)
+	assert.NoError(t, err, "should insert ok")
+	affected, err = res.RowsAffected()
+	assert.NoError(t, err)
+	assert.Equal(t, int64(1), affected)
+
+	err = tx.Commit()
+	assert.NoError(t, err, "should commit ok")
+
+	row = db.QueryRow("SELECT COUNT(1) FROM sequence WHERE name=?", name)
+	assert.NoError(t, row.Err())
+	err = row.Scan(&cnt)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, cnt)
+
+	_, _ = db.Exec("delete from sequence where name = ?", name)
+}
+
 func TestSimpleSharding(t *testing.T) {
 	db, err := sql.Open(driverName, dataSourceName)
 	assert.NoErrorf(t, err, "connection error: %v", err)
 	defer db.Close()
 
 	// insert into phy table
-	result, err := db.Exec(`INSERT INTO student_0031 (id,uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?,?)`, 10031, 31, 3.14, "fake_name_31", "fake_nickname_31", 1, 2022)
+	result, err := db.Exec(`INSERT IGNORE INTO student_0031(id,uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?,?)`, time.Now().UnixNano(), 31, 3.14, "fake_name_31", "fake_nickname_31", 1, 2022)
 	assert.NoErrorf(t, err, "insert row error: %v", err)
 	affected, err := result.RowsAffected()
 	assert.NoErrorf(t, err, "insert row error: %v", err)
-	assert.Equal(t, int64(1), affected)
+	assert.True(t, affected <= 1)
 
 	// select from logical table
 	rows, err := db.Query("SELECT * FROM student WHERE uid = ?", 31)

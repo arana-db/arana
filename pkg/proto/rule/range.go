@@ -43,6 +43,10 @@ const (
 	Ustr
 )
 
+var (
+	DefaultNumberStepper = Stepper{U: Unum, N: 1}
+)
+
 // Range represents a value range.
 type Range interface {
 	// HasNext returns true if Range is not EOF.

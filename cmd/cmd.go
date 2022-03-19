@@ -21,7 +21,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"os/signal"
 	"syscall"
@@ -34,15 +33,13 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/config"
+	"github.com/arana-db/arana/pkg/boot"
 	"github.com/arana-db/arana/pkg/constants"
 	"github.com/arana-db/arana/pkg/executor"
 	"github.com/arana-db/arana/pkg/filters"
 	"github.com/arana-db/arana/pkg/mysql"
-	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/resource"
 	"github.com/arana-db/arana/pkg/server"
-	"github.com/arana-db/arana/third_party/pools"
+	"github.com/arana-db/arana/pkg/util/log"
 )
 
 var (
@@ -63,9 +60,19 @@ var (
 		Short: "start arana",
 
 		Run: func(cmd *cobra.Command, args []string) {
-			conf := config.Load(configPath)
+			provider := boot.NewFileProvider(configPath)
+			if err := boot.Boot(context.Background(), provider); err != nil {
+				log.Fatal("start failed: %v", err)
+				return
+			}
 
-			for _, filterConf := range conf.Filters {
+			filters, err := provider.ListFilters(context.Background())
+			if err != nil {
+				log.Fatal("start failed: %v", err)
+				return
+			}
+
+			for _, filterConf := range filters {
 				factory := filter.GetFilterFactory(filterConf.Name)
 				if factory == nil {
 					panic(errors.Errorf("there is no filter factory for filter: %s", filterConf.Name))
@@ -77,48 +84,21 @@ var (
 				filter.RegisterFilter(f.GetName(), f)
 			}
 
-			executors := make(map[string]proto.Executor)
-			for _, executorConf := range conf.Executors {
-				executor := executor.NewRedirectExecutor(executorConf)
-
-				for i := 0; i < len(executorConf.Filters); i++ {
-					filterName := executorConf.Filters[i]
-					f := filter.GetFilter(filterName)
-					if f != nil {
-						preFilter, ok := f.(proto.PreFilter)
-						if ok {
-							executor.AddPreFilter(preFilter)
-						}
-						postFilter, ok := f.(proto.PostFilter)
-						if ok {
-							executor.AddPostFilter(postFilter)
-						}
-					}
-				}
-				executors[executorConf.Name] = executor
-			}
-
-			resource.InitDataSourceManager(conf.DataSources, func(config json.RawMessage) pools.Factory {
-				collector, err := mysql.NewConnector(config)
-				if err != nil {
-					panic(err)
-				}
-				return collector.NewBackendConnection
-			})
 			propeller := server.NewServer()
 
-			for _, listenerConf := range conf.Listeners {
+			listenersConf, err := provider.ListListeners(context.Background())
+			if err != nil {
+				log.Fatal("start failed: %v", err)
+				return
+			}
+
+			for _, listenerConf := range listenersConf {
 				listener, err := mysql.NewListener(listenerConf)
 				if err != nil {
-					panic(err)
+					log.Fatalf("create listener failed: %v", err)
+					return
 				}
-				executor := executors[listenerConf.Executor]
-				if executor == nil {
-					panic(errors.Errorf("executor: %s is not exists for listener: %s:%d",
-						listenerConf.Executor,
-						listenerConf.SocketAddress.Address,
-						listenerConf.SocketAddress.Port))
-				}
+				executor := executor.NewRedirectExecutor()
 				listener.SetExecutor(executor)
 				propeller.AddListener(listener)
 			}

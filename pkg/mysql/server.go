@@ -23,7 +23,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
-	"encoding/json"
 	"fmt"
 	"io"
 	"math"
@@ -47,6 +46,7 @@ import (
 	"github.com/arana-db/arana/pkg/constants/mysql"
 	"github.com/arana-db/arana/pkg/mysql/errors"
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/security"
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
@@ -55,6 +55,7 @@ const initClientConnStatus = mysql.ServerStatusAutocommit
 type handshakeResult struct {
 	connectionID uint32
 	schema       string
+	tenant       string
 	username     string
 	authMethod   string
 	authResponse []byte
@@ -62,8 +63,7 @@ type handshakeResult struct {
 }
 
 type ServerConfig struct {
-	Users         map[string]string `yaml:"users" json:"users"`
-	ServerVersion string            `yaml:"server_version" json:"server_version"`
+	ServerVersion string `yaml:"server_version" json:"server_version"`
 }
 
 type Listener struct {
@@ -104,7 +104,7 @@ type Listener struct {
 	schemaName string
 
 	// statementID is the prepared statement ID.
-	statementID *atomic.Uint32
+	statementID atomic.Uint32
 
 	// stmts is the map to use a prepared statement.
 	// key is uint32 value is *proto.Stmt
@@ -112,10 +112,8 @@ type Listener struct {
 }
 
 func NewListener(conf *config.Listener) (proto.Listener, error) {
-	cfg := &ServerConfig{}
-	if err := json.Unmarshal(conf.Config, cfg); err != nil {
-		log.Errorf("unmarshal mysql Listener config failed, %s", err)
-		return nil, err
+	cfg := &ServerConfig{
+		ServerVersion: conf.ServerVersion,
 	}
 
 	l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", conf.SocketAddress.Address, conf.SocketAddress.Port))
@@ -125,10 +123,8 @@ func NewListener(conf *config.Listener) (proto.Listener, error) {
 	}
 
 	listener := &Listener{
-		conf:        cfg,
-		listener:    l,
-		statementID: atomic.NewUint32(0),
-		stmts:       sync.Map{},
+		conf:     cfg,
+		listener: l,
 	}
 	return listener, nil
 }
@@ -256,6 +252,7 @@ func (l *Listener) handshake(c *Conn) error {
 	}
 
 	c.Schema = handshake.schema
+	c.Tenant = handshake.tenant
 
 	return nil
 }
@@ -491,16 +488,25 @@ func (l *Listener) parseClientHandshakePacket(firstTime bool, data []byte) (*han
 }
 
 func (l *Listener) ValidateHash(handshake *handshakeResult) error {
-	// TODO: database isolate
-	password, ok := l.conf.Users[handshake.username]
+	tenant, ok := security.DefaultTenantManager().GetTenantOfCluster(handshake.schema)
 	if !ok {
 		return errors.NewSQLError(mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied for user '%v'", handshake.username)
 	}
-	computedAuthResponse := scramblePassword(handshake.salt, password)
-	if bytes.Equal(handshake.authResponse, computedAuthResponse) {
-		return nil
+
+	user, ok := security.DefaultTenantManager().GetUser(tenant, handshake.username)
+	if !ok {
+		return errors.NewSQLError(mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied for user '%v'", handshake.username)
 	}
-	return errors.NewSQLError(mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied for user '%v'", handshake.username)
+
+	computedAuthResponse := scramblePassword(handshake.salt, user.Password)
+	if !bytes.Equal(handshake.authResponse, computedAuthResponse) {
+		return errors.NewSQLError(mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied for user '%v'", handshake.username)
+	}
+
+	// bind tenant
+	handshake.tenant = tenant
+
+	return nil
 }
 
 func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
@@ -511,8 +517,25 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 		c.recycleReadPacket()
 		return err2.New("ComQuit")
 	case mysql.ComInitDB:
-		db := string(ctx.Data)
+		db := string(ctx.Data[1:])
 		c.recycleReadPacket()
+
+		var allow bool
+		for _, it := range security.DefaultTenantManager().GetClusters(c.Tenant) {
+			if db == it {
+				allow = true
+				break
+			}
+		}
+
+		if !allow {
+			if err := c.writeErrorPacketFromError(errors.NewSQLError(mysql.ERBadDb, "", "Unknown database '%s'", db)); err != nil {
+				log.Errorf("failed to write ComInitDB error to %s: %v", c, err)
+				return err
+			}
+			return nil
+		}
+
 		c.Schema = db
 		err := l.executor.ExecuteUseDB(ctx)
 		if err != nil {

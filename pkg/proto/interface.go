@@ -20,14 +20,8 @@
 package proto
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
-)
-
-import (
-	"github.com/pkg/errors"
 )
 
 import (
@@ -36,8 +30,6 @@ import (
 )
 
 type (
-	ExecuteMode byte
-
 	// Context
 	Context struct {
 		context.Context
@@ -90,8 +82,6 @@ type (
 
 		GetPostFilters() []PostFilter
 
-		ExecuteMode() ExecuteMode
-
 		ProcessDistributedTransaction() bool
 
 		InLocalTransaction(ctx *Context) bool
@@ -118,36 +108,14 @@ type (
 	}
 )
 
-const (
-	SingleDB ExecuteMode = iota
-	ReadWriteSplitting
-	Sharding
-)
-
-func (m *ExecuteMode) UnmarshalText(text []byte) error {
-	if m == nil {
-		return errors.New("can't unmarshal a nil *ExecuteMode")
-	}
-	if !m.unmarshalText(bytes.ToLower(text)) {
-		return fmt.Errorf("unrecognized execute mode: %q", text)
-	}
-	return nil
-}
-
-func (m *ExecuteMode) unmarshalText(text []byte) bool {
-	switch string(text) {
-	case "singledb":
-		*m = SingleDB
-	case "readwritesplitting":
-		*m = ReadWriteSplitting
-	case "sharding":
-		*m = Sharding
-	default:
-		return false
-	}
-	return true
-}
-
 func (c Context) GetQuery() string {
+	if c.Stmt != nil {
+		if len(c.Stmt.PrepareStmt) > 0 {
+			return c.Stmt.PrepareStmt
+		}
+		if c.Stmt.StmtNode != nil {
+			return c.Stmt.StmtNode.Text()
+		}
+	}
 	return bytesconv.BytesToString(c.Data[1:])
 }

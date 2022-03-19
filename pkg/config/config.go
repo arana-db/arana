@@ -24,40 +24,35 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"path/filepath"
+	"regexp"
 	"strconv"
-	"strings"
-	"time"
 )
 
 import (
 	"github.com/ghodss/yaml"
 
-	"github.com/tidwall/gjson"
-
 	"github.com/pkg/errors"
 )
-
-import (
-	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/util/log"
-	etcdv3 "github.com/dubbogo/gost/database/kv/etcd/v3"
-)
-
-var apiConfig *ConfigMap
-
-type Configuration struct {
-	Listeners []*Listener `yaml:"listeners" json:"listeners"`
-
-	Executors []*Executor `yaml:"executors" json:"executors"`
-
-	Filters []*Filter `yaml:"filters" json:"filters"`
-
-	DataSources []*DataSource `yaml:"data_source_cluster" json:"data_source_cluster"`
-}
 
 type (
 	// ProtocolType protocol type enum
 	ProtocolType int32
+)
+
+const (
+	Http ProtocolType = iota
+	Mysql
+)
+
+const (
+	_ DataSourceType = iota
+	DBMysql
+	DBPostgreSql
+)
+
+type (
+	// DataSourceType is the data source type
+	DataSourceType int
 
 	// SocketAddress specify either a logical or physical address and port, which are
 	// used to tell server where to bind/listen, connect to upstream and find
@@ -72,45 +67,180 @@ type (
 		Config json.RawMessage `json:"config,omitempty"`
 	}
 
-	DataSourceGroup struct {
-		Master *Source   `yaml:"master" json:"master"`
-		Slaves []*Source `yaml:"slaves,omitempty" json:"slaves,omitempty"`
+	Configuration struct {
+		TypeMeta
+		Metadata map[string]interface{} `yaml:"metadata" json:"metadata"`
+		Data     *Data                  `validate:"required" yaml:"data" json:"data"`
 	}
 
-	Executor struct {
-		Name                          string             `yaml:"name" json:"name"`
-		Mode                          proto.ExecuteMode  `yaml:"mode" json:"mode"`
-		DataSources                   []*DataSourceGroup `yaml:"data_sources" json:"data_sources"`
-		Filters                       []string           `yaml:"filters" json:"filters"`
-		ProcessDistributedTransaction bool               `yaml:"process_distributed_transaction,omitempty" json:"process_distributed_transaction,omitempty"`
+	TypeMeta struct {
+		Kind       string `yaml:"kind" json:"kind,omitempty"`
+		APIVersion string `yaml:"apiVersion" json:"apiVersion,omitempty"`
 	}
 
-	Source struct {
-		Name   string `yaml:"name" json:"name"`
-		Weight int    `default:"10" yaml:"weight,omitempty" json:"weight,omitempty"`
+	Data struct {
+		Filters            []*Filter            `yaml:"filters" json:"filters,omitempty"`
+		Listeners          []*Listener          `validate:"required" yaml:"listeners" json:"listeners"`
+		Tenants            []*Tenant            `validate:"required" yaml:"tenants" json:"tenants"`
+		DataSourceClusters []*DataSourceCluster `validate:"required" yaml:"clusters" json:"clusters"`
+		ShardingRule       *ShardingRule        `yaml:"sharding_rule,omitempty" json:"sharding_rule,omitempty"`
+	}
+
+	Tenant struct {
+		Name  string  `validate:"required" yaml:"name" json:"name"`
+		Users []*User `validate:"required" yaml:"users" json:"users"`
+	}
+
+	DataSourceCluster struct {
+		Name        string         `yaml:"name" json:"name"`
+		Type        DataSourceType `yaml:"type" json:"type"`
+		SqlMaxLimit int            `default:"-1" yaml:"sql_max_limit" json:"sql_max_limit,omitempty"`
+		Tenant      string         `yaml:"tenant" json:"tenant"`
+		ConnProps   *ConnProp      `yaml:"conn_props" json:"conn_props,omitempty"`
+		Groups      []*Group       `yaml:"groups" json:"groups"`
+	}
+
+	ConnProp struct {
+		Capacity    int `yaml:"capacity" json:"capacity,omitempty"`         // connection pool capacity
+		MaxCapacity int `yaml:"max_capacity" json:"max_capacity,omitempty"` // max connection pool capacity
+		IdleTimeout int `yaml:"idle_timeout" json:"idle_timeout,omitempty"` // close backend direct connection after idle_timeout
+	}
+
+	Group struct {
+		Name  string  `yaml:"name" json:"name"`
+		Nodes []*Node `yaml:"nodes" json:"nodes"`
+	}
+
+	Node struct {
+		Name      string            `yaml:"name" json:"name"`
+		Host      string            `yaml:"host" json:"host"`
+		Port      int               `yaml:"port" json:"port"`
+		Username  string            `yaml:"username" json:"username"`
+		Password  string            `yaml:"password" json:"password"`
+		Database  string            `yaml:"database" json:"database"`
+		ConnProps map[string]string `yaml:"conn_props" json:"conn_props,omitempty"`
+		Weight    string            `default:"r10w10" yaml:"weight" json:"weight"`
+		Labels    map[string]string `yaml:"labels" json:"labels,omitempty"`
+	}
+
+	ShardingRule struct {
+		Tables []*Table `yaml:"tables" json:"tables"`
 	}
 
 	Listener struct {
-		ProtocolType  ProtocolType    `yaml:"protocol_type" json:"protocol_type"`
-		SocketAddress SocketAddress   `yaml:"socket_address" json:"socket_address"`
-		Filters       []string        `yaml:"filters" json:"filters"`
-		Config        json.RawMessage `yaml:"config" json:"config"`
-		Executor      string          `yaml:"executor" json:"executor"`
+		ProtocolType  string         `yaml:"protocol_type" json:"protocol_type"`
+		SocketAddress *SocketAddress `yaml:"socket_address" json:"socket_address"`
+		ServerVersion string         `yaml:"server_version" json:"server_version"`
+	}
+
+	User struct {
+		Username string `yaml:"username" json:"username"`
+		Password string `yaml:"password" json:"password"`
+	}
+
+	Table struct {
+		Name           string            `yaml:"name" json:"name"`
+		AllowFullScan  bool              `yaml:"allow_full_scan" json:"allow_full_scan,omitempty"`
+		DbRules        []*Rule           `yaml:"db_rules" json:"db_rules"`
+		TblRules       []*Rule           `yaml:"tbl_rules" json:"tbl_rules"`
+		Topology       *Topology         `yaml:"topology" json:"topology"`
+		ShadowTopology *Topology         `yaml:"shadow_topology" json:"shadow_topology"`
+		Attributes     map[string]string `yaml:"attributes" json:"attributes"`
+	}
+
+	Rule struct {
+		Column string `yaml:"column" json:"column"`
+		Expr   string `yaml:"expr" json:"expr"`
+	}
+
+	Topology struct {
+		DbPattern  string `yaml:"db_pattern" json:"db_pattern"`
+		TblPattern string `yaml:"tbl_pattern" json:"tbl_pattern"`
 	}
 )
 
-const (
-	Http ProtocolType = iota
-	Mysql
-)
+func ParseV2(path string) (*Configuration, error) {
+	content, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to load config")
+	}
 
-const (
-	defaultConfigPath                   = "/dubbo-go-arana/config"
-	defaultConfigDataListenersPath      = "/dubbo-go-arana/config/data/listeners"
-	defaultConfigDataExecutorsPath      = "/dubbo-go-arana/config/data/executors"
-	defaultConfigDataSourceClustersPath = "/dubbo-go-arana/config/data/dataSourceClusters"
-	defaultConfigDataShardingRulePath   = "/dubbo-go-arana/config/data/shardingRule"
-)
+	if !yamlFormat(path) {
+		return nil, errors.Errorf("invalid config file format: %s", filepath.Ext(path))
+	}
+
+	var cfg Configuration
+	if err = yaml.Unmarshal(content, &cfg); err != nil {
+		return nil, errors.Wrapf(err, "failed to unmarshal config")
+	}
+
+	return &cfg, nil
+}
+
+// LoadV2 loads the configuration.
+func LoadV2(path string) (*Configuration, error) {
+	configPath, _ := filepath.Abs(path)
+	cfg, err := ParseV2(configPath)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	return cfg, nil
+}
+
+func yamlFormat(path string) bool {
+	ext := filepath.Ext(path)
+	if ext == ".yaml" || ext == ".yml" {
+		return true
+	}
+	return false
+}
+
+func (t *DataSourceType) UnmarshalText(text []byte) error {
+	if t == nil {
+		return errors.New("can't unmarshal a nil *DataSourceType")
+	}
+	if !t.unmarshalText(bytes.ToLower(text)) {
+		return errors.Errorf("unrecognized datasource type: %q", text)
+	}
+	return nil
+}
+
+func (t *DataSourceType) unmarshalText(text []byte) bool {
+	dataSourceType := string(text)
+	switch dataSourceType {
+	case "mysql":
+		*t = DBMysql
+	case "postgresql":
+		*t = DBPostgreSql
+	default:
+		return false
+	}
+	return true
+}
+
+var reg = regexp.MustCompile(`^[rR]([0-9]+)[wW]([0-9]+)$`)
+
+func (d *Node) GetReadAndWriteWeight() (int, int, error) {
+	items := reg.FindStringSubmatch(d.Weight)
+	if len(items) != 3 {
+		return 0, 0, errors.New("weight config should be r10w10")
+	}
+	readWeight, err := strconv.Atoi(items[1])
+	if err != nil {
+		return 0, 0, err
+	}
+	writeWeight, err := strconv.Atoi(items[2])
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return readWeight, writeWeight, nil
+}
+
+func (d *Node) String() string {
+	b, _ := json.Marshal(d)
+	return string(b)
+}
 
 func (t *ProtocolType) UnmarshalText(text []byte) error {
 	if t == nil {
@@ -133,158 +263,4 @@ func (t *ProtocolType) unmarshalText(text []byte) bool {
 		return false
 	}
 	return true
-}
-
-func parse(path string) *Configuration {
-	log.Infof("load config from :  %s", path)
-	content, err := ioutil.ReadFile(path)
-	if err != nil {
-		log.Fatalf("[config] [default load] load config failed, error: %v", err)
-	}
-	cfg := &Configuration{}
-	if yamlFormat(path) {
-		jsonBytes, err := yaml.YAMLToJSON(content)
-		if err != nil {
-			log.Fatalf("[config] [default load] translate yaml to json error: %v", err)
-		}
-		content = jsonBytes
-	}
-	// translate to lower case
-	err = json.Unmarshal(content, cfg)
-	if err != nil {
-		log.Fatalf("[config] [default load] json unmarshal config failed, error: %v", err)
-	}
-
-	for _, ds := range cfg.DataSources {
-		if ds.IdleTimeoutStr != "" {
-			var err error
-			if ds.IdleTimeout, err = time.ParseDuration(ds.IdleTimeoutStr); err != nil {
-				log.Errorf("[config] [default load] parse idle timeout failed, set to default %s, data source name: %s, error: %v",
-					ds.Name, err)
-			}
-		}
-	}
-	return cfg
-}
-
-// IsSlave is used temporarily for Read/Write Splitting to judge slave
-func IsSlave(weight string) bool {
-	WriteWeightIndex := strings.Index(weight, "w")
-	WriteWeight := weight[WriteWeightIndex+1:]
-	Weight, _ := strconv.Atoi(WriteWeight)
-	if Weight < 1 {
-		return true
-	}
-	return false
-}
-
-func parseV2(path string) *ConfigMap {
-	log.Infof("load config from :  %s", path)
-	content, err := ioutil.ReadFile(path)
-	if err != nil {
-		log.Fatalf("[config] [default load] load config failed, error: %v", err)
-	}
-	cfg := &ConfigMap{}
-	if yamlFormat(path) {
-		err = yaml.Unmarshal(content, cfg)
-	} else {
-		err = errors.Errorf("[config] [default load] unsupport config file format")
-	}
-	if err != nil {
-		log.Fatalf("[config] [default load] json unmarshal config failed, error: %v", err)
-	}
-
-	return cfg
-}
-
-func yamlFormat(path string) bool {
-	ext := filepath.Ext(path)
-	if ext == ".yaml" || ext == ".yml" {
-		return true
-	}
-	return false
-}
-
-// Load config file and parse
-// todo been deleted
-func Load(path string) *Configuration {
-	configPath, _ := filepath.Abs(path)
-	cfg := parse(configPath)
-	return cfg
-}
-
-// todo been renamed function name to Load
-func LoadV2(path string) *ConfigMap {
-	configPath, _ := filepath.Abs(path)
-	cfg := parseV2(configPath)
-	return cfg
-}
-
-type Client struct {
-	client *etcdv3.Client
-}
-
-func NewClient(endpiont []string) (*Client, error) {
-	tmpClient, err := etcdv3.NewConfigClientWithErr(
-		etcdv3.WithName(etcdv3.RegistryETCDV3Client),
-		etcdv3.WithTimeout(10*time.Second),
-		etcdv3.WithEndpoints(endpiont...),
-	)
-	if err != nil {
-		return nil, errors.Errorf("Init etcd client fail error %v", err)
-	}
-	Client := &Client{
-		client: tmpClient,
-	}
-	return Client, nil
-}
-
-// PutConfigToEtcd initialize local file config into etcd，only be used in when etcd don't hava data.
-func (c *Client) PutConfigToEtcd(configPath string) error {
-	config := LoadV2(configPath)
-	configJson, err := json.Marshal(config)
-	if err != nil {
-		return errors.Errorf("config json.marshal failed  %v err:", err)
-	}
-
-	if err = c.client.Put(defaultConfigPath, string(configJson)); err != nil {
-		return err
-	}
-
-	if err = c.client.Put(defaultConfigDataListenersPath, gjson.Get(string(configJson), "data.listeners").String()); err != nil {
-		return err
-	}
-
-	if err = c.client.Put(defaultConfigDataExecutorsPath, gjson.Get(string(configJson), "data.executors").String()); err != nil {
-		return err
-	}
-
-	if err = c.client.Put(defaultConfigDataSourceClustersPath, gjson.Get(string(configJson), "data.dataSourceClusters").String()); err != nil {
-		return err
-	}
-
-	if err = c.client.Put(defaultConfigDataShardingRulePath, gjson.Get(string(configJson), "data.shardingRule").String()); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// LoadConfigFromEtcd get key value from etcd
-func (c *Client) LoadConfigFromEtcd(configKey string) (string, error) {
-	resp, err := c.client.Get(configKey)
-	if err != nil {
-		return "", errors.Errorf("Get remote config fail error %v", err)
-	}
-	return resp, nil
-}
-
-// UpdateConfigtoEtcd update key value in etcd
-func (c *Client) UpdateConfigToEtcd(configKey, configValue string) error {
-
-	if err := c.client.Put(configKey, configValue); err != nil {
-		return err
-	}
-
-	return nil
 }

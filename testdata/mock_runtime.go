@@ -6,15 +6,18 @@ package testdata
 
 import (
 	context "context"
-	"github.com/arana-db/parser/ast"
 	reflect "reflect"
-	"time"
+	time "time"
+)
+
+import (
+	ast "github.com/arana-db/parser/ast"
+
+	gomock "github.com/golang/mock/gomock"
 )
 
 import (
 	proto "github.com/arana-db/arana/pkg/proto"
-
-	gomock "github.com/golang/mock/gomock"
 )
 
 // MockVConn is a mock of VConn interface.
@@ -217,6 +220,21 @@ func (mr *MockDBMockRecorder) Call(arg0, arg1 interface{}, arg2 ...interface{}) 
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Call", reflect.TypeOf((*MockDB)(nil).Call), varargs...)
+}
+
+// CallFieldList mocks base method.
+func (m *MockDB) CallFieldList(arg0 context.Context, arg1, arg2 string) ([]proto.Field, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CallFieldList", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]proto.Field)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CallFieldList indicates an expected call of CallFieldList.
+func (mr *MockDBMockRecorder) CallFieldList(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CallFieldList", reflect.TypeOf((*MockDB)(nil).CallFieldList), arg0, arg1, arg2)
 }
 
 // Capacity mocks base method.

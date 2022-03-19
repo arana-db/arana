@@ -21,80 +21,40 @@ package executor
 
 import (
 	"bytes"
+	stdErrors "errors"
+	"sync"
 )
 
 import (
 	"github.com/arana-db/parser"
 	"github.com/arana-db/parser/ast"
+
+	"github.com/pkg/errors"
 )
 
 import (
-	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/resource"
 	"github.com/arana-db/arana/pkg/runtime"
-	"github.com/arana-db/arana/pkg/selector"
+	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/util/log"
-	"github.com/arana-db/arana/third_party/pools"
 )
 
+var errMissingTx = stdErrors.New("no transaction found")
+
+// IsErrMissingTx returns true if target error was caused by missing-tx.
+func IsErrMissingTx(err error) bool {
+	return errors.Is(err, errMissingTx)
+}
+
 type RedirectExecutor struct {
-	mode                proto.ExecuteMode
 	preFilters          []proto.PreFilter
 	postFilters         []proto.PostFilter
-	dataSources         []*config.DataSourceGroup
-	localTransactionMap map[uint32]pools.Resource
-	dbSelector          selector.Selector
+	localTransactionMap sync.Map // map[uint32]proto.Tx, (ConnectionID,Tx)
 }
 
-func NewRedirectExecutor(conf *config.Executor) proto.Executor {
-	executor := &RedirectExecutor{
-		mode:                conf.Mode,
-		preFilters:          make([]proto.PreFilter, 0),
-		postFilters:         make([]proto.PostFilter, 0),
-		dataSources:         conf.DataSources,
-		localTransactionMap: make(map[uint32]pools.Resource, 0),
-	}
-
-	if conf.Mode == proto.ReadWriteSplitting && len(conf.DataSources) > 0 {
-		weights := make([]int, 0, len(conf.DataSources[0].Slaves))
-		for _, v := range conf.DataSources[0].Slaves {
-			weights = append(weights, v.Weight)
-		}
-		executor.dbSelector = selector.NewWeightRandomSelector(weights)
-	}
-
-	return executor
-}
-
-func NewRedirectExecutorV2(conf *config.Executor, cluster *config.DataSourceCluster) proto.Executor {
-	executor := &RedirectExecutor{
-		mode:                conf.Mode,
-		preFilters:          make([]proto.PreFilter, 0),
-		postFilters:         make([]proto.PostFilter, 0),
-		dataSources:         conf.DataSources,
-		localTransactionMap: make(map[uint32]pools.Resource, 0),
-	}
-
-	for _, group := range cluster.Groups {
-		weights := make([]int, 0, len(group.AtomDbs))
-		for _, db := range group.AtomDbs {
-			if config.IsSlave(db.Weight) {
-				readWeight, _, err := db.GetReadAndWriteWeight()
-				if err != nil {
-					log.Errorf("weight config not right, err is %v, use default weight 10", err)
-					readWeight = selector.DefaultWeight
-				}
-				weights = append(weights, readWeight)
-			}
-		}
-		if len(weights) > 0 {
-			executor.dbSelector = selector.NewWeightRandomSelector(weights)
-		}
-	}
-
-	return executor
+func NewRedirectExecutor() *RedirectExecutor {
+	return &RedirectExecutor{}
 }
 
 func (executor *RedirectExecutor) AddPreFilter(filter proto.PreFilter) {
@@ -113,16 +73,12 @@ func (executor *RedirectExecutor) GetPostFilters() []proto.PostFilter {
 	return executor.postFilters
 }
 
-func (executor *RedirectExecutor) ExecuteMode() proto.ExecuteMode {
-	return executor.mode
-}
-
 func (executor *RedirectExecutor) ProcessDistributedTransaction() bool {
 	return false
 }
 
 func (executor *RedirectExecutor) InLocalTransaction(ctx *proto.Context) bool {
-	_, ok := executor.localTransactionMap[ctx.ConnectionID]
+	_, ok := executor.localTransactionMap.Load(ctx.ConnectionID)
 	return ok
 }
 
@@ -131,42 +87,43 @@ func (executor *RedirectExecutor) InGlobalTransaction(ctx *proto.Context) bool {
 }
 
 func (executor *RedirectExecutor) ExecuteUseDB(ctx *proto.Context) error {
-	resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(executor.dataSources[0].Master.Name)
-	r, err := resourcePool.Get(ctx)
-	defer func() {
-		resourcePool.Put(r)
-	}()
-	if err != nil {
-		return err
-	}
-	backendConn := r.(*mysql.BackendConnection)
-	db := string(ctx.Data[1:])
-	return backendConn.WriteComInitDB(db)
+	// TODO: check permission, target database should belong to same tenant.
+	// TODO: process transactions when database switched?
+
+	// do nothing.
+	//resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(executor.dataSources[0].Master.Name)
+	//r, err := resourcePool.Get(ctx)
+	//defer func() {
+	//	resourcePool.Put(r)
+	//}()
+	//if err != nil {
+	//	return err
+	//}
+	//backendConn := r.(*mysql.BackendConnection)
+	//db := string(ctx.Data[1:])
+	//return backendConn.WriteComInitDB(db)
+	return nil
 }
 
 func (executor *RedirectExecutor) ExecuteFieldList(ctx *proto.Context) ([]proto.Field, error) {
 	index := bytes.IndexByte(ctx.Data, 0x00)
 	table := string(ctx.Data[0:index])
 	wildcard := string(ctx.Data[index+1:])
-	resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(executor.dataSources[0].Master.Name)
-	r, err := resourcePool.Get(ctx)
-	defer func() {
-		resourcePool.Put(r)
-	}()
+
+	rt, err := runtime.Load(ctx.Schema)
 	if err != nil {
-		return nil, err
-	}
-	backendConn := r.(*mysql.BackendConnection)
-	err = backendConn.WriteComFieldList(table, wildcard)
-	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 
-	return backendConn.ReadColumnDefinitions()
+	db := rt.Namespace().DB0(ctx.Context)
+	if db == nil {
+		return nil, errors.New("cannot get physical backend connection")
+	}
+
+	return db.CallFieldList(ctx.Context, table, wildcard)
 }
 
 func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Result, uint16, error) {
-	var r pools.Resource
 	var err error
 
 	p := parser.New()
@@ -181,94 +138,136 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 		StmtNode: act,
 	}
 
-	resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(executor.dataSources[0].Master.Name)
+	rt, err := runtime.Load(ctx.Schema)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var (
+		res  proto.Result
+		warn uint16
+	)
+
+	executor.doPreFilter(ctx)
+
 	switch act.(type) {
 	case *ast.BeginStmt:
-		r, err = resourcePool.Get(ctx)
-		if err != nil {
-			return nil, 0, err
+		// begin a new tx
+		var tx proto.Tx
+		if tx, err = rt.Begin(ctx); err == nil {
+			executor.putTx(ctx, tx)
+			res = &mysql.Result{}
 		}
-		executor.localTransactionMap[ctx.ConnectionID] = r
 	case *ast.CommitStmt:
-		r = executor.localTransactionMap[ctx.ConnectionID]
-		defer func() {
-			delete(executor.localTransactionMap, ctx.ConnectionID)
-			resourcePool.Put(r)
-		}()
+		// remove existing tx, and commit it
+		if tx, ok := executor.removeTx(ctx); ok {
+			res, warn, err = tx.Commit(ctx.Context)
+		} else {
+			res, warn, err = nil, 0, errMissingTx
+		}
 	case *ast.RollbackStmt:
-		r = executor.localTransactionMap[ctx.ConnectionID]
-		defer func() {
-			delete(executor.localTransactionMap, ctx.ConnectionID)
-			resourcePool.Put(r)
-		}()
+		// remove existing tx, and rollback it
+		if tx, ok := executor.removeTx(ctx); ok {
+			res, warn, err = tx.Rollback(ctx.Context)
+		} else {
+			res, warn, err = nil, 0, errMissingTx
+		}
 	case *ast.SelectStmt:
-		switch executor.ExecuteMode() {
-		case proto.ReadWriteSplitting:
-			return executor.slaveComQueryExecute(ctx, query)
+		// TODO: merge with other stmt when write-mode is supported for runtime
+		if tx, ok := executor.getTx(ctx); ok {
+			res, warn, err = tx.Execute(ctx)
+		} else {
+			res, warn, err = rt.Execute(ctx)
 		}
 	default:
-		r, err = resourcePool.Get(ctx)
-		defer func() {
-			resourcePool.Put(r)
-		}()
-		if err != nil {
-			return nil, 0, err
+		// TODO: mark direct flag temporarily, remove when write-mode is supported for runtime
+		ctx.Context = rcontext.WithDirect(ctx.Context)
+		if tx, ok := executor.getTx(ctx); ok {
+			res, warn, err = tx.Execute(ctx)
+		} else {
+			res, warn, err = rt.Execute(ctx)
 		}
 	}
 
-	backendConn := r.(*mysql.BackendConnection)
-	executor.doPreFilter(ctx)
-	result, warn, err := backendConn.ExecuteWithWarningCount(query, true)
-	executor.doPostFilter(ctx, result)
-	return result, warn, err
+	executor.doPostFilter(ctx, res)
+
+	return res, warn, err
 }
 
 func (executor *RedirectExecutor) ExecutorComStmtExecute(ctx *proto.Context) (proto.Result, uint16, error) {
-	var r pools.Resource
-	var err error
-	r, ok := executor.localTransactionMap[ctx.ConnectionID]
-	if !ok {
-		resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(executor.dataSources[0].Master.Name)
-		r, err = resourcePool.Get(ctx)
-		defer func() {
-			resourcePool.Put(r)
-		}()
-		if err != nil {
+	var (
+		executable proto.Executable
+		result     proto.Result
+		warn       uint16
+		err        error
+	)
+
+	if tx, ok := executor.getTx(ctx); ok {
+		executable = tx
+	} else {
+		var rt runtime.Runtime
+		if rt, err = runtime.Load(ctx.Schema); err != nil {
 			return nil, 0, err
 		}
+		executable = rt
 	}
 
-	switch executor.ExecuteMode() {
-	case proto.ReadWriteSplitting:
-		switch ctx.Stmt.StmtNode.(type) {
-		case *ast.SelectStmt:
-			return executor.slaveComStmtExecute(ctx)
-		}
+	switch ctx.Stmt.StmtNode.(type) {
+	case *ast.SelectStmt:
+	default:
+		ctx.Context = rcontext.WithDirect(ctx.Context)
 	}
 
-	backendConn := r.(*mysql.BackendConnection)
 	query := ctx.Stmt.StmtNode.Text()
-	log.Infof(query)
+	log.Debugf(query)
 
 	executor.doPreFilter(ctx)
-	result, warn, err := backendConn.PrepareQuery(query, ctx.Data)
+	result, warn, err = executable.Execute(ctx)
 	executor.doPostFilter(ctx, result)
 	return result, warn, err
 }
 
 func (executor *RedirectExecutor) ConnectionClose(ctx *proto.Context) {
-	resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(executor.dataSources[0].Master.Name)
-	r, ok := executor.localTransactionMap[ctx.ConnectionID]
-	if ok {
-		defer func() {
-			resourcePool.Put(r)
-		}()
-		backendConn := r.(*mysql.BackendConnection)
-		_, _, err := backendConn.ExecuteWithWarningCount("rollback", true)
-		if err != nil {
-			log.Error(err)
-		}
+	tx, ok := executor.removeTx(ctx)
+	if !ok {
+		return
 	}
+	if _, _, err := tx.Rollback(ctx); err != nil {
+		log.Errorf("failed to rollback tx: %s", err)
+	}
+
+	//resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(executor.dataSources[0].Master.Name)
+	//r, ok := executor.localTransactionMap[ctx.ConnectionID]
+	//if ok {
+	//	defer func() {
+	//		resourcePool.Put(r)
+	//	}()
+	//	backendConn := r.(*mysql.BackendConnection)
+	//	_, _, err := backendConn.ExecuteWithWarningCount("rollback", true)
+	//	if err != nil {
+	//		log.Error(err)
+	//	}
+	//}
+}
+
+func (executor *RedirectExecutor) putTx(ctx *proto.Context, tx proto.Tx) {
+	executor.localTransactionMap.Store(ctx.ConnectionID, tx)
+}
+
+func (executor *RedirectExecutor) removeTx(ctx *proto.Context) (proto.Tx, bool) {
+	exist, ok := executor.localTransactionMap.LoadAndDelete(ctx.ConnectionID)
+	if !ok {
+		return nil, false
+	}
+	return exist.(proto.Tx), true
+}
+
+func (executor *RedirectExecutor) getTx(ctx *proto.Context) (proto.Tx, bool) {
+	exist, ok := executor.localTransactionMap.Load(ctx.ConnectionID)
+	if !ok {
+		return nil, false
+	}
+	return exist.(proto.Tx), true
 }
 
 func (executor *RedirectExecutor) doPreFilter(ctx *proto.Context) {
@@ -297,34 +296,4 @@ func (executor *RedirectExecutor) doPostFilter(ctx *proto.Context, result proto.
 			filter.PostHandle(ctx, result)
 		}(ctx)
 	}
-}
-
-func (executor *RedirectExecutor) slaveComQueryExecute(ctx *proto.Context, query string) (proto.Result, uint16, error) {
-	var (
-		rt     runtime.Runtime
-		result proto.Result
-		warn   uint16
-		err    error
-	)
-	executor.doPreFilter(ctx)
-	if rt, err = runtime.Load(ctx.Schema); err == nil {
-		result, warn, err = rt.Execute(ctx)
-	}
-	executor.doPostFilter(ctx, result)
-	return result, warn, err
-}
-
-func (executor *RedirectExecutor) slaveComStmtExecute(ctx *proto.Context) (proto.Result, uint16, error) {
-	var (
-		rt     runtime.Runtime
-		result proto.Result
-		warn   uint16
-		err    error
-	)
-	executor.doPreFilter(ctx)
-	if rt, err = runtime.Load(ctx.Schema); err == nil {
-		result, warn, err = rt.Execute(ctx)
-	}
-	executor.doPostFilter(ctx, result)
-	return result, warn, err
 }
