@@ -1,4 +1,4 @@
-module github.com/dubbogo/arana
+module github.com/arana-db/arana
 
 go 1.16
 

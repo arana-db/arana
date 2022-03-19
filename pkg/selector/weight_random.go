@@ -24,7 +24,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/util/log"
+	"github.com/arana-db/arana/pkg/util/log"
 )
 
 // DefaultWeight .

@@ -28,7 +28,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
 func TestEval(t *testing.T) {

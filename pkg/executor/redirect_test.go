@@ -28,8 +28,8 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/config"
-	"github.com/dubbogo/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/config"
+	"github.com/arana-db/arana/pkg/proto"
 )
 
 func TestNewRedirectExecutorForSingleDB(t *testing.T) {

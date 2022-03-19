@@ -32,11 +32,11 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/proto"
-	"github.com/dubbogo/arana/pkg/proto/rule"
-	rcontext "github.com/dubbogo/arana/pkg/runtime/context"
-	"github.com/dubbogo/arana/pkg/util/log"
-	"github.com/dubbogo/arana/pkg/util/rand2"
+	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/proto/rule"
+	rcontext "github.com/arana-db/arana/pkg/runtime/context"
+	"github.com/arana-db/arana/pkg/util/log"
+	"github.com/arana-db/arana/pkg/util/rand2"
 )
 
 var _namespaces sync.Map

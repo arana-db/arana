@@ -28,8 +28,8 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/runtime/ast"
-	"github.com/dubbogo/arana/pkg/runtime/misc"
+	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/runtime/misc"
 )
 
 func generateSelect(table string, stmt *ast.SelectStatement, sb *strings.Builder, args *[]int) error {

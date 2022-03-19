@@ -29,14 +29,14 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/config"
-	"github.com/dubbogo/arana/pkg/mysql"
-	"github.com/dubbogo/arana/pkg/proto"
-	"github.com/dubbogo/arana/pkg/resource"
-	"github.com/dubbogo/arana/pkg/runtime"
-	"github.com/dubbogo/arana/pkg/selector"
-	"github.com/dubbogo/arana/pkg/util/log"
-	"github.com/dubbogo/arana/third_party/pools"
+	"github.com/arana-db/arana/pkg/config"
+	"github.com/arana-db/arana/pkg/mysql"
+	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/resource"
+	"github.com/arana-db/arana/pkg/runtime"
+	"github.com/arana-db/arana/pkg/selector"
+	"github.com/arana-db/arana/pkg/util/log"
+	"github.com/arana-db/arana/third_party/pools"
 )
 
 type RedirectExecutor struct {

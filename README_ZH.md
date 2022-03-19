@@ -1,6 +1,6 @@
 # arana
-[![LICENSE](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/dubbogo/arana/blob/master/LICENSE)
-[![codecov](https://codecov.io/gh/dubbogo/arana/branch/master/graph/badge.svg)](https://codecov.io/gh/dubbogo/arana)
+[![LICENSE](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/arana-db/arana/blob/master/LICENSE)
+[![codecov](https://codecov.io/gh/arana-db/arana/branch/master/graph/badge.svg)](https://codecov.io/gh/arana-db/arana)
 
 ![](./docs/pics/arana-logo.png)
 
@@ -44,4 +44,4 @@ arana start -c ${configFilePath}
 ## 贡献
 
 ## 开源协议
-Arana software is licenced under the Apache License Version 2.0. See the [LICENSE](https://github.com/dubbogo/arana/blob/master/LICENSE) file for details.
+Arana software is licenced under the Apache License Version 2.0. See the [LICENSE](https://github.com/arana-db/arana/blob/master/LICENSE) file for details.

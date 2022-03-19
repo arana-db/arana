@@ -34,13 +34,13 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/mysql"
-	"github.com/dubbogo/arana/pkg/proto"
-	"github.com/dubbogo/arana/pkg/proto/rule"
-	rcontext "github.com/dubbogo/arana/pkg/runtime/context"
-	"github.com/dubbogo/arana/pkg/runtime/namespace"
-	"github.com/dubbogo/arana/pkg/runtime/optimize"
-	"github.com/dubbogo/arana/third_party/pools"
+	"github.com/arana-db/arana/pkg/mysql"
+	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/proto/rule"
+	rcontext "github.com/arana-db/arana/pkg/runtime/context"
+	"github.com/arana-db/arana/pkg/runtime/namespace"
+	"github.com/arana-db/arana/pkg/runtime/optimize"
+	"github.com/arana-db/arana/third_party/pools"
 )
 
 var (

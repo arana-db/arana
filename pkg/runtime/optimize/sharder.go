@@ -29,13 +29,13 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/proto/rule"
-	"github.com/dubbogo/arana/pkg/runtime/ast"
-	"github.com/dubbogo/arana/pkg/runtime/cmp"
-	"github.com/dubbogo/arana/pkg/runtime/function"
-	"github.com/dubbogo/arana/pkg/runtime/logical"
-	"github.com/dubbogo/arana/pkg/runtime/misc"
-	rrule "github.com/dubbogo/arana/pkg/runtime/rule"
+	"github.com/arana-db/arana/pkg/proto/rule"
+	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/runtime/cmp"
+	"github.com/arana-db/arana/pkg/runtime/function"
+	"github.com/arana-db/arana/pkg/runtime/logical"
+	"github.com/arana-db/arana/pkg/runtime/misc"
+	rrule "github.com/arana-db/arana/pkg/runtime/rule"
 )
 
 var (

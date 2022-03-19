@@ -51,8 +51,8 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/third_party/sync2"
-	"github.com/dubbogo/arana/third_party/timer"
+	"github.com/arana-db/arana/third_party/sync2"
+	"github.com/arana-db/arana/third_party/timer"
 )
 
 var (
