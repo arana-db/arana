@@ -137,18 +137,31 @@ func (ns *Namespace) DB(ctx context.Context, group string) proto.DB {
 		return nil
 	}
 
-	if rcontext.IsMaster(ctx) {
-		// TODO: select master
-		log.Warn("todo: select master")
-	} else if rcontext.IsSlave(ctx) {
-		// TODO: select slave
-		log.Warn("todo: select slave")
-	} else {
-		// TODO: select by weight
-		log.Warn("todo: select by weight")
+	var max int32 = -999
+	target := -1
+	// select by weight
+	if rcontext.IsRead(ctx) {
+		for i, v := range exist {
+			weight := v.Weight().R
+			if weight > max && weight > 0 {
+				target = i
+				max = weight
+			}
+		}
+	} else if rcontext.IsWrite(ctx) {
+		for i, v := range exist {
+			weight := v.Weight().W
+			if weight > max && weight > 0 {
+				target = i
+				max = weight
+			}
+		}
+	}
+	if target == -1 {
+		target = rand2.Intn(len(exist))
 	}
 
-	return exist[rand2.Intn(len(exist))]
+	return exist[target]
 }
 
 // Optimizer returns the optimizer.
