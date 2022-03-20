@@ -25,7 +25,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/parser/ast"
+	"github.com/arana-db/parser/ast"
 
 	"github.com/pkg/errors"
 )

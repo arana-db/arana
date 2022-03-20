@@ -6,7 +6,7 @@ package testdata
 
 import (
 	context "context"
-	"github.com/dubbogo/parser/ast"
+	"github.com/arana-db/parser/ast"
 	reflect "reflect"
 	"time"
 )

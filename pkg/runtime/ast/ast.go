@@ -25,10 +25,10 @@ import (
 )
 
 import (
-	"github.com/dubbogo/parser"
-	"github.com/dubbogo/parser/ast"
-	"github.com/dubbogo/parser/opcode"
-	"github.com/dubbogo/parser/test_driver"
+	"github.com/arana-db/parser"
+	"github.com/arana-db/parser/ast"
+	"github.com/arana-db/parser/opcode"
+	"github.com/arana-db/parser/test_driver"
 
 	"github.com/pkg/errors"
 )

@@ -20,7 +20,7 @@
 package proto
 
 import (
-	"github.com/dubbogo/parser/ast"
+	"github.com/arana-db/parser/ast"
 )
 
 import (
