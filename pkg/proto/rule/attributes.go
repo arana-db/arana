@@ -70,7 +70,7 @@ func (a *attributes) setAttributeUint32(key byte, value uint32) {
 }
 
 func (a *attributes) attributeUint32(key byte) (uint32, bool) {
-	exist, ok := a.inner[key]
+	exist, ok := a.attribute(key)
 	if !ok {
 		return 0, false
 	}
@@ -84,7 +84,7 @@ func (a *attributes) setAttributeUint64(key byte, value uint64) {
 }
 
 func (a *attributes) attributeUint64(key byte) (uint64, bool) {
-	exist, ok := a.inner[key]
+	exist, ok := a.attribute(key)
 	if !ok {
 		return 0, false
 	}

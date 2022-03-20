@@ -28,14 +28,21 @@ import (
 
 var _ TenantManager = (*simpleTenantManager)(nil)
 
+// TenantManager represents the manager of tenants.
 type TenantManager interface {
+	// GetUser returns user by tenant and username.
 	GetUser(tenant string, username string) (*config.User, bool)
+	// GetClusters returns cluster names.
 	GetClusters(tenant string) []string
+	// GetTenantOfCluster returns the tenant of cluster.
 	GetTenantOfCluster(cluster string) (string, bool)
-
+	// PutUser puts a user into tenant.
 	PutUser(tenant string, user *config.User)
+	// RemoveUser removes a user from tenant.
 	RemoveUser(tenant string, username string)
+	// PutCluster puts a cluster into tenant.
 	PutCluster(tenant string, cluster string)
+	// RemoveCluster removes a cluster from tenant.
 	RemoveCluster(tenant string, cluster string)
 }
 
@@ -144,11 +151,15 @@ var (
 	_defaultTenantManagerOnce sync.Once
 )
 
+func newSimpleTenantManager() *simpleTenantManager {
+	return &simpleTenantManager{
+		tenants: make(map[string]*tenantItem),
+	}
+}
+
 func DefaultTenantManager() TenantManager {
 	_defaultTenantManagerOnce.Do(func() {
-		_defaultTenantManager = &simpleTenantManager{
-			tenants: make(map[string]*tenantItem),
-		}
+		_defaultTenantManager = newSimpleTenantManager()
 	})
 	return _defaultTenantManager
 }

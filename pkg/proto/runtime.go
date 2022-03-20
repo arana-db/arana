@@ -104,10 +104,14 @@ type (
 		Execute(ctx *Context) (result Result, warn uint16, err error)
 	}
 
+	// Tx represents transaction.
 	Tx interface {
 		Executable
+		// ID returns the unique transaction id.
 		ID() int64
+		// Commit commits current transaction.
 		Commit(ctx context.Context) (Result, uint16, error)
+		// Rollback rollbacks current transaction.
 		Rollback(ctx context.Context) (Result, uint16, error)
 	}
 )
