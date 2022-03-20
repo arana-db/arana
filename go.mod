@@ -3,7 +3,7 @@ module github.com/arana-db/arana
 go 1.16
 
 require (
-	github.com/arana-db/parser v0.1.0
+	github.com/arana-db/parser v0.1.1
 	github.com/cespare/xxhash/v2 v2.1.2
 	github.com/dop251/goja v0.0.0-20220102113305-2298ace6d09d
 	github.com/dubbogo/gost v1.11.23-0.20220113102152-a2ef9b809a45
