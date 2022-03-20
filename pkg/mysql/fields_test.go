@@ -28,7 +28,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/constants/mysql"
+	"github.com/arana-db/arana/pkg/constants/mysql"
 )
 
 func TestTableName(t *testing.T) {

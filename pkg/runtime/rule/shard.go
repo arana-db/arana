@@ -33,7 +33,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/proto/rule"
+	"github.com/arana-db/arana/pkg/proto/rule"
 )
 
 const (

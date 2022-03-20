@@ -34,15 +34,15 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/config"
-	"github.com/dubbogo/arana/pkg/constants"
-	"github.com/dubbogo/arana/pkg/executor"
-	"github.com/dubbogo/arana/pkg/filters"
-	"github.com/dubbogo/arana/pkg/mysql"
-	"github.com/dubbogo/arana/pkg/proto"
-	"github.com/dubbogo/arana/pkg/resource"
-	"github.com/dubbogo/arana/pkg/server"
-	"github.com/dubbogo/arana/third_party/pools"
+	"github.com/arana-db/arana/pkg/config"
+	"github.com/arana-db/arana/pkg/constants"
+	"github.com/arana-db/arana/pkg/executor"
+	"github.com/arana-db/arana/pkg/filters"
+	"github.com/arana-db/arana/pkg/mysql"
+	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/resource"
+	"github.com/arana-db/arana/pkg/server"
+	"github.com/arana-db/arana/third_party/pools"
 )
 
 var (

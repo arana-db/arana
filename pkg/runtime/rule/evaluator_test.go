@@ -29,8 +29,8 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/proto/rule"
-	"github.com/dubbogo/arana/pkg/runtime/cmp"
+	"github.com/arana-db/arana/pkg/proto/rule"
+	"github.com/arana-db/arana/pkg/runtime/cmp"
 )
 
 const (

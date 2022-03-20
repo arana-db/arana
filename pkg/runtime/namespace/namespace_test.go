@@ -32,9 +32,9 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/proto"
 	rcontext "github.com/dubbogo/arana/pkg/runtime/context"
-	"github.com/dubbogo/arana/testdata"
+	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/testdata"
 )
 
 func getGroup(i int) string {

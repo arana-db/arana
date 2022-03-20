@@ -19,9 +19,9 @@
 package namespace
 
 import (
-	"github.com/dubbogo/arana/pkg/proto"
-	"github.com/dubbogo/arana/pkg/proto/rule"
-	"github.com/dubbogo/arana/pkg/util/log"
+	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/proto/rule"
+	"github.com/arana-db/arana/pkg/util/log"
 )
 
 // UpdateWeight returns a command to update the weight of DB.

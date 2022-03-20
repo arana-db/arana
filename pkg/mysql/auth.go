@@ -32,9 +32,9 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/constants/mysql"
-	err2 "github.com/dubbogo/arana/pkg/mysql/errors"
-	"github.com/dubbogo/arana/pkg/util/log"
+	"github.com/arana-db/arana/pkg/constants/mysql"
+	err2 "github.com/arana-db/arana/pkg/mysql/errors"
+	"github.com/arana-db/arana/pkg/util/log"
 )
 
 // server pub keys registry

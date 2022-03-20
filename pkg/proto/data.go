@@ -20,11 +20,11 @@
 package proto
 
 import (
-	"github.com/dubbogo/parser/ast"
+	"github.com/arana-db/parser/ast"
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/constants/mysql"
+	"github.com/arana-db/arana/pkg/constants/mysql"
 )
 
 type (

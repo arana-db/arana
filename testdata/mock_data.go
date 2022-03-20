@@ -5,7 +5,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/proto"
 
 	"github.com/golang/mock/gomock"
 )

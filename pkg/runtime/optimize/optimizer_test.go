@@ -24,7 +24,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/parser"
+	"github.com/arana-db/parser"
 
 	"github.com/golang/mock/gomock"
 
@@ -32,9 +32,9 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/proto"
-	rcontext "github.com/dubbogo/arana/pkg/runtime/context"
-	"github.com/dubbogo/arana/testdata"
+	"github.com/arana-db/arana/pkg/proto"
+	rcontext "github.com/arana-db/arana/pkg/runtime/context"
+	"github.com/arana-db/arana/testdata"
 )
 
 func TestOptimizer_OptimizeSelect(t *testing.T) {

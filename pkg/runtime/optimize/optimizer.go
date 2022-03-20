@@ -25,18 +25,18 @@ import (
 )
 
 import (
-	"github.com/dubbogo/parser/ast"
+	"github.com/arana-db/parser/ast"
 
 	"github.com/pkg/errors"
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/proto"
-	"github.com/dubbogo/arana/pkg/proto/rule"
-	rast "github.com/dubbogo/arana/pkg/runtime/ast"
-	rcontext "github.com/dubbogo/arana/pkg/runtime/context"
-	"github.com/dubbogo/arana/pkg/runtime/plan"
-	"github.com/dubbogo/arana/pkg/util/log"
+	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/proto/rule"
+	rast "github.com/arana-db/arana/pkg/runtime/ast"
+	rcontext "github.com/arana-db/arana/pkg/runtime/context"
+	"github.com/arana-db/arana/pkg/runtime/plan"
+	"github.com/arana-db/arana/pkg/util/log"
 )
 
 var _ proto.Optimizer = (*optimizer)(nil)

@@ -28,8 +28,8 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/proto"
-	"github.com/dubbogo/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
 var _ proto.Plan = (*SimpleQueryPlan)(nil)
