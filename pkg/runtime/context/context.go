@@ -28,9 +28,7 @@ import (
 )
 
 const (
-	_flagMaster cFlag = 1 << iota
-	_flagSlave
-	_flagRead
+	_flagRead cFlag = 1 << iota
 	_flagWrite
 )
 
@@ -46,16 +44,6 @@ type cFlag uint8
 // WithSQL binds the original sql.
 func WithSQL(ctx context.Context, sql string) context.Context {
 	return context.WithValue(ctx, keySql{}, sql)
-}
-
-// WithMaster uses master datasource.
-func WithMaster(ctx context.Context) context.Context {
-	return context.WithValue(ctx, keyFlag{}, _flagMaster|getFlag(ctx))
-}
-
-// WithSlave uses slave datasource.
-func WithSlave(ctx context.Context) context.Context {
-	return context.WithValue(ctx, keyFlag{}, _flagSlave|getFlag(ctx))
 }
 
 // WithRule binds a rule.
@@ -94,16 +82,6 @@ func Rule(ctx context.Context) *rule.Rule {
 		return nil
 	}
 	return ru
-}
-
-// IsMaster returns true if force using master.
-func IsMaster(ctx context.Context) bool {
-	return hasFlag(ctx, _flagMaster)
-}
-
-// IsSlave returns true if force using master.
-func IsSlave(ctx context.Context) bool {
-	return hasFlag(ctx, _flagSlave)
 }
 
 // IsRead returns true if this is a read operation
