@@ -30,16 +30,29 @@ import (
 const (
 	_flagMaster cFlag = 1 << iota
 	_flagSlave
+	_flagDirect
 )
 
 type (
-	keyFlag     struct{}
-	keyRule     struct{}
-	keySequence struct{}
-	keySql      struct{}
+	keyFlag      struct{}
+	keyRule      struct{}
+	keySequence  struct{}
+	keySql       struct{}
+	keyNodeLabel struct{}
 )
 
 type cFlag uint8
+
+// WithNodeLabel sets the database node label, it will be used for node select.
+// For Example, use `WithNodeLabel(ctx, "zone:shanghai")` if you want to choose nodes in Shanghai DC.
+func WithNodeLabel(ctx context.Context, label string) context.Context {
+	return context.WithValue(ctx, keyNodeLabel{}, label)
+}
+
+// WithDirect execute sql directly.
+func WithDirect(ctx context.Context) context.Context {
+	return context.WithValue(ctx, keyFlag{}, _flagDirect|getFlag(ctx))
+}
 
 // WithSQL binds the original sql.
 func WithSQL(ctx context.Context, sql string) context.Context {
@@ -94,10 +107,23 @@ func IsSlave(ctx context.Context) bool {
 	return hasFlag(ctx, _flagSlave)
 }
 
+// IsDirect returns true if execute directly.
+func IsDirect(ctx context.Context) bool {
+	return hasFlag(ctx, _flagDirect)
+}
+
 // SQL returns the original sql string.
 func SQL(ctx context.Context) string {
 	if sql, ok := ctx.Value(keySql{}).(string); ok {
 		return sql
+	}
+	return ""
+}
+
+// NodeLabel returns the label of node.
+func NodeLabel(ctx context.Context) string {
+	if label, ok := ctx.Value(keyNodeLabel{}).(string); ok {
+		return label
 	}
 	return ""
 }

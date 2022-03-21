@@ -49,10 +49,24 @@ func (d DirectShardComputer) Compute(value interface{}) (int, error) {
 	return d(value)
 }
 
+const (
+	attrAllowFullScan byte = 0x01
+)
+
 // VTable represents a virtual/logical table.
 type VTable struct {
+	attributes
 	topology *Topology
 	shards   map[string][2]*ShardMetadata // column -> [db shard metadata,table shard metadata]
+}
+
+func (vt *VTable) SetAllowFullScan(allow bool) {
+	vt.setAttributeBool(attrAllowFullScan, allow)
+}
+
+func (vt *VTable) AllowFullScan() bool {
+	ret, _ := vt.attributeBool(attrAllowFullScan)
+	return ret
 }
 
 func (vt *VTable) GetShardKeys() []string {

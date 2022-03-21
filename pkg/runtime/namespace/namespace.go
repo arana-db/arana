@@ -128,6 +128,14 @@ func (ns *Namespace) DBGroups() []string {
 	return groups
 }
 
+func (ns *Namespace) DB0(ctx context.Context) proto.DB {
+	groups := ns.DBGroups()
+	if len(groups) < 1 {
+		return nil
+	}
+	return ns.DB(ctx, groups[0])
+}
+
 // DB returns a DB, returns nil if nothing selected.
 func (ns *Namespace) DB(ctx context.Context, group string) proto.DB {
 	// use weight manager to select datasource
@@ -139,13 +147,13 @@ func (ns *Namespace) DB(ctx context.Context, group string) proto.DB {
 
 	if rcontext.IsMaster(ctx) {
 		// TODO: select master
-		log.Warn("todo: select master")
+		_ = "todo: select master"
 	} else if rcontext.IsSlave(ctx) {
 		// TODO: select slave
-		log.Warn("todo: select slave")
+		_ = "todo: select slave"
 	} else {
 		// TODO: select by weight
-		log.Warn("todo: select by weight")
+		_ = "todo: select by weight"
 	}
 
 	return exist[rand2.Intn(len(exist))]
