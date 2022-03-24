@@ -87,6 +87,9 @@ type Conn struct {
 	// Schema is the current database name.
 	Schema string
 
+	// Tenant is the current tenant login.
+	Tenant string
+
 	// ConnectionID is set:
 	// - at Connect() time for clients, with the value returned by
 	// the server.
