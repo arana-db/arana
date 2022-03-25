@@ -55,6 +55,7 @@ const initClientConnStatus = mysql.ServerStatusAutocommit
 type handshakeResult struct {
 	connectionID uint32
 	schema       string
+	tenant       string
 	username     string
 	authMethod   string
 	authResponse []byte
@@ -251,6 +252,7 @@ func (l *Listener) handshake(c *Conn) error {
 	}
 
 	c.Schema = handshake.schema
+	c.Tenant = handshake.tenant
 
 	return nil
 }
@@ -497,10 +499,14 @@ func (l *Listener) ValidateHash(handshake *handshakeResult) error {
 	}
 
 	computedAuthResponse := scramblePassword(handshake.salt, user.Password)
-	if bytes.Equal(handshake.authResponse, computedAuthResponse) {
-		return nil
+	if !bytes.Equal(handshake.authResponse, computedAuthResponse) {
+		return errors.NewSQLError(mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied for user '%v'", handshake.username)
 	}
-	return errors.NewSQLError(mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied for user '%v'", handshake.username)
+
+	// bind tenant
+	handshake.tenant = tenant
+
+	return nil
 }
 
 func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
@@ -511,8 +517,25 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 		c.recycleReadPacket()
 		return err2.New("ComQuit")
 	case mysql.ComInitDB:
-		db := string(ctx.Data)
+		db := string(ctx.Data[1:])
 		c.recycleReadPacket()
+
+		var allow bool
+		for _, it := range security.DefaultTenantManager().GetClusters(c.Tenant) {
+			if db == it {
+				allow = true
+				break
+			}
+		}
+
+		if !allow {
+			if err := c.writeErrorPacketFromError(errors.NewSQLError(mysql.ERBadDb, "", "Unknown database '%s'", db)); err != nil {
+				log.Errorf("failed to write ComInitDB error to %s: %v", c, err)
+				return err
+			}
+			return nil
+		}
+
 		c.Schema = db
 		err := l.executor.ExecuteUseDB(ctx)
 		if err != nil {
