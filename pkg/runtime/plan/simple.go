@@ -74,13 +74,37 @@ func (s *SimpleQueryPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 	return res, nil
 }
 
-func (s *SimpleQueryPlan) generate(sb *strings.Builder, args *[]int) (err error) {
+func (s *SimpleQueryPlan) resetTable(tgt *ast.SelectStatement, table string) error {
+	if len(tgt.From) != 1 {
+		return errors.Errorf("cannot reset table because incorrect length of table: expect=1, actual=%d", len(tgt.From))
+	}
+
+	if ok := tgt.From[0].ResetTableName(table); !ok {
+		return errors.New("cannot reset table name for select statement")
+	}
+
+	return nil
+}
+
+func (s *SimpleQueryPlan) generate(sb *strings.Builder, args *[]int) error {
 	switch len(s.Tables) {
 	case 0:
-		err = generateSelect("", s.Stmt, sb, args)
+		// no table reset
+		if err := s.Stmt.Restore(ast.RestoreDefault, sb, args); err != nil {
+			return errors.WithStack(err)
+		}
 	case 1:
 		// single shard table
-		err = generateSelect(s.Tables[0], s.Stmt, sb, args)
+		var (
+			stmt = *s.Stmt
+			err  error
+		)
+		if err = s.resetTable(&stmt, s.Tables[0]); err != nil {
+			return errors.WithStack(err)
+		}
+		if err = stmt.Restore(ast.RestoreDefault, sb, args); err != nil {
+			return errors.WithStack(err)
+		}
 	default:
 		// multiple shard tables: zip by UNION_ALL
 		//
@@ -93,21 +117,37 @@ func (s *SimpleQueryPlan) generate(sb *strings.Builder, args *[]int) (err error)
 		//     (SELECT * FROM student_0002 WHERE uid IN (1,2,3))
 		//        UNION ALL
 		//     (SELECT * FROM student_0000 WHERE uid IN (1,2,3)
-		sb.WriteByte('(')
-		if err = generateSelect(s.Tables[0], s.Stmt, sb, args); err != nil {
-			return
+
+		var (
+			stmt = new(ast.SelectStatement)
+		)
+		*stmt = *s.Stmt // do copy
+
+		restore := func(table string) error {
+			sb.WriteByte('(')
+			if err := s.resetTable(stmt, table); err != nil {
+				return err
+			}
+			if err := stmt.Restore(ast.RestoreDefault, sb, args); err != nil {
+				return err
+			}
+			sb.WriteByte(')')
+			stmt.From = s.Stmt.From
+			return nil
 		}
-		sb.WriteByte(')')
+
+		if err := restore(s.Tables[0]); err != nil {
+			return errors.WithStack(err)
+		}
 
 		for i := 1; i < len(s.Tables); i++ {
 			sb.WriteString(" UNION ALL ")
 
-			sb.WriteByte('(')
-			if err = generateSelect(s.Tables[i], s.Stmt, sb, args); err != nil {
-				return
+			if err := restore(s.Tables[i]); err != nil {
+				return errors.WithStack(err)
 			}
-			sb.WriteByte(')')
 		}
 	}
-	return
+
+	return nil
 }

@@ -37,6 +37,7 @@ const (
 	PmLike
 	PmAtom
 	PmBetween
+	PmRegexp
 )
 
 var (
@@ -45,13 +46,15 @@ var (
 	_ PredicateNode = (*AtomPredicateNode)(nil)
 	_ PredicateNode = (*InPredicateNode)(nil)
 	_ PredicateNode = (*BetweenPredicateNode)(nil)
+	_ PredicateNode = (*RegexpPredicationNode)(nil)
 )
 
 type PredicateMode uint8
 
 type PredicateNode interface {
-	inTablesChecker
 	Restorer
+	paramsCounter
+	inTablesChecker
 	Mode() PredicateMode
 }
 
@@ -71,26 +74,70 @@ func (l *LikePredicateNode) InTables(tables map[string]struct{}) error {
 	return nil
 }
 
-func (l *LikePredicateNode) Restore(sb *strings.Builder, args *[]int) error {
-	if err := l.Left.Restore(sb, args); err != nil {
-		return errors.Wrapf(err, "failed to restore %T", l)
+func (l *LikePredicateNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	if err := l.Left.Restore(flag, sb, args); err != nil {
+		return errors.WithStack(err)
 	}
 
 	if l.Not {
-		sb.WriteString(" NOT LIKE")
+		sb.WriteString(" NOT LIKE ")
 	} else {
 		sb.WriteString(" LIKE ")
 	}
 
-	if err := l.Right.Restore(sb, args); err != nil {
-		return errors.Wrapf(err, "failed to restore %T", l)
+	if err := l.Right.Restore(flag, sb, args); err != nil {
+		return errors.WithStack(err)
 	}
 
 	return nil
 }
 
+func (l *LikePredicateNode) CntParams() int {
+	return l.Left.CntParams() + l.Right.CntParams()
+}
+
 func (l *LikePredicateNode) Mode() PredicateMode {
 	return PmLike
+}
+
+type RegexpPredicationNode struct {
+	Left  PredicateNode
+	Right PredicateNode
+	Not   bool
+}
+
+func (rp *RegexpPredicationNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	if err := rp.Left.Restore(flag, sb, args); err != nil {
+		return errors.WithStack(err)
+	}
+	if rp.Not {
+		sb.WriteString(" NOT")
+	}
+	sb.WriteString(" REGEXP ")
+
+	if err := rp.Right.Restore(flag, sb, args); err != nil {
+		return errors.WithStack(err)
+	}
+
+	return nil
+}
+
+func (rp *RegexpPredicationNode) CntParams() int {
+	return rp.Left.CntParams() + rp.Right.CntParams()
+}
+
+func (rp *RegexpPredicationNode) InTables(tables map[string]struct{}) error {
+	if err := rp.Left.InTables(tables); err != nil {
+		return err
+	}
+	if err := rp.Right.InTables(tables); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (rp *RegexpPredicationNode) Mode() PredicateMode {
+	return PmRegexp
 }
 
 type BinaryComparisonPredicateNode struct {
@@ -109,35 +156,41 @@ func (b *BinaryComparisonPredicateNode) InTables(tables map[string]struct{}) err
 	return nil
 }
 
-func (b *BinaryComparisonPredicateNode) Restore(sb *strings.Builder, args *[]int) error {
+func (b *BinaryComparisonPredicateNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	var (
-		op = b.Op.String()
+		op    = b.Op.String()
+		left  strings.Builder
+		right strings.Builder
 	)
 
-	// TODO: convert 'xxx=null' to 'xxx is null'
-	// foo = NULL -> foo IS NULL
-	// foo <> NULL / foo != NULL -> foo IS NOT NULL
-	//if strings.EqualFold(left, "NULL") || strings.EqualFold(right, "NULL") {
-	//	switch op {
-	//	case "=":
-	//		op = "IS"
-	//	case "<>", "!=":
-	//		op = "IS NOT"
-	//	}
-	//}
-	if err := b.Left.Restore(sb, args); err != nil {
-		return errors.Wrapf(err, "faile to restore %T", b)
+	if err := b.Left.Restore(flag, &left, args); err != nil {
+		return errors.WithStack(err)
+	}
+	if err := b.Right.Restore(flag, &right, args); err != nil {
+		return errors.WithStack(err)
 	}
 
+	// 特殊处理下NULL
+	if strings.EqualFold(left.String(), "NULL") || strings.EqualFold(right.String(), "NULL") {
+		switch b.Op {
+		case cmp.Ceq:
+			op = "IS"
+		case cmp.Cne:
+			op = "IS NOT"
+		}
+	}
+
+	sb.WriteString(left.String())
 	sb.WriteByte(' ')
 	sb.WriteString(op)
 	sb.WriteByte(' ')
-
-	if err := b.Right.Restore(sb, args); err != nil {
-		return errors.Wrapf(err, "faile to restore %T", b)
-	}
+	sb.WriteString(right.String())
 
 	return nil
+}
+
+func (b *BinaryComparisonPredicateNode) CntParams() int {
+	return b.Left.CntParams() + b.Right.CntParams()
 }
 
 func (b *BinaryComparisonPredicateNode) Mode() PredicateMode {
@@ -146,13 +199,6 @@ func (b *BinaryComparisonPredicateNode) Mode() PredicateMode {
 
 type AtomPredicateNode struct {
 	A ExpressionAtom
-}
-
-func (a *AtomPredicateNode) Restore(sb *strings.Builder, args *[]int) error {
-	if err := a.A.Restore(sb, args); err != nil {
-		return errors.WithStack(err)
-	}
-	return nil
 }
 
 func (a *AtomPredicateNode) InTables(tables map[string]struct{}) error {
@@ -165,6 +211,17 @@ func (a *AtomPredicateNode) Column() (ColumnNameExpressionAtom, bool) {
 		return v, true
 	}
 	return nil, false
+}
+
+func (a *AtomPredicateNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	if err := a.A.Restore(flag, sb, args); err != nil {
+		return errors.WithStack(err)
+	}
+	return nil
+}
+
+func (a *AtomPredicateNode) CntParams() int {
+	return a.A.CntParams()
 }
 
 func (a *AtomPredicateNode) Mode() PredicateMode {
@@ -191,26 +248,30 @@ func (b *BetweenPredicateNode) InTables(tables map[string]struct{}) error {
 	return nil
 }
 
-func (b *BetweenPredicateNode) Restore(sb *strings.Builder, args *[]int) error {
-	if err := b.Key.Restore(sb, args); err != nil {
+func (b *BetweenPredicateNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	if err := b.Key.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
 
 	if b.Not {
-		sb.WriteString(" NOT BETWEEN")
+		sb.WriteString(" NOT BETWEEN ")
 	} else {
 		sb.WriteString(" BETWEEN ")
 	}
 
-	if err := b.Left.Restore(sb, args); err != nil {
+	if err := b.Left.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
 	sb.WriteString(" AND ")
-	if err := b.Right.Restore(sb, args); err != nil {
+	if err := b.Right.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
 
 	return nil
+}
+
+func (b *BetweenPredicateNode) CntParams() int {
+	return b.Key.CntParams() + b.Left.CntParams() + b.Right.CntParams()
 }
 
 func (b *BetweenPredicateNode) Mode() PredicateMode {
@@ -240,23 +301,25 @@ func (ip *InPredicateNode) IsNot() bool {
 	return ip.not
 }
 
-func (ip *InPredicateNode) Restore(sb *strings.Builder, args *[]int) error {
-	if err := ip.P.Restore(sb, args); err != nil {
+func (ip *InPredicateNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	if err := ip.P.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
 
 	if ip.IsNot() {
-		sb.WriteString(" NOT IN (")
+		sb.WriteString(" NOT IN ")
 	} else {
-		sb.WriteString(" IN (")
+		sb.WriteString(" IN ")
 	}
 
-	if err := ip.E[0].Restore(sb, args); err != nil {
+	sb.WriteByte('(')
+
+	if err := ip.E[0].Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
 	for i := 1; i < len(ip.E); i++ {
-		sb.WriteString(", ")
-		if err := ip.E[i].Restore(sb, args); err != nil {
+		sb.WriteByte(',')
+		if err := ip.E[i].Restore(flag, sb, args); err != nil {
 			return errors.WithStack(err)
 		}
 	}
@@ -264,6 +327,14 @@ func (ip *InPredicateNode) Restore(sb *strings.Builder, args *[]int) error {
 	sb.WriteByte(')')
 
 	return nil
+}
+
+func (ip *InPredicateNode) CntParams() (n int) {
+	n += ip.P.CntParams()
+	for _, it := range ip.E {
+		n += it.CntParams()
+	}
+	return
 }
 
 func (ip *InPredicateNode) Mode() PredicateMode {

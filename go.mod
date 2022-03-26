@@ -3,7 +3,7 @@ module github.com/arana-db/arana
 go 1.16
 
 require (
-	github.com/arana-db/parser v0.1.1
+	github.com/arana-db/parser v0.1.3
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/cespare/xxhash/v2 v2.1.2
 	github.com/dop251/goja v0.0.0-20220102113305-2298ace6d09d
@@ -11,6 +11,7 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/golang/mock v1.5.0
+	github.com/hashicorp/golang-lru v0.5.4
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/lestrrat-go/strftime v1.0.5
 	github.com/natefinch/lumberjack v2.0.0+incompatible

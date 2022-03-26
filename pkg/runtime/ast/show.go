@@ -19,6 +19,7 @@
 package ast
 
 import (
+	"database/sql"
 	"strings"
 )
 
@@ -34,16 +35,24 @@ var (
 	_ Statement = (*ShowIndex)(nil)
 )
 
-var (
-	_ Restorer = (*ShowTables)(nil)
-	_ Restorer = (*ShowCreate)(nil)
-	_ Restorer = (*ShowDatabases)(nil)
-	_ Restorer = (*ShowColumns)(nil)
-	_ Restorer = (*ShowIndex)(nil)
-)
-
 type baseShow struct {
-	filter interface{} // 1. string -> like, 2. expr -> where
+	filter interface{} // ExpressionNode or string
+}
+
+func (bs *baseShow) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	switch val := bs.filter.(type) {
+	case string:
+		sb.WriteString(" LIKE ")
+		sb.WriteByte('\'')
+		sb.WriteString(val)
+		sb.WriteByte('\'')
+		return nil
+	case ExpressionNode:
+		sb.WriteString(" WHERE ")
+		return val.Restore(flag, sb, args)
+	default:
+		return nil
+	}
 }
 
 func (bs *baseShow) Like() (string, bool) {
@@ -55,7 +64,11 @@ func (bs *baseShow) Where() (ExpressionNode, bool) {
 	return v, ok
 }
 
-func (bs *baseShow) GetSQLType() SQLType {
+func (bs *baseShow) CntParams() int {
+	return 0
+}
+
+func (bs *baseShow) Mode() SQLType {
 	return Squery
 }
 
@@ -63,9 +76,12 @@ type ShowDatabases struct {
 	*baseShow
 }
 
-func (s ShowDatabases) Restore(sb *strings.Builder, args *[]int) error {
-	//TODO implement me
-	panic("implement me")
+func (s ShowDatabases) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	sb.WriteString("SHOW DATABASES")
+	if err := s.baseShow.Restore(flag, sb, args); err != nil {
+		return errors.WithStack(err)
+	}
+	return nil
 }
 
 func (s ShowDatabases) Validate() error {
@@ -76,9 +92,12 @@ type ShowTables struct {
 	*baseShow
 }
 
-func (s ShowTables) Restore(sb *strings.Builder, args *[]int) error {
-	//TODO implement me
-	panic("implement me")
+func (s ShowTables) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	sb.WriteString("SHOW TABLES")
+	if err := s.baseShow.Restore(flag, sb, args); err != nil {
+		return errors.WithStack(err)
+	}
+	return nil
 }
 
 func (s ShowTables) Validate() error {
@@ -121,16 +140,19 @@ type ShowCreate struct {
 	tgt string
 }
 
-func (s *ShowCreate) Restore(sb *strings.Builder, args *[]int) error {
-	//TODO implement me
-	panic("implement me")
+func (s *ShowCreate) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	sb.WriteString("SHOW CREATE ")
+	sb.WriteString(s.typ.String())
+	sb.WriteByte(' ')
+	WriteID(sb, s.tgt)
+	return nil
 }
 
 func (s *ShowCreate) Validate() error {
 	return nil
 }
 
-func (s *ShowCreate) GetShowCreateType() ShowCreateType {
+func (s *ShowCreate) Type() ShowCreateType {
 	return s.typ
 }
 
@@ -138,34 +160,15 @@ func (s *ShowCreate) Target() string {
 	return s.tgt
 }
 
-func (s *ShowCreate) GetSQLType() SQLType {
+func (s *ShowCreate) CntParams() int {
+	return 0
+}
+
+func (s *ShowCreate) Mode() SQLType {
 	return Squery
 }
 
-const (
-	_ ShowIndexType = iota
-	ShowIndexEnumIndex
-	ShowIndexEnumIndexes
-	ShowIndexEnumKeys
-)
-
-type ShowIndexType uint8
-
-func (s ShowIndexType) String() string {
-	switch s {
-	case ShowIndexEnumIndex:
-		return "INDEX"
-	case ShowIndexEnumIndexes:
-		return "INDEXES"
-	case ShowIndexEnumKeys:
-		return "KEYS"
-	default:
-		return ""
-	}
-}
-
 type ShowIndex struct {
-	typ       ShowIndexType
 	tableName TableName
 	where     ExpressionNode
 }
@@ -174,26 +177,19 @@ func (s *ShowIndex) Validate() error {
 	return nil
 }
 
-func (s *ShowIndex) Restore(sb *strings.Builder, args *[]int) error {
-	sb.WriteString("SHOW")
-	sb.WriteByte(' ')
-	sb.WriteString(s.typ.String())
-	sb.WriteString(" FROM ")
+func (s *ShowIndex) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	sb.WriteString("SHOW INDEXES FROM ")
 
-	sb.WriteString(s.tableName.String())
+	_ = s.tableName.Restore(flag, sb, args)
 
 	if where, ok := s.Where(); ok {
 		sb.WriteString(" WHERE ")
-		if err := where.Restore(sb, args); err != nil {
+		if err := where.Restore(flag, sb, args); err != nil {
 			return errors.WithStack(err)
 		}
 	}
 
 	return nil
-}
-
-func (s *ShowIndex) GetType() ShowIndexType {
-	return s.typ
 }
 
 func (s *ShowIndex) TableName() TableName {
@@ -207,7 +203,14 @@ func (s *ShowIndex) Where() (ExpressionNode, bool) {
 	return nil, false
 }
 
-func (s *ShowIndex) GetSQLType() SQLType {
+func (s *ShowIndex) CntParams() int {
+	if s.where == nil {
+		return 0
+	}
+	return s.where.CntParams()
+}
+
+func (s *ShowIndex) Mode() SQLType {
 	return Squery
 }
 
@@ -215,6 +218,7 @@ type showColumnsFlag uint8
 
 const (
 	scFlagFull showColumnsFlag = 0x01 << iota
+	scFlagExtended
 	scFlagFields
 	scFlagIn
 )
@@ -222,11 +226,48 @@ const (
 type ShowColumns struct {
 	flag      showColumnsFlag
 	tableName TableName
+	like      sql.NullString
 }
 
-func (sh *ShowColumns) Restore(sb *strings.Builder, args *[]int) error {
-	//TODO implement me
-	panic("implement me")
+func (sh *ShowColumns) IsFull() bool {
+	return sh.flag&scFlagFull != 0
+}
+
+func (sh *ShowColumns) IsExtended() bool {
+	return sh.flag&scFlagExtended != 0
+}
+
+func (sh *ShowColumns) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	sb.WriteString("SHOW ")
+
+	if sh.IsExtended() {
+		sb.WriteString("EXTENDED ")
+	}
+	if sh.IsFull() {
+		sb.WriteString("FULL ")
+	}
+
+	sb.WriteString("COLUMNS FROM ")
+	if err := sh.tableName.Restore(flag, sb, args); err != nil {
+		return errors.WithStack(err)
+	}
+
+	if sh.like.Valid {
+		sb.WriteString(" LIKE ")
+
+		sb.WriteByte('\'')
+		sb.WriteString(sh.like.String)
+		sb.WriteByte('\'')
+	}
+
+	return nil
+}
+
+func (sh *ShowColumns) Like() (string, bool) {
+	if sh.like.Valid {
+		return sh.like.String, true
+	}
+	return "", false
 }
 
 func (sh *ShowColumns) Validate() error {
@@ -237,12 +278,20 @@ func (sh *ShowColumns) Table() TableName {
 	return sh.tableName
 }
 
-func (sh *ShowColumns) GetSQLType() SQLType {
+func (sh *ShowColumns) CntParams() int {
+	return 0
+}
+
+func (sh *ShowColumns) Mode() SQLType {
 	return Squery
 }
 
 func (sh *ShowColumns) Full() bool {
 	return sh.flag&scFlagFull != 0
+}
+
+func (sh *ShowColumns) Extended() bool {
+	return sh.flag&scFlagExtended != 0
 }
 
 func (sh *ShowColumns) ColumnsFormat() string {

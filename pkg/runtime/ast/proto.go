@@ -18,6 +18,10 @@
 
 package ast
 
+import (
+	"strings"
+)
+
 const (
 	_        SQLType = iota
 	Squery           // QUERY
@@ -27,35 +31,70 @@ const (
 	Sreplace         // REPLACE
 )
 
+type RestoreFlag uint32
+
+const (
+	RestoreDefault      RestoreFlag = 0
+	RestoreLowerKeyword RestoreFlag = 1 << iota // force use lower-case keyword
+)
+
+type Restorer interface {
+	Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error
+}
+
+var _sqlTypeNames = [...]string{
+	Squery:   "QUERY",
+	Sdelete:  "DELETE",
+	Supdate:  "UPDATE",
+	Sinsert:  "INSERT",
+	Sreplace: "REPLACE",
+}
+
 // SQLType represents the type of SQL.
 type SQLType uint8
 
 func (s SQLType) String() string {
-	switch s {
-	case Squery:
-		return "QUERY"
-	case Sdelete:
-		return "DELETE"
-	case Supdate:
-		return "UPDATE"
-	case Sinsert:
-		return "INSERT"
-	case Sreplace:
-		return "REPLACE"
-	default:
-		return "UNKNOWN"
-	}
+	return _sqlTypeNames[s]
 }
 
 // Statement represents the SQL statement.
 type Statement interface {
+	paramsCounter
+	Restorer
 	// Validate validates the current Statement.
 	Validate() error
-	// GetSQLType returns the SQLType of current Statement.
-	GetSQLType() SQLType
+	// Mode returns the SQLType of current Statement.
+	Mode() SQLType
+}
+
+type paramsCounter interface {
+	// CntParams returns the amount of params.
+	CntParams() int
 }
 
 type inTablesChecker interface {
 	// InTables check whether all columns are in the table list.
 	InTables(tables map[string]struct{}) error
+}
+
+func RestoreToString(flag RestoreFlag, r Restorer) (string, error) {
+	var sb strings.Builder
+	if err := r.Restore(flag, &sb, nil); err != nil {
+		return "", err
+	}
+	return sb.String(), nil
+}
+
+func MustRestoreToString(flag RestoreFlag, r Restorer) string {
+	s, err := RestoreToString(flag, r)
+	if err != nil {
+		panic(err.Error())
+	}
+	return s
+}
+
+type Null struct{}
+
+func (n Null) String() string {
+	return "NULL"
 }

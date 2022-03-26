@@ -31,51 +31,24 @@ var (
 	_ Statement = (*ExplainStatement)(nil)
 )
 
-const (
-	modeDesc describeMode = iota
-	modeDescribe
-	modeExplain
-)
-
-const (
-	modeDescStr     = "DESC"
-	modeDescribeStr = "DESCRIBE"
-	modeExplainStr  = "EXPLAIN"
-)
-
-type describeMode uint8
-
-func (d *describeMode) parse(input string) error {
-	switch strings.ToUpper(input) {
-	case modeDescStr:
-		*d = modeDesc
-	case modeDescribeStr:
-		*d = modeDescribe
-	case modeExplainStr:
-		*d = modeExplain
-	default:
-		return errors.Errorf("invalid describe string %s", input)
-	}
-	return nil
-}
-
-func (d describeMode) String() string {
-	switch d {
-	case modeDesc:
-		return modeDescStr
-	case modeDescribe:
-		return modeDescribeStr
-	case modeExplain:
-		return modeExplainStr
-	default:
-		panic("unreachable")
-	}
-}
-
+// DescribeStatement represents mysql describe statement. see https://dev.mysql.com/doc/refman/8.0/en/describe.html
 type DescribeStatement struct {
-	mode   describeMode
 	table  TableName
 	column string
+}
+
+// Restore implements Restorer.
+func (d *DescribeStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	sb.WriteString("DESC ")
+	if err := d.table.Restore(flag, sb, args); err != nil {
+		return errors.WithStack(err)
+	}
+	if len(d.column) > 0 {
+		sb.WriteByte(' ')
+		WriteID(sb, d.column)
+	}
+
+	return nil
 }
 
 func (d *DescribeStatement) Validate() error {
@@ -86,7 +59,7 @@ func (d *DescribeStatement) CntParams() int {
 	return 0
 }
 
-func (d *DescribeStatement) GetSQLType() SQLType {
+func (d *DescribeStatement) Mode() SQLType {
 	return Squery
 }
 
@@ -101,13 +74,17 @@ func (d *DescribeStatement) Column() (string, bool) {
 	return "", false
 }
 
-func (d *DescribeStatement) Describe() string {
-	return d.mode.String()
+// ExplainStatement represents mysql explain statement. see https://dev.mysql.com/doc/refman/8.0/en/explain.html
+type ExplainStatement struct {
+	tgt Statement
 }
 
-type ExplainStatement struct {
-	mode describeMode
-	tgt  Statement
+func (e *ExplainStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	sb.WriteString("EXPLAIN ")
+	if err := e.tgt.Restore(flag, sb, args); err != nil {
+		return errors.WithStack(err)
+	}
+	return nil
 }
 
 func (e *ExplainStatement) Validate() error {
@@ -118,10 +95,10 @@ func (e *ExplainStatement) Target() Statement {
 	return e.tgt
 }
 
-func (e *ExplainStatement) GetSQLType() SQLType {
-	return Squery
+func (e *ExplainStatement) CntParams() int {
+	return e.tgt.CntParams()
 }
 
-func (e *ExplainStatement) Explain() string {
-	return e.mode.String()
+func (e *ExplainStatement) Mode() SQLType {
+	return Squery
 }
