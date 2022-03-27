@@ -18,6 +18,14 @@
 
 package ast
 
+import (
+	"strings"
+)
+
+import (
+	"github.com/pkg/errors"
+)
+
 const (
 	_ UnionType = iota
 	UnionTypeAll
@@ -25,25 +33,54 @@ const (
 )
 
 var (
-	_ Statement = (*UnionSelectStatement)(nil)
+	_ Statement     = (*UnionSelectStatement)(nil)
+	_ paramsCounter = (*UnionSelectStatement)(nil)
+	_ Restorer      = (*UnionSelectStatement)(nil)
 )
+
+var _unionTypeNames = [...]string{
+	UnionTypeAll:      "ALL",
+	UnionTypeDistinct: "DISTINCT",
+}
 
 type UnionType uint8
 
 func (u UnionType) String() string {
-	switch u {
-	case UnionTypeAll:
-		return "ALL"
-	case UnionTypeDistinct:
-		return "DISTINCT"
-	default:
-		return ""
-	}
+	return _unionTypeNames[u]
 }
 
 type UnionSelectStatement struct {
-	first  *SelectStatement
-	others []*UnionStatementItem
+	first   *SelectStatement
+	others  []*UnionStatementItem
+	orderBy OrderByNode
+}
+
+func (u *UnionSelectStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	if err := u.first.Restore(flag, sb, args); err != nil {
+		return errors.WithStack(err)
+	}
+	for _, it := range u.others {
+		switch it.unionType {
+		case UnionTypeDistinct:
+			sb.WriteString(" UNION ")
+		case UnionTypeAll:
+			sb.WriteString(" UNION ALL ")
+		default:
+			panic("unreachable")
+		}
+		if err := it.ss.Restore(flag, sb, args); err != nil {
+			return errors.WithStack(err)
+		}
+	}
+
+	if u.orderBy != nil {
+		sb.WriteString(" ORDER BY ")
+		if err := u.orderBy.Restore(flag, sb, args); err != nil {
+			return errors.WithStack(err)
+		}
+	}
+
+	return nil
 }
 
 func (u *UnionSelectStatement) Validate() error {
@@ -60,7 +97,22 @@ func (u *UnionSelectStatement) Validate() error {
 	return nil
 }
 
-func (u *UnionSelectStatement) GetSQLType() SQLType {
+func (u *UnionSelectStatement) CntParams() int {
+	var cnt int
+
+	cnt += u.first.CntParams()
+	for _, it := range u.others {
+		cnt += it.ss.CntParams()
+	}
+
+	return cnt
+}
+
+func (u *UnionSelectStatement) OrderBy() OrderByNode {
+	return u.orderBy
+}
+
+func (u *UnionSelectStatement) Mode() SQLType {
 	return Squery
 }
 

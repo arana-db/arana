@@ -25,7 +25,6 @@ import (
 	"regexp"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -341,10 +340,4 @@ func ComputeUnary(op string, input interface{}) (interface{}, error) {
 		}
 	}
 	return input, nil
-}
-
-func Wrap(sb *strings.Builder, wrap byte, origin string) {
-	sb.WriteByte(wrap)
-	sb.WriteString(origin)
-	sb.WriteByte(wrap)
 }

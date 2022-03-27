@@ -164,8 +164,16 @@ func (sh *Sharder) processExpressionAtom(sc *shardCtx, n ast.ExpressionAtom) (lo
 		val, err := sh.getValueFromAtom(sc, a)
 		if err != nil {
 			var lo logical.Logical
-			if lo, err = sh.processExpressionAtom(sc, a.Inner); err != nil {
-				return nil, err
+
+			switch inner := a.Inner.(type) {
+			case ast.ExpressionAtom:
+				if lo, err = sh.processExpressionAtom(sc, inner); err != nil {
+					return nil, err
+				}
+			case *ast.BinaryComparisonPredicateNode:
+				if lo, err = sh.processPredicateExpression(sc, &ast.PredicateExpressionNode{P: inner}); err != nil {
+					return nil, err
+				}
 			}
 
 			if a.IsOperatorNot() {
@@ -257,7 +265,19 @@ func (sh *Sharder) processBetweenPredicate(sc *shardCtx, n *ast.BetweenPredicate
 func (sh *Sharder) getValueFromAtom(sc *shardCtx, atom ast.ExpressionAtom) (interface{}, error) {
 	switch it := atom.(type) {
 	case *ast.UnaryExpressionAtom:
-		v, err := sh.getValueFromAtom(sc, it.Inner)
+		var (
+			v   interface{}
+			err error
+		)
+		switch inner := it.Inner.(type) {
+		case ast.ExpressionAtom:
+			v, err = sh.getValueFromAtom(sc, inner)
+		case *ast.BinaryComparisonPredicateNode:
+			v, err = sh.getValue(sc, inner)
+		default:
+			panic("unreachable")
+		}
+
 		if err != nil {
 			return nil, err
 		}

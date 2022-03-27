@@ -44,15 +44,12 @@ var (
 	_ ExpressionNode = (*NotExpressionNode)(nil)
 )
 
-type Restorer interface {
-	Restore(sb *strings.Builder, args *[]int) error
-}
-
 type ExpressionMode uint8
 
 type ExpressionNode interface {
-	inTablesChecker
 	Restorer
+	paramsCounter
+	inTablesChecker
 	Mode() ExpressionMode
 }
 
@@ -60,19 +57,6 @@ type LogicalExpressionNode struct {
 	Op    logical.Op
 	Left  ExpressionNode
 	Right ExpressionNode
-}
-
-func (l *LogicalExpressionNode) Restore(sb *strings.Builder, args *[]int) (err error) {
-	if err = l.Left.Restore(sb, args); err != nil {
-		return
-	}
-
-	sb.WriteByte(' ')
-	sb.WriteString(l.Op.String())
-	sb.WriteByte(' ')
-
-	err = l.Right.Restore(sb, args)
-	return
 }
 
 func (l *LogicalExpressionNode) InTables(tables map[string]struct{}) error {
@@ -85,6 +69,31 @@ func (l *LogicalExpressionNode) InTables(tables map[string]struct{}) error {
 	return nil
 }
 
+func (l *LogicalExpressionNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	if err := l.Left.Restore(flag, sb, args); err != nil {
+		return errors.WithStack(err)
+	}
+
+	switch l.Op {
+	case logical.Land:
+		sb.WriteString(" AND ")
+	case logical.Lor:
+		sb.WriteString(" OR ")
+	default:
+		panic("unreachable")
+	}
+
+	if err := l.Right.Restore(flag, sb, args); err != nil {
+		return errors.WithStack(err)
+	}
+
+	return nil
+}
+
+func (l *LogicalExpressionNode) CntParams() int {
+	return l.Left.CntParams() + l.Right.CntParams()
+}
+
 func (l *LogicalExpressionNode) Mode() ExpressionMode {
 	return EmLogical
 }
@@ -93,16 +102,20 @@ type NotExpressionNode struct {
 	E ExpressionNode
 }
 
-func (n *NotExpressionNode) Restore(sb *strings.Builder, args *[]int) error {
+func (n *NotExpressionNode) InTables(tables map[string]struct{}) error {
+	return n.E.InTables(tables)
+}
+
+func (n *NotExpressionNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("NOT ")
-	if err := n.E.Restore(sb, args); err != nil {
-		return errors.Wrapf(err, "restore %T failed", n)
+	if err := n.E.Restore(flag, sb, args); err != nil {
+		return errors.WithStack(err)
 	}
 	return nil
 }
 
-func (n *NotExpressionNode) InTables(tables map[string]struct{}) error {
-	return n.E.InTables(tables)
+func (n *NotExpressionNode) CntParams() int {
+	return n.E.CntParams()
 }
 
 func (n *NotExpressionNode) Mode() ExpressionMode {
@@ -117,11 +130,15 @@ func (a *PredicateExpressionNode) InTables(tables map[string]struct{}) error {
 	return a.P.InTables(tables)
 }
 
-func (a *PredicateExpressionNode) Restore(sb *strings.Builder, args *[]int) error {
-	if err := a.P.Restore(sb, args); err != nil {
+func (a *PredicateExpressionNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	if err := a.P.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
 	return nil
+}
+
+func (a *PredicateExpressionNode) CntParams() int {
+	return a.P.CntParams()
 }
 
 func (a *PredicateExpressionNode) Mode() ExpressionMode {
