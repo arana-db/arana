@@ -28,9 +28,11 @@ import (
 )
 
 const (
-	_flagRead cFlag = 1 << iota
-	_flagWrite
+	_flagMaster cFlag = 1 << iota
+	_flagSlave
 	_flagDirect
+	_flagRead
+	_flagWrite
 )
 
 type (
@@ -57,6 +59,16 @@ func WithDirect(ctx context.Context) context.Context {
 // WithSQL binds the original sql.
 func WithSQL(ctx context.Context, sql string) context.Context {
 	return context.WithValue(ctx, keySql{}, sql)
+}
+
+// WithMaster uses master datasource.
+func WithMaster(ctx context.Context) context.Context {
+	return context.WithValue(ctx, keyFlag{}, _flagMaster|getFlag(ctx))
+}
+
+// WithSlave uses slave datasource.
+func WithSlave(ctx context.Context) context.Context {
+	return context.WithValue(ctx, keyFlag{}, _flagSlave|getFlag(ctx))
 }
 
 // WithRule binds a rule.

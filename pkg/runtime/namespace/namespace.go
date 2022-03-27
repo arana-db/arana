@@ -35,8 +35,8 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
+	"github.com/arana-db/arana/pkg/selector"
 	"github.com/arana-db/arana/pkg/util/log"
-	"github.com/arana-db/arana/pkg/util/rand2"
 )
 
 var _namespaces sync.Map
@@ -128,6 +128,14 @@ func (ns *Namespace) DBGroups() []string {
 	return groups
 }
 
+func (ns *Namespace) DB0(ctx context.Context) proto.DB {
+	groups := ns.DBGroups()
+	if len(groups) < 1 {
+		return nil
+	}
+	return ns.DB(ctx, groups[0])
+}
+
 // DB returns a DB, returns nil if nothing selected.
 func (ns *Namespace) DB(ctx context.Context, group string) proto.DB {
 	// use weight manager to select datasource
@@ -137,29 +145,23 @@ func (ns *Namespace) DB(ctx context.Context, group string) proto.DB {
 		return nil
 	}
 	var (
-		max    = int32(-999)
-		target = int(-1)
+		target = 0
+		wrList = make([]int, 0, len(exist))
 	)
+
 	// select by weight
 	if rcontext.IsRead(ctx) {
-		for i, v := range exist {
-			weight := v.Weight().R
-			if weight > max && weight > 0 {
-				target = i
-				max = weight
-			}
+		for _, db := range exist {
+			wrList = append(wrList, int(db.Weight().R))
 		}
+
 	} else if rcontext.IsWrite(ctx) {
-		for i, v := range exist {
-			weight := v.Weight().W
-			if weight > max && weight > 0 {
-				target = i
-				max = weight
-			}
+		for _, db := range exist {
+			wrList = append(wrList, int(db.Weight().W))
 		}
 	}
-	if target == -1 {
-		target = rand2.Intn(len(exist))
+	if len(wrList) != 0 {
+		target = selector.NewWeightRandomSelector(wrList).GetDataSourceNo()
 	}
 
 	return exist[target]
