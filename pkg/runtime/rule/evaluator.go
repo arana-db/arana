@@ -81,6 +81,7 @@ func toRangeIterator(begin, end rule.Range) rule.Range {
 
 	for i := 0; i < len(a); i++ {
 		if misc.Compare(a[i], max) == 1 {
+			merged = append(merged, max)
 			break
 		}
 		merged = append(merged, a[i])

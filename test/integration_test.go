@@ -106,18 +106,47 @@ func TestSimpleSharding(t *testing.T) {
 	assert.NoErrorf(t, err, "connection error: %v", err)
 	defer db.Close()
 
-	// insert into phy table
-	result, err := db.Exec(`INSERT IGNORE INTO student_0031(id,uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?,?)`, time.Now().UnixNano(), 31, 3.14, "fake_name_31", "fake_nickname_31", 1, 2022)
-	assert.NoErrorf(t, err, "insert row error: %v", err)
-	affected, err := result.RowsAffected()
-	assert.NoErrorf(t, err, "insert row error: %v", err)
-	assert.True(t, affected <= 1)
+	const total = 100
 
-	// select from logical table
-	rows, err := db.Query("SELECT * FROM student WHERE uid = ?", 31)
-	assert.NoError(t, err, "should query from sharding table successfully")
-	data, _ := utils.PrintTable(rows)
-	assert.Equal(t, 1, len(data))
+	// insert into logical table
+	for i := 1; i <= total; i++ {
+		result, err := db.Exec(
+			`INSERT IGNORE INTO student(id,uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?,?)`,
+			time.Now().UnixNano(),
+			i,
+			3.14,
+			fmt.Sprintf("fake_name_%d", i),
+			fmt.Sprintf("fake_nickname_%d", i),
+			1,
+			2022,
+		)
+		assert.NoErrorf(t, err, "insert row error: %v", err)
+		affected, err := result.RowsAffected()
+		assert.NoErrorf(t, err, "insert row error: %v", err)
+		assert.True(t, affected <= 1)
+	}
+
+	type tt struct {
+		sql       string
+		args      []interface{}
+		expectLen int
+	}
+
+	for _, it := range []tt{
+		{"SELECT * FROM student WHERE uid = 42 AND 1=2", nil, 0},
+		{"SELECT * FROM student WHERE uid = ?", []interface{}{42}, 1},
+		{"SELECT * FROM student WHERE uid in (?,?,?)", []interface{}{1, 2, 33}, 3},
+		{"SELECT * FROM student where uid between 1 and 10", nil, 10},
+		{"SELECT * FROM student", nil, total},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			// select from logical table
+			rows, err := db.Query(it.sql, it.args...)
+			assert.NoError(t, err, "should query from sharding table successfully")
+			data, _ := utils.PrintTable(rows)
+			assert.Equal(t, it.expectLen, len(data))
+		})
+	}
 }
 
 func TestInsert(t *testing.T) {

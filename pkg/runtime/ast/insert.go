@@ -109,6 +109,14 @@ func (b *baseInsertStatement) Priority() (priority string, ok bool) {
 	return
 }
 
+func (b *baseInsertStatement) SetFlag(flag uint8) {
+	b.flag = flag
+}
+
+func (b *baseInsertStatement) Flag() uint8 {
+	return b.flag
+}
+
 func (b *baseInsertStatement) enableIgnore() {
 	b.flag |= _flagInsertIgnore
 }
@@ -168,6 +176,15 @@ type InsertStatement struct {
 	*baseInsertStatement
 	duplicatedUpdates []*UpdateElement
 	values            [][]ExpressionNode
+}
+
+func NewInsertStatement(table TableName, columns []string) *InsertStatement {
+	return &InsertStatement{
+		baseInsertStatement: &baseInsertStatement{
+			table:   table,
+			columns: columns,
+		},
+	}
 }
 
 func (is *InsertStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -289,8 +306,16 @@ func (is *InsertStatement) Validate() error {
 	return nil
 }
 
+func (is *InsertStatement) SetDuplicatedUpdates(updates []*UpdateElement) {
+	is.duplicatedUpdates = updates
+}
+
 func (is *InsertStatement) DuplicatedUpdates() []*UpdateElement {
 	return is.duplicatedUpdates
+}
+
+func (is *InsertStatement) SetValues(values [][]ExpressionNode) {
+	is.values = values
 }
 
 func (is *InsertStatement) Values() [][]ExpressionNode {

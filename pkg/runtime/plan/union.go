@@ -23,9 +23,14 @@ import (
 )
 
 import (
+	"github.com/pkg/errors"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
+// UnionPlan merges multiple query plan.
 type UnionPlan struct {
 	Plans []proto.Plan
 }
@@ -35,6 +40,40 @@ func (u UnionPlan) Type() proto.PlanType {
 }
 
 func (u UnionPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
-	//TODO lazy union result sets
-	panic("implement me")
+	var results []proto.Result
+	for _, it := range u.Plans {
+		res, err := it.ExecIn(ctx, conn)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+		results = append(results, res)
+	}
+	return compositeResult(results), nil
+}
+
+type compositeResult []proto.Result
+
+func (c compositeResult) GetFields() []proto.Field {
+	for _, it := range c {
+		if ret := it.GetFields(); ret != nil {
+			return ret
+		}
+	}
+	return nil
+}
+
+func (c compositeResult) GetRows() []proto.Row {
+	var rows []proto.Row
+	for _, it := range c {
+		rows = append(rows, it.GetRows()...)
+	}
+	return rows
+}
+
+func (c compositeResult) LastInsertId() (uint64, error) {
+	return 0, nil
+}
+
+func (c compositeResult) RowsAffected() (uint64, error) {
+	return 0, nil
 }

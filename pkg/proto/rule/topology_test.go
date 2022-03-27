@@ -98,6 +98,14 @@ func TestRenderForRenderNotNil(t *testing.T) {
 	assert.True(t, ok)
 }
 
+func TestTopology_Each(t *testing.T) {
+	topology := createTopology()
+	topology.Each(func(dbIdx, tbIdx int) bool {
+		t.Logf("on each: %d,%d\n", dbIdx, tbIdx)
+		return true
+	})
+}
+
 func createTopology() *Topology {
 	result := &Topology{
 		dbRender: func(i int) string {
