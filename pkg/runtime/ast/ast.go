@@ -79,7 +79,7 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 	switch stmt := node.(type) {
 	case *ast.SelectStmt:
 		return cc.convSelectStmt(stmt), nil
-	case *ast.UnionStmt:
+	case *ast.SetOprStmt:
 		return cc.convUnionStmt(stmt), nil
 	case *ast.DeleteStmt:
 		return cc.convDeleteStmt(stmt), nil
@@ -169,20 +169,22 @@ func (cc *convCtx) convColumn(col *ast.ColumnName) ColumnNameExpressionAtom {
 	return ret
 }
 
-func (cc *convCtx) convUnionStmt(stmt *ast.UnionStmt) *UnionSelectStatement {
+func (cc *convCtx) convUnionStmt(stmt *ast.SetOprStmt) *UnionSelectStatement {
 	var ret UnionSelectStatement
 
-	ret.first = cc.convSelectStmt(stmt.SelectList.Selects[0])
+	ret.first = cc.convSelectStmt(stmt.SelectList.Selects[0].(*ast.SelectStmt))
 	for i := 1; i < len(stmt.SelectList.Selects); i++ {
 		var (
-			next = stmt.SelectList.Selects[i]
+			next = stmt.SelectList.Selects[i].(*ast.SelectStmt)
 			item UnionStatementItem
 		)
 		item.ss = cc.convSelectStmt(next)
-		if next.IsAfterUnionDistinct {
-			item.unionType = UnionTypeDistinct
-		} else {
+
+		switch *next.AfterSetOperator {
+		case ast.UnionAll:
 			item.unionType = UnionTypeAll
+		case ast.Union:
+			item.unionType = UnionTypeDistinct
 		}
 		ret.others = append(ret.others, &item)
 	}
@@ -207,11 +209,13 @@ func (cc *convCtx) convSelectStmt(stmt *ast.SelectStmt) *SelectStatement {
 	ret.OrderBy = cc.convOrderBy(stmt.OrderBy)
 	ret.Limit = cc.convLimit(stmt.Limit)
 
-	switch stmt.LockTp {
-	case ast.SelectLockForUpdate:
-		ret.enableForUpdate()
-	case ast.SelectLockInShareMode:
-		ret.enableLockInShareMode()
+	if stmt.LockInfo != nil {
+		switch stmt.LockInfo.LockType {
+		case ast.SelectLockForUpdate:
+			ret.enableForUpdate()
+		case ast.SelectLockForShare:
+			ret.enableLockInShareMode()
+		}
 	}
 
 	return &ret
@@ -455,7 +459,7 @@ func (cc *convCtx) convFrom(from *ast.TableRefsClause) (ret []*TableSourceNode) 
 				cc.convTableName(source, &target)
 			case *ast.SelectStmt:
 				target.source = cc.convSelectStmt(source)
-			case *ast.UnionStmt:
+			case *ast.SetOprStmt:
 				target.source = cc.convUnionStmt(source)
 			default:
 				panic(fmt.Sprintf("unimplement: table source %T!", source))
@@ -700,7 +704,7 @@ func (cc *convCtx) convCastExpr(node *ast.FuncCastExpr) PredicateNode {
 	}
 
 	var cast strings.Builder
-	node.Tp.FormatAsCastType(&cast)
+	node.Tp.FormatAsCastType(&cast, true)
 
 	// WORKAROUND: fix original cast string
 	if strings.EqualFold("binary binary", cast.String()) {

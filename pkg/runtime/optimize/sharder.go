@@ -53,6 +53,7 @@ type Sharder rule.Rule
 // Shard returns shards.
 func (sh *Sharder) Shard(tableName ast.TableName, filter ast.ExpressionNode, args ...interface{}) (shards rule.DatabaseTables, fullScan bool, err error) {
 	if filter == nil {
+		fullScan = true
 		return
 	}
 

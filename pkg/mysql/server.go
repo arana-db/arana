@@ -563,15 +563,19 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 				}
 				return nil
 			}
-			rlt := result.(*Result)
-			if len(rlt.Fields) == 0 {
+			if len(result.GetFields()) == 0 {
 				// A successful callback with no fields means that this was a
 				// DML or other write-only operation.
 				//
 				// We should not send any more packets after this, but make sure
 				// to extract the affected rows and last insert id from the result
 				// struct here since clients expect it.
-				return c.writeOKPacket(rlt.AffectedRows, rlt.InsertId, c.StatusFlags, warn)
+
+				var (
+					affected, _ = result.RowsAffected()
+					insertId, _ = result.LastInsertId()
+				)
+				return c.writeOKPacket(affected, insertId, c.StatusFlags, warn)
 			}
 			err = c.writeFields(l.capabilities, result)
 			if err != nil {
@@ -1204,14 +1208,17 @@ func (c *Conn) writeColumnDefinition(field *Field) error {
 // writeFields writes the fields of a Result. It should be called only
 // if there are valid Columns in the result.
 func (c *Conn) writeFields(capabilities uint32, result proto.Result) error {
+	var (
+		fields = result.GetFields()
+	)
+
 	// Send the number of fields first.
-	rlt := result.(*Result)
-	if err := c.sendColumnCount(uint64(len(rlt.Fields))); err != nil {
+	if err := c.sendColumnCount(uint64(len(fields))); err != nil {
 		return err
 	}
 
 	// Now send each Field.
-	for _, field := range rlt.Fields {
+	for _, field := range fields {
 		fld := field.(*Field)
 		if err := c.writeColumnDefinition(fld); err != nil {
 			return err
@@ -1260,8 +1267,7 @@ func (c *Conn) writeRow(row []*proto.Value) error {
 
 // writeRows sends the rows of a Result.
 func (c *Conn) writeRows(result proto.Result) error {
-	rlt := result.(*Result)
-	for _, row := range rlt.Rows {
+	for _, row := range result.GetRows() {
 		r := row.(*Row)
 		textRow := TextRow{*r}
 		values, err := textRow.Decode()

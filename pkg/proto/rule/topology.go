@@ -66,3 +66,15 @@ func (to *Topology) Render(dbIdx, tblIdx int) (string, string, bool) {
 	}
 	return to.dbRender(dbIdx), to.tbRender(tblIdx), true
 }
+
+// Each enumerates items in current Topology.
+func (to *Topology) Each(onEach func(dbIdx, tbIdx int) (ok bool)) bool {
+	for d, v := range to.idx {
+		for _, t := range v {
+			if !onEach(d, t) {
+				return false
+			}
+		}
+	}
+	return true
+}

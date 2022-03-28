@@ -115,3 +115,41 @@ func TestDatabaseTables_IsConfused(t *testing.T) {
 		})
 	}
 }
+
+func TestDatabaseTables_Largest(t *testing.T) {
+	type tt struct {
+		input               string
+		expectDb, expectTbl string
+	}
+
+	for _, it := range []tt{
+		{"db0:tb0,tb1;db1:tb2,tb3;db2:tb4,tb5", "db2", "tb5"},
+		{"db2:tb0,tb1;db1:tb2,tb3;db0:tb4,tb5", "db0", "tb5"},
+	} {
+		t.Run(it.input, func(t *testing.T) {
+			dt := parseDatabaseTablesFromString(it.input)
+			db, tbl := dt.Largest()
+			assert.Equal(t, it.expectTbl, tbl)
+			assert.Equal(t, it.expectDb, db)
+		})
+	}
+}
+
+func TestDatabaseTables_Smallest(t *testing.T) {
+	type tt struct {
+		input               string
+		expectDb, expectTbl string
+	}
+
+	for _, it := range []tt{
+		{"db0:tb0,tb1;db1:tb2,tb3;db2:tb4,tb5", "db0", "tb0"},
+		{"db2:tb0,tb1;db1:tb2,tb3;db0:tb4,tb5", "db2", "tb0"},
+	} {
+		t.Run(it.input, func(t *testing.T) {
+			dt := parseDatabaseTablesFromString(it.input)
+			db, tbl := dt.Smallest()
+			assert.Equal(t, it.expectTbl, tbl)
+			assert.Equal(t, it.expectDb, db)
+		})
+	}
+}

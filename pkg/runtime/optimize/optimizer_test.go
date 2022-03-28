@@ -20,6 +20,7 @@ package optimize
 
 import (
 	"context"
+	"strings"
 	"testing"
 )
 
@@ -32,6 +33,7 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/testdata"
@@ -64,4 +66,68 @@ func TestOptimizer_OptimizeSelect(t *testing.T) {
 	assert.NoError(t, err)
 
 	_, _ = plan.ExecIn(ctx, conn)
+}
+
+func TestOptimizer_OptimizeInsert(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	conn := testdata.NewMockVConn(ctrl)
+
+	var fakeId uint64
+
+	conn.EXPECT().Exec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, db string, sql string, args ...interface{}) (proto.Result, error) {
+			t.Logf("fake exec: db='%s', sql=\"%s\", args=%v\n", db, sql, args)
+			fakeId++
+
+			return &mysql.Result{
+				AffectedRows: uint64(strings.Count(sql, "?")),
+				InsertId:     fakeId,
+			}, nil
+		}).
+		AnyTimes()
+
+	var (
+		ctx  = context.Background()
+		rule = makeFakeRule(ctrl, 8)
+		opt  optimizer
+	)
+
+	t.Run("sharding", func(t *testing.T) {
+		sql := "insert into student(name,uid,age) values('foo',?,18),('bar',?,19),('qux',?,17)"
+
+		p := parser.New()
+		stmt, _ := p.ParseOneStmt(sql, "", "")
+
+		plan, err := opt.Optimize(rcontext.WithRule(ctx, rule), stmt, 8, 9, 16) // 8,16 -> fake_db_0000, 9 -> fake_db_0001
+		assert.NoError(t, err)
+
+		res, err := plan.ExecIn(ctx, conn)
+		assert.NoError(t, err)
+
+		affected, _ := res.RowsAffected()
+		assert.Equal(t, uint64(3), affected)
+		lastInsertId, _ := res.LastInsertId()
+		assert.Equal(t, fakeId, lastInsertId)
+	})
+
+	t.Run("non-sharding", func(t *testing.T) {
+		sql := "insert into abc set name='foo',uid=?,age=18"
+
+		p := parser.New()
+		stmt, _ := p.ParseOneStmt(sql, "", "")
+
+		plan, err := opt.Optimize(rcontext.WithRule(ctx, rule), stmt, 1)
+		assert.NoError(t, err)
+
+		res, err := plan.ExecIn(ctx, conn)
+		assert.NoError(t, err)
+
+		affected, _ := res.RowsAffected()
+		assert.Equal(t, uint64(1), affected)
+		lastInsertId, _ := res.LastInsertId()
+		assert.Equal(t, fakeId, lastInsertId)
+	})
+
 }
