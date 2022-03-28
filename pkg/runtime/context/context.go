@@ -31,6 +31,8 @@ const (
 	_flagMaster cFlag = 1 << iota
 	_flagSlave
 	_flagDirect
+	_flagRead
+	_flagWrite
 )
 
 type (
@@ -79,6 +81,16 @@ func WithSequencer(ctx context.Context, sequencer proto.Sequencer) context.Conte
 	return context.WithValue(ctx, keySequence{}, sequencer)
 }
 
+// WithWrite marked as write operation
+func WithWrite(ctx context.Context) context.Context {
+	return context.WithValue(ctx, keyFlag{}, _flagWrite|getFlag(ctx))
+}
+
+// WithRead marked as read operation
+func WithRead(ctx context.Context) context.Context {
+	return context.WithValue(ctx, keyFlag{}, _flagRead|getFlag(ctx))
+}
+
 // Sequencer extracts the sequencer.
 func Sequencer(ctx context.Context) proto.Sequencer {
 	s, ok := ctx.Value(keySequence{}).(proto.Sequencer)
@@ -97,14 +109,14 @@ func Rule(ctx context.Context) *rule.Rule {
 	return ru
 }
 
-// IsMaster returns true if force using master.
-func IsMaster(ctx context.Context) bool {
-	return hasFlag(ctx, _flagMaster)
+// IsRead returns true if this is a read operation
+func IsRead(ctx context.Context) bool {
+	return hasFlag(ctx, _flagRead)
 }
 
-// IsSlave returns true if force using master.
-func IsSlave(ctx context.Context) bool {
-	return hasFlag(ctx, _flagSlave)
+// IsWrite returns true if this is a write operation
+func IsWrite(ctx context.Context) bool {
+	return hasFlag(ctx, _flagWrite)
 }
 
 // IsDirect returns true if execute directly.

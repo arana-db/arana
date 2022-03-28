@@ -35,8 +35,8 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
+	"github.com/arana-db/arana/pkg/selector"
 	"github.com/arana-db/arana/pkg/util/log"
-	"github.com/arana-db/arana/pkg/util/rand2"
 )
 
 var _namespaces sync.Map
@@ -144,19 +144,27 @@ func (ns *Namespace) DB(ctx context.Context, group string) proto.DB {
 	if !ok {
 		return nil
 	}
+	var (
+		target = 0
+		wrList = make([]int, 0, len(exist))
+	)
 
-	if rcontext.IsMaster(ctx) {
-		// TODO: select master
-		_ = "todo: select master"
-	} else if rcontext.IsSlave(ctx) {
-		// TODO: select slave
-		_ = "todo: select slave"
-	} else {
-		// TODO: select by weight
-		_ = "todo: select by weight"
+	// select by weight
+	if rcontext.IsRead(ctx) {
+		for _, db := range exist {
+			wrList = append(wrList, int(db.Weight().R))
+		}
+
+	} else if rcontext.IsWrite(ctx) {
+		for _, db := range exist {
+			wrList = append(wrList, int(db.Weight().W))
+		}
+	}
+	if len(wrList) != 0 {
+		target = selector.NewWeightRandomSelector(wrList).GetDataSourceNo()
 	}
 
-	return exist[rand2.Intn(len(exist))]
+	return exist[target]
 }
 
 // Optimizer returns the optimizer.
