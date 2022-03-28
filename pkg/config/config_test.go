@@ -31,10 +31,10 @@ import (
 	"github.com/arana-db/arana/testdata"
 )
 
-var fakeConfigPath = testdata.Path("fake_config.yaml")
+var FakeConfigPath = testdata.Path("fake_config.yaml")
 
 func TestMetadataConf(t *testing.T) {
-	conf, err := LoadV2(fakeConfigPath)
+	conf, err := LoadV2(FakeConfigPath)
 	assert.NoError(t, err)
 	assert.NotNil(t, conf)
 
@@ -47,7 +47,7 @@ func TestMetadataConf(t *testing.T) {
 }
 
 func TestDataSourceClustersConf(t *testing.T) {
-	conf, err := LoadV2(fakeConfigPath)
+	conf, err := LoadV2(FakeConfigPath)
 	assert.NoError(t, err)
 	assert.NotEqual(t, nil, conf)
 
@@ -78,7 +78,7 @@ func TestDataSourceClustersConf(t *testing.T) {
 }
 
 func TestShardingRuleConf(t *testing.T) {
-	conf, err := LoadV2(fakeConfigPath)
+	conf, err := LoadV2(FakeConfigPath)
 	assert.NoError(t, err)
 	assert.NotEqual(t, nil, conf)
 

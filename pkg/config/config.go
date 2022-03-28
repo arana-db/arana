@@ -35,22 +35,6 @@ import (
 )
 
 type (
-	// ProtocolType protocol type enum
-	ProtocolType int32
-)
-
-const (
-	Http ProtocolType = iota
-	Mysql
-)
-
-const (
-	_ DataSourceType = iota
-	DBMysql
-	DBPostgreSql
-)
-
-type (
 	// DataSourceType is the data source type
 	DataSourceType int
 
