@@ -43,6 +43,18 @@ type UpdateStatement struct {
 	Limit      *LimitNode
 }
 
+func (u *UpdateStatement) ResetTable(table string) *UpdateStatement {
+	ret := new(UpdateStatement)
+	*ret = *u
+
+	tableName := make(TableName, len(ret.Table))
+	copy(tableName, ret.Table)
+	tableName[len(tableName)-1] = table
+
+	ret.Table = tableName
+	return ret
+}
+
 func (u *UpdateStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("UPDATE ")
 	if u.IsEnableLowPriority() {
