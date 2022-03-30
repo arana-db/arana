@@ -94,6 +94,7 @@ func (o optimizer) doOptimize(ctx context.Context, stmt rast.Statement, args ...
 		return o.optimizeInsert(ctx, t, args)
 	case *rast.DeleteStatement:
 	case *rast.UpdateStatement:
+		return o.optimizeUpdate(ctx, t, args)
 	}
 
 	//TODO implement all statements
@@ -229,6 +230,66 @@ func (o optimizer) optimizeSelect(ctx context.Context, stmt *rast.SelectStatemen
 	// TODO: order/groupBy/aggregate
 
 	return unionPlan, nil
+}
+
+func (o optimizer) optimizeUpdate(ctx context.Context, stmt *rast.UpdateStatement, args []interface{}) (proto.Plan, error) {
+	var (
+		ru    = rcontext.Rule(ctx)
+		table = stmt.Table
+		vt    *rule.VTable
+		ok    bool
+	)
+
+	// non-sharding update
+	if vt, ok = ru.VTable(table.Suffix()); !ok {
+		ret := plan.NewUpdatePlan(stmt)
+		ret.BindArgs(args)
+		return ret, nil
+	}
+
+	var (
+		shards   rule.DatabaseTables
+		fullScan = true
+		err      error
+	)
+
+	// compute shards
+	if where := stmt.Where; where != nil {
+		sharder := (*Sharder)(ru)
+		if shards, fullScan, err = sharder.Shard(table, where, args...); err != nil {
+			return nil, errors.Wrap(err, "failed to update")
+		}
+	}
+
+	// exit if full-scan is disabled
+	if fullScan && !vt.AllowFullScan() {
+		return nil, errDenyFullScan
+	}
+
+	// must be empty shards (eg: update xxx set ... where 1 = 2 and uid = 1)
+	if shards.IsEmpty() {
+		return plan.AlwaysEmptyExecPlan{}, nil
+	}
+
+	// compute all sharding tables
+	if shards.IsFullScan() {
+		// init shards
+		shards = rule.DatabaseTables{}
+		// compute all tables
+		topology := vt.Topology()
+		topology.Each(func(dbIdx, tbIdx int) bool {
+			if d, t, ok := topology.Render(dbIdx, tbIdx); ok {
+				shards[d] = append(shards[d], t)
+			}
+			return true
+		})
+	}
+
+	ret := plan.NewUpdatePlan(stmt)
+	ret.BindArgs(args)
+	ret.SetShards(shards)
+
+	return ret, nil
 }
 
 func (o optimizer) optimizeInsert(ctx context.Context, stmt *rast.InsertStatement, args []interface{}) (proto.Plan, error) {
