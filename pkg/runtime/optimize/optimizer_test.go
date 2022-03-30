@@ -52,7 +52,7 @@ func TestOptimizer_OptimizeSelect(t *testing.T) {
 		AnyTimes()
 
 	var (
-		sql  = "select * from student where uid in (?,?,?)"
+		sql  = "select id, uid from student where uid in (?,?,?)"
 		ctx  = context.Background()
 		rule = makeFakeRule(ctrl, 8)
 		opt  optimizer
@@ -61,7 +61,7 @@ func TestOptimizer_OptimizeSelect(t *testing.T) {
 	p := parser.New()
 	stmt, _ := p.ParseOneStmt(sql, "", "")
 
-	plan, err := opt.Optimize(rcontext.WithRule(ctx, rule), stmt, 1, 2, 3)
+	plan, err := opt.Optimize(rcontext.WithRule(ctx, rule), conn, stmt, 1, 2, 3)
 	assert.NoError(t, err)
 
 	_, _ = plan.ExecIn(ctx, conn)
@@ -99,7 +99,7 @@ func TestOptimizer_OptimizeInsert(t *testing.T) {
 		p := parser.New()
 		stmt, _ := p.ParseOneStmt(sql, "", "")
 
-		plan, err := opt.Optimize(rcontext.WithRule(ctx, rule), stmt, 8, 9, 16) // 8,16 -> fake_db_0000, 9 -> fake_db_0001
+		plan, err := opt.Optimize(rcontext.WithRule(ctx, rule), conn, stmt, 8, 9, 16) // 8,16 -> fake_db_0000, 9 -> fake_db_0001
 		assert.NoError(t, err)
 
 		res, err := plan.ExecIn(ctx, conn)
@@ -117,7 +117,7 @@ func TestOptimizer_OptimizeInsert(t *testing.T) {
 		p := parser.New()
 		stmt, _ := p.ParseOneStmt(sql, "", "")
 
-		plan, err := opt.Optimize(rcontext.WithRule(ctx, rule), stmt, 1)
+		plan, err := opt.Optimize(rcontext.WithRule(ctx, rule), conn, stmt, 1)
 		assert.NoError(t, err)
 
 		res, err := plan.ExecIn(ctx, conn)

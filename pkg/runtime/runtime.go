@@ -191,7 +191,7 @@ func (tx *compositeTx) Execute(ctx *proto.Context) (res proto.Result, warn uint1
 	c = rcontext.WithRule(c, ru)
 	c = rcontext.WithSQL(c, ctx.GetQuery())
 
-	if plan, err = tx.rt.ns.Optimizer().Optimize(c, ctx.Stmt.StmtNode, args...); err != nil {
+	if plan, err = tx.rt.ns.Optimizer().Optimize(c, tx, ctx.Stmt.StmtNode, args...); err != nil {
 		err = errors.WithStack(err)
 		return
 	}
@@ -533,8 +533,9 @@ func (pi *defaultRuntime) Execute(ctx *proto.Context) (res proto.Result, warn ui
 
 	c = rcontext.WithRule(c, ru)
 	c = rcontext.WithSQL(c, ctx.GetQuery())
+	c = rcontext.WithDBGroup(c, pi.ns.DBGroups()[0])
 
-	if plan, err = pi.ns.Optimizer().Optimize(c, ctx.Stmt.StmtNode, args...); err != nil {
+	if plan, err = pi.ns.Optimizer().Optimize(c, pi, ctx.Stmt.StmtNode, args...); err != nil {
 		err = errors.WithStack(err)
 		return
 	}
