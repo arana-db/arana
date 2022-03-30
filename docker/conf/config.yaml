@@ -1,48 +1,61 @@
-listeners:
-  - protocol_type: mysql
-    socket_address:
-      address: 0.0.0.0
-      port: 13306
-    config:
-      users:
-        dksl: "123456"
+kind: ConfigMap
+apiVersion: "1.0"
+metadata:
+  name: arana-config
+data:
+  listeners:
+    - protocol_type: mysql
       server_version: 5.7.0
-    executor: redirect
+      socket_address:
+        address: 0.0.0.0
+        port: 13306
 
-executors:
-  - name: redirect
-    mode: readwritesplitting
-    data_sources:
-      - master:
-          name: employees
-        slaves:
-          - name: employees1
-            weight: 50
-          - name: employees2
-            weight: 50
+  tenants:
+    - name: arana
+      users:
+        - username: arana
+          password: "123456"
+        - username: dksl
+          password: "123456"
 
-data_source_cluster:
-  - role: master
-    type: mysql
-    name: employees
-    capacity: 10
-    max_capacity: 20
-    idle_timeout: 60s
-    conf:
-      dsn: root:123456@tcp(arana-mysql:3306)/employees?timeout=11s&readTimeout=11s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8
-  - role: slave
-    type: mysql
-    name: employees1
-    capacity: 10
-    max_capacity: 20
-    idle_timeout: 60s
-    conf:
-      dsn: root:123456@tcp(arana-mysql:3306)/employees?timeout=11s&readTimeout=1s&writeTimeout=11s&parseTime=true&loc=Local&charset=utf8mb4,utf8
-  - role: slave
-    type: mysql
-    name: employees2
-    capacity: 10
-    max_capacity: 20
-    idle_timeout: 60s
-    conf:
-      dsn: root:123456@tcp(arana-mysql:3306)/employees?timeout=11s&readTimeout=1s&writeTimeout=11s&parseTime=true&loc=Local&charset=utf8mb4,utf8
+  clusters:
+    - name: employees
+      type: mysql
+      sql_max_limit: -1
+      tenant: arana
+      conn_props:
+        capacity: 10
+        max_capacity: 20
+        idle_timeout: 60
+      groups:
+        - name: employees_0000
+          nodes:
+            - name: arana-node-1
+              host: arana-mysql
+              port: 3306
+              username: root
+              password: "123456"
+              database: employees
+              weight: r10w10
+              labels:
+                zone: shanghai
+              conn_props:
+                readTimeout: "1s"
+                writeTimeout: "1s"
+                parseTime: true
+                loc: Local
+                charset: utf8mb4,utf8
+
+  sharding_rule:
+    tables:
+      - name: employees.student
+        allow_full_scan: true
+        db_rules:
+        tbl_rules:
+          - column: uid
+            expr: modShard(32)
+        topology:
+          db_pattern: employees_0000
+          tbl_Pattern: student_${0000...0031}
+        attributes:
+          sqlMaxLimit: -1

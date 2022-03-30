@@ -1,21 +1,19 @@
-//
-// Licensed to Apache Software Foundation (ASF) under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. Apache Software Foundation (ASF) licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-//
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package mysql
 
@@ -39,9 +37,9 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/constants/mysql"
-	err2 "github.com/dubbogo/arana/pkg/mysql/errors"
-	"github.com/dubbogo/arana/third_party/bucketpool"
+	"github.com/arana-db/arana/pkg/constants/mysql"
+	err2 "github.com/arana-db/arana/pkg/mysql/errors"
+	"github.com/arana-db/arana/third_party/bucketpool"
 )
 
 const (
@@ -83,6 +81,12 @@ type Conn struct {
 	// Calling Close() on the Conn will close this connection.
 	// If there are any ongoing reads or writes, they may get interrupted.
 	conn net.Conn
+
+	// Schema is the current database name.
+	Schema string
+
+	// Tenant is the current tenant login.
+	Tenant string
 
 	// ConnectionID is set:
 	// - at Connect() time for clients, with the value returned by

@@ -1,25 +1,25 @@
-// Licensed to Apache Software Foundation (ASF) under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. Apache Software Foundation (ASF) licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-//
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package rule
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 )
 
@@ -30,7 +30,7 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/testdata"
+	"github.com/arana-db/arana/testdata"
 )
 
 func TestRule(t *testing.T) {
@@ -99,7 +99,25 @@ func TestRule(t *testing.T) {
 
 	ru := buildRule(c1, c2)
 
+	assert.True(t, ru.Has("student"))
+	assert.False(t, ru.Has("fake_table"))
+
+	assert.True(t, ru.HasColumn("student", "uid"))
+	assert.False(t, ru.HasColumn("student", "fake_field"))
+	assert.False(t, ru.HasColumn("fake_table", "uid"))
+	assert.False(t, ru.HasColumn("fake_table", "fake_field"))
+
 	vtab := ru.MustVTable("student")
+
+	var ok bool
+	_, _, ok = vtab.GetShardMetadata("name")
+	assert.False(t, ok)
+	_, _, ok = vtab.GetShardMetadata("fake_field")
+	assert.False(t, ok)
+	_, _, ok = vtab.GetShardMetadata("uid")
+	assert.True(t, ok)
+
+	assert.Len(t, vtab.GetShardKeys(), 1, "length shard keys should be 1")
 
 	dbIdx, tblIdx, err := vtab.Shard("uid", 42)
 	assert.NoError(t, err)
@@ -113,4 +131,18 @@ func TestRule(t *testing.T) {
 
 	_, _, noDataErr := vtab.Shard("name", 42)
 	assert.Error(t, noDataErr)
+
+	ru.RemoveVTable("student")
+	assert.False(t, ru.Has("student"))
+	assert.False(t, (*Rule)(nil).Has("student"))
+}
+
+func TestDirectShardComputer_Compute(t *testing.T) {
+	dc := DirectShardComputer(func(i interface{}) (int, error) {
+		n, _ := strconv.Atoi(fmt.Sprintf("%v", i))
+		return n % 32, nil
+	})
+	res, err := dc.Compute(33)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, res, "should compute correctly")
 }

@@ -1,20 +1,19 @@
-// Licensed to Apache Software Foundation (ASF) under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. Apache Software Foundation (ASF) licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-//
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package optimize
 
@@ -29,13 +28,13 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/proto/rule"
-	"github.com/dubbogo/arana/pkg/runtime/cmp"
-	"github.com/dubbogo/arana/pkg/runtime/function"
-	"github.com/dubbogo/arana/pkg/runtime/logical"
-	"github.com/dubbogo/arana/pkg/runtime/misc"
-	rrule "github.com/dubbogo/arana/pkg/runtime/rule"
-	"github.com/dubbogo/arana/pkg/runtime/xxast"
+	"github.com/arana-db/arana/pkg/proto/rule"
+	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/runtime/cmp"
+	"github.com/arana-db/arana/pkg/runtime/function"
+	"github.com/arana-db/arana/pkg/runtime/logical"
+	"github.com/arana-db/arana/pkg/runtime/misc"
+	rrule "github.com/arana-db/arana/pkg/runtime/rule"
 )
 
 var (
@@ -51,8 +50,9 @@ func IsErrArgumentOutOfRange(err error) bool {
 type Sharder rule.Rule
 
 // Shard returns shards.
-func (sh *Sharder) Shard(tableName xxast.TableName, filter xxast.ExpressionNode, args ...interface{}) (shards rule.DatabaseTables, fullScan bool, err error) {
+func (sh *Sharder) Shard(tableName ast.TableName, filter ast.ExpressionNode, args ...interface{}) (shards rule.DatabaseTables, fullScan bool, err error) {
 	if filter == nil {
+		fullScan = true
 		return
 	}
 
@@ -100,20 +100,20 @@ func (sh *Sharder) Shard(tableName xxast.TableName, filter xxast.ExpressionNode,
 	return
 }
 
-func (sh *Sharder) processExpression(sc *shardCtx, filter xxast.ExpressionNode) (logical.Logical, error) {
+func (sh *Sharder) processExpression(sc *shardCtx, filter ast.ExpressionNode) (logical.Logical, error) {
 	switch n := filter.(type) {
-	case *xxast.LogicalExpressionNode:
+	case *ast.LogicalExpressionNode:
 		return sh.processLogicalExpression(sc, n)
-	case *xxast.PredicateExpressionNode:
+	case *ast.PredicateExpressionNode:
 		return sh.processPredicateExpression(sc, n)
-	case *xxast.NotExpressionNode:
+	case *ast.NotExpressionNode:
 		return sh.processNotExpression(sc, n)
 	default:
 		return nil, errors.Errorf("processing expression %T is not supported yet", n)
 	}
 }
 
-func (sh *Sharder) processNotExpression(sc *shardCtx, n *xxast.NotExpressionNode) (logical.Logical, error) {
+func (sh *Sharder) processNotExpression(sc *shardCtx, n *ast.NotExpressionNode) (logical.Logical, error) {
 	l, err := sh.processExpression(sc, n.E)
 	if err != nil {
 		return nil, err
@@ -121,7 +121,7 @@ func (sh *Sharder) processNotExpression(sc *shardCtx, n *xxast.NotExpressionNode
 	return l.Not(), nil
 }
 
-func (sh *Sharder) processLogicalExpression(sc *shardCtx, n *xxast.LogicalExpressionNode) (logical.Logical, error) {
+func (sh *Sharder) processLogicalExpression(sc *shardCtx, n *ast.LogicalExpressionNode) (logical.Logical, error) {
 	left, err := sh.processExpression(sc, n.Left)
 	if err != nil {
 		return nil, err
@@ -139,33 +139,41 @@ func (sh *Sharder) processLogicalExpression(sc *shardCtx, n *xxast.LogicalExpres
 	}
 }
 
-func (sh *Sharder) processPredicateExpression(sc *shardCtx, n *xxast.PredicateExpressionNode) (logical.Logical, error) {
+func (sh *Sharder) processPredicateExpression(sc *shardCtx, n *ast.PredicateExpressionNode) (logical.Logical, error) {
 	switch v := n.P.(type) {
-	case *xxast.BinaryComparisonPredicateNode:
+	case *ast.BinaryComparisonPredicateNode:
 		return sh.processCompare(sc, v)
-	case *xxast.InPredicateNode:
+	case *ast.InPredicateNode:
 		return sh.processInPredicate(sc, v)
-	case *xxast.AtomPredicateNode:
+	case *ast.AtomPredicateNode:
 		return sh.processAtomPredicate(sc, v)
-	case *xxast.BetweenPredicateNode:
+	case *ast.BetweenPredicateNode:
 		return sh.processBetweenPredicate(sc, v)
-	case *xxast.LikePredicateNode:
+	case *ast.LikePredicateNode:
 		return sh.processLikePredicate(sc, v)
 	default:
 		panic(fmt.Sprintf("todo: unsupported predicate node %t", v))
 	}
 }
 
-func (sh *Sharder) processExpressionAtom(sc *shardCtx, n xxast.ExpressionAtom) (logical.Logical, error) {
+func (sh *Sharder) processExpressionAtom(sc *shardCtx, n ast.ExpressionAtom) (logical.Logical, error) {
 	switch a := n.(type) {
-	case *xxast.NestedExpressionAtom:
+	case *ast.NestedExpressionAtom:
 		return sh.processExpression(sc, a.First)
-	case *xxast.UnaryExpressionAtom:
+	case *ast.UnaryExpressionAtom:
 		val, err := sh.getValueFromAtom(sc, a)
 		if err != nil {
 			var lo logical.Logical
-			if lo, err = sh.processExpressionAtom(sc, a.Inner); err != nil {
-				return nil, err
+
+			switch inner := a.Inner.(type) {
+			case ast.ExpressionAtom:
+				if lo, err = sh.processExpressionAtom(sc, inner); err != nil {
+					return nil, err
+				}
+			case *ast.BinaryComparisonPredicateNode:
+				if lo, err = sh.processPredicateExpression(sc, &ast.PredicateExpressionNode{P: inner}); err != nil {
+					return nil, err
+				}
 			}
 
 			if a.IsOperatorNot() {
@@ -177,12 +185,12 @@ func (sh *Sharder) processExpressionAtom(sc *shardCtx, n xxast.ExpressionAtom) (
 			return rrule.AlwaysFalseLogical, nil
 		}
 		return rrule.AlwaysTrueLogical, nil
-	case *xxast.ConstantExpressionAtom:
+	case *ast.ConstantExpressionAtom:
 		if misc.IsZero(a.Value()) {
 			return rrule.AlwaysFalseLogical, nil
 		}
 		return rrule.AlwaysTrueLogical, nil
-	case *xxast.MathExpressionAtom:
+	case *ast.MathExpressionAtom:
 		val, err := function.Eval(a, sc.args...)
 		if err != nil {
 			return nil, err
@@ -196,16 +204,16 @@ func (sh *Sharder) processExpressionAtom(sc *shardCtx, n xxast.ExpressionAtom) (
 	}
 }
 
-func (sh *Sharder) processAtomPredicate(sc *shardCtx, n *xxast.AtomPredicateNode) (logical.Logical, error) {
+func (sh *Sharder) processAtomPredicate(sc *shardCtx, n *ast.AtomPredicateNode) (logical.Logical, error) {
 	return sh.processExpressionAtom(sc, n.A)
 }
 
-func (sh *Sharder) processLikePredicate(sc *shardCtx, n *xxast.LikePredicateNode) (logical.Logical, error) {
+func (sh *Sharder) processLikePredicate(sc *shardCtx, n *ast.LikePredicateNode) (logical.Logical, error) {
 	// pre-process LIKE, convert "xx LIKE 'abc'" to "xx = 'abc'"
 	switch left := n.Left.(type) {
-	case *xxast.AtomPredicateNode:
+	case *ast.AtomPredicateNode:
 		switch key := left.A.(type) {
-		case xxast.ColumnNameExpressionAtom:
+		case ast.ColumnNameExpressionAtom:
 			sc.appendKey(key.Suffix())
 			if right, err := sh.getValue(sc, n.Right); err == nil {
 				if like, ok := right.(string); ok {
@@ -219,11 +227,11 @@ func (sh *Sharder) processLikePredicate(sc *shardCtx, n *xxast.LikePredicateNode
 	return rrule.AlwaysTrueLogical, nil
 }
 
-func (sh *Sharder) processBetweenPredicate(sc *shardCtx, n *xxast.BetweenPredicateNode) (logical.Logical, error) {
+func (sh *Sharder) processBetweenPredicate(sc *shardCtx, n *ast.BetweenPredicateNode) (logical.Logical, error) {
 	switch key := n.Key.(type) {
-	case *xxast.AtomPredicateNode:
+	case *ast.AtomPredicateNode:
 		switch ka := key.A.(type) {
-		case xxast.ColumnNameExpressionAtom:
+		case ast.ColumnNameExpressionAtom:
 			lv, err := sh.getValue(sc, n.Left)
 			if err != nil {
 				return nil, err
@@ -254,37 +262,49 @@ func (sh *Sharder) processBetweenPredicate(sc *shardCtx, n *xxast.BetweenPredica
 	return nil, nil
 }
 
-func (sh *Sharder) getValueFromAtom(sc *shardCtx, atom xxast.ExpressionAtom) (interface{}, error) {
+func (sh *Sharder) getValueFromAtom(sc *shardCtx, atom ast.ExpressionAtom) (interface{}, error) {
 	switch it := atom.(type) {
-	case *xxast.UnaryExpressionAtom:
-		v, err := sh.getValueFromAtom(sc, it.Inner)
+	case *ast.UnaryExpressionAtom:
+		var (
+			v   interface{}
+			err error
+		)
+		switch inner := it.Inner.(type) {
+		case ast.ExpressionAtom:
+			v, err = sh.getValueFromAtom(sc, inner)
+		case *ast.BinaryComparisonPredicateNode:
+			v, err = sh.getValue(sc, inner)
+		default:
+			panic("unreachable")
+		}
+
 		if err != nil {
 			return nil, err
 		}
 		return misc.ComputeUnary(it.Operator, v)
-	case *xxast.ConstantExpressionAtom:
+	case *ast.ConstantExpressionAtom:
 		return it.Value(), nil
-	case xxast.VariableExpressionAtom:
+	case ast.VariableExpressionAtom:
 		return sc.arg(it.N())
-	case *xxast.MathExpressionAtom:
+	case *ast.MathExpressionAtom:
 		return function.Eval(it, sc.args...)
-	case *xxast.FunctionCallExpressionAtom:
+	case *ast.FunctionCallExpressionAtom:
 		switch fn := it.F.(type) {
-		case *xxast.Function:
+		case *ast.Function:
 			return function.EvalFunction(fn, sc.args...)
-		case *xxast.AggrFunction:
+		case *ast.AggrFunction:
 			return nil, errors.New("aggregate function should not appear here")
-		case *xxast.CastFunction:
+		case *ast.CastFunction:
 			return function.EvalCastFunction(fn, sc.args...)
-		case *xxast.CaseWhenElseFunction:
+		case *ast.CaseWhenElseFunction:
 			return function.EvalCaseWhenFunction(fn, sc.args...)
 		default:
 			return nil, errors.Errorf("get value from %T is not supported yet", it)
 		}
-	case xxast.ColumnNameExpressionAtom:
+	case ast.ColumnNameExpressionAtom:
 		return nil, function.ErrCannotEvalWithColumnName
-	case *xxast.NestedExpressionAtom:
-		nested, ok := it.First.(*xxast.PredicateExpressionNode)
+	case *ast.NestedExpressionAtom:
+		nested, ok := it.First.(*ast.PredicateExpressionNode)
 		if !ok {
 			return nil, errors.Errorf("only those nest expressions within predicated expression node is supported")
 		}
@@ -294,23 +314,23 @@ func (sh *Sharder) getValueFromAtom(sc *shardCtx, atom xxast.ExpressionAtom) (in
 	}
 }
 
-func (sh *Sharder) getValue(sc *shardCtx, next xxast.PredicateNode) (interface{}, error) {
+func (sh *Sharder) getValue(sc *shardCtx, next ast.PredicateNode) (interface{}, error) {
 	switch v := next.(type) {
-	case *xxast.AtomPredicateNode:
+	case *ast.AtomPredicateNode:
 		return sh.getValueFromAtom(sc, v.A)
 	}
 	return nil, errors.Errorf("get value from %T is not supported yet", next)
 }
 
-func (sh *Sharder) processInPredicate(sc *shardCtx, n *xxast.InPredicateNode) (logical.Logical, error) {
+func (sh *Sharder) processInPredicate(sc *shardCtx, n *ast.InPredicateNode) (logical.Logical, error) {
 	switch left := n.P.(type) {
-	case *xxast.AtomPredicateNode:
+	case *ast.AtomPredicateNode:
 		switch key := left.A.(type) {
-		case xxast.ColumnNameExpressionAtom:
+		case ast.ColumnNameExpressionAtom:
 			var ret logical.Logical
 			for _, exp := range n.E {
 				switch next := exp.(type) {
-				case *xxast.PredicateExpressionNode:
+				case *ast.PredicateExpressionNode:
 					actualValue, err := sh.getValue(sc, next.P)
 					if err != nil {
 						return nil, err
@@ -346,10 +366,10 @@ func (sh *Sharder) processInPredicate(sc *shardCtx, n *xxast.InPredicateNode) (l
 	return nil, nil
 }
 
-func (sh *Sharder) processCompare(sc *shardCtx, n *xxast.BinaryComparisonPredicateNode) (logical.Logical, error) {
-	left := n.Left.(*xxast.AtomPredicateNode)
+func (sh *Sharder) processCompare(sc *shardCtx, n *ast.BinaryComparisonPredicateNode) (logical.Logical, error) {
+	left := n.Left.(*ast.AtomPredicateNode)
 	switch la := left.A.(type) {
-	case xxast.ColumnNameExpressionAtom:
+	case ast.ColumnNameExpressionAtom:
 		val, err := sh.getValue(sc, n.Right)
 		if function.IsEvalWithColumnErr(err) {
 			return rrule.AlwaysTrueLogical, nil
@@ -407,7 +427,7 @@ func (sh *Sharder) rule() *rule.Rule {
 }
 
 type shardCtx struct {
-	tableName xxast.TableName
+	tableName ast.TableName
 	args      []interface{}
 	keys      []string
 }

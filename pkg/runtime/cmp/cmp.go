@@ -1,32 +1,37 @@
-// Licensed to Apache Software Foundation (ASF) under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. Apache Software Foundation (ASF) licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-//
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package cmp
 
 import (
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
 import (
 	"github.com/pkg/errors"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/util/bytesconv"
 )
 
 const (
@@ -55,60 +60,57 @@ var _timeLayouts = []string{
 	"Mon Jan 02 15:04:05 MST 2006",
 }
 
-// Kind represents the kind of data type in Comparison.
+var _kindNames = [...]string{
+	Kint:    "int",
+	Kstring: "string",
+	Kdate:   "date",
+}
+
 type Kind uint8
 
 func (k Kind) String() string {
-	switch k {
-	case Kint:
-		return "int"
-	case Kstring:
-		return "string"
-	case Kdate:
-		return "date"
-	default:
-		panic(fmt.Sprintf("invalid comparative kind %d!", k))
-	}
+	return _kindNames[k]
 }
+
+var _comparisonNames = [...]string{
+	Cgt:  ">",
+	Cgte: ">=",
+	Clt:  "<",
+	Clte: "<=",
+	Ceq:  "=",
+	Cne:  "<>",
+}
+
+var (
+	_comparisonNamesIndex     map[string]Comparison
+	_comparisonNamesIndexOnce sync.Once
+)
 
 // Comparison represents the comparisons.
 type Comparison uint8
 
+func (c Comparison) WriteTo(w io.Writer) (int64, error) {
+	n, err := w.Write(bytesconv.StringToBytes(_comparisonNames[c]))
+	return int64(n), err
+}
+
 func (c Comparison) String() string {
-	switch c {
-	case Cgt:
-		return ">"
-	case Cgte:
-		return ">="
-	case Clt:
-		return "<"
-	case Clte:
-		return "<="
-	case Ceq:
-		return "="
-	case Cne:
-		return "<>"
-	default:
-		panic(fmt.Sprintf("invalid comparative comparison %d!", c))
-	}
+	return _comparisonNames[c]
 }
 
 // ParseComparison parses the Comparison from a string.
 func ParseComparison(s string) (c Comparison, ok bool) {
-	switch s {
-	case ">":
-		c = Cgt
-	case ">=":
-		c = Cgte
-	case "<":
-		c = Clt
-	case "<=":
-		c = Clte
-	case "=":
-		c = Ceq
-	case "<>", "!=":
-		c = Cne
-	}
+	_comparisonNamesIndexOnce.Do(func() {
+		_comparisonNamesIndex = make(map[string]Comparison, len(_comparisonNames)+1)
+		for i, v := range _comparisonNames {
+			if v == "" {
+				continue
+			}
+			_comparisonNamesIndex[v] = Comparison(i)
+		}
+		_comparisonNamesIndex["!="] = Cne
+	})
+	c, ok = _comparisonNamesIndex[s]
 	return
 }
 
@@ -138,8 +140,9 @@ func (c *Comparative) Key() string {
 func (c *Comparative) String() string {
 	var sb strings.Builder
 	sb.WriteByte('(')
+	sb.WriteString(c.key)
 	sb.WriteString(c.c.String())
-	sb.WriteString(fmt.Sprintf("%v", c.v))
+	_, _ = fmt.Fprintf(&sb, "%v", c.v)
 	sb.WriteByte(')')
 	return sb.String()
 }

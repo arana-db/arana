@@ -1,21 +1,19 @@
-//
-// Licensed to Apache Software Foundation (ASF) under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. Apache Software Foundation (ASF) licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-//
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package mysql
 
@@ -23,7 +21,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
-	"encoding/json"
 	"fmt"
 	"io"
 	"math"
@@ -34,8 +31,8 @@ import (
 )
 
 import (
-	"github.com/dubbogo/parser"
-	_ "github.com/dubbogo/parser/test_driver"
+	"github.com/arana-db/parser"
+	_ "github.com/arana-db/parser/test_driver"
 
 	err2 "github.com/pkg/errors"
 
@@ -43,18 +40,28 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/config"
-	"github.com/dubbogo/arana/pkg/constants/mysql"
-	"github.com/dubbogo/arana/pkg/mysql/errors"
-	"github.com/dubbogo/arana/pkg/proto"
-	"github.com/dubbogo/arana/pkg/util/log"
+	"github.com/arana-db/arana/pkg/config"
+	"github.com/arana-db/arana/pkg/constants/mysql"
+	"github.com/arana-db/arana/pkg/mysql/errors"
+	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/security"
+	"github.com/arana-db/arana/pkg/util/log"
 )
 
 const initClientConnStatus = mysql.ServerStatusAutocommit
 
+type handshakeResult struct {
+	connectionID uint32
+	schema       string
+	tenant       string
+	username     string
+	authMethod   string
+	authResponse []byte
+	salt         []byte
+}
+
 type ServerConfig struct {
-	Users         map[string]string `yaml:"users" json:"users"`
-	ServerVersion string            `yaml:"server_version" json:"server_version"`
+	ServerVersion string `yaml:"server_version" json:"server_version"`
 }
 
 type Listener struct {
@@ -95,7 +102,7 @@ type Listener struct {
 	schemaName string
 
 	// statementID is the prepared statement ID.
-	statementID *atomic.Uint32
+	statementID atomic.Uint32
 
 	// stmts is the map to use a prepared statement.
 	// key is uint32 value is *proto.Stmt
@@ -103,10 +110,8 @@ type Listener struct {
 }
 
 func NewListener(conf *config.Listener) (proto.Listener, error) {
-	cfg := &ServerConfig{}
-	if err := json.Unmarshal(conf.Config, cfg); err != nil {
-		log.Errorf("unmarshal mysql Listener config failed, %s", err)
-		return nil, err
+	cfg := &ServerConfig{
+		ServerVersion: conf.ServerVersion,
 	}
 
 	l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", conf.SocketAddress.Address, conf.SocketAddress.Port))
@@ -116,10 +121,8 @@ func NewListener(conf *config.Listener) (proto.Listener, error) {
 	}
 
 	listener := &Listener{
-		conf:        cfg,
-		listener:    l,
-		statementID: atomic.NewUint32(0),
-		stmts:       sync.Map{},
+		conf:     cfg,
+		listener: l,
 	}
 	return listener, nil
 }
@@ -183,7 +186,10 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32) {
 		c.sequence = 0
 		data, err := c.readEphemeralPacket()
 		if err != nil {
-			c.recycleReadPacket()
+			// Don't log EOF errors. They cause too much spam.
+			if err != io.EOF && !strings.Contains(err.Error(), "use of closed network connection") {
+				log.Errorf("Error reading packet from %s: %v", c, err)
+			}
 			return
 		}
 
@@ -191,6 +197,7 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32) {
 		copy(content, data)
 		ctx := &proto.Context{
 			Context:      context.Background(),
+			Schema:       c.Schema,
 			ConnectionID: l.connectionID,
 			Data:         content,
 		}
@@ -228,17 +235,23 @@ func (l *Listener) handshake(c *Conn) error {
 
 	c.recycleReadPacket()
 
-	user, _, authResponse, err := l.parseClientHandshakePacket(true, response)
+	handshake, err := l.parseClientHandshakePacket(true, response)
 	if err != nil {
 		log.Errorf("Cannot parse client handshake response from %s: %v", c, err)
 		return err
 	}
+	handshake.connectionID = c.ConnectionID
+	handshake.salt = salt
 
-	err = l.ValidateHash(user, salt, authResponse)
+	err = l.ValidateHash(handshake)
 	if err != nil {
 		log.Errorf("Error authenticating user using MySQL native password: %v", err)
 		return err
 	}
+
+	c.Schema = handshake.schema
+	c.Tenant = handshake.tenant
+
 	return nil
 }
 
@@ -340,18 +353,18 @@ func (l *Listener) writeHandshakeV10(c *Conn, enableTLS bool, salt []byte) error
 }
 
 // parseClientHandshakePacket parses the handshake sent by the client.
-// Returns the username, auth method, auth Content, error.
+// Returns the database, username, auth method, auth Content, error.
 // The original Content is not pointed at, and can be freed.
-func (l *Listener) parseClientHandshakePacket(firstTime bool, data []byte) (string, string, []byte, error) {
+func (l *Listener) parseClientHandshakePacket(firstTime bool, data []byte) (*handshakeResult, error) {
 	pos := 0
 
 	// Client flags, 4 bytes.
 	clientFlags, pos, ok := readUint32(data, pos)
 	if !ok {
-		return "", "", nil, err2.Errorf("parseClientHandshakePacket: can't read client flags")
+		return nil, err2.New("parseClientHandshakePacket: can't read client flags")
 	}
 	if clientFlags&mysql.CapabilityClientProtocol41 == 0 {
-		return "", "", nil, err2.Errorf("parseClientHandshakePacket: only support protocol 4.1")
+		return nil, err2.New("parseClientHandshakePacket: only support protocol 4.1")
 	}
 
 	// Remember a subset of the capabilities, so we can use them
@@ -370,13 +383,13 @@ func (l *Listener) parseClientHandshakePacket(firstTime bool, data []byte) (stri
 	// See doc.go for more information.
 	_, pos, ok = readUint32(data, pos)
 	if !ok {
-		return "", "", nil, err2.Errorf("parseClientHandshakePacket: can't read maxPacketSize")
+		return nil, err2.New("parseClientHandshakePacket: can't read maxPacketSize")
 	}
 
 	// Character set. Need to handle it.
 	characterSet, pos, ok := readByte(data, pos)
 	if !ok {
-		return "", "", nil, err2.Errorf("parseClientHandshakePacket: can't read characterSet")
+		return nil, err2.New("parseClientHandshakePacket: can't read characterSet")
 	}
 	l.characterSet = characterSet
 
@@ -396,7 +409,7 @@ func (l *Listener) parseClientHandshakePacket(firstTime bool, data []byte) (stri
 	// username
 	username, pos, ok := readNullString(data, pos)
 	if !ok {
-		return "", "", nil, err2.Errorf("parseClientHandshakePacket: can't read username")
+		return nil, err2.New("parseClientHandshakePacket: can't read username")
 	}
 
 	// auth-response can have three forms.
@@ -405,41 +418,42 @@ func (l *Listener) parseClientHandshakePacket(firstTime bool, data []byte) (stri
 		var l uint64
 		l, pos, ok = readLenEncInt(data, pos)
 		if !ok {
-			return "", "", nil, err2.Errorf("parseClientHandshakePacket: can't read auth-response variable length")
+			return nil, err2.New("parseClientHandshakePacket: can't read auth-response variable length")
 		}
 		authResponse, pos, ok = readBytesCopy(data, pos, int(l))
 		if !ok {
-			return "", "", nil, err2.Errorf("parseClientHandshakePacket: can't read auth-response")
+			return nil, err2.New("parseClientHandshakePacket: can't read auth-response")
 		}
 
 	} else if clientFlags&mysql.CapabilityClientSecureConnection != 0 {
 		var l byte
 		l, pos, ok = readByte(data, pos)
 		if !ok {
-			return "", "", nil, err2.Errorf("parseClientHandshakePacket: can't read auth-response length")
+			return nil, err2.New("parseClientHandshakePacket: can't read auth-response length")
 		}
 
 		authResponse, pos, ok = readBytesCopy(data, pos, int(l))
 		if !ok {
-			return "", "", nil, err2.Errorf("parseClientHandshakePacket: can't read auth-response")
+			return nil, err2.New("parseClientHandshakePacket: can't read auth-response")
 		}
 	} else {
 		a := ""
 		a, pos, ok = readNullString(data, pos)
 		if !ok {
-			return "", "", nil, err2.Errorf("parseClientHandshakePacket: can't read auth-response")
+			return nil, err2.New("parseClientHandshakePacket: can't read auth-response")
 		}
 		authResponse = []byte(a)
 	}
 
 	// db name.
+	var schemaName string
 	if clientFlags&mysql.CapabilityClientConnectWithDB != 0 {
 		dbname := ""
 		dbname, pos, ok = readNullString(data, pos)
 		if !ok {
-			return "", "", nil, err2.Errorf("parseClientHandshakePacket: can't read dbname")
+			return nil, err2.New("parseClientHandshakePacket: can't read dbname")
 		}
-		l.schemaName = dbname
+		schemaName = dbname
 	}
 
 	// authMethod (with default)
@@ -447,7 +461,7 @@ func (l *Listener) parseClientHandshakePacket(firstTime bool, data []byte) (stri
 	if clientFlags&mysql.CapabilityClientPluginAuth != 0 {
 		authMethod, pos, ok = readNullString(data, pos)
 		if !ok {
-			return "", "", nil, err2.Errorf("parseClientHandshakePacket: can't read authMethod")
+			return nil, err2.New("parseClientHandshakePacket: can't read authMethod")
 		}
 	}
 
@@ -463,19 +477,34 @@ func (l *Listener) parseClientHandshakePacket(firstTime bool, data []byte) (stri
 		}
 	}
 
-	return username, authMethod, authResponse, nil
+	return &handshakeResult{
+		schema:       schemaName,
+		username:     username,
+		authMethod:   authMethod,
+		authResponse: authResponse,
+	}, nil
 }
 
-func (l *Listener) ValidateHash(user string, salt []byte, authResponse []byte) error {
-	password, ok := l.conf.Users[user]
+func (l *Listener) ValidateHash(handshake *handshakeResult) error {
+	tenant, ok := security.DefaultTenantManager().GetTenantOfCluster(handshake.schema)
 	if !ok {
-		return errors.NewSQLError(mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied for user '%v'", user)
+		return errors.NewSQLError(mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied for user '%v'", handshake.username)
 	}
-	computedAuthResponse := scramblePassword(salt, password)
-	if bytes.Equal(authResponse, computedAuthResponse) {
-		return nil
+
+	user, ok := security.DefaultTenantManager().GetUser(tenant, handshake.username)
+	if !ok {
+		return errors.NewSQLError(mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied for user '%v'", handshake.username)
 	}
-	return errors.NewSQLError(mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied for user '%v'", user)
+
+	computedAuthResponse := scramblePassword(handshake.salt, user.Password)
+	if !bytes.Equal(handshake.authResponse, computedAuthResponse) {
+		return errors.NewSQLError(mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied for user '%v'", handshake.username)
+	}
+
+	// bind tenant
+	handshake.tenant = tenant
+
+	return nil
 }
 
 func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
@@ -486,9 +515,26 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 		c.recycleReadPacket()
 		return err2.New("ComQuit")
 	case mysql.ComInitDB:
-		db := string(ctx.Data)
+		db := string(ctx.Data[1:])
 		c.recycleReadPacket()
-		l.schemaName = db
+
+		var allow bool
+		for _, it := range security.DefaultTenantManager().GetClusters(c.Tenant) {
+			if db == it {
+				allow = true
+				break
+			}
+		}
+
+		if !allow {
+			if err := c.writeErrorPacketFromError(errors.NewSQLError(mysql.ERBadDb, "", "Unknown database '%s'", db)); err != nil {
+				log.Errorf("failed to write ComInitDB error to %s: %v", c, err)
+				return err
+			}
+			return nil
+		}
+
+		c.Schema = db
 		err := l.executor.ExecuteUseDB(ctx)
 		if err != nil {
 			return err
@@ -515,15 +561,19 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 				}
 				return nil
 			}
-			rlt := result.(*Result)
-			if len(rlt.Fields) == 0 {
+			if len(result.GetFields()) == 0 {
 				// A successful callback with no fields means that this was a
 				// DML or other write-only operation.
 				//
 				// We should not send any more packets after this, but make sure
 				// to extract the affected rows and last insert id from the result
 				// struct here since clients expect it.
-				return c.writeOKPacket(rlt.AffectedRows, rlt.InsertId, c.StatusFlags, warn)
+
+				var (
+					affected, _ = result.RowsAffected()
+					insertId, _ = result.LastInsertId()
+				)
+				return c.writeOKPacket(affected, insertId, c.StatusFlags, warn)
 			}
 			err = c.writeFields(l.capabilities, result)
 			if err != nil {
@@ -1156,14 +1206,17 @@ func (c *Conn) writeColumnDefinition(field *Field) error {
 // writeFields writes the fields of a Result. It should be called only
 // if there are valid Columns in the result.
 func (c *Conn) writeFields(capabilities uint32, result proto.Result) error {
+	var (
+		fields = result.GetFields()
+	)
+
 	// Send the number of fields first.
-	rlt := result.(*Result)
-	if err := c.sendColumnCount(uint64(len(rlt.Fields))); err != nil {
+	if err := c.sendColumnCount(uint64(len(fields))); err != nil {
 		return err
 	}
 
 	// Now send each Field.
-	for _, field := range rlt.Fields {
+	for _, field := range fields {
 		fld := field.(*Field)
 		if err := c.writeColumnDefinition(fld); err != nil {
 			return err
@@ -1212,8 +1265,7 @@ func (c *Conn) writeRow(row []*proto.Value) error {
 
 // writeRows sends the rows of a Result.
 func (c *Conn) writeRows(result proto.Result) error {
-	rlt := result.(*Result)
-	for _, row := range rlt.Rows {
+	for _, row := range result.GetRows() {
 		r := row.(*Row)
 		textRow := TextRow{*r}
 		values, err := textRow.Decode()

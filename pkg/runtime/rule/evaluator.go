@@ -1,20 +1,19 @@
-// Licensed to Apache Software Foundation (ASF) under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. Apache Software Foundation (ASF) licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-//
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package rule
 
@@ -32,11 +31,11 @@ import (
 )
 
 import (
-	"github.com/dubbogo/arana/pkg/proto/rule"
-	"github.com/dubbogo/arana/pkg/runtime/cmp"
-	"github.com/dubbogo/arana/pkg/runtime/logical"
-	"github.com/dubbogo/arana/pkg/runtime/misc"
-	"github.com/dubbogo/arana/pkg/runtime/xxast"
+	"github.com/arana-db/arana/pkg/proto/rule"
+	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/runtime/cmp"
+	"github.com/arana-db/arana/pkg/runtime/logical"
+	"github.com/arana-db/arana/pkg/runtime/misc"
 )
 
 var (
@@ -81,6 +80,7 @@ func toRangeIterator(begin, end rule.Range) rule.Range {
 
 	for i := 0; i < len(a); i++ {
 		if misc.Compare(a[i], max) == 1 {
+			merged = append(merged, max)
 			break
 		}
 		merged = append(merged, a[i])
@@ -159,7 +159,7 @@ func (t *KeyedEvaluator) toComparative(metadata *rule.ShardMetadata) *cmp.Compar
 
 	// convert nil
 	if val == nil {
-		val = xxast.Null{}
+		val = ast.Null{}
 	}
 
 	switch v := val.(type) {
@@ -213,7 +213,7 @@ func (t *KeyedEvaluator) toComparative(metadata *rule.ShardMetadata) *cmp.Compar
 			s = strconv.FormatInt(int64(v), 10)
 		}
 		k = cmp.Kint
-	case xxast.Null:
+	case ast.Null:
 		return nil
 	default:
 		panic(fmt.Sprintf("invalid compare value type %T!", v))
