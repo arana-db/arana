@@ -1,20 +1,19 @@
-// Licensed to Apache Software Foundation (ASF) under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. Apache Software Foundation (ASF) licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-//
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package runtime
 
@@ -114,6 +113,14 @@ type compositeTx struct {
 }
 
 func (tx *compositeTx) Query(ctx context.Context, db string, query string, args ...interface{}) (proto.Result, error) {
+	return tx.call(ctx, db, query, args...)
+}
+
+func (tx *compositeTx) Exec(ctx context.Context, db string, query string, args ...interface{}) (proto.Result, error) {
+	return tx.call(ctx, db, query, args...)
+}
+
+func (tx *compositeTx) call(ctx context.Context, db string, query string, args ...interface{}) (proto.Result, error) {
 	if len(db) < 1 {
 		db = tx.rt.Namespace().DBGroups()[0]
 	}
@@ -122,6 +129,9 @@ func (tx *compositeTx) Query(ctx context.Context, db string, query string, args 
 	if err != nil {
 		return nil, err
 	}
+
+	log.Debugf("call upstream: db=%s, sql=\"%s\", args=%v", db, query, args)
+
 	res, _, err := atx.Call(ctx, query, args...)
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -129,15 +139,15 @@ func (tx *compositeTx) Query(ctx context.Context, db string, query string, args 
 	return res, nil
 }
 
-func (tx *compositeTx) Exec(ctx context.Context, db string, query string, args ...interface{}) (proto.Result, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
 func (tx *compositeTx) begin(ctx context.Context, group string) (*atomTx, error) {
 	if exist, ok := tx.txs[group]; ok {
 		return exist, nil
 	}
+
+	// force use writeable node
+	ctx = rcontext.WithWrite(ctx)
+
+	// begin atom tx
 	newborn, err := tx.rt.Namespace().DB(ctx, group).(*AtomDB).begin(ctx)
 	if err != nil {
 		return nil, err
@@ -163,7 +173,7 @@ func (tx *compositeTx) Execute(ctx *proto.Context) (res proto.Result, warn uint1
 		var (
 			group = tx.rt.Namespace().DBGroups()[0]
 			atx   *atomTx
-			cctx  = rcontext.WithMaster(ctx.Context)
+			cctx  = rcontext.WithWrite(ctx.Context)
 		)
 		if atx, err = tx.begin(cctx, group); err != nil {
 			return
@@ -178,7 +188,6 @@ func (tx *compositeTx) Execute(ctx *proto.Context) (res proto.Result, warn uint1
 		c    = ctx.Context
 	)
 
-	c = rcontext.WithMaster(c)
 	c = rcontext.WithRule(c, ru)
 	c = rcontext.WithSQL(c, ctx.GetQuery())
 
@@ -500,32 +509,20 @@ func (pi *defaultRuntime) Namespace() *namespace.Namespace {
 }
 
 func (pi *defaultRuntime) Query(ctx context.Context, db string, query string, args ...interface{}) (proto.Result, error) {
-	if len(db) < 1 { // empty db, select first
-		if groups := pi.ns.DBGroups(); len(groups) > 0 {
-			db = groups[0]
-		}
-	}
-
-	upstream := pi.ns.DB(ctx, db)
-	if upstream == nil {
-		return nil, errors.Errorf("cannot get upstream database %s", db)
-	}
-
-	// TODO: how to pass warn???
-	res, _, err := upstream.Call(ctx, query, args...)
-	return res, err
+	ctx = rcontext.WithRead(ctx)
+	return pi.call(ctx, db, query, args...)
 }
 
 func (pi *defaultRuntime) Exec(ctx context.Context, db string, query string, args ...interface{}) (proto.Result, error) {
-	//TODO implement me
-	panic("implement me")
+	ctx = rcontext.WithWrite(ctx)
+	return pi.call(ctx, db, query, args...)
 }
 
 func (pi *defaultRuntime) Execute(ctx *proto.Context) (res proto.Result, warn uint16, err error) {
 	args := pi.extractArgs(ctx)
 
 	if direct := rcontext.IsDirect(ctx.Context); direct {
-		return pi.ns.DB0(ctx.Context).Call(rcontext.WithMaster(ctx.Context), ctx.GetQuery(), args...)
+		return pi.ns.DB0(ctx.Context).Call(rcontext.WithWrite(ctx.Context), ctx.GetQuery(), args...)
 	}
 
 	var (
@@ -569,6 +566,25 @@ func (pi *defaultRuntime) extractArgs(ctx *proto.Context) []interface{} {
 		args = append(args, ctx.Stmt.BindVars[k])
 	}
 	return args
+}
+
+func (pi *defaultRuntime) call(ctx context.Context, db, query string, args ...interface{}) (proto.Result, error) {
+	if len(db) < 1 { // empty db, select first
+		if groups := pi.ns.DBGroups(); len(groups) > 0 {
+			db = groups[0]
+		}
+	}
+
+	upstream := pi.ns.DB(ctx, db)
+	if upstream == nil {
+		return nil, errors.Errorf("cannot get upstream database %s", db)
+	}
+
+	log.Debugf("call upstream: db=%s, sql=\"%s\", args=%v", db, query, args)
+
+	// TODO: how to pass warn???
+	res, _, err := upstream.Call(ctx, query, args...)
+	return res, err
 }
 
 var (

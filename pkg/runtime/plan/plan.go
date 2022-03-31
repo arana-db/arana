@@ -15,19 +15,23 @@
  * limitations under the License.
  */
 
-package mysql
+package plan
 
-import (
-	"context"
-)
+type basePlan struct {
+	args []interface{}
+}
 
-// Context
-type Context struct {
-	context.Context
+func (bp *basePlan) BindArgs(args []interface{}) {
+	bp.args = args
+}
 
-	Conn *Conn
-
-	CommandType byte
-	// sql Data
-	Data []byte
+func (bp basePlan) toArgs(indexes []int) []interface{} {
+	if len(indexes) < 1 || len(bp.args) < 1 {
+		return nil
+	}
+	ret := make([]interface{}, 0, len(indexes))
+	for _, idx := range indexes {
+		ret = append(ret, bp.args[idx])
+	}
+	return ret
 }

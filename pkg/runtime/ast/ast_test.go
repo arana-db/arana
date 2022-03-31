@@ -1,20 +1,19 @@
-// Licensed to Apache Software Foundation (ASF) under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. Apache Software Foundation (ASF) licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-//
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package ast
 
@@ -153,7 +152,7 @@ func TestParse_SelectStmt(t *testing.T) {
 		{`select * from (select id,uid from student where uid in(1,?,?)) as aaa`, "SELECT * FROM (SELECT `id`,`uid` FROM `student` WHERE `uid` IN (1,?,?)) AS `aaa`"},
 		//{"select count(*) from student where aaa.uid = 1", "SELECT COUNT(*) FROM `student` WHERE `aaa`.`uid` = 1"},
 		{`select * from (select id,uid from student where uid in(1,2,3) union all select id,uid from student where uid in (?,?)) as aaa where aaa.uid=?`, "SELECT * FROM (SELECT `id`,`uid` FROM `student` WHERE `uid` IN (1,2,3) UNION ALL SELECT `id`,`uid` FROM `student` WHERE `uid` IN (?,?)) AS `aaa` WHERE `aaa`.`uid` = ?"},
-		{"select * from student where not uid = 1", "SELECT * FROM `student` WHERE !`uid` = 1"}, // FIXME: check NOT
+		{"select * from student where not uid = 1", "SELECT * FROM `student` WHERE not `uid` = 1"},
 		{"select * from student where name not regexp '^Ch+'", "SELECT * FROM `student` WHERE `name` NOT REGEXP '^Ch+'"},
 		{"select date_add(NOW(), interval 1 hour)", "SELECT DATE_ADD(NOW(),INTERVAL 1 HOUR)"},
 		{"select distinct gender from student where uid in (1,2,3,4)", "SELECT DISTINCT `gender` FROM `student` WHERE `uid` IN (1,2,3,4)"},

@@ -15,19 +15,29 @@
  * limitations under the License.
  */
 
-package mysql
+package plan
 
 import (
 	"context"
 )
 
-// Context
-type Context struct {
-	context.Context
+import (
+	"github.com/arana-db/arana/pkg/mysql"
+	"github.com/arana-db/arana/pkg/proto"
+)
 
-	Conn *Conn
+var _ proto.Plan = (*AlwaysEmptyExecPlan)(nil)
 
-	CommandType byte
-	// sql Data
-	Data []byte
+var _emptyResult mysql.Result
+
+// AlwaysEmptyExecPlan represents an exec plan which affects nothing.
+type AlwaysEmptyExecPlan struct {
+}
+
+func (a AlwaysEmptyExecPlan) Type() proto.PlanType {
+	return proto.PlanTypeExec
+}
+
+func (a AlwaysEmptyExecPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+	return &_emptyResult, nil
 }

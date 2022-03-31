@@ -1,20 +1,19 @@
-// Licensed to Apache Software Foundation (ASF) under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. Apache Software Foundation (ASF) licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-//
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package ast
 
@@ -79,7 +78,7 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 	switch stmt := node.(type) {
 	case *ast.SelectStmt:
 		return cc.convSelectStmt(stmt), nil
-	case *ast.UnionStmt:
+	case *ast.SetOprStmt:
 		return cc.convUnionStmt(stmt), nil
 	case *ast.DeleteStmt:
 		return cc.convDeleteStmt(stmt), nil
@@ -169,20 +168,22 @@ func (cc *convCtx) convColumn(col *ast.ColumnName) ColumnNameExpressionAtom {
 	return ret
 }
 
-func (cc *convCtx) convUnionStmt(stmt *ast.UnionStmt) *UnionSelectStatement {
+func (cc *convCtx) convUnionStmt(stmt *ast.SetOprStmt) *UnionSelectStatement {
 	var ret UnionSelectStatement
 
-	ret.first = cc.convSelectStmt(stmt.SelectList.Selects[0])
+	ret.first = cc.convSelectStmt(stmt.SelectList.Selects[0].(*ast.SelectStmt))
 	for i := 1; i < len(stmt.SelectList.Selects); i++ {
 		var (
-			next = stmt.SelectList.Selects[i]
+			next = stmt.SelectList.Selects[i].(*ast.SelectStmt)
 			item UnionStatementItem
 		)
 		item.ss = cc.convSelectStmt(next)
-		if next.IsAfterUnionDistinct {
-			item.unionType = UnionTypeDistinct
-		} else {
+
+		switch *next.AfterSetOperator {
+		case ast.UnionAll:
 			item.unionType = UnionTypeAll
+		case ast.Union:
+			item.unionType = UnionTypeDistinct
 		}
 		ret.others = append(ret.others, &item)
 	}
@@ -207,11 +208,13 @@ func (cc *convCtx) convSelectStmt(stmt *ast.SelectStmt) *SelectStatement {
 	ret.OrderBy = cc.convOrderBy(stmt.OrderBy)
 	ret.Limit = cc.convLimit(stmt.Limit)
 
-	switch stmt.LockTp {
-	case ast.SelectLockForUpdate:
-		ret.enableForUpdate()
-	case ast.SelectLockInShareMode:
-		ret.enableLockInShareMode()
+	if stmt.LockInfo != nil {
+		switch stmt.LockInfo.LockType {
+		case ast.SelectLockForUpdate:
+			ret.enableForUpdate()
+		case ast.SelectLockForShare:
+			ret.enableLockInShareMode()
+		}
 	}
 
 	return &ret
@@ -455,7 +458,7 @@ func (cc *convCtx) convFrom(from *ast.TableRefsClause) (ret []*TableSourceNode) 
 				cc.convTableName(source, &target)
 			case *ast.SelectStmt:
 				target.source = cc.convSelectStmt(source)
-			case *ast.UnionStmt:
+			case *ast.SetOprStmt:
 				target.source = cc.convUnionStmt(source)
 			default:
 				panic(fmt.Sprintf("unimplement: table source %T!", source))
@@ -700,7 +703,7 @@ func (cc *convCtx) convCastExpr(node *ast.FuncCastExpr) PredicateNode {
 	}
 
 	var cast strings.Builder
-	node.Tp.FormatAsCastType(&cast)
+	node.Tp.FormatAsCastType(&cast, true)
 
 	// WORKAROUND: fix original cast string
 	if strings.EqualFold("binary binary", cast.String()) {

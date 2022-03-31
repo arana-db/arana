@@ -1,20 +1,19 @@
-// Licensed to Apache Software Foundation (ASF) under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. Apache Software Foundation (ASF) licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-//
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package plan
 
@@ -35,10 +34,10 @@ import (
 var _ proto.Plan = (*SimpleQueryPlan)(nil)
 
 type SimpleQueryPlan struct {
+	basePlan
 	Database string
 	Tables   []string
 	Stmt     *ast.SelectStatement
-	Args     []interface{}
 }
 
 func (s *SimpleQueryPlan) Type() proto.PlanType {
@@ -47,27 +46,22 @@ func (s *SimpleQueryPlan) Type() proto.PlanType {
 
 func (s *SimpleQueryPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
 	var (
-		sb         strings.Builder
-		argIndexes []int
-		res        proto.Result
-		err        error
+		sb      strings.Builder
+		indexes []int
+		res     proto.Result
+		err     error
 	)
 
-	if err = s.generate(&sb, &argIndexes); err != nil {
+	if err = s.generate(&sb, &indexes); err != nil {
 		return nil, errors.Wrap(err, "failed to generate sql")
 	}
 
-	if len(argIndexes) < 1 {
-		res, err = conn.Query(ctx, s.Database, sb.String())
-	} else {
-		args := make([]interface{}, 0, len(argIndexes))
-		for _, idx := range argIndexes {
-			args = append(args, s.Args[idx])
-		}
-		res, err = conn.Query(ctx, s.Database, sb.String(), args...)
-	}
+	var (
+		query = sb.String()
+		args  = s.toArgs(indexes)
+	)
 
-	if err != nil {
+	if res, err = conn.Query(ctx, s.Database, query, args...); err != nil {
 		return nil, errors.WithStack(err)
 	}
 

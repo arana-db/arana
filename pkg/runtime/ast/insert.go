@@ -1,20 +1,19 @@
-// Licensed to Apache Software Foundation (ASF) under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. Apache Software Foundation (ASF) licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-//
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package ast
 
@@ -109,6 +108,14 @@ func (b *baseInsertStatement) Priority() (priority string, ok bool) {
 	return
 }
 
+func (b *baseInsertStatement) SetFlag(flag uint8) {
+	b.flag = flag
+}
+
+func (b *baseInsertStatement) Flag() uint8 {
+	return b.flag
+}
+
 func (b *baseInsertStatement) enableIgnore() {
 	b.flag |= _flagInsertIgnore
 }
@@ -168,6 +175,15 @@ type InsertStatement struct {
 	*baseInsertStatement
 	duplicatedUpdates []*UpdateElement
 	values            [][]ExpressionNode
+}
+
+func NewInsertStatement(table TableName, columns []string) *InsertStatement {
+	return &InsertStatement{
+		baseInsertStatement: &baseInsertStatement{
+			table:   table,
+			columns: columns,
+		},
+	}
 }
 
 func (is *InsertStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -289,8 +305,16 @@ func (is *InsertStatement) Validate() error {
 	return nil
 }
 
+func (is *InsertStatement) SetDuplicatedUpdates(updates []*UpdateElement) {
+	is.duplicatedUpdates = updates
+}
+
 func (is *InsertStatement) DuplicatedUpdates() []*UpdateElement {
 	return is.duplicatedUpdates
+}
+
+func (is *InsertStatement) SetValues(values [][]ExpressionNode) {
+	is.values = values
 }
 
 func (is *InsertStatement) Values() [][]ExpressionNode {
