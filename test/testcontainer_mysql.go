@@ -4,10 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"os"
 )
 
 import (
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
@@ -30,15 +30,13 @@ func SetupMySQLContainer() (func(), *sql.DB, error) {
 	log.Info("setup MySQL Container")
 	ctx := context.Background()
 
-	//seedDataPath, err := os.Getwd()
-	//if err != nil {
-	//	log.Errorf("error get working directory: %s", err)
-	//	panic(fmt.Sprintf("%v", err))
-	//}
+	seedDataPath, err := os.Getwd()
+	if err != nil {
+		log.Errorf("error get working directory: %s", err)
+		panic(fmt.Sprintf("%v", err))
+	}
 
-	mountPath := "/Users/dongzonglei/source_code/Github/arana/docker/scripts/sharding.sql"
-
-	log.Infof("error get working directory: %s", mountPath)
+	mountPath := seedDataPath + "/../docker/scripts"
 
 	req := testcontainers.ContainerRequest{
 		Image:        "mysql:latest",
@@ -48,7 +46,7 @@ func SetupMySQLContainer() (func(), *sql.DB, error) {
 			"MYSQL_DATABASE":      dbName,
 		},
 		BindMounts: map[string]string{
-			"/docker-entrypoint-initdb.d/sharding.sql": mountPath,
+			"/docker-entrypoint-initdb.d": mountPath,
 		},
 		WaitingFor: wait.ForLog("port: 3306  MySQL Community Server - GPL"),
 	}
