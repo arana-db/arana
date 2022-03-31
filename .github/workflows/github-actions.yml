@@ -21,14 +21,16 @@ name: CI
 
 on:
   push:
-    branches: [ master, develop ]
+    branches:
+      - master
   pull_request:
-    branches: "*"
+    branches:
+      - master
   pull_request_target:
-    branches: "*"
+    branches:
+      - master
 
 jobs:
-
   build:
     name: ${{ matrix.os }} - Go ${{ matrix.go_version }}
     runs-on: ${{ matrix.os }}
@@ -37,17 +39,10 @@ jobs:
       matrix:
         go_version:
           - 1.16
-
         os:
           - ubuntu-latest
 
-    # https://docs.github.com/cn/actions/reference/encrypted-secrets
-    env:
-      DING_TOKEN: ${{ secrets.PROXY_DING_TOKEN }}
-      DING_SIGN: ${{ secrets.PROXY_DING_SIGN }}
-
     steps:
-
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
         with:
@@ -56,11 +51,6 @@ jobs:
 
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
-
-      - name: Check License Header
-        uses: apache/skywalking-eyes@main
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Cache dependencies
         uses: actions/cache@v2
@@ -73,25 +63,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Get dependencies
-        run: |
-          if [ -f Gopkg.toml ]; then
-              curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-              dep ensure
-          else
-              go get -v -t -d ./...
-          fi
-
       - name: Go Fmt
         run: |
           go fmt ./... && git status && [[ -z `git status -s` ]]
           # diff -u <(echo -n) <(gofmt -d -s .)
-
-      - name: Install go ci lint
-        run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.27.0
-
-      - name: Run Linter
-        run: golangci-lint run --timeout=10m -v --disable-all --enable=govet --enable=staticcheck --enable=ineffassign --enable=misspell
 
       - name: Go Test
         run: |
@@ -106,47 +81,3 @@ jobs:
 
       - name: Coverage
         run: bash <(curl -s https://codecov.io/bash)
-
-      - name: Hello world
-        run: echo Hello world ${{ secrets.PROXY_DING_TOKEN }} ${{ secrets.PROXY_DING_SIGN }}
-
-        # Because the contexts of push and PR are different, there are two Notify.
-        # Notifications are triggered only in the arana-db/arana repository.
-      - name: DingTalk Message Notify only Push
-        uses: ./.github/actions/actions-ding
-        # Whether job is successful or not, always () is always true.
-        if: |
-          always() &&
-          github.event_name == 'push' &&
-          github.repository == 'dubbogo/dubbo-go-proxy'
-        with:
-          # DingDing bot token
-          dingToken: ${{ env.DING_TOKEN }}
-          secret: ${{ env.DING_SIGN }}
-          # Post Body to send
-          body: |
-            {
-              "msgtype": "markdown",
-              "markdown": {
-                  "title": "Github Actions",
-                  "text": "## Github Actions \n - name: CI \n - repository: ${{ github.repository }} \n - trigger: ${{ github.actor }} \n - event: ${{ github.event_name }} \n - ref: ${{ github.ref }} \n - status: [${{ job.status	}}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) \n - environment: ${{ runner.os }} \n - SHA: [${{ github.sha }}](${{ github.event.compare }})"
-              }
-            }
-
-      - name: DingTalk Message Notify only PR
-        uses: ./.github/actions/actions-ding
-        if: |
-          always() &&
-          github.event_name == 'pull_request_target' &&
-          github.repository == 'dubbogo/dubbo-go-proxy'
-        with:
-          dingToken: ${{ env.DING_TOKEN }}
-          secret: ${{ env.DING_SIGN }}
-          body: |
-            {
-              "msgtype": "markdown",
-              "markdown": {
-                  "title": "Github Actions",
-                  "text": "## Github Actions \n - name: CI \n - repository: ${{ github.repository }} \n - pr_title: ${{ github.event.pull_request.title }} \n - trigger: ${{ github.actor }} \n - event: ${{ github.event_name }} \n - ref: [${{ github.ref }}](${{ github.event.pull_request._links.html.href }}) \n - status: [${{ job.status	}}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) \n - environment: ${{ runner.os }} \n > SHA: [${{ github.sha }}](${{ github.event.pull_request._links.html.href }})"
-              }
-            }
