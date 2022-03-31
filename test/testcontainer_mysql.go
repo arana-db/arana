@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"os"
 )
 
 import (
@@ -20,7 +19,7 @@ import (
 const (
 	dbUsername string = "root"
 	dbPassword string = "123456"
-	dbName     string = "employee"
+	dbName     string = "employees"
 )
 
 var (
@@ -31,13 +30,15 @@ func SetupMySQLContainer() (func(), *sql.DB, error) {
 	log.Info("setup MySQL Container")
 	ctx := context.Background()
 
-	seedDataPath, err := os.Getwd()
-	if err != nil {
-		log.Errorf("error get working directory: %s", err)
-		panic(fmt.Sprintf("%v", err))
-	}
+	//seedDataPath, err := os.Getwd()
+	//if err != nil {
+	//	log.Errorf("error get working directory: %s", err)
+	//	panic(fmt.Sprintf("%v", err))
+	//}
 
-	mountPath := seedDataPath + "/../docker/script/sharding.sql"
+	mountPath := "/Users/dongzonglei/source_code/Github/arana/docker/scripts/sharding.sql"
+
+	log.Infof("error get working directory: %s", mountPath)
 
 	req := testcontainers.ContainerRequest{
 		Image:        "mysql:latest",
@@ -47,7 +48,7 @@ func SetupMySQLContainer() (func(), *sql.DB, error) {
 			"MYSQL_DATABASE":      dbName,
 		},
 		BindMounts: map[string]string{
-			mountPath: "/docker-entrypoint-initdb.d/sharding.sql",
+			"/docker-entrypoint-initdb.d/sharding.sql": mountPath,
 		},
 		WaitingFor: wait.ForLog("port: 3306  MySQL Community Server - GPL"),
 	}
@@ -75,7 +76,7 @@ func SetupMySQLContainer() (func(), *sql.DB, error) {
 	p, _ := mysqlC.MappedPort(ctx, "3306/tcp")
 	port := p.Int()
 
-	connectionString := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=skip-verify&amp;parseTime=true&amp;multiStatements=true",
+	connectionString := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8",
 		dbUsername, dbPassword, host, port, dbName)
 
 	db, err = sql.Open("mysql", connectionString)

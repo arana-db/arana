@@ -5,7 +5,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
-	"time"
 )
 
 import (
@@ -34,21 +33,20 @@ func TestMain(m *testing.M) {
 }
 
 func TestSelect_Integration(t *testing.T) {
-	rows, err := db.Query(`SELECT emp_no, birth_date, first_name, last_name, gender, hire_date FROM employees 
-		WHERE emp_no = ?`, 100001)
+	rows, err := db.Query(`SELECT uid, name, score, nickname FROM student_0001 where uid = ?`, 1)
 	assert.NoErrorf(t, err, "select row error: %v", err)
 
-	var empNo string
-	var birthDate time.Time
-	var firstName string
-	var lastName string
-	var gender string
-	var hireDate time.Time
+	var uid uint64
+	var name string
+	var score float64
+	var nickname string
+
 	if rows.Next() {
-		err = rows.Scan(&empNo, &birthDate, &firstName, &lastName, &gender, &hireDate)
+		err = rows.Scan(&uid, &name, &score, &nickname)
 		if err != nil {
 			t.Error(err)
 		}
 	}
-	assert.Equal(t, "scott", firstName)
+	assert.Equal(t, "scott", name)
+	assert.Equal(t, "nc_scott", nickname)
 }
