@@ -12,13 +12,11 @@ require (
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/golang/mock v1.5.0
 	github.com/hashicorp/golang-lru v0.5.4
-	github.com/jmoiron/sqlx v1.3.4
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/lestrrat-go/strftime v1.0.5
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/pkg/errors v0.9.1
-	github.com/qreasio/go-starter-kit v0.0.0-20200823044549-4955f5c7be23
 	github.com/rogpeppe/go-internal v1.8.0 // indirect
 	github.com/spf13/cobra v1.2.1
 	github.com/stretchr/testify v1.7.0
