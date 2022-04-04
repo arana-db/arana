@@ -170,20 +170,8 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 		} else {
 			res, warn, err = nil, 0, errMissingTx
 		}
-	case *ast.SelectStmt:
+	case *ast.SelectStmt, *ast.InsertStmt, *ast.UpdateStmt, *ast.DeleteStmt:
 		// TODO: merge with other stmt when write-mode is supported for runtime
-		if tx, ok := executor.getTx(ctx); ok {
-			res, warn, err = tx.Execute(ctx)
-		} else {
-			res, warn, err = rt.Execute(ctx)
-		}
-	case *ast.InsertStmt:
-		if tx, ok := executor.getTx(ctx); ok {
-			res, warn, err = tx.Execute(ctx)
-		} else {
-			res, warn, err = rt.Execute(ctx)
-		}
-	case *ast.UpdateStmt:
 		if tx, ok := executor.getTx(ctx); ok {
 			res, warn, err = tx.Execute(ctx)
 		} else {
@@ -223,7 +211,7 @@ func (executor *RedirectExecutor) ExecutorComStmtExecute(ctx *proto.Context) (pr
 	}
 
 	switch ctx.Stmt.StmtNode.(type) {
-	case *ast.SelectStmt, *ast.InsertStmt, *ast.UpdateStmt:
+	case *ast.SelectStmt, *ast.InsertStmt, *ast.UpdateStmt, *ast.DeleteStmt:
 	default:
 		ctx.Context = rcontext.WithDirect(ctx.Context)
 	}
