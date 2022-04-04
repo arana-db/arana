@@ -48,7 +48,7 @@ func (tester *MySQLContainerTester) SetupMySQLContainer() testcontainers.Contain
 		panic(fmt.Sprintf("%v", err))
 	}
 
-	mountPath := seedDataPath + "/../docker/scripts"
+	mountPath := seedDataPath + "/../scripts"
 
 	req := testcontainers.ContainerRequest{
 		Image:        "mysql:latest",
