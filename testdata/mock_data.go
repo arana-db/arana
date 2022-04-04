@@ -63,6 +63,20 @@ func (mr *MockRowMockRecorder) Data() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Data", reflect.TypeOf((*MockRow)(nil).Data))
 }
 
+// Encode mocks base method.
+func (m *MockRow) Encode(values []*proto.Value, columns []proto.Field, columnNames []string) proto.Row {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Encode")
+	ret0, _ := ret[0].(proto.Row)
+	return ret0
+}
+
+// Encode mocks base method.
+func (mr *MockRowMockRecorder) Encode() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Encode", reflect.TypeOf((*MockRow)(nil).Encode))
+}
+
 // Decode mocks base method.
 func (m *MockRow) Decode() ([]*proto.Value, error) {
 	m.ctrl.T.Helper()
