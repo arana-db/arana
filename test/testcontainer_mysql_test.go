@@ -57,10 +57,12 @@ func TestSelect_Integration(t *testing.T) {
 	rows, err := db.Query(`SELECT uid, name, score, nickname FROM student_0001 where uid = ?`, 1)
 	assert.NoErrorf(t, err, "select row error: %v", err)
 
-	var uid uint64
-	var name string
-	var score float64
-	var nickname string
+	var (
+		uid      uint64
+		name     string
+		score    float64
+		nickname string
+	)
 
 	if rows.Next() {
 		err = rows.Scan(&uid, &name, &score, &nickname)
