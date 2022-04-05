@@ -20,8 +20,12 @@
 package config
 
 import (
+	"errors"
 	"fmt"
-	"go.uber.org/atomic"
+	"io"
+
+	_ "github.com/arana-db/arana/pkg/config/etcd"
+	_ "github.com/arana-db/arana/pkg/config/file"
 )
 
 type (
@@ -31,10 +35,12 @@ type (
 
 const (
 	DefaultConfigPath                   = "/arana-db/config"
+	DefaultConfigMetadataPath           = "/arana-db/config/metadata"
 	DefaultConfigDataListenersPath      = "/arana-db/config/data/listeners"
-	DefaultConfigDataExecutorsPath      = "/arana-db/config/data/executors"
+	DefaultConfigDataFiltersPath        = "/arana-db/config/data/filters"
 	DefaultConfigDataSourceClustersPath = "/arana-db/config/data/dataSourceClusters"
 	DefaultConfigDataShardingRulePath   = "/arana-db/config/data/shardingRule"
+	DefaultConfigDataTenantsPath        = "/arana-db/config/data/tenants"
 )
 
 const (
@@ -49,8 +55,29 @@ const (
 )
 
 var (
-	slots map[string]StoreOperate
+	slots        map[string]StoreOperate
+	storeOperate StoreOperate
 )
+
+func GetStoreOperate() (StoreOperate, error) {
+	if storeOperate != nil {
+		return storeOperate, nil
+	}
+
+	return nil, errors.New("StoreOperate not init")
+}
+
+func Init(name string, options map[string]interface{}) error {
+
+	s, exist := slots[name]
+	if !exist {
+		return fmt.Errorf("StoreOperate solt=[%s] not exist", name)
+	}
+
+	storeOperate = s
+
+	return storeOperate.Init(options)
+}
 
 func Register(s StoreOperate) {
 	if _, ok := slots[s.Name()]; ok {
@@ -60,26 +87,18 @@ func Register(s StoreOperate) {
 	slots[s.Name()] = s
 }
 
-type Observer func()
-
 type StoreOperate interface {
-	Save()
+	io.Closer
 
-	Get()
+	Init(options map[string]interface{}) error
 
-	Delete()
+	Save(key string, val []byte) error
 
-	Watch(receiver chan struct{})
+	Get(key string) ([]byte, error)
+
+	Delete(key string) error
+
+	Watch(key string) (<-chan []byte, error)
 
 	Name() string
-}
-
-type Changeable interface {
-	Name() string
-	Sign() string
-}
-
-type Center struct {
-	confHolder atomic.Value // 里面持有了最新的 *Configuration 对象
-	observers  []Observer
 }

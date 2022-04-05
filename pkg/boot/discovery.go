@@ -21,6 +21,9 @@ package boot
 import (
 	"context"
 	"fmt"
+	"gopkg.in/yaml.v3"
+	"io/ioutil"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -78,7 +81,7 @@ type Discovery interface {
 	ListTenants(ctx context.Context) ([]string, error)
 	// GetTable
 	GetTenant(ctx context.Context, tenant string) (*config.Tenant, error)
-	
+
 	// ListListeners
 	ListListeners(ctx context.Context) ([]*config.Listener, error)
 	// ListFilters
@@ -104,8 +107,37 @@ type Discovery interface {
 
 type discovery struct {
 	sync.Once
-	path string
-	c    *config.Configuration
+	path    string
+	options *BootOptions
+	c       *config.Center
+}
+
+func (fp *discovery) Init(ctx context.Context) error {
+	var err error
+
+	fp.Do(func() {
+		content, err := ioutil.ReadFile(fp.path)
+		if err != nil {
+			err = errors.Wrap(err, "failed to load config")
+			return
+		}
+
+		if !yamlFormat(fp.path) {
+			err = errors.Errorf("invalid config file format: %s", filepath.Ext(fp.path))
+			return
+		}
+
+		var cfg BootOptions
+		if err = yaml.Unmarshal(content, &cfg); err != nil {
+			err = errors.Wrapf(err, "failed to unmarshal config")
+			return
+		}
+		fp.c, err = config.NewCenter(*cfg.Config)
+		if err != nil {
+			return
+		}
+	})
+	return err
 }
 
 func (fp *discovery) GetCluster(ctx context.Context, cluster string) (*Cluster, error) {
@@ -120,23 +152,27 @@ func (fp *discovery) GetCluster(ctx context.Context, cluster string) (*Cluster, 
 	}, nil
 }
 
-func (fp *discovery) Init(ctx context.Context) (err error) {
-	fp.Do(func() {
-		fp.c, err = config.ParseV2(fp.path)
-	})
-	return
-}
-
 func (fp *discovery) ListTenants(ctx context.Context) ([]string, error) {
+
+	cfg, err := fp.c.Load()
+	if err != nil {
+		return nil, err
+	}
+
 	var tenants []string
-	for _, it := range fp.c.Data.Tenants {
+	for _, it := range cfg.Data.Tenants {
 		tenants = append(tenants, it.Name)
 	}
 	return tenants, nil
 }
 
 func (fp *discovery) GetTenant(ctx context.Context, tenant string) (*config.Tenant, error) {
-	for _, it := range fp.c.Data.Tenants {
+	cfg, err := fp.c.Load()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, it := range cfg.Data.Tenants {
 		if it.Name == tenant {
 			return it, nil
 		}
@@ -145,16 +181,31 @@ func (fp *discovery) GetTenant(ctx context.Context, tenant string) (*config.Tena
 }
 
 func (fp *discovery) ListListeners(ctx context.Context) ([]*config.Listener, error) {
-	return fp.c.Data.Listeners, nil
+	cfg, err := fp.c.Load()
+	if err != nil {
+		return nil, err
+	}
+
+	return cfg.Data.Listeners, nil
 }
 
 func (fp *discovery) ListFilters(ctx context.Context) ([]*config.Filter, error) {
-	return fp.c.Data.Filters, nil
+	cfg, err := fp.c.Load()
+	if err != nil {
+		return nil, err
+	}
+
+	return cfg.Data.Filters, nil
 }
 
 func (fp *discovery) ListClusters(ctx context.Context) ([]string, error) {
-	clusters := make([]string, 0, len(fp.c.Data.DataSourceClusters))
-	for _, it := range fp.c.Data.DataSourceClusters {
+	cfg, err := fp.c.Load()
+	if err != nil {
+		return nil, err
+	}
+
+	clusters := make([]string, 0, len(cfg.Data.DataSourceClusters))
+	for _, it := range cfg.Data.DataSourceClusters {
 		clusters = append(clusters, it.Name)
 	}
 
@@ -189,8 +240,13 @@ func (fp *discovery) ListNodes(ctx context.Context, cluster, group string) ([]st
 }
 
 func (fp *discovery) ListTables(ctx context.Context, cluster string) ([]string, error) {
+	cfg, err := fp.c.Load()
+	if err != nil {
+		return nil, err
+	}
+
 	var tables []string
-	for _, it := range fp.loadTables(cluster) {
+	for _, it := range fp.loadTables(cfg, cluster) {
 		_, tb, _ := parseTable(it.Name)
 		tables = append(tables, tb)
 	}
@@ -212,16 +268,19 @@ func (fp *discovery) GetNode(ctx context.Context, cluster, group, node string) (
 }
 
 func (fp *discovery) GetTable(ctx context.Context, cluster, table string) (*rule.VTable, error) {
-	exist, ok := fp.loadTables(cluster)[table]
+	cfg, err := fp.c.Load()
+	if err != nil {
+		return nil, err
+	}
+
+	exist, ok := fp.loadTables(cfg, cluster)[table]
 	if !ok {
 		return nil, nil
 	}
 	var vt rule.VTable
 
 	var (
-		topology rule.Topology
-		err      error
-
+		topology           rule.Topology
 		dbFormat, tbFormat string
 		dbBegin, tbBegin   int
 		dbEnd, tbEnd       int
@@ -340,7 +399,12 @@ func (fp *discovery) GetTable(ctx context.Context, cluster, table string) (*rule
 }
 
 func (fp *discovery) loadCluster(cluster string) (*config.DataSourceCluster, bool) {
-	for _, it := range fp.c.Data.DataSourceClusters {
+	cfg, err := fp.c.Load()
+	if err != nil {
+		return nil, false
+	}
+
+	for _, it := range cfg.Data.DataSourceClusters {
 		if it.Name == cluster {
 			return it, true
 		}
@@ -361,9 +425,10 @@ func (fp *discovery) loadGroup(cluster, group string) (*config.Group, bool) {
 	return nil, false
 }
 
-func (fp *discovery) loadTables(cluster string) map[string]*config.Table {
+func (fp *discovery) loadTables(cfg *config.Configuration, cluster string) map[string]*config.Table {
+
 	var tables map[string]*config.Table
-	for _, it := range fp.c.Data.ShardingRule.Tables {
+	for _, it := range cfg.Data.ShardingRule.Tables {
 		db, tb, err := parseTable(it.Name)
 		if err != nil {
 			log.Warnf("skip parsing table rule: %v", err)
@@ -479,8 +544,16 @@ func parseTable(input string) (db, tbl string, err error) {
 	return
 }
 
-func NewFileProvider(path string) Discovery {
+func NewProvider(path string) Discovery {
 	return &discovery{
 		path: path,
 	}
+}
+
+func yamlFormat(path string) bool {
+	ext := filepath.Ext(path)
+	if ext == ".yaml" || ext == ".yml" {
+		return true
+	}
+	return false
 }

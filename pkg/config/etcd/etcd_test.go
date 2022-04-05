@@ -22,17 +22,13 @@
 package etcd
 
 import (
-	"encoding/json"
-	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/testdata"
 	"net/url"
-	"os"
 	"testing"
 	"time"
 )
 
 import (
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 
 	"go.etcd.io/etcd/server/v3/embed"
@@ -52,9 +48,8 @@ type ClientTestSuite struct {
 		heartbeat int
 	}
 
-	etcd *embed.Etcd
-
-	client *Client
+	etcd   *embed.Etcd
+	client *storeOperate
 }
 
 // start etcd server
@@ -82,84 +77,6 @@ func (suite *ClientTestSuite) SetupSuite() {
 
 	suite.etcd = e
 	return
-}
-
-// stop etcd server
-func (suite *ClientTestSuite) TearDownSuite() {
-	suite.etcd.Close()
-	if err := os.RemoveAll(config.DefaultConfigPath); err != nil {
-		suite.FailNow(err.Error())
-	}
-}
-
-func (suite *ClientTestSuite) setUpClient() *Client {
-	c, err := NewClient(suite.etcdConfig.endpoints)
-	if err != nil {
-		suite.T().Fatal(err)
-	}
-	return c
-}
-
-func (suite *ClientTestSuite) SetupTest() {
-	c := suite.setUpClient()
-	suite.client = c
-	return
-}
-
-func (suite *ClientTestSuite) TestLoadConfigFromEtcd() {
-	t := suite.T()
-	c := suite.client
-	defer suite.client.client.Close()
-
-	if err := c.PutConfigToEtcd(FakeConfigPath); err != nil {
-		t.Fatal(err)
-	}
-
-	resp, err := c.LoadConfigFromEtcd(config.DefaultConfigPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	config, err := config.LoadV2(FakeConfigPath)
-	assert.NoError(suite.T(), err)
-	configJson, _ := json.Marshal(config)
-
-	if resp != string(configJson) {
-		t.Fatalf("expect %s but get %s", string(configJson), resp)
-	}
-}
-
-func (suite *ClientTestSuite) TestUpdateConfigToEtcd() {
-	t := suite.T()
-	c := suite.client
-	defer suite.client.client.Close()
-
-	resp, err := c.LoadConfigFromEtcd(config.DefaultConfigDataExecutorsPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	jsonSlice := make([]map[string]interface{}, 1)
-
-	_ = json.Unmarshal([]byte(resp), &jsonSlice)
-
-	jsonSlice[0]["name"] = "test"
-
-	configJson, err := json.Marshal(jsonSlice)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = c.UpdateConfigToEtcd(config.DefaultConfigDataExecutorsPath, string(configJson))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	resp, err = c.LoadConfigFromEtcd(config.DefaultConfigDataExecutorsPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp != string(configJson) {
-		t.Fatalf("expect %s but get %s", configJson, resp)
-	}
 }
 
 func TestClientSuite(t *testing.T) {

@@ -22,8 +22,12 @@
 package etcd
 
 import (
-	"encoding/json"
+	"context"
 	"github.com/arana-db/arana/pkg/config"
+	"go.etcd.io/etcd/api/v3/mvccpb"
+	clientv3 "go.etcd.io/etcd/client/v3"
+	"math"
+	"sync"
 	"time"
 )
 
@@ -31,75 +35,118 @@ import (
 	etcdv3 "github.com/dubbogo/gost/database/kv/etcd/v3"
 
 	"github.com/pkg/errors"
-
-	"github.com/tidwall/gjson"
 )
 
-type Client struct {
-	client *etcdv3.Client
+func init() {
+	config.Register(&storeOperate{})
 }
 
-func NewClient(endpoint []string) (*Client, error) {
+type storeOperate struct {
+	client    *etcdv3.Client
+	lock      *sync.RWMutex
+	receivers map[string]*watcher
+	cancelfs  []context.CancelFunc
+}
+
+func (c *storeOperate) Init(options map[string]interface{}) error {
+	endpoints, _ := options["endpoints"].([]string)
 	tmpClient, err := etcdv3.NewConfigClientWithErr(
 		etcdv3.WithName(etcdv3.RegistryETCDV3Client),
 		etcdv3.WithTimeout(10*time.Second),
-		etcdv3.WithEndpoints(endpoint...),
+		etcdv3.WithEndpoints(endpoints...),
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to initialize etcd client")
-	}
-	return &Client{client: tmpClient}, nil
-}
-
-// PutConfigToEtcd initialize local file config into etcd，only be used in when etcd don't hava data.
-func (c *Client) PutConfigToEtcd(configPath string) error {
-	conf, err := config.LoadV2(configPath)
-	if err != nil {
-		return errors.WithStack(err)
+		return errors.Wrap(err, "failed to initialize etcd client")
 	}
 
-	configJson, err := json.Marshal(conf)
-	if err != nil {
-		return errors.Errorf("config json.marshal failed  %v err:", err)
-	}
-
-	if err = c.client.Put(config.DefaultConfigPath, string(configJson)); err != nil {
-		return err
-	}
-
-	if err = c.client.Put(config.DefaultConfigDataListenersPath, gjson.Get(string(configJson), "data.listeners").String()); err != nil {
-		return err
-	}
-
-	if err = c.client.Put(config.DefaultConfigDataExecutorsPath, gjson.Get(string(configJson), "data.executors").String()); err != nil {
-		return err
-	}
-
-	if err = c.client.Put(config.DefaultConfigDataSourceClustersPath, gjson.Get(string(configJson), "data.dataSourceClusters").String()); err != nil {
-		return err
-	}
-
-	if err = c.client.Put(config.DefaultConfigDataShardingRulePath, gjson.Get(string(configJson), "data.shardingRule").String()); err != nil {
-		return err
-	}
+	c.client = tmpClient
+	c.lock = &sync.RWMutex{}
+	c.receivers = make(map[string]*watcher)
 
 	return nil
 }
 
-// LoadConfigFromEtcd get key value from etcd
-func (c *Client) LoadConfigFromEtcd(configKey string) (string, error) {
-	resp, err := c.client.Get(configKey)
-	if err != nil {
-		return "", errors.Errorf("Get remote config fail error %v", err)
-	}
-	return resp, nil
+func (c *storeOperate) Save(key string, val []byte) error {
+	return c.client.Put(key, string(val))
 }
 
-// UpdateConfigToEtcd update key value in etcd
-func (c *Client) UpdateConfigToEtcd(configKey, configValue string) error {
+func (c *storeOperate) Get(key string) ([]byte, error) {
+	v, err := c.client.Get(key)
+	if err != nil {
+		return nil, err
+	}
 
-	if err := c.client.Put(configKey, configValue); err != nil {
-		return err
+	return []byte(v), nil
+}
+
+func (c *storeOperate) Delete(key string) error {
+	return c.client.Delete(key)
+}
+
+type watcher struct {
+	revision  int64
+	lock      *sync.RWMutex
+	receivers []chan []byte
+	ch        clientv3.WatchChan
+}
+
+func (w *watcher) run(ctx context.Context) {
+	for {
+		select {
+		case resp := <-w.ch:
+			for i := range resp.Events {
+				event := resp.Events[i]
+				if event.Type == mvccpb.DELETE || event.Kv.ModRevision <= w.revision {
+					continue
+				}
+				w.revision = event.Kv.ModRevision
+				for p := range w.receivers {
+					w.receivers[p] <- event.Kv.Value
+				}
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func (c *storeOperate) Watch(key string) (<-chan []byte, error) {
+	defer c.lock.Unlock()
+	c.lock.Lock()
+	if _, ok := c.receivers[key]; !ok {
+		watchCh, err := c.client.Watch(key)
+		if err != nil {
+			return nil, err
+		}
+		w := &watcher{
+			revision:  math.MinInt64,
+			lock:      &sync.RWMutex{},
+			receivers: make([]chan []byte, 0, 2),
+			ch:        watchCh,
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		go w.run(ctx)
+		c.cancelfs = append(c.cancelfs, cancel)
+		c.receivers[key] = w
+	}
+
+	w := c.receivers[key]
+
+	defer w.lock.Unlock()
+	w.lock.Lock()
+
+	rec := make(chan []byte)
+	c.receivers[key].receivers = append(c.receivers[key].receivers, rec)
+	return rec, nil
+}
+
+func (c *storeOperate) Name() string {
+	return "etcd"
+}
+
+func (c *storeOperate) Close() error {
+	for _, f := range c.cancelfs {
+		f()
 	}
 
 	return nil

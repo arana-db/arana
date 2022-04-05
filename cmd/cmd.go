@@ -60,7 +60,7 @@ var (
 		Short: "start arana",
 
 		Run: func(cmd *cobra.Command, args []string) {
-			provider := boot.NewFileProvider(configPath)
+			provider := boot.NewProvider(configPath)
 			if err := boot.Boot(context.Background(), provider); err != nil {
 				log.Fatal("start failed: %v", err)
 				return
