@@ -1,20 +1,3 @@
-// Licensed to Apache Software Foundation (ASF) under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. Apache Software Foundation (ASF) licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-//
 // Copyright 2015 PingCAP, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,8 +20,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/arana-db/parser/terror"
 	"github.com/pingcap/errors"
+	"github.com/arana-db/parser/mysql"
+	"github.com/arana-db/parser/terror"
 )
 
 // ActionType is the type for DDL action.
@@ -87,22 +71,41 @@ const (
 	ActionDropColumns                   ActionType = 38
 	ActionModifyTableAutoIdCache        ActionType = 39
 	ActionRebaseAutoRandomBase          ActionType = 40
-)
+	ActionAlterIndexVisibility          ActionType = 41
+	ActionExchangeTablePartition        ActionType = 42
+	ActionAddCheckConstraint            ActionType = 43
+	ActionDropCheckConstraint           ActionType = 44
+	ActionAlterCheckConstraint          ActionType = 45
 
-const (
-	// AddIndexStr is a string related to the operation of "add index".
-	AddIndexStr      = "add index"
-	AddPrimaryKeyStr = "add primary key"
+	// `ActionAlterTableAlterPartition` is removed and will never be used.
+	// Just left a tombstone here for compatibility.
+	__DEPRECATED_ActionAlterTableAlterPartition ActionType = 46
+
+	ActionRenameTables                  ActionType = 47
+	ActionDropIndexes                   ActionType = 48
+	ActionAlterTableAttributes          ActionType = 49
+	ActionAlterTablePartitionAttributes ActionType = 50
+	ActionCreatePlacementPolicy         ActionType = 51
+	ActionAlterPlacementPolicy          ActionType = 52
+	ActionDropPlacementPolicy           ActionType = 53
+	ActionAlterTablePartitionPlacement  ActionType = 54
+	ActionModifySchemaDefaultPlacement  ActionType = 55
+	ActionAlterTablePlacement           ActionType = 56
+	ActionAlterCacheTable               ActionType = 57
+	ActionAlterTableStatsOptions        ActionType = 58
+	ActionAlterNoCacheTable             ActionType = 59
+	ActionCreateTables                  ActionType = 60
 )
 
 var actionMap = map[ActionType]string{
 	ActionCreateSchema:                  "create schema",
 	ActionDropSchema:                    "drop schema",
 	ActionCreateTable:                   "create table",
+	ActionCreateTables:                  "create tables",
 	ActionDropTable:                     "drop table",
 	ActionAddColumn:                     "add column",
 	ActionDropColumn:                    "drop column",
-	ActionAddIndex:                      AddIndexStr,
+	ActionAddIndex:                      "add index",
 	ActionDropIndex:                     "drop index",
 	ActionAddForeignKey:                 "add foreign key",
 	ActionDropForeignKey:                "drop foreign key",
@@ -110,6 +113,7 @@ var actionMap = map[ActionType]string{
 	ActionModifyColumn:                  "modify column",
 	ActionRebaseAutoID:                  "rebase auto_increment ID",
 	ActionRenameTable:                   "rename table",
+	ActionRenameTables:                  "rename tables",
 	ActionSetDefaultValue:               "set default value",
 	ActionShardRowID:                    "shard row ID",
 	ActionModifyTableComment:            "modify table comment",
@@ -127,7 +131,7 @@ var actionMap = map[ActionType]string{
 	ActionRepairTable:                   "repair table",
 	ActionSetTiFlashReplica:             "set tiflash replica",
 	ActionUpdateTiFlashReplicaStatus:    "update tiflash replica status",
-	ActionAddPrimaryKey:                 AddPrimaryKeyStr,
+	ActionAddPrimaryKey:                 "add primary key",
 	ActionDropPrimaryKey:                "drop primary key",
 	ActionCreateSequence:                "create sequence",
 	ActionAlterSequence:                 "alter sequence",
@@ -136,6 +140,27 @@ var actionMap = map[ActionType]string{
 	ActionDropColumns:                   "drop multi-columns",
 	ActionModifyTableAutoIdCache:        "modify auto id cache",
 	ActionRebaseAutoRandomBase:          "rebase auto_random ID",
+	ActionAlterIndexVisibility:          "alter index visibility",
+	ActionExchangeTablePartition:        "exchange partition",
+	ActionAddCheckConstraint:            "add check constraint",
+	ActionDropCheckConstraint:           "drop check constraint",
+	ActionAlterCheckConstraint:          "alter check constraint",
+	ActionDropIndexes:                   "drop multi-indexes",
+	ActionAlterTableAttributes:          "alter table attributes",
+	ActionAlterTablePartitionPlacement:  "alter table partition placement",
+	ActionAlterTablePartitionAttributes: "alter table partition attributes",
+	ActionCreatePlacementPolicy:         "create placement policy",
+	ActionAlterPlacementPolicy:          "alter placement policy",
+	ActionDropPlacementPolicy:           "drop placement policy",
+	ActionModifySchemaDefaultPlacement:  "modify schema default placement",
+	ActionAlterTablePlacement:           "alter table placement",
+	ActionAlterCacheTable:               "alter table cache",
+	ActionAlterNoCacheTable:             "alter table nocache",
+	ActionAlterTableStatsOptions:        "alter table statistics options",
+
+	// `ActionAlterTableAlterPartition` is removed and will never be used.
+	// Just left a tombstone here for compatibility.
+	__DEPRECATED_ActionAlterTableAlterPartition: "alter partition",
 }
 
 // String return current ddl action in string
@@ -152,6 +177,9 @@ type HistoryInfo struct {
 	DBInfo        *DBInfo
 	TableInfo     *TableInfo
 	FinishedTS    uint64
+
+	// MultipleTableInfos is like TableInfo but only for operations updating multiple tables.
+	MultipleTableInfos []*TableInfo
 }
 
 // AddDBInfo adds schema version and schema information that are used for binlog.
@@ -168,11 +196,21 @@ func (h *HistoryInfo) AddTableInfo(schemaVer int64, tblInfo *TableInfo) {
 	h.TableInfo = tblInfo
 }
 
+// SetTableInfos is like AddTableInfo, but will add multiple table infos to the binlog.
+func (h *HistoryInfo) SetTableInfos(schemaVer int64, tblInfos []*TableInfo) {
+	h.SchemaVersion = schemaVer
+	h.MultipleTableInfos = make([]*TableInfo, len(tblInfos))
+	for i, info := range tblInfos {
+		h.MultipleTableInfos[i] = info
+	}
+}
+
 // Clean cleans history information.
 func (h *HistoryInfo) Clean() {
 	h.SchemaVersion = 0
 	h.DBInfo = nil
 	h.TableInfo = nil
+	h.MultipleTableInfos = nil
 }
 
 // DDLReorgMeta is meta info of DDL reorganization.
@@ -180,6 +218,32 @@ type DDLReorgMeta struct {
 	// EndHandle is the last handle of the adding indices table.
 	// We should only backfill indices in the range [startHandle, EndHandle].
 	EndHandle int64 `json:"end_handle"`
+
+	SQLMode       mysql.SQLMode                    `json:"sql_mode"`
+	Warnings      map[errors.ErrorID]*terror.Error `json:"warnings"`
+	WarningsCount map[errors.ErrorID]int64         `json:"warnings_count"`
+	Location      *TimeZoneLocation                `json:"location"`
+}
+
+// TimeZoneLocation represents a single time zone.
+type TimeZoneLocation struct {
+	Name     string `json:"name"`
+	Offset   int    `json:"offset"` // seconds east of UTC
+	location *time.Location
+}
+
+func (tz *TimeZoneLocation) GetLocation() (*time.Location, error) {
+	if tz.location != nil {
+		return tz.location, nil
+	}
+
+	var err error
+	if tz.Offset == 0 {
+		tz.location, err = time.LoadLocation(tz.Name)
+	} else {
+		tz.location = time.FixedZone(tz.Name, tz.Offset)
+	}
+	return tz.location, err
 }
 
 // NewDDLReorgMeta new a DDLReorgMeta.
@@ -187,6 +251,11 @@ func NewDDLReorgMeta() *DDLReorgMeta {
 	return &DDLReorgMeta{
 		EndHandle: math.MaxInt64,
 	}
+}
+
+// MultiSchemaInfo keeps some information for multi schema change.
+type MultiSchemaInfo struct {
+	Warnings []*errors.Error
 }
 
 // Job is for a DDL operation.
@@ -201,14 +270,20 @@ type Job struct {
 	// ErrorCount will be increased, every time we meet an error when running job.
 	ErrorCount int64 `json:"err_count"`
 	// RowCount means the number of rows that are processed.
-	RowCount int64         `json:"row_count"`
-	Mu       sync.Mutex    `json:"-"`
-	Args     []interface{} `json:"-"`
+	RowCount int64      `json:"row_count"`
+	Mu       sync.Mutex `json:"-"`
+	// CtxVars are variables attached to the job. It is for internal usage.
+	// E.g. passing arguments between functions by one single *Job pointer.
+	CtxVars []interface{} `json:"-"`
+	Args    []interface{} `json:"-"`
 	// RawArgs : We must use json raw message to delay parsing special args.
 	RawArgs     json.RawMessage `json:"raw_args"`
 	SchemaState SchemaState     `json:"schema_state"`
 	// SnapshotVer means snapshot version for this job.
 	SnapshotVer uint64 `json:"snapshot_ver"`
+	// RealStartTS uses timestamp allocated by TSO.
+	// Now it's the TS when we actually start the job.
+	RealStartTS uint64 `json:"real_start_ts"`
 	// StartTS uses timestamp allocated by TSO.
 	// Now it's the TS when we put the job to TiKV queue.
 	StartTS uint64 `json:"start_ts"`
@@ -225,8 +300,14 @@ type Job struct {
 	// This field is depreciated.
 	ReorgMeta *DDLReorgMeta `json:"reorg_meta"`
 
+	// MultiSchemaInfo keeps some warning now for multi schema change.
+	MultiSchemaInfo *MultiSchemaInfo `json:"multi_schema_info"`
+
 	// Priority is only used to set the operation priority of adding indices.
 	Priority int `json:"priority"`
+
+	// SeqNum is the total order in all DDLs, it's used to identify the order of DDL.
+	SeqNum uint64 `json:"seq_num"`
 }
 
 // FinishTableJob is called when a job is finished.
@@ -235,6 +316,16 @@ func (job *Job) FinishTableJob(jobState JobState, schemaState SchemaState, ver i
 	job.State = jobState
 	job.SchemaState = schemaState
 	job.BinlogInfo.AddTableInfo(ver, tblInfo)
+}
+
+// FinishMultipleTableJob is called when a job is finished.
+// It updates the job's state information and adds tblInfos to the binlog.
+func (job *Job) FinishMultipleTableJob(jobState JobState, schemaState SchemaState, ver int64, tblInfos []*TableInfo) {
+	job.State = jobState
+	job.SchemaState = schemaState
+	job.BinlogInfo.SchemaVersion = ver
+	job.BinlogInfo.MultipleTableInfos = tblInfos
+	job.BinlogInfo.TableInfo = tblInfos[len(tblInfos)-1]
 }
 
 // FinishDBJob is called when a job is finished.
@@ -265,6 +356,17 @@ func (job *Job) GetRowCount() int64 {
 	defer job.Mu.Unlock()
 
 	return job.RowCount
+}
+
+// SetWarnings sets the warnings of rows handled.
+func (job *Job) SetWarnings(warnings map[errors.ErrorID]*terror.Error, warningsCount map[errors.ErrorID]int64) {
+	job.ReorgMeta.Warnings = warnings
+	job.ReorgMeta.WarningsCount = warningsCount
+}
+
+// GetWarnings gets the warnings of the rows handled.
+func (job *Job) GetWarnings() (map[errors.ErrorID]*terror.Error, map[errors.ErrorID]int64) {
+	return job.ReorgMeta.Warnings, job.ReorgMeta.WarningsCount
 }
 
 // Encode encodes job with json format.
@@ -455,5 +557,15 @@ type SchemaDiff struct {
 	// OldTableID is the table ID before truncate, only used by truncate table DDL.
 	OldTableID int64 `json:"old_table_id"`
 	// OldSchemaID is the schema ID before rename table, only used by rename table DDL.
+	OldSchemaID int64 `json:"old_schema_id"`
+
+	AffectedOpts []*AffectedOption `json:"affected_options"`
+}
+
+// AffectedOption is used when a ddl affects multi tables.
+type AffectedOption struct {
+	SchemaID    int64 `json:"schema_id"`
+	TableID     int64 `json:"table_id"`
+	OldTableID  int64 `json:"old_table_id"`
 	OldSchemaID int64 `json:"old_schema_id"`
 }

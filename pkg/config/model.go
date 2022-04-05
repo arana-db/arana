@@ -22,6 +22,7 @@ package config
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/arana-db/arana/pkg/util/file"
 	"io/ioutil"
 	"path/filepath"
 	"regexp"
@@ -149,7 +150,7 @@ func ParseV2(path string) (*Configuration, error) {
 		return nil, errors.Wrap(err, "failed to load config")
 	}
 
-	if !yamlFormat(path) {
+	if !file.IsYaml(path) {
 		return nil, errors.Errorf("invalid config file format: %s", filepath.Ext(path))
 	}
 
@@ -169,14 +170,6 @@ func LoadV2(path string) (*Configuration, error) {
 		return nil, errors.WithStack(err)
 	}
 	return cfg, nil
-}
-
-func yamlFormat(path string) bool {
-	ext := filepath.Ext(path)
-	if ext == ".yaml" || ext == ".yml" {
-		return true
-	}
-	return false
 }
 
 func (t *DataSourceType) UnmarshalText(text []byte) error {

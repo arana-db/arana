@@ -1,20 +1,3 @@
-// Licensed to Apache Software Foundation (ASF) under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. Apache Software Foundation (ASF) licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-//
 // Copyright 2016 PingCAP, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -30,29 +13,23 @@
 
 package parser
 
-import (
-	"strings"
-
-	"github.com/arana-db/parser/charset"
-)
-
-func isLetter(ch rune) bool {
+func isLetter(ch byte) bool {
 	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')
 }
 
-func isDigit(ch rune) bool {
+func isDigit(ch byte) bool {
 	return ch >= '0' && ch <= '9'
 }
 
-func isIdentChar(ch rune) bool {
+func isIdentChar(ch byte) bool {
 	return isLetter(ch) || isDigit(ch) || ch == '_' || ch == '$' || isIdentExtend(ch)
 }
 
-func isIdentExtend(ch rune) bool {
-	return ch >= 0x80 && ch <= '\uffff'
+func isIdentExtend(ch byte) bool {
+	return ch >= 0x80
 }
 
-func isUserVarChar(ch rune) bool {
+func isUserVarChar(ch byte) bool {
 	return isLetter(ch) || isDigit(ch) || ch == '_' || ch == '$' || ch == '.' || isIdentExtend(ch)
 }
 
@@ -90,7 +67,6 @@ func initTokenFunc(str string, fn func(s *Scanner) (int, Pos, string)) {
 		}
 		ruleTable.childs[c].fn = fn
 	}
-	return
 }
 
 func init() {
@@ -150,6 +126,12 @@ func init() {
 	initTokenFunc("'\"", startString)
 }
 
+// isInTokenMap indicates whether the target string is contained in tokenMap.
+func isInTokenMap(target string) bool {
+	_, ok := tokenMap[target]
+	return ok
+}
+
 // tokenMap is a map of known identifiers to the parser token ID.
 // Please try to keep the map in alphabetical order.
 var tokenMap = map[string]int{
@@ -169,9 +151,16 @@ var tokenMap = map[string]int{
 	"ANALYZE":                  analyze,
 	"AND":                      and,
 	"ANY":                      any,
+	"APPROX_COUNT_DISTINCT":    approxCountDistinct,
+	"APPROX_PERCENTILE":        approxPercentile,
 	"AS":                       as,
 	"ASC":                      asc,
 	"ASCII":                    ascii,
+	"ATTRIBUTES":               attributes,
+	"STATS_OPTIONS":            statsOptions,
+	"STATS_SAMPLE_RATE":        statsSampleRate,
+	"STATS_COL_CHOICE":         statsColChoice,
+	"STATS_COL_LIST":           statsColList,
 	"AUTO_ID_CACHE":            autoIdCache,
 	"AUTO_INCREMENT":           autoIncrement,
 	"AUTO_RANDOM":              autoRandom,
@@ -183,6 +172,7 @@ var tokenMap = map[string]int{
 	"BACKUPS":                  backups,
 	"BEGIN":                    begin,
 	"BETWEEN":                  between,
+	"BERNOULLI":                bernoulli,
 	"BIGINT":                   bigIntType,
 	"BINARY":                   binaryType,
 	"BINDING":                  binding,
@@ -198,18 +188,22 @@ var tokenMap = map[string]int{
 	"BOOLEAN":                  booleanType,
 	"BOTH":                     both,
 	"BOUND":                    bound,
+	"BRIEF":                    briefType,
 	"BTREE":                    btree,
 	"BUCKETS":                  buckets,
 	"BUILTINS":                 builtins,
 	"BY":                       by,
 	"BYTE":                     byteType,
 	"CACHE":                    cache,
+	"CALL":                     call,
 	"CANCEL":                   cancel,
 	"CAPTURE":                  capture,
+	"CARDINALITY":              cardinality,
 	"CASCADE":                  cascade,
 	"CASCADED":                 cascaded,
 	"CASE":                     caseKwd,
 	"CAST":                     cast,
+	"CAUSAL":                   causal,
 	"CHAIN":                    chain,
 	"CHANGE":                   change,
 	"CHAR":                     charType,
@@ -221,11 +215,14 @@ var tokenMap = map[string]int{
 	"CIPHER":                   cipher,
 	"CLEANUP":                  cleanup,
 	"CLIENT":                   client,
+	"CLIENT_ERRORS_SUMMARY":    clientErrorsSummary,
+	"CLUSTERED":                clustered,
 	"CMSKETCH":                 cmSketch,
 	"COALESCE":                 coalesce,
 	"COLLATE":                  collate,
 	"COLLATION":                collation,
 	"COLUMN_FORMAT":            columnFormat,
+	"COLUMN_STATS_USAGE":       columnStatsUsage,
 	"COLUMN":                   column,
 	"COLUMNS":                  columns,
 	"COMMENT":                  comment,
@@ -237,13 +234,14 @@ var tokenMap = map[string]int{
 	"CONCURRENCY":              concurrency,
 	"CONFIG":                   config,
 	"CONNECTION":               connection,
+	"CONSISTENCY":              consistency,
 	"CONSISTENT":               consistent,
 	"CONSTRAINT":               constraint,
+	"CONSTRAINTS":              constraints,
 	"CONTEXT":                  context,
 	"CONVERT":                  convert,
 	"COPY":                     copyKwd,
-	"COUNT":                    count,
-	"APPROX_COUNT_DISTINCT":    approxCountDistinct,
+	"CORRELATION":              correlation,
 	"CPU":                      cpu,
 	"CREATE":                   create,
 	"CROSS":                    cross,
@@ -283,6 +281,7 @@ var tokenMap = map[string]int{
 	"DELAY_KEY_WRITE":          delayKeyWrite,
 	"DELAYED":                  delayed,
 	"DELETE":                   deleteKwd,
+	"DEPENDENCY":               dependency,
 	"DEPTH":                    depth,
 	"DESC":                     desc,
 	"DESCRIBE":                 describe,
@@ -294,10 +293,12 @@ var tokenMap = map[string]int{
 	"DISTINCTROW":              distinct,
 	"DIV":                      div,
 	"DO":                       do,
+	"DOT":                      dotType,
 	"DOUBLE":                   doubleType,
 	"DRAINER":                  drainer,
 	"DROP":                     drop,
 	"DUAL":                     dual,
+	"DUMP":                     dump,
 	"DUPLICATE":                duplicate,
 	"DYNAMIC":                  dynamic,
 	"ELSE":                     elseKwd,
@@ -330,6 +331,7 @@ var tokenMap = map[string]int{
 	"EXTRACT":                  extract,
 	"FALSE":                    falseKwd,
 	"FAULTS":                   faultsSym,
+	"FETCH":                    fetch,
 	"FIELDS":                   fields,
 	"FILE":                     file,
 	"FIRST":                    first,
@@ -337,6 +339,9 @@ var tokenMap = map[string]int{
 	"FLASHBACK":                flashback,
 	"FLOAT":                    floatType,
 	"FLUSH":                    flush,
+	"FOLLOWER":                 follower,
+	"FOLLOWERS":                followers,
+	"FOLLOWER_CONSTRAINTS":     followerConstraints,
 	"FOLLOWING":                following,
 	"FOR":                      forKwd,
 	"FORCE":                    force,
@@ -356,8 +361,10 @@ var tokenMap = map[string]int{
 	"GROUP":                    group,
 	"HASH":                     hash,
 	"HAVING":                   having,
+	"HELP":                     help,
 	"HIGH_PRIORITY":            highPriority,
 	"HISTORY":                  history,
+	"HISTOGRAM":                histogram,
 	"HOSTS":                    hosts,
 	"HOUR_MICROSECOND":         hourMicrosecond,
 	"HOUR_MINUTE":              hourMinute,
@@ -388,6 +395,7 @@ var tokenMap = map[string]int{
 	"INT8":                     int8Type,
 	"INTEGER":                  integerType,
 	"INTERNAL":                 internal,
+	"INTERSECT":                intersect,
 	"INTERVAL":                 interval,
 	"INTO":                     into,
 	"INVISIBLE":                invisible,
@@ -400,6 +408,7 @@ var tokenMap = map[string]int{
 	"JOB":                      job,
 	"JOBS":                     jobs,
 	"JOIN":                     join,
+	"JSON_ARRAYAGG":            jsonArrayagg,
 	"JSON_OBJECTAGG":           jsonObjectAgg,
 	"JSON":                     jsonType,
 	"KEY_BLOCK_SIZE":           keyBlockSize,
@@ -411,7 +420,12 @@ var tokenMap = map[string]int{
 	"LAST_BACKUP":              lastBackup,
 	"LAST":                     last,
 	"LASTVAL":                  lastval,
+	"LEADER":                   leader,
+	"LEADER_CONSTRAINTS":       leaderConstraints,
 	"LEADING":                  leading,
+	"LEARNER":                  learner,
+	"LEARNER_CONSTRAINTS":      learnerConstraints,
+	"LEARNERS":                 learners,
 	"LEFT":                     left,
 	"LESS":                     less,
 	"LEVEL":                    level,
@@ -426,6 +440,7 @@ var tokenMap = map[string]int{
 	"LOCALTIMESTAMP":           localTs,
 	"LOCATION":                 location,
 	"LOCK":                     lock,
+	"LOCKED":                   locked,
 	"LOGS":                     logs,
 	"LONG":                     long,
 	"LONGBLOB":                 longblobType,
@@ -476,6 +491,7 @@ var tokenMap = map[string]int{
 	"NODEGROUP":                nodegroup,
 	"NOMAXVALUE":               nomaxvalue,
 	"NOMINVALUE":               nominvalue,
+	"NONCLUSTERED":             nonclustered,
 	"NONE":                     none,
 	"NOT":                      not,
 	"NOW":                      now,
@@ -484,6 +500,8 @@ var tokenMap = map[string]int{
 	"NULLS":                    nulls,
 	"NUMERIC":                  numericType,
 	"NVARCHAR":                 nvarcharType,
+	"OF":                       of,
+	"OFF":                      off,
 	"OFFSET":                   offset,
 	"ON_DUPLICATE":             onDuplicate,
 	"ON":                       on,
@@ -494,6 +512,7 @@ var tokenMap = map[string]int{
 	"OPTIMISTIC":               optimistic,
 	"OPTIMIZE":                 optimize,
 	"OPTION":                   option,
+	"OPTIONAL":                 optional,
 	"OPTIONALLY":               optionally,
 	"OR":                       or,
 	"ORDER":                    order,
@@ -507,23 +526,33 @@ var tokenMap = map[string]int{
 	"PARTITIONING":             partitioning,
 	"PARTITIONS":               partitions,
 	"PASSWORD":                 password,
+	"PERCENT":                  percent,
 	"PER_DB":                   per_db,
 	"PER_TABLE":                per_table,
 	"PESSIMISTIC":              pessimistic,
+	"PLACEMENT":                placement,
+	"PLAN":                     plan,
+	"PLAN_CACHE":               planCache,
 	"PLUGINS":                  plugins,
+	"POLICY":                   policy,
 	"POSITION":                 position,
 	"PRE_SPLIT_REGIONS":        preSplitRegions,
 	"PRECEDING":                preceding,
+	"PREDICATE":                predicate,
 	"PRECISION":                precisionType,
 	"PREPARE":                  prepare,
+	"PRESERVE":                 preserve,
 	"PRIMARY":                  primary,
+	"PRIMARY_REGION":           primaryRegion,
 	"PRIVILEGES":               privileges,
 	"PROCEDURE":                procedure,
 	"PROCESS":                  process,
 	"PROCESSLIST":              processlist,
 	"PROFILE":                  profile,
 	"PROFILES":                 profiles,
+	"PROXY":                    proxy,
 	"PUMP":                     pump,
+	"PURGE":                    purge,
 	"QUARTER":                  quarter,
 	"QUERIES":                  queries,
 	"QUERY":                    query,
@@ -535,6 +564,7 @@ var tokenMap = map[string]int{
 	"REBUILD":                  rebuild,
 	"RECENT":                   recent,
 	"RECOVER":                  recover,
+	"RECURSIVE":                recursive,
 	"REDUNDANT":                redundant,
 	"REFERENCES":               references,
 	"REGEXP":                   regexpKwd,
@@ -549,11 +579,15 @@ var tokenMap = map[string]int{
 	"REPEAT":                   repeat,
 	"REPEATABLE":               repeatable,
 	"REPLACE":                  replace,
+	"REPLAYER":                 replayer,
 	"REPLICA":                  replica,
+	"REPLICAS":                 replicas,
 	"REPLICATION":              replication,
 	"REQUIRE":                  require,
+	"REQUIRED":                 required,
 	"RESET":                    reset,
 	"RESPECT":                  respect,
+	"RESTART":                  restart,
 	"RESTORE":                  restore,
 	"RESTORES":                 restores,
 	"RESTRICT":                 restrict,
@@ -567,9 +601,15 @@ var tokenMap = map[string]int{
 	"ROW_COUNT":                rowCount,
 	"ROW_FORMAT":               rowFormat,
 	"ROW":                      row,
+	"ROWS":                     rows,
 	"RTREE":                    rtree,
+	"RESUME":                   resume,
+	"RUNNING":                  running,
+	"S3":                       s3,
 	"SAMPLES":                  samples,
+	"SAMPLERATE":               sampleRate,
 	"SAN":                      san,
+	"SCHEDULE":                 schedule,
 	"SCHEMA":                   database,
 	"SCHEMAS":                  databases,
 	"SECOND_MICROSECOND":       secondMicrosecond,
@@ -594,6 +634,7 @@ var tokenMap = map[string]int{
 	"SHUTDOWN":                 shutdown,
 	"SIGNED":                   signed,
 	"SIMPLE":                   simple,
+	"SKIP":                     skip,
 	"SKIP_SCHEMA_FILES":        skipSchemaFiles,
 	"SLAVE":                    slave,
 	"SLOW":                     slow,
@@ -622,11 +663,15 @@ var tokenMap = map[string]int{
 	"STALENESS":                staleness,
 	"START":                    start,
 	"STARTING":                 starting,
+	"STATISTICS":               statistics,
 	"STATS_AUTO_RECALC":        statsAutoRecalc,
 	"STATS_BUCKETS":            statsBuckets,
+	"STATS_EXTENDED":           statsExtended,
 	"STATS_HEALTHY":            statsHealthy,
 	"STATS_HISTOGRAMS":         statsHistograms,
+	"STATS_TOPN":               statsTopN,
 	"STATS_META":               statsMeta,
+	"HISTOGRAMS_IN_FLIGHT":     histogramsInFlight,
 	"STATS_PERSISTENT":         statsPersistent,
 	"STATS_SAMPLE_PAGES":       statsSamplePages,
 	"STATS":                    stats,
@@ -635,9 +680,11 @@ var tokenMap = map[string]int{
 	"STDDEV_POP":               stddevPop,
 	"STDDEV_SAMP":              stddevSamp,
 	"STDDEV":                   stddevPop,
+	"STOP":                     stop,
 	"STORAGE":                  storage,
 	"STORED":                   stored,
 	"STRAIGHT_JOIN":            straightJoin,
+	"STRICT":                   strict,
 	"STRICT_FORMAT":            strictFormat,
 	"STRONG":                   strong,
 	"SUBDATE":                  subDate,
@@ -650,10 +697,13 @@ var tokenMap = map[string]int{
 	"SUPER":                    super,
 	"SWAPS":                    swaps,
 	"SWITCHES":                 switchesSym,
+	"SYSTEM":                   system,
 	"SYSTEM_TIME":              systemTime,
+	"TARGET":                   target,
 	"TABLE_CHECKSUM":           tableChecksum,
 	"TABLE":                    tableKwd,
 	"TABLES":                   tables,
+	"TABLESAMPLE":              tableSample,
 	"TABLESPACE":               tablespace,
 	"TELEMETRY":                telemetry,
 	"TELEMETRY_ID":             telemetryID,
@@ -723,6 +773,10 @@ var tokenMap = map[string]int{
 	"VARIABLES":                variables,
 	"VARIANCE":                 varPop,
 	"VARYING":                  varying,
+	"VERBOSE":                  verboseType,
+	"VOTER":                    voter,
+	"VOTER_CONSTRAINTS":        voterConstraints,
+	"VOTERS":                   voters,
 	"VIEW":                     view,
 	"VIRTUAL":                  virtual,
 	"VISIBLE":                  visible,
@@ -740,17 +794,20 @@ var tokenMap = map[string]int{
 	"YEAR_MONTH":               yearMonth,
 	"YEAR":                     yearType,
 	"ZEROFILL":                 zerofill,
+	"WAIT":                     wait,
 }
 
-// See https://dev.mysql.com/doc/refman/5.7/en/function-resolution.html for details
+// See https://dev.mysql.com/doc/refman/5.7/en/function-resolution.html for details.
+// ADDDATE, SESSION_USER, SUBDATE, and SYSTEM_USER are exceptions because they are actually recognized as
+// identifiers even in `create table adddate (a int)`.
 var btFuncTokenMap = map[string]int{
-	"ADDDATE":               builtinAddDate,
 	"BIT_AND":               builtinBitAnd,
 	"BIT_OR":                builtinBitOr,
 	"BIT_XOR":               builtinBitXor,
 	"CAST":                  builtinCast,
 	"COUNT":                 builtinCount,
 	"APPROX_COUNT_DISTINCT": builtinApproxCountDistinct,
+	"APPROX_PERCENTILE":     builtinApproxPercentile,
 	"CURDATE":               builtinCurDate,
 	"CURTIME":               builtinCurTime,
 	"DATE_ADD":              builtinDateAdd,
@@ -762,17 +819,15 @@ var btFuncTokenMap = map[string]int{
 	"MIN":                   builtinMin,
 	"NOW":                   builtinNow,
 	"POSITION":              builtinPosition,
-	"SESSION_USER":          builtinUser,
 	"STD":                   builtinStddevPop,
 	"STDDEV":                builtinStddevPop,
 	"STDDEV_POP":            builtinStddevPop,
 	"STDDEV_SAMP":           builtinStddevSamp,
-	"SUBDATE":               builtinSubDate,
 	"SUBSTR":                builtinSubstring,
 	"SUBSTRING":             builtinSubstring,
 	"SUM":                   builtinSum,
 	"SYSDATE":               builtinSysDate,
-	"SYSTEM_USER":           builtinUser,
+	"TRANSLATE":             builtinTranslate,
 	"TRIM":                  builtinTrim,
 	"VARIANCE":              builtinVarPop,
 	"VAR_POP":               builtinVarPop,
@@ -792,7 +847,6 @@ var windowFuncTokenMap = map[string]int{
 	"OVER":         over,
 	"PERCENT_RANK": percentRank,
 	"RANK":         rank,
-	"ROWS":         rows,
 	"ROW_NUMBER":   rowNumber,
 	"WINDOW":       window,
 }
@@ -850,6 +904,7 @@ var hintTokenMap = map[string]int{
 
 	// TiDB hint names
 	"AGG_TO_COP":              hintAggToCop,
+	"LIMIT_TO_COP":            hintLimitToCop,
 	"IGNORE_PLAN_CACHE":       hintIgnorePlanCache,
 	"HASH_AGG":                hintHashAgg,
 	"IGNORE_INDEX":            hintIgnoreIndex,
@@ -861,6 +916,8 @@ var hintTokenMap = map[string]int{
 	"QUERY_TYPE":              hintQueryType,
 	"READ_CONSISTENT_REPLICA": hintReadConsistentReplica,
 	"READ_FROM_STORAGE":       hintReadFromStorage,
+	"BROADCAST_JOIN":          hintBCJoin,
+	"BROADCAST_JOIN_LOCAL":    hintBCJoinPreferLocal,
 	"MERGE_JOIN":              hintSMJoin,
 	"STREAM_AGG":              hintStreamAgg,
 	"SWAP_JOIN_INPUTS":        hintSwapJoinInputs,
@@ -870,6 +927,8 @@ var hintTokenMap = map[string]int{
 	"USE_TOJA":                hintUseToja,
 	"TIME_RANGE":              hintTimeRange,
 	"USE_CASCADES":            hintUseCascades,
+	"NTH_PLAN":                hintNthPlan,
+	"FORCE_INDEX":             hintForceIndex,
 
 	// TiDB hint aliases
 	"TIDB_HJ":   hintHashJoin,
@@ -881,6 +940,7 @@ var hintTokenMap = map[string]int{
 	"OLTP":            hintOLTP,
 	"TIKV":            hintTiKV,
 	"TIFLASH":         hintTiFlash,
+	"PARTITION":       hintPartition,
 	"FALSE":           hintFalse,
 	"TRUE":            hintTrue,
 	"MB":              hintMB,
@@ -931,55 +991,4 @@ func (s *Scanner) isTokenIdentifier(lit string, offset int) int {
 		tok = windowFuncTokenMap[string(data)]
 	}
 	return tok
-}
-
-func handleIdent(lval *yySymType) int {
-	s := lval.ident
-	// A character string literal may have an optional character set introducer and COLLATE clause:
-	// [_charset_name]'string' [COLLATE collation_name]
-	// See https://dev.mysql.com/doc/refman/5.7/en/charset-literal.html
-	if !strings.HasPrefix(s, "_") {
-		return identifier
-	}
-	cs, _, err := charset.GetCharsetInfo(s[1:])
-	if err != nil {
-		return identifier
-	}
-	lval.ident = cs
-	return underscoreCS
-}
-
-// SpecialCommentsController controls whether special comments like `/*T![xxx] yyy */`
-// can be parsed as `yyy`. To add such rules, please use SpecialCommentsController.Register().
-// For example:
-//     SpecialCommentsController.Register("30100");
-// Now the parser will treat
-//   select a, /*T![30100] mysterious_keyword */ from t;
-// and
-//   select a, mysterious_keyword from t;
-// equally.
-// Similar special comments without registration are ignored by parser.
-var SpecialCommentsController = specialCommentsCtrl{
-	supportedFeatures: map[string]struct{}{},
-}
-
-type specialCommentsCtrl struct {
-	supportedFeatures map[string]struct{}
-}
-
-func (s *specialCommentsCtrl) Register(featureID string) {
-	s.supportedFeatures[featureID] = struct{}{}
-}
-
-func (s *specialCommentsCtrl) Unregister(featureID string) {
-	delete(s.supportedFeatures, featureID)
-}
-
-func (s *specialCommentsCtrl) ContainsAll(featureIDs []string) bool {
-	for _, f := range featureIDs {
-		if _, found := s.supportedFeatures[f]; !found {
-			return false
-		}
-	}
-	return true
 }

@@ -1,23 +1,21 @@
-/*
- * //
- * // Licensed to Apache Software Foundation (ASF) under one or more contributor
- * // license agreements. See the NOTICE file distributed with
- * // this work for additional information regarding copyright
- * // ownership. Apache Software Foundation (ASF) licenses this file to you under
- * // the Apache License, Version 2.0 (the "License"); you may
- * // not use this file except in compliance with the License.
- * // You may obtain a copy of the License at
- * //
- * // http://www.apache.org/licenses/LICENSE-2.0
- * //
- * // Unless required by applicable law or agreed to in writing,
- * // software distributed under the License is distributed on an
- * // "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * // KIND, either express or implied.  See the License for the
- * // specific language governing permissions and limitations
- * // under the License.
- * //
- */
+//
+// Licensed to Apache Software Foundation (ASF) under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. Apache Software Foundation (ASF) licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+//
 
 package file
 
@@ -36,16 +34,17 @@ func init() {
 type storeOperate struct {
 	lock      *sync.RWMutex
 	receivers map[string][]chan []byte
-	cfgJson   string
+	path      string
+	cfgJson   map[string]string
 }
 
 func (s *storeOperate) Init(options map[string]interface{}) error {
 	s.lock = &sync.RWMutex{}
 	s.receivers = make(map[string][]chan []byte)
 
-	path, _ := options["path"].(string)
+	s.path, _ = options["path"].(string)
 
-	cfg, err := config.LoadV2(path)
+	cfg, err := config.LoadV2(s.path)
 	if err != nil {
 		return err
 	}
@@ -53,9 +52,19 @@ func (s *storeOperate) Init(options map[string]interface{}) error {
 	if err != nil {
 		return fmt.Errorf("config json.marshal failed  %v err:", err)
 	}
-
-	s.cfgJson = string(configJson)
+	s.initCfgJsonMap(string(configJson))
 	return nil
+}
+
+func (s *storeOperate) initCfgJsonMap(val string) {
+	s.cfgJson = make(map[string]string)
+
+	s.cfgJson[config.DefaultConfigMetadataPath] = gjson.Get(val, "metadata").String()
+	s.cfgJson[config.DefaultConfigDataTenantsPath] = gjson.Get(val, "data.tenants").String()
+	s.cfgJson[config.DefaultConfigDataFiltersPath] = gjson.Get(val, "data.filters").String()
+	s.cfgJson[config.DefaultConfigDataListenersPath] = gjson.Get(val, "data.listeners").String()
+	s.cfgJson[config.DefaultConfigDataSourceClustersPath] = gjson.Get(val, "data.dataSourceClusters").String()
+	s.cfgJson[config.DefaultConfigDataShardingRulePath] = gjson.Get(val, "data.shardingRule").String()
 }
 
 func (s *storeOperate) Save(key string, val []byte) error {
@@ -63,15 +72,11 @@ func (s *storeOperate) Save(key string, val []byte) error {
 }
 
 func (s *storeOperate) Get(key string) ([]byte, error) {
-	val := []byte(gjson.Get(s.cfgJson, key).String())
-
+	val := []byte(s.cfgJson[key])
 	return val, nil
 }
 
-func (s *storeOperate) Delete(key string) error {
-	return nil
-}
-
+//TODO 通过文件 inotify 机制实现watch变更通知
 func (s *storeOperate) Watch(key string) (<-chan []byte, error) {
 	defer s.lock.Unlock()
 

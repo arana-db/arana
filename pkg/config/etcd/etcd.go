@@ -1,23 +1,21 @@
-/*
- * //
- * // Licensed to Apache Software Foundation (ASF) under one or more contributor
- * // license agreements. See the NOTICE file distributed with
- * // this work for additional information regarding copyright
- * // ownership. Apache Software Foundation (ASF) licenses this file to you under
- * // the Apache License, Version 2.0 (the "License"); you may
- * // not use this file except in compliance with the License.
- * // You may obtain a copy of the License at
- * //
- * // http://www.apache.org/licenses/LICENSE-2.0
- * //
- * // Unless required by applicable law or agreed to in writing,
- * // software distributed under the License is distributed on an
- * // "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * // KIND, either express or implied.  See the License for the
- * // specific language governing permissions and limitations
- * // under the License.
- * //
- */
+//
+// Licensed to Apache Software Foundation (ASF) under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. Apache Software Foundation (ASF) licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+//
 
 package etcd
 
@@ -42,10 +40,10 @@ func init() {
 }
 
 type storeOperate struct {
-	client    *etcdv3.Client
-	lock      *sync.RWMutex
-	receivers map[string]*watcher
-	cancelfs  []context.CancelFunc
+	client     *etcdv3.Client
+	lock       *sync.RWMutex
+	receivers  map[string]*etcdWatcher
+	cancelList []context.CancelFunc
 }
 
 func (c *storeOperate) Init(options map[string]interface{}) error {
@@ -61,7 +59,8 @@ func (c *storeOperate) Init(options map[string]interface{}) error {
 
 	c.client = tmpClient
 	c.lock = &sync.RWMutex{}
-	c.receivers = make(map[string]*watcher)
+	c.receivers = make(map[string]*etcdWatcher)
+	c.cancelList = make([]context.CancelFunc, 0, 2)
 
 	return nil
 }
@@ -79,18 +78,24 @@ func (c *storeOperate) Get(key string) ([]byte, error) {
 	return []byte(v), nil
 }
 
-func (c *storeOperate) Delete(key string) error {
-	return c.client.Delete(key)
-}
-
-type watcher struct {
+type etcdWatcher struct {
 	revision  int64
 	lock      *sync.RWMutex
 	receivers []chan []byte
 	ch        clientv3.WatchChan
 }
 
-func (w *watcher) run(ctx context.Context) {
+func newEtcdWatcher(ch clientv3.WatchChan) *etcdWatcher {
+	w := &etcdWatcher{
+		revision:  math.MinInt64,
+		lock:      &sync.RWMutex{},
+		receivers: make([]chan []byte, 0, 2),
+		ch:        ch,
+	}
+	return w
+}
+
+func (w *etcdWatcher) run(ctx context.Context) {
 	for {
 		select {
 		case resp := <-w.ch:
@@ -118,15 +123,10 @@ func (c *storeOperate) Watch(key string) (<-chan []byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		w := &watcher{
-			revision:  math.MinInt64,
-			lock:      &sync.RWMutex{},
-			receivers: make([]chan []byte, 0, 2),
-			ch:        watchCh,
-		}
+		w := newEtcdWatcher(watchCh)
 		ctx, cancel := context.WithCancel(context.Background())
 		go w.run(ctx)
-		c.cancelfs = append(c.cancelfs, cancel)
+		c.cancelList = append(c.cancelList, cancel)
 		c.receivers[key] = w
 	}
 
@@ -145,7 +145,7 @@ func (c *storeOperate) Name() string {
 }
 
 func (c *storeOperate) Close() error {
-	for _, f := range c.cancelfs {
+	for _, f := range c.cancelList {
 		f()
 	}
 

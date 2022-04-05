@@ -6,7 +6,6 @@ require (
 	github.com/arana-db/parser v0.2.1
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/cespare/xxhash/v2 v2.1.2
-	github.com/creasty/defaults v1.5.2 // indirect
 	github.com/dop251/goja v0.0.0-20220102113305-2298ace6d09d
 	github.com/dubbogo/gost v1.11.23-0.20220113102152-a2ef9b809a45
 	github.com/ghodss/yaml v1.0.0
@@ -22,9 +21,12 @@ require (
 	github.com/spf13/cobra v1.2.1
 	github.com/stretchr/testify v1.7.0
 	github.com/tidwall/gjson v1.14.0
+	go.etcd.io/etcd/api/v3 v3.5.0
+	go.etcd.io/etcd/client/v3 v3.5.0-alpha.0
 	go.etcd.io/etcd/server/v3 v3.5.0-alpha.0
 	go.uber.org/atomic v1.9.0
 	go.uber.org/zap v1.19.1
 	golang.org/x/net v0.0.0-20211105192438-b53810dc28af
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
+	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 )

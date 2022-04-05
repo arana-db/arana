@@ -1,20 +1,3 @@
-// Licensed to Apache Software Foundation (ASF) under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. Apache Software Foundation (ASF) licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-//
 // Copyright 2020 PingCAP, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -33,7 +16,6 @@ package parser
 import (
 	"strconv"
 	"strings"
-	"unicode"
 
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/mysql"
@@ -41,11 +23,11 @@ import (
 )
 
 var (
-	ErrWarnOptimizerHintUnsupportedHint = terror.ClassParser.New(mysql.ErrWarnOptimizerHintUnsupportedHint, mysql.MySQLErrName[mysql.ErrWarnOptimizerHintUnsupportedHint])
-	ErrWarnOptimizerHintInvalidToken    = terror.ClassParser.New(mysql.ErrWarnOptimizerHintInvalidToken, mysql.MySQLErrName[mysql.ErrWarnOptimizerHintInvalidToken])
-	ErrWarnMemoryQuotaOverflow          = terror.ClassParser.New(mysql.ErrWarnMemoryQuotaOverflow, mysql.MySQLErrName[mysql.ErrWarnMemoryQuotaOverflow])
-	ErrWarnOptimizerHintParseError      = terror.ClassParser.New(mysql.ErrWarnOptimizerHintParseError, mysql.MySQLErrName[mysql.ErrWarnOptimizerHintParseError])
-	ErrWarnOptimizerHintInvalidInteger  = terror.ClassParser.New(mysql.ErrWarnOptimizerHintInvalidInteger, mysql.MySQLErrName[mysql.ErrWarnOptimizerHintInvalidInteger])
+	ErrWarnOptimizerHintUnsupportedHint = terror.ClassParser.NewStd(mysql.ErrWarnOptimizerHintUnsupportedHint)
+	ErrWarnOptimizerHintInvalidToken    = terror.ClassParser.NewStd(mysql.ErrWarnOptimizerHintInvalidToken)
+	ErrWarnMemoryQuotaOverflow          = terror.ClassParser.NewStd(mysql.ErrWarnMemoryQuotaOverflow)
+	ErrWarnOptimizerHintParseError      = terror.ClassParser.NewStd(mysql.ErrWarnOptimizerHintParseError)
+	ErrWarnOptimizerHintInvalidInteger  = terror.ClassParser.NewStd(mysql.ErrWarnOptimizerHintInvalidInteger)
 )
 
 // hintScanner implements the yyhintLexer interface
@@ -55,7 +37,7 @@ type hintScanner struct {
 
 func (hs *hintScanner) Errorf(format string, args ...interface{}) error {
 	inner := hs.Scanner.Errorf(format, args...)
-	return ErrWarnOptimizerHintParseError.GenWithStackByArgs(inner)
+	return ErrParse.GenWithStackByArgs("Optimizer hint syntax error at", inner)
 }
 
 func (hs *hintScanner) Lex(lval *yyhintSymType) int {
@@ -68,7 +50,7 @@ func (hs *hintScanner) Lex(lval *yyhintSymType) int {
 		n, e := strconv.ParseUint(lit, 10, 64)
 		if e != nil {
 			hs.AppendError(ErrWarnOptimizerHintInvalidInteger.GenWithStackByArgs(lit))
-			return int(unicode.ReplacementChar)
+			return hintInvalid
 		}
 		lval.number = n
 		return hintIntLit
@@ -125,7 +107,7 @@ func (hs *hintScanner) Lex(lval *yyhintSymType) int {
 	}
 
 	hs.AppendError(ErrWarnOptimizerHintInvalidToken.GenWithStackByArgs(errorTokenType, lit, tok))
-	return int(unicode.ReplacementChar)
+	return hintInvalid
 }
 
 type hintParser struct {
@@ -146,11 +128,11 @@ func (hp *hintParser) parse(input string, sqlMode mysql.SQLMode, initPos Pos) ([
 	hp.result = nil
 	hp.lexer.reset(input[3:])
 	hp.lexer.SetSQLMode(sqlMode)
-	hp.lexer.r.p = Pos{
+	hp.lexer.r.updatePos(Pos{
 		Line:   initPos.Line,
 		Col:    initPos.Col + 3, // skipped the initial '/*+'
 		Offset: 0,
-	}
+	})
 	hp.lexer.inBangComment = true // skip the final '*/' (we need the '*/' for reporting warnings)
 
 	yyhintParse(&hp.lexer, hp)

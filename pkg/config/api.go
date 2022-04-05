@@ -23,9 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-
-	_ "github.com/arana-db/arana/pkg/config/etcd"
-	_ "github.com/arana-db/arana/pkg/config/file"
 )
 
 type (
@@ -55,7 +52,7 @@ const (
 )
 
 var (
-	slots        map[string]StoreOperate
+	slots        map[string]StoreOperate = make(map[string]StoreOperate)
 	storeOperate StoreOperate
 )
 
@@ -79,6 +76,7 @@ func Init(name string, options map[string]interface{}) error {
 	return storeOperate.Init(options)
 }
 
+//Register 注册一个存储插件
 func Register(s StoreOperate) {
 	if _, ok := slots[s.Name()]; ok {
 		panic(fmt.Errorf("StoreOperate=[%s] already exist", s.Name()))
@@ -87,18 +85,22 @@ func Register(s StoreOperate) {
 	slots[s.Name()] = s
 }
 
+//StoreOperate 配置存储相关插件
 type StoreOperate interface {
 	io.Closer
 
+	//Init 插件初始化
 	Init(options map[string]interface{}) error
 
+	//Save 保持某一个配置数据
 	Save(key string, val []byte) error
 
+	//Get 获取某一个配置
 	Get(key string) ([]byte, error)
 
-	Delete(key string) error
-
+	//Watch 监听
 	Watch(key string) (<-chan []byte, error)
 
+	//Name 插件名称
 	Name() string
 }

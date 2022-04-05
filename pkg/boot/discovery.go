@@ -20,6 +20,7 @@ package boot
 import (
 	"context"
 	"fmt"
+	"github.com/arana-db/arana/pkg/util/file"
 	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"path/filepath"
@@ -105,7 +106,6 @@ type Discovery interface {
 }
 
 type discovery struct {
-	sync.Once
 	path    string
 	options *BootOptions
 	c       *config.Center
@@ -113,29 +113,26 @@ type discovery struct {
 
 func (fp *discovery) Init(ctx context.Context) error {
 	var err error
+	content, err := ioutil.ReadFile(fp.path)
+	if err != nil {
+		err = errors.Wrap(err, "failed to load config")
+		return err
+	}
 
-	fp.Do(func() {
-		content, err := ioutil.ReadFile(fp.path)
-		if err != nil {
-			err = errors.Wrap(err, "failed to load config")
-			return
-		}
+	if !file.IsYaml(fp.path) {
+		err = errors.Errorf("invalid config file format: %s", filepath.Ext(fp.path))
+		return err
+	}
 
-		if !yamlFormat(fp.path) {
-			err = errors.Errorf("invalid config file format: %s", filepath.Ext(fp.path))
-			return
-		}
-
-		var cfg BootOptions
-		if err = yaml.Unmarshal(content, &cfg); err != nil {
-			err = errors.Wrapf(err, "failed to unmarshal config")
-			return
-		}
-		fp.c, err = config.NewCenter(*cfg.Config)
-		if err != nil {
-			return
-		}
-	})
+	var cfg BootOptions
+	if err = yaml.Unmarshal(content, &cfg); err != nil {
+		err = errors.Wrapf(err, "failed to unmarshal config")
+		return err
+	}
+	fp.c, err = config.NewCenter(*cfg.Config)
+	if err != nil {
+		return err
+	}
 	return err
 }
 
@@ -547,12 +544,4 @@ func NewProvider(path string) Discovery {
 	return &discovery{
 		path: path,
 	}
-}
-
-func yamlFormat(path string) bool {
-	ext := filepath.Ext(path)
-	if ext == ".yaml" || ext == ".yml" {
-		return true
-	}
-	return false
 }

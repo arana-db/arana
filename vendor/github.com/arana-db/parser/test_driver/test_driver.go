@@ -1,20 +1,3 @@
-// Licensed to Apache Software Foundation (ASF) under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. Apache Software Foundation (ASF) licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-//
 // Copyright 2019 PingCAP, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,7 +11,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//+build !codes
+//go:build !codes
+// +build !codes
 
 package test_driver
 
@@ -38,6 +22,7 @@ import (
 	"strconv"
 
 	"github.com/arana-db/parser/ast"
+	"github.com/arana-db/parser/charset"
 	"github.com/arana-db/parser/format"
 	"github.com/arana-db/parser/mysql"
 )
@@ -94,7 +79,7 @@ func (n *ValueExpr) Restore(ctx *format.RestoreCtx) error {
 	case KindFloat64:
 		ctx.WritePlain(strconv.FormatFloat(n.GetFloat64(), 'e', -1, 64))
 	case KindString:
-		if n.Type.Charset != "" && n.Type.Charset != mysql.DefaultCharset {
+		if n.Type.Charset != "" {
 			ctx.WritePlain("_")
 			ctx.WriteKeyWord(n.Type.Charset)
 		}
@@ -104,6 +89,11 @@ func (n *ValueExpr) Restore(ctx *format.RestoreCtx) error {
 	case KindMysqlDecimal:
 		ctx.WritePlain(n.GetMysqlDecimal().String())
 	case KindBinaryLiteral:
+		if n.Type.Charset != "" && n.Type.Charset != mysql.DefaultCharset &&
+			n.Type.Charset != charset.CharsetBin {
+			ctx.WritePlain("_")
+			ctx.WriteKeyWord(n.Type.Charset + " ")
+		}
 		if n.Type.Flag&mysql.UnsignedFlag != 0 {
 			ctx.WritePlainf("x'%x'", n.GetBytes())
 		} else {

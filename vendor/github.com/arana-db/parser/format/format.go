@@ -1,20 +1,3 @@
-// Licensed to Apache Software Foundation (ASF) under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. Apache Software Foundation (ASF) licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-//
 // Copyright (c) 2014 The sortutil Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSES/STRUTIL-LICENSE file.
@@ -235,6 +218,12 @@ const (
 	RestoreNameBackQuotes
 
 	RestoreSpacesAroundBinaryOperation
+	RestoreBracketAroundBinaryOperation
+
+	RestoreStringWithoutCharset
+	RestoreStringWithoutDefaultCharset
+
+	RestoreTiDBSpecialComment
 )
 
 const (
@@ -295,16 +284,33 @@ func (rf RestoreFlags) HasSpacesAroundBinaryOperationFlag() bool {
 	return rf.has(RestoreSpacesAroundBinaryOperation)
 }
 
+func (rf RestoreFlags) HasRestoreBracketAroundBinaryOperation() bool {
+	return rf.has(RestoreBracketAroundBinaryOperation)
+}
+
+func (rf RestoreFlags) HasStringWithoutDefaultCharset() bool {
+	return rf.has(RestoreStringWithoutDefaultCharset)
+}
+
+func (rf RestoreFlags) HasStringWithoutCharset() bool {
+	return rf.has(RestoreStringWithoutCharset)
+}
+
+func (rf RestoreFlags) HasTiDBSpecialCommentFlag() bool {
+	return rf.has(RestoreTiDBSpecialComment)
+}
+
 // RestoreCtx is `Restore` context to hold flags and writer.
 type RestoreCtx struct {
 	Flags     RestoreFlags
 	In        io.Writer
-	JoinLevel int
+	DefaultDB string
+	CTENames  []string
 }
 
 // NewRestoreCtx returns a new `RestoreCtx`.
 func NewRestoreCtx(flags RestoreFlags, in io.Writer) *RestoreCtx {
-	return &RestoreCtx{flags, in, 0}
+	return &RestoreCtx{flags, in, "", make([]string, 0)}
 }
 
 // WriteKeyWord writes the `keyWord` into writer.
@@ -317,6 +323,22 @@ func (ctx *RestoreCtx) WriteKeyWord(keyWord string) {
 		keyWord = strings.ToLower(keyWord)
 	}
 	fmt.Fprint(ctx.In, keyWord)
+}
+
+func (ctx *RestoreCtx) WriteWithSpecialComments(featureID string, fn func() error) error {
+	if !ctx.Flags.HasTiDBSpecialCommentFlag() {
+		return fn()
+	}
+	ctx.WritePlain("/*T!")
+	if len(featureID) != 0 {
+		ctx.WritePlainf("[%s]", featureID)
+	}
+	ctx.WritePlain(" ")
+	if err := fn(); err != nil {
+		return err
+	}
+	ctx.WritePlain(" */")
+	return nil
 }
 
 // WriteString writes the string into writer

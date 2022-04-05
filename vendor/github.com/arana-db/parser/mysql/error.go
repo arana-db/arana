@@ -1,20 +1,3 @@
-// Licensed to Apache Software Foundation (ASF) under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. Apache Software Foundation (ASF) licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-//
 // Copyright 2015 PingCAP, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -31,8 +14,9 @@
 package mysql
 
 import (
-	"errors"
 	"fmt"
+
+	"github.com/pingcap/errors"
 )
 
 // Portable analogs of some common call errors.
@@ -63,8 +47,9 @@ func NewErr(errCode uint16, args ...interface{}) *SQLError {
 		e.State = DefaultMySQLState
 	}
 
-	if format, ok := MySQLErrName[errCode]; ok {
-		e.Message = fmt.Sprintf(format, args...)
+	if sqlErr, ok := MySQLErrName[errCode]; ok {
+		errors.RedactErrorArg(args, sqlErr.RedactArgPos)
+		e.Message = fmt.Sprintf(sqlErr.Raw, args...)
 	} else {
 		e.Message = fmt.Sprint(args...)
 	}
@@ -73,7 +58,7 @@ func NewErr(errCode uint16, args ...interface{}) *SQLError {
 }
 
 // NewErrf creates a SQL error, with an error code and a format specifier.
-func NewErrf(errCode uint16, format string, args ...interface{}) *SQLError {
+func NewErrf(errCode uint16, format string, redactArgPos []int, args ...interface{}) *SQLError {
 	e := &SQLError{Code: errCode}
 
 	if s, ok := MySQLState[errCode]; ok {
@@ -82,6 +67,7 @@ func NewErrf(errCode uint16, format string, args ...interface{}) *SQLError {
 		e.State = DefaultMySQLState
 	}
 
+	errors.RedactErrorArg(args, redactArgPos)
 	e.Message = fmt.Sprintf(format, args...)
 
 	return e

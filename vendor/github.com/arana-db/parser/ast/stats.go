@@ -1,20 +1,3 @@
-// Licensed to Apache Software Foundation (ASF) under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. Apache Software Foundation (ASF) licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-//
 // Copyright 2017 PingCAP, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -31,9 +14,9 @@
 package ast
 
 import (
+	"github.com/pingcap/errors"
 	"github.com/arana-db/parser/format"
 	"github.com/arana-db/parser/model"
-	"github.com/pingcap/errors"
 )
 
 var (
@@ -54,6 +37,11 @@ type AnalyzeTableStmt struct {
 	// IndexFlag is true when we only analyze indices for a table.
 	IndexFlag   bool
 	Incremental bool
+	// HistogramOperation is set in "ANALYZE TABLE ... UPDATE/DROP HISTOGRAM ..." statement.
+	HistogramOperation HistogramOperationType
+	// ColumnNames indicate the columns whose statistics need to be collected.
+	ColumnNames  []model.CIStr
+	ColumnChoice model.ColumnChoice
 }
 
 // AnalyzeOptType is the type for analyze options.
@@ -66,6 +54,7 @@ const (
 	AnalyzeOptCMSketchDepth
 	AnalyzeOptCMSketchWidth
 	AnalyzeOptNumSamples
+	AnalyzeOptSampleRate
 )
 
 // AnalyzeOptionString stores the string form of analyze options.
@@ -75,12 +64,35 @@ var AnalyzeOptionString = map[AnalyzeOptionType]string{
 	AnalyzeOptCMSketchWidth: "CMSKETCH WIDTH",
 	AnalyzeOptCMSketchDepth: "CMSKETCH DEPTH",
 	AnalyzeOptNumSamples:    "SAMPLES",
+	AnalyzeOptSampleRate:    "SAMPLERATE",
+}
+
+// HistogramOperationType is the type for histogram operation.
+type HistogramOperationType int
+
+// Histogram operation types.
+const (
+	// HistogramOperationNop shows no operation in histogram. Default value.
+	HistogramOperationNop HistogramOperationType = iota
+	HistogramOperationUpdate
+	HistogramOperationDrop
+)
+
+// String implements fmt.Stringer for HistogramOperationType.
+func (hot HistogramOperationType) String() string {
+	switch hot {
+	case HistogramOperationUpdate:
+		return "UPDATE HISTOGRAM"
+	case HistogramOperationDrop:
+		return "DROP HISTOGRAM"
+	}
+	return ""
 }
 
 // AnalyzeOpt stores the analyze option type and value.
 type AnalyzeOpt struct {
 	Type  AnalyzeOptionType
-	Value uint64
+	Value ValueExpr
 }
 
 // Restore implements Node interface.
@@ -107,6 +119,34 @@ func (n *AnalyzeTableStmt) Restore(ctx *format.RestoreCtx) error {
 		}
 		ctx.WriteName(partition.O)
 	}
+	if n.HistogramOperation != HistogramOperationNop {
+		ctx.WritePlain(" ")
+		ctx.WriteKeyWord(n.HistogramOperation.String())
+		ctx.WritePlain(" ")
+		if len(n.ColumnNames) > 0 {
+			ctx.WriteKeyWord("ON ")
+			for i, columnName := range n.ColumnNames {
+				if i != 0 {
+					ctx.WritePlain(",")
+				}
+				ctx.WriteName(columnName.O)
+			}
+		}
+	}
+	switch n.ColumnChoice {
+	case model.AllColumns:
+		ctx.WriteKeyWord(" ALL COLUMNS")
+	case model.PredicateColumns:
+		ctx.WriteKeyWord(" PREDICATE COLUMNS")
+	case model.ColumnList:
+		ctx.WriteKeyWord(" COLUMNS ")
+		for i, columnName := range n.ColumnNames {
+			if i != 0 {
+				ctx.WritePlain(",")
+			}
+			ctx.WriteName(columnName.O)
+		}
+	}
 	if n.IndexFlag {
 		ctx.WriteKeyWord(" INDEX")
 	}
@@ -124,7 +164,7 @@ func (n *AnalyzeTableStmt) Restore(ctx *format.RestoreCtx) error {
 			if i != 0 {
 				ctx.WritePlain(",")
 			}
-			ctx.WritePlainf(" %d ", opt.Value)
+			ctx.WritePlainf(" %v ", opt.Value.GetValue())
 			ctx.WritePlain(AnalyzeOptionString[opt.Type])
 		}
 	}
@@ -152,7 +192,9 @@ func (n *AnalyzeTableStmt) Accept(v Visitor) (Node, bool) {
 type DropStatsStmt struct {
 	stmtNode
 
-	Table *TableName
+	Table          *TableName
+	PartitionNames []model.CIStr
+	IsGlobalStats  bool
 }
 
 // Restore implements Node interface.
@@ -162,6 +204,20 @@ func (n *DropStatsStmt) Restore(ctx *format.RestoreCtx) error {
 		return errors.Annotate(err, "An error occurred while add table")
 	}
 
+	if n.IsGlobalStats {
+		ctx.WriteKeyWord(" GLOBAL")
+		return nil
+	}
+
+	if len(n.PartitionNames) != 0 {
+		ctx.WriteKeyWord(" PARTITION ")
+	}
+	for i, partition := range n.PartitionNames {
+		if i != 0 {
+			ctx.WritePlain(",")
+		}
+		ctx.WriteName(partition.O)
+	}
 	return nil
 }
 

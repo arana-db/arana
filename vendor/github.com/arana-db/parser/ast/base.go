@@ -1,20 +1,3 @@
-// Licensed to Apache Software Foundation (ASF) under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. Apache Software Foundation (ASF) licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-//
 // Copyright 2015 PingCAP, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -30,21 +13,59 @@
 
 package ast
 
-import "github.com/arana-db/parser/types"
+import (
+	"sync"
 
-// node is the struct implements node interface except for Accept method.
+	"github.com/arana-db/parser/charset"
+	"github.com/arana-db/parser/types"
+)
+
+// node is the struct implements Node interface except for Accept method.
 // Node implementations should embed it in.
 type node struct {
-	text string
+	utf8Text string
+	enc      charset.Encoding
+	once     *sync.Once
+
+	text   string
+	offset int
+}
+
+// SetOriginTextPosition implements Node interface.
+func (n *node) SetOriginTextPosition(offset int) {
+	n.offset = offset
+}
+
+// OriginTextPosition implements Node interface.
+func (n *node) OriginTextPosition() int {
+	return n.offset
 }
 
 // SetText implements Node interface.
-func (n *node) SetText(text string) {
+func (n *node) SetText(enc charset.Encoding, text string) {
+	n.enc = enc
 	n.text = text
+	n.once = &sync.Once{}
 }
 
 // Text implements Node interface.
 func (n *node) Text() string {
+	if n.once == nil {
+		return n.text
+	}
+	n.once.Do(func() {
+		if n.enc == nil {
+			n.utf8Text = n.text
+			return
+		}
+		utf8Lit, _ := n.enc.Transform(nil, charset.HackSlice(n.text), charset.OpDecodeReplace)
+		n.utf8Text = charset.HackString(utf8Lit)
+	})
+	return n.utf8Text
+}
+
+// OriginalText implements Node interface.
+func (n *node) OriginalText() string {
 	return n.text
 }
 
@@ -112,7 +133,3 @@ type funcNode struct {
 
 // functionExpression implements FunctionNode interface.
 func (fn *funcNode) functionExpression() {}
-
-type resultSetNode struct {
-	resultFields []*ResultField
-}

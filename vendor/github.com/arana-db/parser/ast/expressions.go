@@ -1,20 +1,3 @@
-// Licensed to Apache Software Foundation (ASF) under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. Apache Software Foundation (ASF) licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-//
 // Copyright 2015 PingCAP, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -33,13 +16,14 @@ package ast
 import (
 	"fmt"
 	"io"
+	"reflect"
 	"regexp"
 	"strings"
 
+	"github.com/pingcap/errors"
 	"github.com/arana-db/parser/format"
 	"github.com/arana-db/parser/model"
 	"github.com/arana-db/parser/opcode"
-	"github.com/pingcap/errors"
 )
 
 var (
@@ -189,6 +173,9 @@ func restoreBinaryOpWithSpacesAround(ctx *format.RestoreCtx, op opcode.Op) error
 
 // Restore implements Node interface.
 func (n *BinaryOperationExpr) Restore(ctx *format.RestoreCtx) error {
+	if ctx.Flags.HasRestoreBracketAroundBinaryOperation() {
+		ctx.WritePlain("(")
+	}
 	if err := n.L.Restore(ctx); err != nil {
 		return errors.Annotate(err, "An error occurred when restore BinaryOperationExpr.L")
 	}
@@ -198,7 +185,9 @@ func (n *BinaryOperationExpr) Restore(ctx *format.RestoreCtx) error {
 	if err := n.R.Restore(ctx); err != nil {
 		return errors.Annotate(err, "An error occurred when restore BinaryOperationExpr.R")
 	}
-
+	if ctx.Flags.HasRestoreBracketAroundBinaryOperation() {
+		ctx.WritePlain(")")
+	}
 	return nil
 }
 
@@ -379,6 +368,8 @@ type SubqueryExpr struct {
 	MultiRows  bool
 	Exists     bool
 }
+
+func (*SubqueryExpr) resultSet() {}
 
 // Restore implements Node interface.
 func (n *SubqueryExpr) Restore(ctx *format.RestoreCtx) error {
@@ -642,13 +633,6 @@ func (n *DefaultExpr) Accept(v Visitor) (Node, bool) {
 		return v.Leave(newNode)
 	}
 	n = newNode.(*DefaultExpr)
-	if n.Name != nil {
-		node, ok := n.Name.Accept(v)
-		if !ok {
-			return n, false
-		}
-		n.Name = node.(*ColumnName)
-	}
 	return v.Leave(n)
 }
 
@@ -1246,9 +1230,9 @@ func (n *ValuesExpr) Accept(v Visitor) (Node, bool) {
 	if !ok {
 		return n, false
 	}
-	// `node` may be *ast.ValueExpr, to avoid panic, we write `ok` but do not use
+	// `node` may be *ast.ValueExpr, to avoid panic, we write `_` and do not use
 	// it.
-	n.Column, ok = node.(*ColumnNameExpr)
+	n.Column, _ = node.(*ColumnNameExpr)
 	return v.Leave(n)
 }
 
@@ -1461,4 +1445,42 @@ func (n *SetCollationExpr) Accept(v Visitor) (Node, bool) {
 	}
 	n.Expr = node.(ExprNode)
 	return v.Leave(n)
+}
+
+type exprTextPositionCleaner struct {
+	oldTextPos []int
+	restore    bool
+}
+
+func (e *exprTextPositionCleaner) BeginRestore() {
+	e.restore = true
+}
+
+func (e *exprTextPositionCleaner) Enter(n Node) (node Node, skipChildren bool) {
+	if e.restore {
+		n.SetOriginTextPosition(e.oldTextPos[0])
+		e.oldTextPos = e.oldTextPos[1:]
+		return n, false
+	}
+	e.oldTextPos = append(e.oldTextPos, n.OriginTextPosition())
+	n.SetOriginTextPosition(0)
+	return n, false
+}
+
+func (e *exprTextPositionCleaner) Leave(n Node) (node Node, ok bool) {
+	return n, true
+}
+
+// ExpressionDeepEqual compares the equivalence of two expressions.
+func ExpressionDeepEqual(a ExprNode, b ExprNode) bool {
+	cleanerA := &exprTextPositionCleaner{}
+	cleanerB := &exprTextPositionCleaner{}
+	a.Accept(cleanerA)
+	b.Accept(cleanerB)
+	result := reflect.DeepEqual(a, b)
+	cleanerA.BeginRestore()
+	cleanerB.BeginRestore()
+	a.Accept(cleanerA)
+	b.Accept(cleanerB)
+	return result
 }

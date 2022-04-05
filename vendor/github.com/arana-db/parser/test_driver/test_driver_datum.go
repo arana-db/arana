@@ -1,20 +1,3 @@
-// Licensed to Apache Software Foundation (ASF) under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. Apache Software Foundation (ASF) licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-//
 // Copyright 2019 PingCAP, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,7 +11,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//+build !codes
+//go:build !codes
+// +build !codes
 
 package test_driver
 
@@ -40,10 +24,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/pingcap/errors"
 	"github.com/arana-db/parser/charset"
 	"github.com/arana-db/parser/mysql"
 	"github.com/arana-db/parser/types"
-	"github.com/pingcap/errors"
 )
 
 // Kind constants.
@@ -72,13 +56,10 @@ const (
 // Datum is a data box holds different kind of data.
 // It has better performance and is easier to use than `interface{}`.
 type Datum struct {
-	k         byte        // datum kind.
-	collation uint8       // collation can hold uint8 values.
-	decimal   uint16      // decimal can hold uint16 values.
-	length    uint32      // length can hold uint32 values.
-	i         int64       // i can hold int64 uint64 float64 values.
-	b         []byte      // b can hold string or []byte values.
-	x         interface{} // x hold all other types.
+	k byte        // datum kind.
+	i int64       // i can hold int64 uint64 float64 values.
+	b []byte      // b can hold string or []byte values.
+	x interface{} // x hold all other types.
 }
 
 // Kind gets the kind of the datum.

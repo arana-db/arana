@@ -1,20 +1,3 @@
-// Licensed to Apache Software Foundation (ASF) under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. Apache Software Foundation (ASF) licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-//
 // Copyright 2015 PingCAP, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -35,6 +18,7 @@ package ast
 import (
 	"io"
 
+	"github.com/arana-db/parser/charset"
 	"github.com/arana-db/parser/format"
 	"github.com/arana-db/parser/model"
 	"github.com/arana-db/parser/types"
@@ -54,10 +38,16 @@ type Node interface {
 	// children should be skipped. Otherwise, call its children in particular order that
 	// later elements depends on former elements. Finally, return visitor.Leave.
 	Accept(v Visitor) (node Node, ok bool)
-	// Text returns the original text of the element.
+	// Text returns the utf8 encoding text of the element.
 	Text() string
+	// OriginalText returns the original text of the element.
+	OriginalText() string
 	// SetText sets original text to the Node.
-	SetText(text string)
+	SetText(enc charset.Encoding, text string)
+	// SetOriginTextPosition set the start offset of this node in the origin text.
+	SetOriginTextPosition(offset int)
+	// OriginTextPosition get the start offset of this node in the origin text.
+	OriginTextPosition() int
 }
 
 // Flags indicates whether an expression contains certain types of expression.
@@ -150,9 +140,11 @@ type ResultField struct {
 }
 
 // ResultSetNode interface has a ResultFields property, represents a Node that returns result set.
-// Implementations include SelectStmt, SubqueryExpr, TableSource, TableName and Join.
+// Implementations include SelectStmt, SubqueryExpr, TableSource, TableName, Join and SetOprStmt.
 type ResultSetNode interface {
 	Node
+
+	resultSet()
 }
 
 // SensitiveStmtNode overloads StmtNode and provides a SecureText method.

@@ -1,20 +1,3 @@
-// Licensed to Apache Software Foundation (ASF) under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. Apache Software Foundation (ASF) licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-//
 // Copyright 2015 PingCAP, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -32,17 +15,17 @@ package mysql
 
 // MySQL type information.
 const (
-	TypeDecimal   byte = 0
-	TypeTiny      byte = 1
-	TypeShort     byte = 2
-	TypeLong      byte = 3
-	TypeFloat     byte = 4
-	TypeDouble    byte = 5
-	TypeNull      byte = 6
-	TypeTimestamp byte = 7
-	TypeLonglong  byte = 8
-	TypeInt24     byte = 9
-	TypeDate      byte = 10
+	TypeUnspecified byte = 0
+	TypeTiny        byte = 1 // TINYINT
+	TypeShort       byte = 2 // SMALLINT
+	TypeLong        byte = 3 // INT
+	TypeFloat       byte = 4
+	TypeDouble      byte = 5
+	TypeNull        byte = 6
+	TypeTimestamp   byte = 7
+	TypeLonglong    byte = 8 // BIGINT
+	TypeInt24       byte = 9 // MEDIUMINT
+	TypeDate        byte = 10
 	/* TypeDuration original name was TypeTime, renamed to TypeDuration to resolve the conflict with Go type Time.*/
 	TypeDuration byte = 11
 	TypeDatetime byte = 12
@@ -63,9 +46,6 @@ const (
 	TypeString     byte = 0xfe
 	TypeGeometry   byte = 0xff
 )
-
-// TypeUnspecified is an uninitialized type. TypeDecimal is not used in MySQL.
-const TypeUnspecified = TypeDecimal
 
 // Flag information.
 const (
@@ -92,6 +72,8 @@ const (
 	ParseToJSONFlag       uint = 1 << 18 /* Internal: Used when we want to parse string to JSON in CAST */
 	IsBooleanFlag         uint = 1 << 19 /* Internal: Used for telling boolean literal from integer */
 	PreventNullInsertFlag uint = 1 << 20 /* Prevent this Field from inserting NULL values */
+	EnumSetAsIntFlag      uint = 1 << 21 /* Internal: Used for inferring enum eval type. */
+	DropColumnIndexFlag   uint = 1 << 22 /* Internal: Used for indicate the column is being dropped with index */
 )
 
 // TypeInt24 bounds.
@@ -100,6 +82,11 @@ const (
 	MaxInt24  = 1<<23 - 1
 	MinInt24  = -1 << 23
 )
+
+// HasDropColumnWithIndexFlag checks if DropColumnIndexFlag is set.
+func HasDropColumnWithIndexFlag(flag uint) bool {
+	return (flag & DropColumnIndexFlag) > 0
+}
 
 // HasNotNullFlag checks if NotNullFlag is set.
 func HasNotNullFlag(flag uint) bool {
@@ -169,4 +156,9 @@ func HasIsBooleanFlag(flag uint) bool {
 // HasPreventNullInsertFlag checks if PreventNullInsertFlag is set.
 func HasPreventNullInsertFlag(flag uint) bool {
 	return (flag & PreventNullInsertFlag) > 0
+}
+
+// HasEnumSetAsIntFlag checks if EnumSetAsIntFlag is set.
+func HasEnumSetAsIntFlag(flag uint) bool {
+	return (flag & EnumSetAsIntFlag) > 0
 }

@@ -43,7 +43,7 @@ type ConfigOptions struct {
 
 type Center struct {
 	storeOperate StoreOperate
-	confHolder   atomic.Value // 里面持有了最新的 *Configuration 对象
+	confHolder   *atomic.Value // 里面持有了最新的 *Configuration 对象
 	lock         *sync.RWMutex
 	observers    []Observer
 }
@@ -59,9 +59,9 @@ func NewCenter(options ConfigOptions) (*Center, error) {
 	}
 
 	return &Center{
-		confHolder:   atomic.Value{},
-		storeOperate: operate,
+		confHolder:   &atomic.Value{},
 		lock:         &sync.RWMutex{},
+		storeOperate: operate,
 		observers:    make([]Observer, 0, 2),
 	}, nil
 }
@@ -129,23 +129,35 @@ func (c *Center) loadFromStore(ctx context.Context) (*Configuration, error) {
 		return nil, err
 	}
 
-	if err := json.Unmarshal(metadataVal, &cfg.Metadata); err != nil {
-		return nil, err
+	if len(metadataVal) != 0 {
+		if err := json.Unmarshal(metadataVal, &cfg.Metadata); err != nil {
+			return nil, err
+		}
 	}
-	if err := json.Unmarshal(listenersVal, &cfg.Data.Listeners); err != nil {
-		return nil, err
+	if len(listenersVal) != 0 {
+		if err := json.Unmarshal(listenersVal, &cfg.Data.Listeners); err != nil {
+			return nil, err
+		}
 	}
-	if err := json.Unmarshal(filtersVal, &cfg.Data.Filters); err != nil {
-		return nil, err
+	if len(filtersVal) != 0 {
+		if err := json.Unmarshal(filtersVal, &cfg.Data.Filters); err != nil {
+			return nil, err
+		}
 	}
-	if err := json.Unmarshal(clustersVal, &cfg.Data.DataSourceClusters); err != nil {
-		return nil, err
+	if len(clustersVal) != 0 {
+		if err := json.Unmarshal(clustersVal, &cfg.Data.DataSourceClusters); err != nil {
+			return nil, err
+		}
 	}
-	if err := json.Unmarshal(tenantsVal, &cfg.Data.Tenants); err != nil {
-		return nil, err
+	if len(tenantsVal) != 0 {
+		if err := json.Unmarshal(tenantsVal, &cfg.Data.Tenants); err != nil {
+			return nil, err
+		}
 	}
-	if err := json.Unmarshal(shardingRuleVal, cfg.Data.ShardingRule); err != nil {
-		return nil, err
+	if len(shardingRuleVal) != 0 {
+		if err := json.Unmarshal(shardingRuleVal, cfg.Data.ShardingRule); err != nil {
+			return nil, err
+		}
 	}
 	return cfg, nil
 }
