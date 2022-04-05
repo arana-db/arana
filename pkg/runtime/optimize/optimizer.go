@@ -92,6 +92,7 @@ func (o optimizer) doOptimize(ctx context.Context, stmt rast.Statement, args ...
 	case *rast.InsertStatement:
 		return o.optimizeInsert(ctx, t, args)
 	case *rast.DeleteStatement:
+		return o.optimizeDelete(ctx, t, args)
 	case *rast.UpdateStatement:
 		return o.optimizeUpdate(ctx, t, args)
 	}
@@ -394,4 +395,62 @@ func (o optimizer) optimizeInsert(ctx context.Context, stmt *rast.InsertStatemen
 	}
 
 	return ret, nil
+}
+
+func (o optimizer) optimizeDelete(ctx context.Context, stmt *rast.DeleteStatement, args []interface{}) (proto.Plan, error) {
+	ru := rcontext.Rule(ctx)
+	shards, err := o.computeShards(ru, stmt.Table, stmt.Where, args)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to optimize DELETE statement")
+	}
+
+	// TODO: delete from a child sharding-table directly
+
+	if shards == nil {
+		return plan.Transparent(stmt, args), nil
+	}
+
+	ret := plan.NewSimpleDeletePlan(stmt)
+	ret.BindArgs(args)
+	ret.SetShards(shards)
+
+	return ret, nil
+}
+
+func (o optimizer) computeShards(ru *rule.Rule, table rast.TableName, where rast.ExpressionNode, args []interface{}) (rule.DatabaseTables, error) {
+	vt, ok := ru.VTable(table.Suffix())
+	if !ok {
+		return nil, nil
+	}
+
+	shards, fullScan, err := (*Sharder)(ru).Shard(table, where, args...)
+	if err != nil {
+		return nil, errors.Wrap(err, "calculate shards failed")
+	}
+
+	log.Debugf("compute shards: result=%s, isFullScan=%v", shards, fullScan)
+
+	// return error if full-scan is disabled
+	if fullScan && !vt.AllowFullScan() {
+		return nil, errors.WithStack(errDenyFullScan)
+	}
+
+	if shards.IsEmpty() {
+		return shards, nil
+	}
+
+	if len(shards) == 0 {
+		// init shards
+		shards = rule.DatabaseTables{}
+		// compute all tables
+		topology := vt.Topology()
+		topology.Each(func(dbIdx, tbIdx int) bool {
+			if d, t, ok := topology.Render(dbIdx, tbIdx); ok {
+				shards[d] = append(shards[d], t)
+			}
+			return true
+		})
+	}
+
+	return shards, nil
 }
