@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package test_test
+package test
 
 import (
 	"database/sql"
@@ -29,20 +29,23 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/util/log"
-	"github.com/arana-db/arana/test"
+)
+
+const (
+	username string = "root"
+	password string = "123456"
+	database string = "employees"
 )
 
 var (
-	db *sql.DB
+	db  *sql.DB
+	err error
 )
 
 func TestMain(m *testing.M) {
-	var err error
-	// variable to store function to terminate container
-	var terminateContainer func()
-	terminateContainer, db, err = test.SetupMySQLContainer()
-	// make sure container will be terminated at the end
-	defer terminateContainer()
+	container := SetupMySQLContainer(password, database)
+	db, err = OpenDBConnection(username, password, database, container)
+	defer CloseContainer(container)
 	if err != nil {
 		log.Error("Failed to setup MySQL container")
 		panic(err)
