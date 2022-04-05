@@ -27,6 +27,7 @@ import (
 )
 
 import (
+	"github.com/creasty/defaults"
 	"github.com/ghodss/yaml"
 
 	"github.com/pkg/errors"
@@ -157,6 +158,10 @@ type (
 	}
 )
 
+func (c *Configuration) Init() error {
+	return defaults.Set(c)
+}
+
 func ParseV2(path string) (*Configuration, error) {
 	content, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -170,6 +175,10 @@ func ParseV2(path string) (*Configuration, error) {
 	var cfg Configuration
 	if err = yaml.Unmarshal(content, &cfg); err != nil {
 		return nil, errors.Wrapf(err, "failed to unmarshal config")
+	}
+
+	if err = cfg.Init(); err != nil {
+		return nil, errors.Wrapf(err, "failed to init default config")
 	}
 
 	return &cfg, nil

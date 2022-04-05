@@ -17,17 +17,29 @@
 # under the License.
 #
 
-name: reviewdog
-on: [pull_request]
+name: License checker
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  pull_request_target:
+    branches:
+      - master
+
 jobs:
-  golangci-lint:
-    name: runner / golangci-lint
+  check-license:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v2
 
-      - name: golangci-lint
-        uses: reviewdog/action-golangci-lint@v2
+      - name: Check License Header
+        uses: apache/skywalking-eyes@main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          go_version: "1.16"
+          log: info
+          config: .licenserc.yaml
