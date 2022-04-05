@@ -1,20 +1,19 @@
-// Licensed to Apache Software Foundation (ASF) under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. Apache Software Foundation (ASF) licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-//
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package context
 
@@ -28,9 +27,9 @@ import (
 )
 
 const (
-	_flagMaster cFlag = 1 << iota
-	_flagSlave
-	_flagDirect
+	_flagDirect cFlag = 1 << iota
+	_flagRead
+	_flagWrite
 )
 
 type (
@@ -59,16 +58,6 @@ func WithSQL(ctx context.Context, sql string) context.Context {
 	return context.WithValue(ctx, keySql{}, sql)
 }
 
-// WithMaster uses master datasource.
-func WithMaster(ctx context.Context) context.Context {
-	return context.WithValue(ctx, keyFlag{}, _flagMaster|getFlag(ctx))
-}
-
-// WithSlave uses slave datasource.
-func WithSlave(ctx context.Context) context.Context {
-	return context.WithValue(ctx, keyFlag{}, _flagSlave|getFlag(ctx))
-}
-
 // WithRule binds a rule.
 func WithRule(ctx context.Context, ru *rule.Rule) context.Context {
 	return context.WithValue(ctx, keyRule{}, ru)
@@ -77,6 +66,16 @@ func WithRule(ctx context.Context, ru *rule.Rule) context.Context {
 // WithSequencer binds a sequencer.
 func WithSequencer(ctx context.Context, sequencer proto.Sequencer) context.Context {
 	return context.WithValue(ctx, keySequence{}, sequencer)
+}
+
+// WithWrite marked as write operation
+func WithWrite(ctx context.Context) context.Context {
+	return context.WithValue(ctx, keyFlag{}, _flagWrite|getFlag(ctx))
+}
+
+// WithRead marked as read operation
+func WithRead(ctx context.Context) context.Context {
+	return context.WithValue(ctx, keyFlag{}, _flagRead|getFlag(ctx))
 }
 
 // Sequencer extracts the sequencer.
@@ -97,14 +96,14 @@ func Rule(ctx context.Context) *rule.Rule {
 	return ru
 }
 
-// IsMaster returns true if force using master.
-func IsMaster(ctx context.Context) bool {
-	return hasFlag(ctx, _flagMaster)
+// IsRead returns true if this is a read operation
+func IsRead(ctx context.Context) bool {
+	return hasFlag(ctx, _flagRead)
 }
 
-// IsSlave returns true if force using master.
-func IsSlave(ctx context.Context) bool {
-	return hasFlag(ctx, _flagSlave)
+// IsWrite returns true if this is a write operation
+func IsWrite(ctx context.Context) bool {
+	return hasFlag(ctx, _flagWrite)
 }
 
 // IsDirect returns true if execute directly.

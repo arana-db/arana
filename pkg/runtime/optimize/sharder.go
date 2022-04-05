@@ -1,20 +1,19 @@
-// Licensed to Apache Software Foundation (ASF) under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. Apache Software Foundation (ASF) licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-//
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package optimize
 
@@ -53,6 +52,7 @@ type Sharder rule.Rule
 // Shard returns shards.
 func (sh *Sharder) Shard(tableName ast.TableName, filter ast.ExpressionNode, args ...interface{}) (shards rule.DatabaseTables, fullScan bool, err error) {
 	if filter == nil {
+		fullScan = true
 		return
 	}
 
@@ -164,8 +164,16 @@ func (sh *Sharder) processExpressionAtom(sc *shardCtx, n ast.ExpressionAtom) (lo
 		val, err := sh.getValueFromAtom(sc, a)
 		if err != nil {
 			var lo logical.Logical
-			if lo, err = sh.processExpressionAtom(sc, a.Inner); err != nil {
-				return nil, err
+
+			switch inner := a.Inner.(type) {
+			case ast.ExpressionAtom:
+				if lo, err = sh.processExpressionAtom(sc, inner); err != nil {
+					return nil, err
+				}
+			case *ast.BinaryComparisonPredicateNode:
+				if lo, err = sh.processPredicateExpression(sc, &ast.PredicateExpressionNode{P: inner}); err != nil {
+					return nil, err
+				}
 			}
 
 			if a.IsOperatorNot() {
@@ -257,7 +265,19 @@ func (sh *Sharder) processBetweenPredicate(sc *shardCtx, n *ast.BetweenPredicate
 func (sh *Sharder) getValueFromAtom(sc *shardCtx, atom ast.ExpressionAtom) (interface{}, error) {
 	switch it := atom.(type) {
 	case *ast.UnaryExpressionAtom:
-		v, err := sh.getValueFromAtom(sc, it.Inner)
+		var (
+			v   interface{}
+			err error
+		)
+		switch inner := it.Inner.(type) {
+		case ast.ExpressionAtom:
+			v, err = sh.getValueFromAtom(sc, inner)
+		case *ast.BinaryComparisonPredicateNode:
+			v, err = sh.getValue(sc, inner)
+		default:
+			panic("unreachable")
+		}
+
 		if err != nil {
 			return nil, err
 		}

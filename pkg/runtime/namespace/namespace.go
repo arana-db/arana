@@ -1,20 +1,19 @@
-// Licensed to Apache Software Foundation (ASF) under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. Apache Software Foundation (ASF) licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-//
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package namespace
 
@@ -35,8 +34,8 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
+	"github.com/arana-db/arana/pkg/selector"
 	"github.com/arana-db/arana/pkg/util/log"
-	"github.com/arana-db/arana/pkg/util/rand2"
 )
 
 var _namespaces sync.Map
@@ -144,19 +143,27 @@ func (ns *Namespace) DB(ctx context.Context, group string) proto.DB {
 	if !ok {
 		return nil
 	}
+	var (
+		target = 0
+		wrList = make([]int, 0, len(exist))
+	)
 
-	if rcontext.IsMaster(ctx) {
-		// TODO: select master
-		_ = "todo: select master"
-	} else if rcontext.IsSlave(ctx) {
-		// TODO: select slave
-		_ = "todo: select slave"
-	} else {
-		// TODO: select by weight
-		_ = "todo: select by weight"
+	// select by weight
+	if rcontext.IsRead(ctx) {
+		for _, db := range exist {
+			wrList = append(wrList, int(db.Weight().R))
+		}
+
+	} else if rcontext.IsWrite(ctx) {
+		for _, db := range exist {
+			wrList = append(wrList, int(db.Weight().W))
+		}
+	}
+	if len(wrList) != 0 {
+		target = selector.NewWeightRandomSelector(wrList).GetDataSourceNo()
 	}
 
-	return exist[rand2.Intn(len(exist))]
+	return exist[target]
 }
 
 // Optimizer returns the optimizer.

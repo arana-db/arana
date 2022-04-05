@@ -1,27 +1,28 @@
-// Licensed to Apache Software Foundation (ASF) under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. Apache Software Foundation (ASF) licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-//
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package ast
 
 import (
 	"math"
+	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 import (
@@ -71,9 +72,7 @@ var (
 	_ inTablesChecker = (*AggrFunction)(nil)
 	_ inTablesChecker = (*CaseWhenElseFunction)(nil)
 	_ inTablesChecker = (*CastFunction)(nil)
-)
 
-var (
 	_ Restorer = (*FunctionArg)(nil)
 	_ Restorer = (*Function)(nil)
 	_ Restorer = (*AggrFunction)(nil)
@@ -113,17 +112,17 @@ func (f *Function) Args() []*FunctionArg {
 	return f.args
 }
 
-func (f *Function) Restore(sb *strings.Builder, args *[]int) error {
+func (f *Function) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString(f.Name())
 	sb.WriteByte('(')
 
-	if n := len(f.args); n > 0 {
-		if err := f.args[0].Restore(sb, args); err != nil {
+	if len(f.args) > 0 {
+		if err := f.args[0].Restore(flag, sb, args); err != nil {
 			return errors.WithStack(err)
 		}
-		for i := 1; i < n; i++ {
-			sb.WriteString(", ")
-			if err := f.args[i].Restore(sb, args); err != nil {
+		for i := 1; i < len(f.args); i++ {
+			sb.WriteByte(',')
+			if err := f.args[i].Restore(flag, sb, args); err != nil {
 				return errors.WithStack(err)
 			}
 		}
@@ -131,6 +130,14 @@ func (f *Function) Restore(sb *strings.Builder, args *[]int) error {
 
 	sb.WriteByte(')')
 	return nil
+}
+
+func (f *Function) CntParams() int {
+	var n int
+	for _, it := range f.args {
+		n += it.CntParams()
+	}
+	return n
 }
 
 type FunctionArg struct {
@@ -144,8 +151,6 @@ func (f *FunctionArg) InTables(tables map[string]struct{}) error {
 		return ColumnNameExpressionAtom(f.value.([]string)).InTables(tables)
 	case FunctionArgExpression:
 		return f.value.(ExpressionNode).InTables(tables)
-	case FunctionArgConstant:
-		return nil
 	case FunctionArgFunction:
 		return f.value.(*Function).InTables(tables)
 	case FunctionArgAggrFunction:
@@ -155,7 +160,7 @@ func (f *FunctionArg) InTables(tables map[string]struct{}) error {
 	case FunctionArgCastFunction:
 		return f.value.(*CastFunction).InTables(tables)
 	default:
-		panic("unreachable")
+		return nil
 	}
 }
 
@@ -167,32 +172,40 @@ func (f *FunctionArg) Value() interface{} {
 	return f.value
 }
 
-func (f *FunctionArg) Restore(sb *strings.Builder, args *[]int) error {
-	var restorer Restorer
+func (f *FunctionArg) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	var err error
 	switch f.typ {
 	case FunctionArgColumn:
-		restorer = f.value.(ColumnNameExpressionAtom)
+		err = f.value.(ColumnNameExpressionAtom).Restore(flag, sb, args)
 	case FunctionArgExpression:
-		restorer = f.value.(ExpressionNode)
+		err = f.value.(ExpressionNode).Restore(flag, sb, args)
 	case FunctionArgConstant:
-		restorer = ConstantExpressionAtom{Inner: f.value}
+		sb.WriteString(constant2string(f.value))
 	case FunctionArgFunction:
-		restorer = f.value.(*Function)
+		err = f.value.(*Function).Restore(flag, sb, args)
 	case FunctionArgAggrFunction:
-		restorer = f.value.(*AggrFunction)
+		err = f.value.(*AggrFunction).Restore(flag, sb, args)
 	case FunctionArgCaseWhenElseFunction:
-		restorer = f.value.(*CaseWhenElseFunction)
+		err = f.value.(*CaseWhenElseFunction).Restore(flag, sb, args)
 	case FunctionArgCastFunction:
-		restorer = f.value.(*CastFunction)
+		err = f.value.(*CastFunction).Restore(flag, sb, args)
 	default:
 		panic("unreachable")
 	}
 
-	if err := restorer.Restore(sb, args); err != nil {
+	if err != nil {
 		return errors.WithStack(err)
 	}
 
 	return nil
+}
+
+func (f *FunctionArg) CntParams() int {
+	c, ok := f.value.(paramsCounter)
+	if ok {
+		return c.CntParams()
+	}
+	return 0
 }
 
 const (
@@ -208,8 +221,8 @@ const (
 )
 
 const (
-	AggregatorAll      = "ALL"
-	AggregatorDistinct = "DISTINCT"
+	Distinct = "DISTINCT"
+	All      = "ALL"
 )
 
 type AggrFunctionFlag uint8
@@ -230,7 +243,7 @@ func (af *AggrFunction) InTables(tables map[string]struct{}) error {
 	return nil
 }
 
-func (af *AggrFunction) Restore(sb *strings.Builder, args *[]int) error {
+func (af *AggrFunction) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString(af.name)
 	sb.WriteByte('(')
 	if af.IsCountStar() {
@@ -249,16 +262,17 @@ func (af *AggrFunction) Restore(sb *strings.Builder, args *[]int) error {
 		return nil
 	}
 
-	if err := af.args[0].Restore(sb, args); err != nil {
+	if err := af.args[0].Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
 
 	for i := 1; i < len(af.args); i++ {
 		sb.WriteString(", ")
-		if err := af.args[i].Restore(sb, args); err != nil {
+		if err := af.args[i].Restore(flag, sb, args); err != nil {
 			return errors.WithStack(err)
 		}
 	}
+
 	sb.WriteByte(')')
 	return nil
 }
@@ -339,30 +353,32 @@ func (c *CaseWhenElseFunction) Else() (*FunctionArg, bool) {
 	return nil, false
 }
 
-func (c *CaseWhenElseFunction) Restore(sb *strings.Builder, args *[]int) error {
+func (c *CaseWhenElseFunction) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("CASE")
 
 	if c.caseBlock != nil {
 		sb.WriteByte(' ')
-		if err := c.caseBlock.Restore(sb, args); err != nil {
+
+		if err := c.caseBlock.Restore(flag, sb, args); err != nil {
 			return errors.WithStack(err)
 		}
 	}
 
 	for _, it := range c.branches {
 		sb.WriteString(" WHEN ")
-		if err := it[0].Restore(sb, args); err != nil {
+
+		if err := it[0].Restore(flag, sb, args); err != nil {
 			return errors.WithStack(err)
 		}
 		sb.WriteString(" THEN ")
-		if err := it[1].Restore(sb, args); err != nil {
+		if err := it[1].Restore(flag, sb, args); err != nil {
 			return errors.WithStack(err)
 		}
 	}
 
 	if c.elseBlock != nil {
 		sb.WriteString(" ELSE ")
-		if err := c.elseBlock.Restore(sb, args); err != nil {
+		if err := c.elseBlock.Restore(flag, sb, args); err != nil {
 			return errors.WithStack(err)
 		}
 	}
@@ -371,17 +387,24 @@ func (c *CaseWhenElseFunction) Restore(sb *strings.Builder, args *[]int) error {
 	return nil
 }
 
-type castFunctionFlag uint8
-
-const (
-	castFunctionFlagCast castFunctionFlag = 1 << iota
-	castFunctionFlagCharsetName
-)
+func (c *CaseWhenElseFunction) CntParams() (n int) {
+	if c.caseBlock != nil {
+		n += c.caseBlock.CntParams()
+	}
+	for _, it := range c.branches {
+		n += it[0].CntParams()
+		n += it[1].CntParams()
+	}
+	if c.elseBlock != nil {
+		n += c.elseBlock.CntParams()
+	}
+	return
+}
 
 type CastFunction struct {
-	flag castFunctionFlag
-	src  ExpressionNode
-	cast interface{} // *ConvertDataType or string
+	isCast bool
+	src    ExpressionNode
+	cast   interface{} // *ConvertDataType or string
 }
 
 func (c *CastFunction) InTables(tables map[string]struct{}) error {
@@ -402,14 +425,14 @@ func (c *CastFunction) GetCast() (*ConvertDataType, bool) {
 	return t, ok
 }
 
-func (c *CastFunction) Restore(sb *strings.Builder, args *[]int) error {
-	if c.flag&castFunctionFlagCast != 0 {
+func (c *CastFunction) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	if c.isCast {
 		sb.WriteString("CAST")
 	} else {
 		sb.WriteString("CONVERT")
 	}
 	sb.WriteByte('(')
-	if err := c.src.Restore(sb, args); err != nil {
+	if err := c.src.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
 
@@ -418,7 +441,7 @@ func (c *CastFunction) Restore(sb *strings.Builder, args *[]int) error {
 		sb.WriteString(" USING ")
 		sb.WriteString(cast)
 	case *ConvertDataType:
-		if c.flag&castFunctionFlagCast != 0 {
+		if c.isCast {
 			sb.WriteString(" AS ")
 		} else {
 			sb.WriteString(", ")
@@ -428,6 +451,10 @@ func (c *CastFunction) Restore(sb *strings.Builder, args *[]int) error {
 	sb.WriteByte(')')
 
 	return nil
+}
+
+func (c *CastFunction) CntParams() int {
+	return c.src.CntParams()
 }
 
 const (
@@ -446,43 +473,111 @@ const (
 	CastToUnsignedInteger
 )
 
+var _castTypeNames = [...]string{
+	CastToBinary:          "BINARY",
+	CastToNChar:           "NCHAR",
+	CastToChar:            "CHAR",
+	CastToDate:            "DATE",
+	CastToDateTime:        "DATETIME",
+	CastToTime:            "TIME",
+	CastToJson:            "JSON",
+	CastToDecimal:         "DECIMAL",
+	CastToSigned:          "SIGNED",
+	CastToUnsigned:        "UNSIGNED",
+	CastToSignedInteger:   "SIGNED INTEGER",
+	CastToUnsignedInteger: "UNSIGNED INTEGER",
+}
+
+var (
+	_castRegexp     *regexp.Regexp
+	_castRegexpOnce sync.Once
+)
+
+func getCastRegexp() *regexp.Regexp {
+	_castRegexpOnce.Do(func() {
+		_castRegexp = regexp.MustCompile(`\s*(?P<name>[a-zA-Z0-9_]+)\s*\((?P<first>[0-9]+)\s*(,\s*(?P<second>[0-9]+))?\s*\)(?P<suffix>[a-zA-Z0-9\-\s]*)$`)
+	})
+	return _castRegexp
+}
+
 type CastType uint8
 
 func (c CastType) String() string {
-	switch c {
-	case CastToBinary:
-		return "BINARY"
-	case CastToNChar:
-		return "NCHAR"
-	case CastToChar:
-		return "CHAR"
-	case CastToDate:
-		return "DATE"
-	case CastToDateTime:
-		return "DATETIME"
-	case CastToTime:
-		return "TIME"
-	case CastToJson:
-		return "JSON"
-	case CastToDecimal:
-		return "DECIMAL"
-	case CastToSigned:
-		return "SIGNED"
-	case CastToUnsigned:
-		return "UNSIGNED"
-	case CastToSignedInteger:
-		return "SIGNED INTEGER"
-	case CastToUnsignedInteger:
-		return "UNSIGNED INTEGER"
-	default:
-		panic("unreachable")
-	}
+	return _castTypeNames[c]
 }
 
 type ConvertDataType struct {
 	typ                    CastType
 	dimension0, dimension1 int64
 	charset                string
+}
+
+func (cd *ConvertDataType) Parse(s string) error {
+	var (
+		typ CastType
+		ok  bool
+	)
+	for i, it := range _castTypeNames {
+		if strings.EqualFold(it, s) {
+			typ = CastType(i)
+			ok = true
+			break
+		}
+	}
+	if ok {
+		cd.typ = typ
+		return nil
+	}
+
+	subs := getCastRegexp().FindStringSubmatch(s)
+	keys := getCastRegexp().SubexpNames()
+	if len(subs) != len(keys) {
+		return errors.Errorf("invalid cast string '%s'", s)
+	}
+
+	var (
+		name, first, second, suffix string
+	)
+	for i := 1; i < len(keys); i++ {
+		sub := subs[i]
+		switch keys[i] {
+		case "name":
+			name = sub
+		case "first":
+			first = sub
+		case "second":
+			second = sub
+		case "suffix":
+			suffix = sub
+		}
+	}
+
+	for i, it := range _castTypeNames {
+		if strings.EqualFold(it, name) {
+			typ = CastType(i)
+			ok = true
+			break
+		}
+	}
+
+	if !ok {
+		return errors.Errorf("invalid cast string '%s'", s)
+	}
+
+	cd.typ = typ
+	cd.dimension0, _ = strconv.ParseInt(first, 10, 64)
+	cd.dimension1, _ = strconv.ParseInt(second, 10, 64)
+	cd.charset = strings.ToLower(strings.TrimSpace(suffix))
+
+	for _, it := range [...]string{
+		"charset",
+		"character set",
+	} {
+		if strings.HasPrefix(cd.charset, it) {
+			cd.charset = strings.TrimSpace(cd.charset[len(it):])
+		}
+	}
+	return nil
 }
 
 func (cd *ConvertDataType) Charset() (string, bool) {
@@ -512,14 +607,12 @@ func (cd *ConvertDataType) writeTo(sb *strings.Builder) {
 	case CastToSigned, CastToUnsigned, CastToSignedInteger, CastToUnsignedInteger:
 	case CastToBinary, CastToNChar:
 		if cd.dimension0 != math.MinInt64 {
-			sb.WriteByte(' ')
 			sb.WriteByte('(')
 			sb.WriteString(strconv.FormatInt(cd.dimension0, 10))
 			sb.WriteByte(')')
 		}
 	case CastToChar:
 		if cd.dimension0 != math.MinInt64 {
-			sb.WriteByte(' ')
 			sb.WriteByte('(')
 			sb.WriteString(strconv.FormatInt(cd.dimension0, 10))
 			sb.WriteByte(')')

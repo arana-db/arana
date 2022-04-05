@@ -1,20 +1,19 @@
-// Licensed to Apache Software Foundation (ASF) under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. Apache Software Foundation (ASF) licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-//
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package ast
 
@@ -27,6 +26,7 @@ import (
 import (
 	"github.com/arana-db/parser"
 	"github.com/arana-db/parser/ast"
+	"github.com/arana-db/parser/mysql"
 	"github.com/arana-db/parser/opcode"
 	"github.com/arana-db/parser/test_driver"
 
@@ -46,13 +46,6 @@ var (
 		opcode.GT: cmp.Cgt,
 		opcode.LE: cmp.Clte,
 		opcode.GE: cmp.Cgte,
-	}
-
-	_opcode2math = map[opcode.Op]string{
-		opcode.Plus:  "+",
-		opcode.Minus: "-",
-		opcode.Div:   "/",
-		opcode.Mul:   "*",
 	}
 )
 
@@ -84,104 +77,335 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 	var cc convCtx
 	switch stmt := node.(type) {
 	case *ast.SelectStmt:
-		var (
-			nSelect  = cc.convFieldList(stmt.Fields)
-			nFrom    = convFrom(stmt.From)
-			nWhere   = toExpressionNode(cc.convExpr(stmt.Where))
-			nGroup   = cc.convGroupBy(stmt.GroupBy)
-			nOrderBy = cc.convOrderBy(stmt.OrderBy)
-			nLimit   = cc.convLimit(stmt.Limit)
-		)
-
-		return &SelectStatement{
-			Select:      nSelect,
-			SelectSpecs: nil,
-			From:        nFrom,
-			Where:       nWhere,
-			OrderBy:     nOrderBy,
-			GroupBy:     nGroup,
-			Limit:       nLimit,
-		}, nil
+		return cc.convSelectStmt(stmt), nil
+	case *ast.SetOprStmt:
+		return cc.convUnionStmt(stmt), nil
 	case *ast.DeleteStmt:
-		var (
-			//TODO Now only support single table delete clause, need to fill flag OrderBy field
-			nFrom  = convFrom(stmt.TableRefs)
-			nWhere = toExpressionNode(cc.convExpr(stmt.Where))
-			nLimit = cc.convLimit(stmt.Limit)
-		)
-		return &DeleteStatement{
-			From:  nFrom,
-			Where: nWhere,
-			Limit: nLimit,
-		}, nil
-	case *ast.InsertStmt:
-		var (
-			nTable           = convFrom(stmt.Table)[0]
-			nColumns         []string
-			nValues          [][]ExpressionNode
-			nUpdatedElements []*UpdateElement
-		)
-		if stmt.OnDuplicate != nil && len(stmt.OnDuplicate) != 0 {
-			nUpdatedElements = cc.convAssignment(stmt.OnDuplicate)
+		if stmt.IsMultiTable {
+			return nil, errors.New("todo: DELETE with multiple tables")
 		}
-		if len(stmt.Setlist) != 0 {
-			// insert into sink set a=b
-			nValues = append(nValues, make([]ExpressionNode, 0, len(stmt.Setlist)))
-			setList := stmt.Setlist
-			for _, set := range setList {
-				nColumns = append(nColumns, set.Column.Name.O)
-				nValues[0] = append(nValues[0], &PredicateExpressionNode{
-					cc.convExpr(set.Expr).(PredicateNode),
-				})
+		return cc.convDeleteStmt(stmt), nil
+	case *ast.InsertStmt:
+		return cc.convInsertStmt(stmt), nil
+	case *ast.UpdateStmt:
+		return cc.convUpdateStmt(stmt), nil
+	case *ast.ShowStmt:
+		return cc.convShowStmt(stmt), nil
+	case *ast.ExplainStmt:
+		result, err := FromStmtNode(stmt.Stmt)
+		if err != nil {
+			return nil, err
+		}
+		switch tgt := result.(type) {
+		case *ShowColumns:
+			return &DescribeStatement{table: tgt.tableName}, nil
+		default:
+			return &ExplainStatement{tgt: tgt}, nil
+		}
+	default:
+		return nil, errors.Errorf("unimplement: stmt type %T!", stmt)
+	}
+}
+
+func (cc *convCtx) convUpdateStmt(stmt *ast.UpdateStmt) *UpdateStatement {
+	var ret UpdateStatement
+	switch stmt.Priority {
+	case mysql.LowPriority:
+		ret.enableLowPriority()
+	}
+	if stmt.IgnoreErr {
+		ret.enableIgnore()
+	}
+
+	var tableName TableName
+	switch left := stmt.TableRefs.TableRefs.Left.(type) {
+	case *ast.TableSource:
+		switch source := left.Source.(type) {
+		case *ast.TableName:
+			if db := source.Schema.O; len(db) > 0 {
+				tableName = append(tableName, db)
 			}
-		} else {
-			// insert into sink value(a, b)
-			nColumns = convInsertColumns(stmt.Columns)
-			for i, list := range stmt.Lists {
-				nValues = append(nValues, make([]ExpressionNode, 0, len(list)))
-				for _, elem := range list {
-					nValues[i] = append(nValues[i], &PredicateExpressionNode{
-						cc.convExpr(elem).(PredicateNode),
-					})
-				}
+			tableName = append(tableName, source.Name.O)
+		}
+	}
+
+	if len(tableName) < 1 {
+		panic("no table name found")
+	}
+	ret.Table = tableName
+
+	var updated []*UpdateElement
+	for _, it := range stmt.List {
+		var next UpdateElement
+		next.Column = cc.convColumn(it.Column)
+		next.Value = toExpressionNode(cc.convExpr(it.Expr))
+		updated = append(updated, &next)
+	}
+
+	ret.Updated = updated
+
+	if stmt.Where != nil {
+		ret.Where = toExpressionNode(cc.convExpr(stmt.Where))
+	}
+
+	if stmt.Order != nil {
+		ret.OrderBy = cc.convOrderBy(stmt.Order)
+	}
+
+	if stmt.Limit != nil {
+		ret.Limit = cc.convLimit(stmt.Limit)
+	}
+
+	return &ret
+}
+
+func (cc *convCtx) convColumn(col *ast.ColumnName) ColumnNameExpressionAtom {
+	var ret []string
+	if schema := col.Schema.O; len(schema) > 0 {
+		ret = append(ret, schema)
+	}
+	if table := col.Table.O; len(table) > 0 {
+		ret = append(ret, table)
+	}
+	ret = append(ret, col.Name.O)
+	return ret
+}
+
+func (cc *convCtx) convUnionStmt(stmt *ast.SetOprStmt) *UnionSelectStatement {
+	var ret UnionSelectStatement
+
+	ret.first = cc.convSelectStmt(stmt.SelectList.Selects[0].(*ast.SelectStmt))
+	for i := 1; i < len(stmt.SelectList.Selects); i++ {
+		var (
+			next = stmt.SelectList.Selects[i].(*ast.SelectStmt)
+			item UnionStatementItem
+		)
+		item.ss = cc.convSelectStmt(next)
+
+		switch *next.AfterSetOperator {
+		case ast.UnionAll:
+			item.unionType = UnionTypeAll
+		case ast.Union:
+			item.unionType = UnionTypeDistinct
+		}
+		ret.others = append(ret.others, &item)
+	}
+
+	return &ret
+}
+
+func (cc *convCtx) convSelectStmt(stmt *ast.SelectStmt) *SelectStatement {
+	var ret SelectStatement
+
+	if stmt.Distinct {
+		ret.enableDistinct()
+	}
+
+	ret.Select = cc.convFieldList(stmt.Fields)
+	ret.From = cc.convFrom(stmt.From)
+	if stmt.Where != nil {
+		ret.Where = toExpressionNode(cc.convExpr(stmt.Where))
+	}
+	ret.GroupBy = cc.convGroupBy(stmt.GroupBy)
+	ret.Having = cc.convHaving(stmt.Having)
+	ret.OrderBy = cc.convOrderBy(stmt.OrderBy)
+	ret.Limit = cc.convLimit(stmt.Limit)
+
+	if stmt.LockInfo != nil {
+		switch stmt.LockInfo.LockType {
+		case ast.SelectLockForUpdate:
+			ret.enableForUpdate()
+		case ast.SelectLockForShare:
+			ret.enableLockInShareMode()
+		}
+	}
+
+	return &ret
+}
+
+func (cc *convCtx) convDeleteStmt(stmt *ast.DeleteStmt) Statement {
+	var ret DeleteStatement
+
+	if stmt.IgnoreErr {
+		ret.enableIgnore()
+	}
+
+	if stmt.Quick {
+		ret.enableQuick()
+	}
+
+	switch stmt.Priority {
+	case mysql.LowPriority:
+		ret.enableLowPriority()
+	}
+
+	// TODO: Now only support single table delete clause, need to fill flag OrderBy field
+	ret.Table = cc.convFrom(stmt.TableRefs)[0].TableName()
+
+	if stmt.Where != nil {
+		ret.Where = toExpressionNode(cc.convExpr(stmt.Where))
+	}
+
+	if stmt.Order != nil {
+		ret.OrderBy = cc.convOrderBy(stmt.Order)
+	}
+
+	if stmt.Limit != nil {
+		ret.Limit = cc.convLimit(stmt.Limit)
+	}
+
+	return &ret
+}
+
+func (cc *convCtx) convInsertStmt(stmt *ast.InsertStmt) Statement {
+	var (
+		bi     baseInsertStatement
+		values [][]ExpressionNode
+	)
+
+	// extract table
+	bi.table = cc.convFrom(stmt.Table)[0].TableName()
+
+	if stmt.IgnoreErr {
+		bi.enableIgnore()
+	}
+
+	switch stmt.Priority {
+	case mysql.LowPriority:
+		bi.enableLowPriority()
+	case mysql.HighPriority:
+		bi.enableHighPriority()
+	case mysql.DelayedPriority:
+		bi.enableDelayedPriority()
+	}
+
+	if stmt.Setlist == nil { // INSERT INTO xxx(...) VALUES (...)
+		bi.columns = convInsertColumns(stmt.Columns)
+		values = make([][]ExpressionNode, 0, len(stmt.Lists))
+		for _, row := range stmt.Lists {
+			next := make([]ExpressionNode, 0, len(row))
+			for _, col := range row {
+				next = append(next, toExpressionNode(cc.convExpr(col)))
 			}
+			values = append(values, next)
+		}
+	} else { // INSERT INTO xxx SET xx=xx,...
+		bi.enableSetSyntax() // mark as SET mode
+
+		bi.columns = make([]string, 0, len(stmt.Setlist))
+		next := make([]ExpressionNode, 0, len(stmt.Setlist))
+		for _, set := range stmt.Setlist {
+			bi.columns = append(bi.columns, set.Column.Name.O)
+			next = append(next, toExpressionNode(cc.convExpr(set.Expr)))
 		}
 
-		return &InsertStatement{
-			baseInsertStatement: &baseInsertStatement{
-				table:   nTable.TableName(),
-				columns: nColumns,
-			},
-			duplicatedUpdates: nUpdatedElements,
-			values:            nValues,
-		}, nil
-	case *ast.UpdateStmt:
-		var (
-			nTable   = convFrom(stmt.TableRefs)[0]
-			nExprs   = cc.convAssignment(stmt.List)
-			nWhere   = toExpressionNode(cc.convExpr(stmt.Where))
-			nLimit   = cc.convLimit(stmt.Limit)
-			nOrderBy = cc.convOrderBy(stmt.Order)
-		)
-		return &UpdateStatement{
-			flag:       0,
-			Table:      nTable.TableName(),
-			TableAlias: nTable.Alias(),
-			Updated:    nExprs,
-			Where:      nWhere,
-			OrderBy:    nOrderBy,
-			Limit:      nLimit,
-		}, nil
+		values = [][]ExpressionNode{next}
 	}
-	return nil, nil
+
+	if stmt.IsReplace {
+		return &ReplaceStatement{
+			baseInsertStatement: &bi,
+			values:              values,
+		}
+	}
+
+	var updates []*UpdateElement
+	if stmt.OnDuplicate != nil {
+		updates = make([]*UpdateElement, 0, len(stmt.OnDuplicate))
+		for _, it := range stmt.OnDuplicate {
+			updates = append(updates, &UpdateElement{
+				Column: []string{it.Column.Name.O},
+				Value:  toExpressionNode(cc.convExpr(it.Expr)),
+			})
+		}
+	}
+
+	return &InsertStatement{
+		baseInsertStatement: &bi,
+		values:              values,
+		duplicatedUpdates:   updates,
+	}
+}
+
+func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
+	toWhere := func(node *ast.ShowStmt) (ExpressionNode, bool) {
+		if node.Where == nil {
+			return nil, false
+		}
+		return toExpressionNode(cc.convExpr(node.Where)), true
+	}
+	toLike := func(node *ast.ShowStmt) (string, bool) {
+		if node.Pattern == nil {
+			return "", false
+		}
+		return node.Pattern.Pattern.(ast.ValueExpr).GetValue().(string), true
+	}
+
+	switch node.Tp {
+	case ast.ShowTables:
+		var (
+			bs    baseShow
+			like  string
+			where ExpressionNode
+			ok    bool
+		)
+		if like, ok = toLike(node); ok {
+			bs.filter = like
+		} else if where, ok = toWhere(node); ok {
+			bs.filter = where
+		}
+		return &ShowTables{baseShow: &bs}
+	case ast.ShowDatabases:
+		var (
+			bs    baseShow
+			like  string
+			where ExpressionNode
+			ok    bool
+		)
+		if like, ok = toLike(node); ok {
+			bs.filter = like
+		} else if where, ok = toWhere(node); ok {
+			bs.filter = where
+		}
+		return &ShowDatabases{baseShow: &bs}
+	case ast.ShowCreateTable:
+		return &ShowCreate{
+			typ: ShowCreateTypeTable,
+			tgt: node.Table.Name.O,
+		}
+	case ast.ShowIndex:
+		ret := &ShowIndex{
+			tableName: []string{node.Table.Name.O},
+		}
+		if where, ok := toWhere(node); ok {
+			ret.where = where
+		}
+		return ret
+	case ast.ShowColumns:
+		ret := &ShowColumns{
+			tableName: []string{node.Table.Name.O},
+		}
+		if node.Extended {
+			ret.flag |= scFlagExtended
+		}
+		if node.Full {
+			ret.flag |= scFlagFull
+		}
+		if like, ok := toLike(node); ok {
+			ret.like.Valid, ret.like.String = true, like
+		}
+		return ret
+	default:
+		panic(fmt.Sprintf("unimplement: show type %v!", node.Tp))
+	}
 }
 
 func convInsertColumns(columnNames []*ast.ColumnName) []string {
-	var result = make([]string, 0, len(columnNames))
+	results := make([]string, 0, len(columnNames))
 	for _, cn := range columnNames {
-		result = append(result, cn.Name.O)
+		results = append(results, cn.Name.O)
 	}
-	return result
+	return results
 }
 
 // Parse parses the SQL string to Statement.
@@ -194,7 +418,7 @@ func Parse(sql string, options ...ParseOption) (Statement, error) {
 	p := parser.New()
 	s, err := p.ParseOneStmt(sql, o.charset, o.collation)
 	if err != nil {
-		return nil, errors.Wrap(err, "parse sql ast failed")
+		return nil, err
 	}
 
 	return FromStmtNode(s)
@@ -219,52 +443,72 @@ func (cc *convCtx) getParamIndex() int32 {
 	return cur
 }
 
-type tblRefsVisitor struct {
-	alias []string
-	v     []*TableSourceNode
-}
-
-func (t *tblRefsVisitor) Enter(n ast.Node) (ast.Node, bool) {
-	switch val := n.(type) {
-	case *ast.TableSource:
-		t.alias = append(t.alias, val.AsName.String())
-	case *ast.TableName:
-		var (
-			schema = val.Schema.String()
-			name   = val.Name.String()
-		)
-
-		var tableName TableName
-		if len(schema) < 1 {
-			tableName = []string{name}
-		} else {
-			tableName = []string{schema, name}
-		}
-
-		tn := &TableSourceNode{
-			source: tableName,
-			alias:  "",
-		}
-		if len(t.alias) > 0 {
-			tn.alias = t.alias[len(t.alias)-1]
-			t.alias = t.alias[:len(t.alias)-1]
-		}
-		t.v = append(t.v, tn)
-	}
-	return n, false
-}
-
-func (t tblRefsVisitor) Leave(n ast.Node) (ast.Node, bool) {
-	return n, true
-}
-
-func convFrom(from *ast.TableRefsClause) []*TableSourceNode {
+func (cc *convCtx) convFrom(from *ast.TableRefsClause) (ret []*TableSourceNode) {
 	if from == nil {
-		return nil
+		return
 	}
-	var vis tblRefsVisitor
-	from.Accept(&vis)
-	return vis.v
+
+	transform := func(input ast.ResultSetNode) *TableSourceNode {
+		if input == nil {
+			return nil
+		}
+		switch val := input.(type) {
+		case *ast.TableSource:
+			var target TableSourceNode
+			target.alias = val.AsName.O
+			switch source := val.Source.(type) {
+			case *ast.TableName:
+				cc.convTableName(source, &target)
+			case *ast.SelectStmt:
+				target.source = cc.convSelectStmt(source)
+			case *ast.SetOprStmt:
+				target.source = cc.convUnionStmt(source)
+			default:
+				panic(fmt.Sprintf("unimplement: table source %T!", source))
+			}
+			return &target
+		default:
+			panic(fmt.Sprintf("unimplement: table refs %T!", val))
+		}
+	}
+
+	var (
+		left  = transform(from.TableRefs.Left)
+		right = transform(from.TableRefs.Right)
+	)
+
+	var on ExpressionNode
+	if from.TableRefs.On != nil {
+		on = toExpressionNode(cc.convExpr(from.TableRefs.On.Expr))
+	}
+
+	if on == nil {
+		ret = append(ret, left)
+		return
+	}
+
+	var jn JoinNode
+
+	jn.left = left
+	jn.right = right
+	jn.on = on
+
+	switch from.TableRefs.Tp {
+	case ast.LeftJoin:
+		jn.typ = LeftJoin
+	case ast.RightJoin:
+		jn.typ = RightJoin
+	case ast.CrossJoin:
+		jn.typ = InnerJoin
+	}
+
+	if from.TableRefs.NaturalJoin {
+		jn.natural = true
+	}
+
+	ret = append(ret, &TableSourceNode{source: &jn})
+
+	return
 }
 
 func (cc *convCtx) convGroupBy(by *ast.GroupByClause) *GroupByNode {
@@ -275,13 +519,13 @@ func (cc *convCtx) convGroupBy(by *ast.GroupByClause) *GroupByNode {
 	ret := &GroupByNode{
 		Items: make([]*GroupByItem, 0, len(by.Items)),
 	}
+
 	for _, it := range by.Items {
 		var next GroupByItem
 		if it.Desc {
 			next.flag = flagGroupByOrderDesc | flagGroupByHasOrder
 		}
 		next.expr = toExpressionNode(cc.convExpr(it.Expr))
-
 		ret.Items = append(ret.Items, &next)
 	}
 
@@ -352,36 +596,17 @@ func (cc *convCtx) convFieldList(node *ast.FieldList) []SelectElement {
 					inner: exprAtomToNode(a),
 					alias: alias,
 				})
+			case *SystemVariableExpressionAtom:
+				ret = append(ret, &SelectElementExpr{
+					inner: exprAtomToNode(a),
+					alias: alias,
+				})
 			default:
 				panic(fmt.Sprintf("todo: unsupported select element type %T!", a))
 			}
 		}
 	}
 	return ret
-}
-
-// convert assignment, like a = 1.
-func (cc *convCtx) convAssignment(assignments []*ast.Assignment) []*UpdateElement {
-	result := make([]*UpdateElement, 0, len(assignments))
-	for _, assignment := range assignments {
-		var nColumn ColumnNameExpressionAtom
-		column := assignment.Column
-		if column.Schema.O != "" {
-			nColumn = append(nColumn, column.Schema.O)
-		}
-		if column.Table.O != "" {
-			nColumn = append(nColumn, column.Table.O)
-		}
-		if column.Name.O != "" {
-			nColumn = append(nColumn, column.Name.O)
-		}
-		nValue := cc.convExpr(assignment.Expr).(PredicateNode)
-		result = append(result, &UpdateElement{
-			Column: nColumn,
-			Value:  &PredicateExpressionNode{nValue},
-		})
-	}
-	return result
 }
 
 func (cc *convCtx) convLimit(li *ast.Limit) *LimitNode {
@@ -433,8 +658,6 @@ func (cc *convCtx) convExpr(expr ast.ExprNode) interface{} {
 		return cc.convParenthesesExpr(node)
 	case *ast.PatternLikeExpr:
 		return cc.convPatternLikeExpr(node)
-	case *ast.FuncCallExpr:
-		return cc.convFuncCallExpr(node)
 	case ast.ValueExpr:
 		return cc.convValueExpr(node)
 	case *ast.UnaryOperationExpr:
@@ -443,8 +666,66 @@ func (cc *convCtx) convExpr(expr ast.ExprNode) interface{} {
 		return cc.convAggregateFuncExpr(node)
 	case *ast.CaseExpr:
 		return cc.convCaseExpr(node)
+	case *ast.FuncCallExpr:
+		return cc.convFuncCallExpr(node)
+	case *ast.FuncCastExpr:
+		return cc.convCastExpr(node)
+	case *ast.IsNullExpr:
+		return cc.convIsNullExpr(node)
+	case *ast.VariableExpr:
+		return cc.convVariableExpr(node)
+	case *ast.PatternRegexpExpr:
+		return cc.convRegexpExpr(node)
+	case *ast.TimeUnitExpr:
+		return cc.convTimeUnitExpr(node)
 	default:
 		panic(fmt.Sprintf("unimplement: expr node type %T!", node))
+	}
+}
+
+func (cc *convCtx) convVariableExpr(node *ast.VariableExpr) PredicateNode {
+	return &AtomPredicateNode{
+		A: &SystemVariableExpressionAtom{
+			name: node.Name,
+		},
+	}
+}
+
+func (cc *convCtx) convCastExpr(node *ast.FuncCastExpr) PredicateNode {
+	var (
+		f    CastFunction
+		left = cc.convExpr(node.Expr)
+	)
+
+	switch node.FunctionType {
+	case ast.CastFunction:
+		f.isCast = true
+	case ast.CastConvertFunction:
+	case ast.CastBinaryOperator:
+		panic("unknown cast binary operator!")
+	}
+
+	var cast strings.Builder
+	node.Tp.FormatAsCastType(&cast, true)
+
+	// WORKAROUND: fix original cast string
+	if strings.EqualFold("binary binary", cast.String()) {
+		cast.Reset()
+		cast.WriteString("BINARY")
+	}
+
+	var typ ConvertDataType
+	if err := typ.Parse(cast.String()); err != nil {
+		panic(err.Error())
+	}
+
+	f.src = toExpressionNode(left)
+	f.cast = &typ
+
+	return &AtomPredicateNode{
+		A: &FunctionCallExpressionAtom{
+			F: &f,
+		},
 	}
 }
 
@@ -483,28 +764,28 @@ func (cc *convCtx) convCaseExpr(node *ast.CaseExpr) PredicateNode {
 }
 
 func (cc *convCtx) convAggregateFuncExpr(node *ast.AggregateFuncExpr) PredicateNode {
-	var (
-		fnName = strings.ToUpper(node.F)
-		args   = make([]*FunctionArg, 0, len(node.Args))
-	)
+	var f AggrFunction
 
-	for _, it := range node.Args {
-		args = append(args, cc.toArg(it))
-	}
-
-	f := &AggrFunction{
-		name: fnName,
-		args: args,
-	}
-
+	f.name = strings.ToUpper(node.F)
 	if node.Distinct {
-		f.aggregator = AggregatorDistinct
+		f.aggregator = Distinct
 	}
-	// TODO: all?
+
+	switch f.name {
+	case "COUNT":
+		if len(node.Args) < 1 {
+			f.EnableCountStar()
+		}
+		fallthrough
+	default:
+		for _, it := range node.Args {
+			f.args = append(f.args, cc.toArg(it))
+		}
+	}
 
 	return &AtomPredicateNode{
 		A: &FunctionCallExpressionAtom{
-			F: f,
+			F: &f,
 		},
 	}
 }
@@ -512,25 +793,71 @@ func (cc *convCtx) convAggregateFuncExpr(node *ast.AggregateFuncExpr) PredicateN
 func (cc *convCtx) convFuncCallExpr(expr *ast.FuncCallExpr) PredicateNode {
 	var (
 		fnName = strings.ToUpper(expr.FnName.O)
-		args   = make([]*FunctionArg, 0, len(expr.Args))
 	)
 
-	for _, it := range expr.Args {
-		args = append(args, cc.toArg(it))
-	}
+	// NOTICE: tidb-parser cannot process CONVERT('foobar' USING utf8).
+	// It should be a CastFunc, but now will be parsed as a FuncCall.
+	// We should do some transform work.
+	var inner interface{}
+	switch fnName {
+	case "CONVERT":
+		_ = expr.Args[1]
+		var (
+			first  = toExpressionNode(cc.convExpr(expr.Args[0]))
+			second = cc.convExpr(expr.Args[1])
+		)
+		inner = &CastFunction{
+			src:  first,
+			cast: second.(*AtomPredicateNode).A.(*ConstantExpressionAtom).Value().(string),
+		}
+	default:
+		var (
+			isTimeUnit bool
+			args       = make([]*FunctionArg, 0, len(expr.Args))
+		)
+		for _, it := range expr.Args {
+			next := cc.toArg(it)
+			args = append(args, next)
 
-	atom := &FunctionCallExpressionAtom{
-		F: &Function{
+			isTimeUnit = false
+			if next.Type() == FunctionArgConstant {
+				_, isTimeUnit = next.value.(ast.TimeUnitType)
+			}
+		}
+
+		if isTimeUnit {
+			args[len(args)-2] = &FunctionArg{
+				typ: FunctionArgExpression,
+				value: &PredicateExpressionNode{
+					P: &AtomPredicateNode{
+						A: &IntervalExpressionAtom{
+							unit:  args[len(args)-1].value.(ast.TimeUnitType),
+							value: cc.convExpr(expr.Args[len(args)-2]).(PredicateNode),
+						},
+					},
+				},
+			}
+			args = args[:len(args)-1]
+		}
+
+		inner = &Function{
 			typ:  Fspec,
 			name: fnName,
 			args: args,
-		},
+		}
 	}
 
-	return &AtomPredicateNode{A: atom}
+	return &AtomPredicateNode{
+		A: &FunctionCallExpressionAtom{
+			F: inner,
+		},
+	}
 }
 
 func (cc *convCtx) toArg(arg ast.ExprNode) *FunctionArg {
+	if arg == nil {
+		return nil
+	}
 	switch next := cc.convExpr(arg).(type) {
 	case *AtomPredicateNode:
 		switch atom := next.A.(type) {
@@ -559,10 +886,20 @@ func (cc *convCtx) toArg(arg ast.ExprNode) *FunctionArg {
 				typ:   FunctionArgExpression,
 				value: &PredicateExpressionNode{P: next},
 			}
+		case *FunctionCallExpressionAtom:
+			return &FunctionArg{
+				typ:   FunctionArgExpression,
+				value: &PredicateExpressionNode{P: next},
+			}
 		default:
 			panic(fmt.Sprintf("unimplement: function arg atom type %T!", atom))
 		}
 	case *BinaryComparisonPredicateNode:
+		return &FunctionArg{
+			typ:   FunctionArgExpression,
+			value: &PredicateExpressionNode{P: next},
+		}
+	case *RegexpPredicationNode:
 		return &FunctionArg{
 			typ:   FunctionArgExpression,
 			value: &PredicateExpressionNode{P: next},
@@ -634,13 +971,15 @@ func (cc *convCtx) convPatternInExpr(expr *ast.PatternInExpr) PredicateNode {
 }
 
 func (cc *convCtx) convUnaryExpr(expr *ast.UnaryOperationExpr) PredicateNode {
-	var atom ExpressionAtom
+	var atom interface{}
 
 	switch t := cc.convExpr(expr.V).(type) {
 	case ExpressionAtom:
 		atom = t
 	case *AtomPredicateNode:
 		atom = t.A
+	case *BinaryComparisonPredicateNode:
+		atom = t
 	default:
 		panic(fmt.Sprintf("unsupport unary inner expr type %T!", t))
 	}
@@ -648,10 +987,12 @@ func (cc *convCtx) convUnaryExpr(expr *ast.UnaryOperationExpr) PredicateNode {
 	var sb strings.Builder
 	expr.Op.Format(&sb)
 
-	return &AtomPredicateNode{A: &UnaryExpressionAtom{
-		Operator: sb.String(),
-		Inner:    atom,
-	}}
+	return &AtomPredicateNode{
+		A: &UnaryExpressionAtom{
+			Operator: sb.String(),
+			Inner:    atom,
+		},
+	}
 }
 
 func (cc *convCtx) convValueExpr(expr ast.ValueExpr) PredicateNode {
@@ -666,16 +1007,75 @@ func (cc *convCtx) convValueExpr(expr ast.ValueExpr) PredicateNode {
 			f, _ := strconv.ParseFloat(val.String(), 64)
 			atom = &ConstantExpressionAtom{Inner: f}
 		default:
-			atom = &ConstantExpressionAtom{Inner: val}
-		}
+			if val == nil {
+				atom = &ConstantExpressionAtom{Inner: Null{}}
 
+			} else {
+				atom = &ConstantExpressionAtom{Inner: val}
+			}
+		}
 	}
 	return &AtomPredicateNode{A: atom}
 }
 
-func convColumnNameExpr(expr *ast.ColumnNameExpr) PredicateNode {
+func (cc *convCtx) convTimeUnitExpr(node *ast.TimeUnitExpr) PredicateNode {
 	return &AtomPredicateNode{
-		A: ColumnNameExpressionAtom([]string{expr.Name.String()}),
+		A: &ConstantExpressionAtom{
+			Inner: node.Unit,
+		},
+	}
+}
+
+func convColumnNameExpr(expr *ast.ColumnNameExpr) PredicateNode {
+	var (
+		table  = expr.Name.Table.O
+		column = expr.Name.Name.O
+	)
+
+	if len(table) < 1 {
+		return &AtomPredicateNode{
+			A: ColumnNameExpressionAtom([]string{column}),
+		}
+	}
+
+	return &AtomPredicateNode{
+		A: ColumnNameExpressionAtom([]string{table, column}),
+	}
+}
+
+func (cc *convCtx) convIsNullExpr(node *ast.IsNullExpr) PredicateNode {
+	var (
+		left  = cc.convExpr(node.Expr)
+		right = &ConstantExpressionAtom{
+			Inner: Null{},
+		}
+	)
+
+	ret := &BinaryComparisonPredicateNode{
+		Left: left.(PredicateNode),
+		Right: &AtomPredicateNode{
+			A: right,
+		},
+	}
+
+	if node.Not {
+		ret.Op = _opcode2comparison[opcode.NE]
+	} else {
+		ret.Op = _opcode2comparison[opcode.EQ]
+	}
+
+	return ret
+}
+
+func (cc *convCtx) convRegexpExpr(node *ast.PatternRegexpExpr) PredicateNode {
+	var (
+		left  = cc.convExpr(node.Expr).(PredicateNode)
+		right = cc.convExpr(node.Pattern).(PredicateNode)
+	)
+	return &RegexpPredicationNode{
+		Left:  left,
+		Right: right,
+		Not:   node.Not,
 	}
 }
 
@@ -686,17 +1086,41 @@ func (cc *convCtx) convBinaryOperationExpr(expr *ast.BinaryOperationExpr) interf
 	)
 
 	switch expr.Op {
-	case opcode.Plus, opcode.Minus, opcode.Div, opcode.Mul:
+	case opcode.Plus, opcode.Minus, opcode.Div, opcode.Mul, opcode.Mod:
 		return &AtomPredicateNode{A: &MathExpressionAtom{
 			Left:     left.(*AtomPredicateNode).A,
-			Operator: _opcode2math[expr.Op],
+			Operator: expr.Op.Literal(),
 			Right:    right.(*AtomPredicateNode).A,
 		}}
 	case opcode.EQ, opcode.NE, opcode.GT, opcode.GE, opcode.LT, opcode.LE:
+		var (
+			op = _opcode2comparison[expr.Op]
+		)
+
+		if !isColumnAtom(left.(PredicateNode)) && isColumnAtom(right.(PredicateNode)) {
+			// do reverse:
+			// 1 = uid === uid = 1
+			// 1 <> uid === uid <> 1
+			// 1 < uid === uid > 1
+			// 1 > uid === uid < 1
+			// 1 <= uid === uid >= 1
+			// 1 >= uid === uid <= 1
+			left, right = right, left
+			switch expr.Op {
+			case opcode.GT:
+				op = _opcode2comparison[opcode.LT]
+			case opcode.GE:
+				op = _opcode2comparison[opcode.LE]
+			case opcode.LT:
+				op = _opcode2comparison[opcode.GT]
+			case opcode.LE:
+				op = _opcode2comparison[opcode.GE]
+			}
+		}
 		return &BinaryComparisonPredicateNode{
 			Left:  left.(PredicateNode),
 			Right: right.(PredicateNode),
-			Op:    _opcode2comparison[expr.Op],
+			Op:    op,
 		}
 	case opcode.LogicAnd:
 		return &LogicalExpressionNode{
@@ -713,6 +1137,66 @@ func (cc *convCtx) convBinaryOperationExpr(expr *ast.BinaryOperationExpr) interf
 	default:
 		panic(fmt.Sprintf("todo: support opcode %s!", expr.Op.String()))
 	}
+}
+
+func (cc *convCtx) convHaving(having *ast.HavingClause) ExpressionNode {
+	if having == nil {
+		return nil
+	}
+	return toExpressionNode(cc.convExpr(having.Expr))
+}
+
+func (cc *convCtx) convTableName(val *ast.TableName, tgt *TableSourceNode) {
+	var (
+		schema     = val.Schema.String()
+		name       = val.Name.String()
+		partitions []string
+		indexHints []*IndexHint
+	)
+
+	var tableName TableName
+
+	if len(schema) < 1 {
+		tableName = []string{name}
+	} else {
+		tableName = []string{schema, name}
+	}
+
+	// parse partitions
+	for _, it := range val.PartitionNames {
+		partitions = append(partitions, it.O)
+	}
+
+	// parse index
+	for _, it := range val.IndexHints {
+		var next IndexHint
+		switch it.HintType {
+		case ast.HintUse:
+			next.action = indexHintActionUse
+		case ast.HintIgnore:
+			next.action = indexHintActionIgnore
+		case ast.HintForce:
+			next.action = indexHintActionForce
+		}
+
+		switch it.HintScope {
+		case ast.HintForGroupBy:
+			next.indexHintType = indexHintTypeGroupBy
+		case ast.HintForJoin:
+			next.indexHintType = indexHintTypeJoin
+		case ast.HintForOrderBy:
+			next.indexHintType = indexHintTypeOrderBy
+		}
+		next.indexes = make([]string, 0, len(it.IndexNames))
+		for _, indexName := range it.IndexNames {
+			next.indexes = append(next.indexes, indexName.O)
+		}
+		indexHints = append(indexHints, &next)
+	}
+
+	tgt.source = tableName
+	tgt.indexHints = indexHints
+	tgt.partitions = partitions
 }
 
 func toExpressionNode(src interface{}) ExpressionNode {
@@ -737,4 +1221,14 @@ func exprAtomToNode(atom ExpressionAtom) ExpressionNode {
 			A: atom,
 		},
 	}
+}
+
+func isColumnAtom(expr PredicateNode) bool {
+	switch t := expr.(type) {
+	case *AtomPredicateNode:
+		if _, ok := t.A.(ColumnNameExpressionAtom); ok {
+			return true
+		}
+	}
+	return false
 }
