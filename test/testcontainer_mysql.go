@@ -33,14 +33,15 @@ import (
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
-var (
-	ctx context.Context
-)
+type MySQLContainerTester struct {
+	Context  context.Context `validate:"required" yaml:"context" json:"context"`
+	Username string          `validate:"required" yaml:"username" json:"username"`
+	Password string          `validate:"required" yaml:"password" json:"password"`
+	Database string          `validate:"required" yaml:"database" json:"database"`
+}
 
-func SetupMySQLContainer(password, database string) testcontainers.Container {
+func (tester *MySQLContainerTester) SetupMySQLContainer() testcontainers.Container {
 	log.Info("Setup MySQL Container")
-	ctx = context.Background()
-
 	seedDataPath, err := os.Getwd()
 	if err != nil {
 		log.Errorf("Error get working directory: %s", err)
@@ -53,8 +54,8 @@ func SetupMySQLContainer(password, database string) testcontainers.Container {
 		Image:        "mysql:latest",
 		ExposedPorts: []string{"3306/tcp", "33060/tcp"},
 		Env: map[string]string{
-			"MYSQL_ROOT_PASSWORD": password,
-			"MYSQL_DATABASE":      database,
+			"MYSQL_ROOT_PASSWORD": tester.Password,
+			"MYSQL_DATABASE":      tester.Database,
 		},
 		BindMounts: map[string]string{
 			"/docker-entrypoint-initdb.d": mountPath,
@@ -62,7 +63,7 @@ func SetupMySQLContainer(password, database string) testcontainers.Container {
 		WaitingFor: wait.ForLog("port: 3306  MySQL Community Server - GPL"),
 	}
 
-	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+	container, err := testcontainers.GenericContainer(tester.Context, testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
 		Started:          true,
 	})
@@ -74,21 +75,21 @@ func SetupMySQLContainer(password, database string) testcontainers.Container {
 	return container
 }
 
-func CloseContainer(container testcontainers.Container) {
+func (tester *MySQLContainerTester) CloseContainer(container testcontainers.Container) {
 	log.Info("Start terminating MySQL container")
-	err := container.Terminate(ctx)
+	err := container.Terminate(tester.Context)
 	if err != nil {
 		log.Errorf("Terminating MySQL container error: %s", err)
 		panic(fmt.Sprintf("%v", err))
 	}
 }
 
-func OpenDBConnection(username, password, database string, container testcontainers.Container) (*sql.DB, error) {
-	host, _ := container.Host(ctx)
-	p, _ := container.MappedPort(ctx, "3306/tcp")
+func (tester *MySQLContainerTester) OpenDBConnection(container testcontainers.Container) (*sql.DB, error) {
+	host, _ := container.Host(tester.Context)
+	p, _ := container.MappedPort(tester.Context, "3306/tcp")
 	port := p.Int()
 	connectionString := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8",
-		username, password, host, port, database)
+		tester.Username, tester.Password, host, port, tester.Database)
 
 	db, err := sql.Open("mysql", connectionString)
 	if err != nil {

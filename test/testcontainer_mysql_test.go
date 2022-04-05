@@ -18,6 +18,7 @@
 package test
 
 import (
+	"context"
 	"database/sql"
 	"os"
 	"testing"
@@ -31,21 +32,21 @@ import (
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
-const (
-	username string = "root"
-	password string = "123456"
-	database string = "employees"
-)
-
 var (
-	db  *sql.DB
-	err error
+	db *sql.DB
 )
 
 func TestMain(m *testing.M) {
-	container := SetupMySQLContainer(password, database)
-	db, err = OpenDBConnection(username, password, database, container)
-	defer CloseContainer(container)
+	tester := &MySQLContainerTester{
+		Context:  context.Background(),
+		Username: "root",
+		Password: "123456",
+		Database: "employees",
+	}
+	container := tester.SetupMySQLContainer()
+	var err error
+	db, err = tester.OpenDBConnection(container)
+	defer tester.CloseContainer(container)
 	if err != nil {
 		log.Error("Failed to setup MySQL container")
 		panic(err)
