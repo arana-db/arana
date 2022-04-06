@@ -35,6 +35,22 @@ var (
 
 type TableName []string
 
+func (t TableName) ResetSuffix(suffix string) TableName {
+	if t == nil {
+		return nil
+	}
+
+	if len(t) == 0 {
+		return TableName{}
+	}
+
+	ret := make(TableName, len(t))
+	copy(ret, t)
+	ret[len(ret)-1] = suffix
+
+	return ret
+}
+
 func (t TableName) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	WriteID(sb, t[0])
 

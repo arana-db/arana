@@ -6,6 +6,7 @@ require (
 	github.com/arana-db/parser v0.2.1
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/cespare/xxhash/v2 v2.1.2
+	github.com/creasty/defaults v1.5.2 // indirect
 	github.com/dop251/goja v0.0.0-20220102113305-2298ace6d09d
 	github.com/dubbogo/gost v1.11.23-0.20220113102152-a2ef9b809a45
 	github.com/ghodss/yaml v1.0.0

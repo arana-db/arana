@@ -145,6 +145,30 @@ func TestSimpleSharding(t *testing.T) {
 			assert.Equal(t, it.expectLen, len(data))
 		})
 	}
+
+	const wKey = 44
+	t.Run("Update", func(t *testing.T) {
+		res, err := db.Exec("update student set score=100.0 where uid = ?", wKey)
+		assert.NoError(t, err)
+		affected, err := res.RowsAffected()
+		assert.NoError(t, err)
+		assert.Equal(t, int64(1), affected)
+
+		// validate
+		row := db.QueryRow("select score from student where uid = ?", wKey)
+		assert.NoError(t, row.Err())
+		var score float32
+		assert.NoError(t, row.Scan(&score))
+		assert.Equal(t, float32(100), score)
+	})
+
+	t.Run("Delete", func(t *testing.T) {
+		res, err := db.Exec("delete from student where uid = 13 OR uid = ?", wKey)
+		assert.NoError(t, err)
+		affected, err := res.RowsAffected()
+		assert.NoError(t, err)
+		assert.Equal(t, int64(2), affected)
+	})
 }
 
 func TestInsert(t *testing.T) {

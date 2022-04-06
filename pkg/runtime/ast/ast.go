@@ -81,6 +81,9 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 	case *ast.SetOprStmt:
 		return cc.convUnionStmt(stmt), nil
 	case *ast.DeleteStmt:
+		if stmt.IsMultiTable {
+			return nil, errors.New("todo: DELETE with multiple tables")
+		}
 		return cc.convDeleteStmt(stmt), nil
 	case *ast.InsertStmt:
 		return cc.convInsertStmt(stmt), nil
