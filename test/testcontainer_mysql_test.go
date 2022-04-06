@@ -57,7 +57,7 @@ func TestMain(m *testing.M) {
 func TestSelect_Integration(t *testing.T) {
 	rows, err := db.Query(`SELECT uid, name, score, nickname FROM student_0001 where uid = ?`, 1)
 	assert.NoErrorf(t, err, "select row error: %v", err)
-
+	defer rows.Close()
 	var (
 		uid      uint64
 		name     string
@@ -67,9 +67,7 @@ func TestSelect_Integration(t *testing.T) {
 
 	if rows.Next() {
 		err = rows.Scan(&uid, &name, &score, &nickname)
-		if err != nil {
-			t.Error(err)
-		}
+		assert.NoError(t, err)
 	}
 	assert.Equal(t, "scott", name)
 	assert.Equal(t, "nc_scott", nickname)
