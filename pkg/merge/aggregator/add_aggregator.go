@@ -15,17 +15,17 @@
  * limitations under the License.
  */
 
-package aggregater
+package aggregator
 
 import (
 	gxbig "github.com/dubbogo/gost/math/big"
 )
 
-type AddAggregater struct {
+type AddAggregator struct {
 	count *gxbig.Decimal
 }
 
-func (s *AddAggregater) Aggregate(values []interface{}) {
+func (s *AddAggregator) Aggregate(values []interface{}) {
 	if len(values) == 0 {
 		return
 	}
@@ -40,6 +40,6 @@ func (s *AddAggregater) Aggregate(values []interface{}) {
 	gxbig.DecimalAdd(s.count, val1, s.count)
 }
 
-func (s *AddAggregater) GetResult() (*gxbig.Decimal, bool) {
+func (s *AddAggregator) GetResult() (*gxbig.Decimal, bool) {
 	return s.count, true
 }

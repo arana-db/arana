@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package aggregater
+package aggregator
 
 import (
 	"testing"
@@ -27,7 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMaxAggregater(t *testing.T) {
+func TestAvgAggregator(t *testing.T) {
 	params := []struct {
 		nums   [][]interface{}
 		result *gxbig.Decimal
@@ -35,28 +35,21 @@ func TestMaxAggregater(t *testing.T) {
 	}{
 		{
 			nums: [][]interface{}{
-				{-1111},
+				{1, 1}, {2, 2}, {7, 3}, {1.6, 2}, {10, 5}, {12.12, 3.86},
 			},
-			result: gxbig.NewDecFromInt(-1111),
+			result: newDecFromFloat(2),
 			valid:  true,
 		},
 		{
 			nums: [][]interface{}{
-				{0},
+				{10, 2},
 			},
-			result: gxbig.NewDecFromInt(0),
+			result: newDecFromFloat(5),
 			valid:  true,
 		},
 		{
 			nums: [][]interface{}{
-				{-1111}, {1}, {2}, {3}, {1.6}, {10}, {12.12},
-			},
-			result: newDecFromFloat(12.12),
-			valid:  true,
-		},
-		{
-			nums: [][]interface{}{
-				{},
+				{}, {123},
 			},
 			result: nil,
 			valid:  false,
@@ -64,7 +57,7 @@ func TestMaxAggregater(t *testing.T) {
 	}
 
 	for _, param := range params {
-		addAggr := MaxAggregater{}
+		addAggr := AvgAggregator{}
 		for _, agg := range param.nums {
 			addAggr.Aggregate(agg)
 		}
