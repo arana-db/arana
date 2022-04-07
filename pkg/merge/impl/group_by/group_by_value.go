@@ -52,7 +52,7 @@ func buildGroupValues(groupByColumns []string, row proto.Row) []interface{} {
 
 func (g *GroupByValue) equals(row proto.Row) bool {
 	values := buildGroupValues(g.groupByColumns, row)
-	for k, _ := range values {
+	for k := range values {
 		if fmt.Sprintf("%v", values[k]) != fmt.Sprintf("%v", g.groupByValues[k]) {
 			return false
 		}

@@ -18,6 +18,7 @@
 package mysql
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"math"
@@ -80,6 +81,20 @@ func (row *Row) Fields() []proto.Field {
 
 func (row *Row) Data() []byte {
 	return row.Content
+}
+
+func (row *Row) Encode(values []*proto.Value, columns []proto.Field, columnNames []string) proto.Row {
+	var bf bytes.Buffer
+	row.ResultSet = &ResultSet{
+		Columns:     columns,
+		ColumnNames: columnNames,
+	}
+
+	for _, val := range values {
+		bf.Write(val.Raw)
+	}
+	row.Content = bf.Bytes()
+	return row
 }
 
 func (row *Row) Decode() ([]*proto.Value, error) {
