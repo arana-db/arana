@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package aggregater
+package aggregator
 
 import (
 	"testing"
@@ -27,7 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestAddAggregater(t *testing.T) {
+func TestMinAggregator(t *testing.T) {
 	params := []struct {
 		nums   [][]interface{}
 		result *gxbig.Decimal
@@ -35,37 +35,49 @@ func TestAddAggregater(t *testing.T) {
 	}{
 		{
 			nums: [][]interface{}{
-				{1}, {2}, {3}, {1.6}, {10}, {12.12},
+				{-1111},
 			},
-			result: newDecFromFloat(29.72),
+			result: gxbig.NewDecFromInt(-1111),
 			valid:  true,
 		},
 		{
 			nums: [][]interface{}{
-				{0.1}, {0.2}, {10.00}, {20.10}, {},
+				{0}, {1},
 			},
-			result: newDecFromFloat(30.4),
+			result: gxbig.NewDecFromInt(0),
 			valid:  true,
+		},
+		{
+			nums: [][]interface{}{
+				{-1111}, {1}, {2}, {3}, {1.6}, {10}, {12.12},
+			},
+			result: gxbig.NewDecFromInt(-1111),
+			valid:  true,
+		},
+		{
+			nums: [][]interface{}{
+				{},
+			},
+			result: nil,
+			valid:  false,
 		},
 	}
 
 	for _, param := range params {
-		addAggr := AddAggregater{}
+		addAggr := MinAggregator{}
 		for _, agg := range param.nums {
 			addAggr.Aggregate(agg)
 		}
 		resp, err := addAggr.GetResult()
-		f1, err1 := param.result.ToFloat64()
-		f2, err2 := resp.ToFloat64()
-		assert.Nil(t, err1)
-		assert.Nil(t, err2)
-		assert.EqualValues(t, f1, f2)
-		assert.Equal(t, err, param.valid)
+		if param.result == nil {
+			assert.Nil(t, resp)
+		} else {
+			f1, err1 := param.result.ToFloat64()
+			f2, err2 := resp.ToFloat64()
+			assert.Nil(t, err1)
+			assert.Nil(t, err2)
+			assert.EqualValues(t, f1, f2)
+			assert.Equal(t, err, param.valid)
+		}
 	}
-}
-
-func newDecFromFloat(f float64) *gxbig.Decimal {
-	dec := &gxbig.Decimal{}
-	dec.FromFloat64(f)
-	return dec
 }

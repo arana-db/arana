@@ -15,14 +15,39 @@
  * limitations under the License.
  */
 
-package merge
+package aggregator
 
 import (
 	gxbig "github.com/dubbogo/gost/math/big"
 )
 
-type Aggregater interface {
-	Aggregate(values []interface{})
+type MaxAggregator struct {
+	//max  decimal.Decimal
+	max  *gxbig.Decimal
+	init bool
+}
 
-	GetResult() (*gxbig.Decimal, bool)
+func (s *MaxAggregator) Aggregate(values []interface{}) {
+	if len(values) == 0 {
+		return
+	}
+
+	val, err := parseDecimal2(values[0])
+	if err != nil {
+		panic(err)
+	}
+
+	if !s.init {
+		s.max = val
+		s.init = true
+	} else if s.max.Compare(val) < 0 {
+		s.max = val
+	}
+}
+
+func (s *MaxAggregator) GetResult() (*gxbig.Decimal, bool) {
+	if s.init {
+		return s.max, true
+	}
+	return nil, false
 }

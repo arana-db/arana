@@ -28,7 +28,7 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/merge"
-	"github.com/arana-db/arana/pkg/merge/aggregater"
+	"github.com/arana-db/arana/pkg/merge/aggregator"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/testdata"
@@ -66,26 +66,26 @@ func (s *GroupByStreamMergeRows) Next() proto.Row {
 	return s.merge()
 }
 
-func (s *GroupByStreamMergeRows) getAggrUnitMap(stmt MergeRowStatement) map[string]merge.Aggregater {
-	aggrMap := make(map[string]merge.Aggregater, 0)
+func (s *GroupByStreamMergeRows) getAggrUnitMap(stmt MergeRowStatement) map[string]merge.Aggregator {
+	aggrMap := make(map[string]merge.Aggregator, 0)
 	for _, sel := range stmt.Selects {
 		if sel.AggrFunction != "" {
-			aggrMap[sel.Column] = s.getAggregater(sel.AggrFunction)
+			aggrMap[sel.Column] = s.getAggregator(sel.AggrFunction)
 		}
 	}
 	return aggrMap
 }
 
-func (s *GroupByStreamMergeRows) getAggregater(aggrName string) merge.Aggregater {
+func (s *GroupByStreamMergeRows) getAggregator(aggrName string) merge.Aggregator {
 	switch aggrName {
 	case ast.AggrAvg:
-		return new(aggregater.AvgAggregater)
+		return new(aggregator.AvgAggregator)
 	case ast.AggrMax:
-		return new(aggregater.MaxAggregater)
+		return new(aggregator.MaxAggregator)
 	case ast.AggrMin:
-		return new(aggregater.MinAggregater)
+		return new(aggregator.MinAggregator)
 	case ast.AggrSum, ast.AggrCount:
-		return new(aggregater.AddAggregater)
+		return new(aggregator.AddAggregator)
 	default:
 		panic(fmt.Errorf("unsupported aggr source type: %s", aggrName))
 	}
@@ -134,7 +134,7 @@ func (s *GroupByStreamMergeRows) merge() proto.Row {
 }
 
 // todo not support Avg method yet
-func (s *GroupByStreamMergeRows) aggregate(aggrMap map[string]merge.Aggregater, row proto.Row) {
+func (s *GroupByStreamMergeRows) aggregate(aggrMap map[string]merge.Aggregator, row proto.Row) {
 	for k, v := range aggrMap {
 		val, err := row.GetColumnValue(k)
 		if err != nil {
