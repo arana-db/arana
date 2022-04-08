@@ -177,6 +177,15 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 		} else {
 			res, warn, err = rt.Execute(ctx)
 		}
+	case *ast.ShowStmt:
+		if query == "SHOW DATABASES" || query == "show databases" {
+			ctx.Context = rcontext.WithDirect(ctx.Context)
+		}
+		if tx, ok := executor.getTx(ctx); ok {
+			res, warn, err = tx.Execute(ctx)
+		} else {
+			res, warn, err = rt.Execute(ctx)
+		}
 	default:
 		// TODO: mark direct flag temporarily, remove when write-mode is supported for runtime
 		ctx.Context = rcontext.WithDirect(ctx.Context)

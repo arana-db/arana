@@ -95,6 +95,8 @@ func (o optimizer) doOptimize(ctx context.Context, stmt rast.Statement, args ...
 		return o.optimizeDelete(ctx, t, args)
 	case *rast.UpdateStatement:
 		return o.optimizeUpdate(ctx, t, args)
+	case *rast.ShowTables:
+		return o.optimizeShowTables(ctx, t, args)
 	}
 
 	//TODO implement all statements
@@ -415,6 +417,12 @@ func (o optimizer) optimizeDelete(ctx context.Context, stmt *rast.DeleteStatemen
 	ret.SetShards(shards)
 
 	return ret, nil
+}
+
+func (o optimizer) optimizeShowTables(ctx context.Context, stmt *rast.ShowTables, args []interface{}) (proto.Plan, error) {
+	ru := rcontext.Rule(ctx)
+
+	return nil, nil
 }
 
 func (o optimizer) computeShards(ru *rule.Rule, table rast.TableName, where rast.ExpressionNode, args []interface{}) (rule.DatabaseTables, error) {
