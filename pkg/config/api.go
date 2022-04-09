@@ -48,8 +48,8 @@ const (
 
 const (
 	_            DataSourceType = ""
-	DBMysql                     = "mysql"
-	DBPostgreSql                = "postgresql"
+	DBMysql      DataSourceType = "mysql"
+	DBPostgreSql DataSourceType = "postgresql"
 )
 
 var (
