@@ -23,12 +23,14 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/runtime/namespace"
-	"github.com/arana-db/arana/testdata"
-
 	"github.com/golang/mock/gomock"
 
 	"github.com/stretchr/testify/assert"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/runtime/namespace"
+	"github.com/arana-db/arana/testdata"
 )
 
 func TestLoad(t *testing.T) {

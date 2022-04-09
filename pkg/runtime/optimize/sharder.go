@@ -24,6 +24,10 @@ import (
 )
 
 import (
+	"github.com/pkg/errors"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
@@ -31,8 +35,6 @@ import (
 	"github.com/arana-db/arana/pkg/runtime/logical"
 	"github.com/arana-db/arana/pkg/runtime/misc"
 	rrule "github.com/arana-db/arana/pkg/runtime/rule"
-
-	"github.com/pkg/errors"
 )
 
 var (

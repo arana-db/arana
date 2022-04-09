@@ -26,13 +26,15 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/runtime/ast"
-	"github.com/arana-db/arana/pkg/runtime/cmp"
-	"github.com/arana-db/arana/pkg/runtime/misc"
-
 	lru "github.com/hashicorp/golang-lru"
 
 	"github.com/pkg/errors"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/runtime/cmp"
+	"github.com/arana-db/arana/pkg/runtime/misc"
 )
 
 const _prefixMySQLFunc = "$"

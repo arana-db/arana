@@ -28,8 +28,6 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/config"
-
 	etcdv3 "github.com/dubbogo/gost/database/kv/etcd/v3"
 
 	"github.com/pkg/errors"
@@ -37,6 +35,10 @@ import (
 	"go.etcd.io/etcd/api/v3/mvccpb"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/config"
 )
 
 func init() {

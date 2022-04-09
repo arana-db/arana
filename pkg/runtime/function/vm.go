@@ -33,9 +33,6 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/runtime/misc"
-	"github.com/arana-db/arana/pkg/util/bytesconv"
-
 	"github.com/cespare/xxhash/v2"
 
 	"github.com/dop251/goja"
@@ -43,6 +40,11 @@ import (
 	"github.com/lestrrat-go/strftime"
 
 	"github.com/pkg/errors"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/runtime/misc"
+	"github.com/arana-db/arana/pkg/util/bytesconv"
 )
 
 //go:embed scripts

@@ -24,9 +24,6 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/runtime/cmp"
-	"github.com/arana-db/arana/pkg/runtime/logical"
-
 	"github.com/arana-db/parser"
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/mysql"
@@ -34,6 +31,11 @@ import (
 	"github.com/arana-db/parser/test_driver"
 
 	"github.com/pkg/errors"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/runtime/cmp"
+	"github.com/arana-db/arana/pkg/runtime/logical"
 )
 
 var (

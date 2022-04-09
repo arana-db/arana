@@ -23,9 +23,11 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/testdata"
-
 	"github.com/stretchr/testify/assert"
+)
+
+import (
+	"github.com/arana-db/arana/testdata"
 )
 
 func TestFileProvider(t *testing.T) {

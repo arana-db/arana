@@ -22,9 +22,11 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/runtime/logical"
-
 	"github.com/pkg/errors"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/runtime/logical"
 )
 
 const (

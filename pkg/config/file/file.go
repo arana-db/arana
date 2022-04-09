@@ -27,9 +27,11 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/config"
-
 	"github.com/tidwall/gjson"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/config"
 )
 
 func init() {

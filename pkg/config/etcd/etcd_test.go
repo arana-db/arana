@@ -27,11 +27,13 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/testdata"
-
 	"github.com/stretchr/testify/suite"
 
 	"go.etcd.io/etcd/server/v3/embed"
+)
+
+import (
+	"github.com/arana-db/arana/testdata"
 )
 
 const _defaultEtcdV3WorkDir = "/tmp/dubbo-go-arana/config"

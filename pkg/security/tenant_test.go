@@ -22,9 +22,11 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/config"
-
 	"github.com/stretchr/testify/assert"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/config"
 )
 
 func TestSimpleTenantManager(t *testing.T) {

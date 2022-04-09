@@ -22,11 +22,13 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/proto"
-
 	"github.com/pkg/errors"
 
 	"github.com/stretchr/testify/assert"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/proto"
 )
 
 func TestIsErrMissingTx(t *testing.T) {

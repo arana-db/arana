@@ -22,12 +22,14 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/testdata"
-
 	"github.com/golang/mock/gomock"
 
 	"github.com/stretchr/testify/assert"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/testdata"
 )
 
 const (

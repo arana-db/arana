@@ -30,11 +30,13 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/util/file"
-
 	"github.com/ghodss/yaml"
 
 	"github.com/pkg/errors"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/util/file"
 )
 
 type (
@@ -173,39 +175,6 @@ func LoadV2(path string) (*Configuration, error) {
 	}
 	return cfg, nil
 }
-
-//func (t *DataSourceType) UnmarshalText(text []byte) error {
-//	if t == nil {
-//		return errors.New("can't unmarshal a nil *DataSourceType")
-//	}
-//	if !t.unmarshalText(bytes.ToLower(text)) {
-//		return errors.Errorf("unrecognized datasource type: %q", text)
-//	}
-//	return nil
-//}
-//
-//func (t *DataSourceType) UnmarshalJSON(text []byte) error {
-//	if t == nil {
-//		return errors.New("can't unmarshal a nil *DataSourceType")
-//	}
-//	if !t.unmarshalText(bytes.ToLower(text)) {
-//		return errors.Errorf("unrecognized datasource type: %q", text)
-//	}
-//	return nil
-//}
-//
-//func (t *DataSourceType) unmarshalText(text []byte) bool {
-//	dataSourceType := strings.ReplaceAll(string(text), "\"", "")
-//	switch dataSourceType {
-//	case "mysql":
-//		*t = DBMysql
-//	case "postgresql":
-//		*t = DBPostgreSql
-//	default:
-//		return false
-//	}
-//	return true
-//}
 
 var reg = regexp.MustCompile(`^[rR]([0-9]+)[wW]([0-9]+)$`)
 

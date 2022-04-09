@@ -25,15 +25,17 @@ import (
 )
 
 import (
+	"github.com/pkg/errors"
+
+	"go.uber.org/atomic"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/selector"
 	"github.com/arana-db/arana/pkg/util/log"
-
-	"github.com/pkg/errors"
-
-	"go.uber.org/atomic"
 )
 
 var _namespaces sync.Map

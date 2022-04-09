@@ -31,19 +31,21 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/config"
-	"github.com/arana-db/arana/pkg/constants/mysql"
-	"github.com/arana-db/arana/pkg/mysql/errors"
-	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/security"
-	"github.com/arana-db/arana/pkg/util/log"
-
 	"github.com/arana-db/parser"
 	_ "github.com/arana-db/parser/test_driver"
 
 	err2 "github.com/pkg/errors"
 
 	"go.uber.org/atomic"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/config"
+	"github.com/arana-db/arana/pkg/constants/mysql"
+	"github.com/arana-db/arana/pkg/mysql/errors"
+	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/security"
+	"github.com/arana-db/arana/pkg/util/log"
 )
 
 const initClientConnStatus = mysql.ServerStatusAutocommit

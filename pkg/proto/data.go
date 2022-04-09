@@ -18,9 +18,11 @@
 package proto
 
 import (
-	"github.com/arana-db/arana/pkg/constants/mysql"
-
 	"github.com/arana-db/parser/ast"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/constants/mysql"
 )
 
 type (

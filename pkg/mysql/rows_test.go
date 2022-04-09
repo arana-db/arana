@@ -22,10 +22,12 @@ import (
 )
 
 import (
+	"github.com/stretchr/testify/assert"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/constants/mysql"
 	"github.com/arana-db/arana/pkg/proto"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestFields(t *testing.T) {

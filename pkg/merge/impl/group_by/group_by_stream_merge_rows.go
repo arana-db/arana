@@ -23,13 +23,15 @@ import (
 )
 
 import (
+	"github.com/golang/mock/gomock"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/merge"
 	"github.com/arana-db/arana/pkg/merge/aggregator"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/testdata"
-
-	"github.com/golang/mock/gomock"
 )
 
 // Design documents: https://dubbo-kylin.yuque.com/docs/share/ff2e78b8-df2c-4874-b26e-cb6b923033b8

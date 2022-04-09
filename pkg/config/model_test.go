@@ -22,9 +22,11 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/testdata"
-
 	"github.com/stretchr/testify/assert"
+)
+
+import (
+	"github.com/arana-db/arana/testdata"
 )
 
 var FakeConfigPath = testdata.Path("fake_config.yaml")

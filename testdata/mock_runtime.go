@@ -28,11 +28,13 @@ import (
 )
 
 import (
-	proto "github.com/arana-db/arana/pkg/proto"
-
 	ast "github.com/arana-db/parser/ast"
 
 	gomock "github.com/golang/mock/gomock"
+)
+
+import (
+	proto "github.com/arana-db/arana/pkg/proto"
 )
 
 // MockVConn is a mock of VConn interface.

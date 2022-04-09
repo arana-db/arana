@@ -30,15 +30,17 @@ import (
 )
 
 import (
+	"github.com/pkg/errors"
+
+	"gopkg.in/yaml.v3"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	rrule "github.com/arana-db/arana/pkg/runtime/rule"
 	"github.com/arana-db/arana/pkg/util/file"
 	"github.com/arana-db/arana/pkg/util/log"
-
-	"github.com/pkg/errors"
-
-	"gopkg.in/yaml.v3"
 )
 
 var _ Discovery = (*discovery)(nil)

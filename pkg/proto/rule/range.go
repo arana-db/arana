@@ -24,9 +24,11 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/util/rand2"
-
 	"github.com/pkg/errors"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/util/rand2"
 )
 
 const (

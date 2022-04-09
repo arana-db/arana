@@ -43,12 +43,14 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/third_party/sync2"
-	"github.com/arana-db/arana/third_party/timer"
-
 	"go.uber.org/atomic"
 
 	"golang.org/x/net/context"
+)
+
+import (
+	"github.com/arana-db/arana/third_party/sync2"
+	"github.com/arana-db/arana/third_party/timer"
 )
 
 var (
