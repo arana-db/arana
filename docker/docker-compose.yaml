@@ -22,13 +22,14 @@ services:
   arana:
     image: arana:latest
     container_name: arana
-    command: sh -c "./arana start -c config.yaml"
+    command: sh -c "./arana start -c bootstrap.yaml"
     networks:
       - local
     ports:
     - "13306:13306"
     volumes:
     - ./conf/config.yaml:/app/config.yaml
+    - ./conf/bootstrap.yaml:/app/bootstrap.yaml
     depends_on:
       - mysql
 networks:

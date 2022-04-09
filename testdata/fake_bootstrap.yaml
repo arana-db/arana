@@ -1,0 +1,7 @@
+config:
+  name: file
+  options:
+    path: ./fake_config.yaml
+  # name: etcd
+  # options:
+  #   endpoints: "http://localhost:2382"

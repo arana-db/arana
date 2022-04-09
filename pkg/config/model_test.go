@@ -29,10 +29,10 @@ import (
 	"github.com/arana-db/arana/testdata"
 )
 
-var fakeConfigPath = testdata.Path("fake_config.yaml")
+var FakeConfigPath = testdata.Path("fake_config.yaml")
 
 func TestMetadataConf(t *testing.T) {
-	conf, err := LoadV2(fakeConfigPath)
+	conf, err := LoadV2(FakeConfigPath)
 	assert.NoError(t, err)
 	assert.NotNil(t, conf)
 
@@ -45,14 +45,14 @@ func TestMetadataConf(t *testing.T) {
 }
 
 func TestDataSourceClustersConf(t *testing.T) {
-	conf, err := LoadV2(fakeConfigPath)
+	conf, err := LoadV2(FakeConfigPath)
 	assert.NoError(t, err)
 	assert.NotEqual(t, nil, conf)
 
 	assert.Equal(t, 1, len(conf.Data.DataSourceClusters))
 	dataSourceCluster := conf.Data.DataSourceClusters[0]
 	assert.Equal(t, "employee", dataSourceCluster.Name)
-	assert.Equal(t, DBMysql, dataSourceCluster.Type)
+	assert.Equal(t, DBMySQL, dataSourceCluster.Type)
 	assert.Equal(t, -1, dataSourceCluster.SqlMaxLimit)
 	assert.Equal(t, "arana", dataSourceCluster.Tenant)
 	assert.NotNil(t, dataSourceCluster.ConnProps)
@@ -76,7 +76,7 @@ func TestDataSourceClustersConf(t *testing.T) {
 }
 
 func TestShardingRuleConf(t *testing.T) {
-	conf, err := LoadV2(fakeConfigPath)
+	conf, err := LoadV2(FakeConfigPath)
 	assert.NoError(t, err)
 	assert.NotEqual(t, nil, conf)
 
@@ -121,5 +121,5 @@ func TestUnmarshalText(t *testing.T) {
 	var text = []byte("mysql")
 	err := protocolType.UnmarshalText(text)
 	assert.Nil(t, err)
-	assert.Equal(t, Mysql, protocolType)
+	assert.Equal(t, MySQL, protocolType)
 }
