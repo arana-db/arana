@@ -214,7 +214,7 @@ func (t *ProtocolType) unmarshalText(text []byte) bool {
 	protocolType := string(text)
 	switch protocolType {
 	case "mysql":
-		*t = Mysql
+		*t = MySQL
 	case "http":
 		*t = Http
 	default:

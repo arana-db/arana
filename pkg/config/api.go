@@ -43,13 +43,13 @@ const (
 
 const (
 	Http ProtocolType = iota
-	Mysql
+	MySQL
 )
 
 const (
 	_            DataSourceType = ""
-	DBMysql      DataSourceType = "mysql"
-	DBPostgreSql DataSourceType = "postgresql"
+	DBMySQL      DataSourceType = "mysql"
+	DBPostgreSQL DataSourceType = "postgresql"
 )
 
 var (

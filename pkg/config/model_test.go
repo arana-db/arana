@@ -52,7 +52,7 @@ func TestDataSourceClustersConf(t *testing.T) {
 	assert.Equal(t, 1, len(conf.Data.DataSourceClusters))
 	dataSourceCluster := conf.Data.DataSourceClusters[0]
 	assert.Equal(t, "employee", dataSourceCluster.Name)
-	assert.Equal(t, DBMysql, dataSourceCluster.Type)
+	assert.Equal(t, DBMySQL, dataSourceCluster.Type)
 	assert.Equal(t, -1, dataSourceCluster.SqlMaxLimit)
 	assert.Equal(t, "arana", dataSourceCluster.Tenant)
 	assert.NotNil(t, dataSourceCluster.ConnProps)
@@ -121,5 +121,5 @@ func TestUnmarshalText(t *testing.T) {
 	var text = []byte("mysql")
 	err := protocolType.UnmarshalText(text)
 	assert.Nil(t, err)
-	assert.Equal(t, Mysql, protocolType)
+	assert.Equal(t, MySQL, protocolType)
 }
