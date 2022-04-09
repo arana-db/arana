@@ -22,11 +22,9 @@ import (
 )
 
 import (
-	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/proto"
+
+	"github.com/pkg/errors"
 )
 
 // UnionPlan merges multiple query plan.

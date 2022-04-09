@@ -20,8 +20,6 @@ package boot
 import (
 	"context"
 	"fmt"
-	"github.com/arana-db/arana/pkg/util/file"
-	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"path/filepath"
 	"regexp"
@@ -32,14 +30,15 @@ import (
 )
 
 import (
-	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	rrule "github.com/arana-db/arana/pkg/runtime/rule"
+	"github.com/arana-db/arana/pkg/util/file"
 	"github.com/arana-db/arana/pkg/util/log"
+
+	"github.com/pkg/errors"
+
+	"gopkg.in/yaml.v3"
 )
 
 var _ Discovery = (*discovery)(nil)
@@ -112,7 +111,18 @@ type discovery struct {
 }
 
 func (fp *discovery) Init(ctx context.Context) error {
-	var err error
+	if err := fp.loadBootOptions(); err != nil {
+		return err
+	}
+
+	if err := fp.initConfigCenter(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (fp *discovery) loadBootOptions() error {
 	content, err := ioutil.ReadFile(fp.path)
 	if err != nil {
 		err = errors.Wrap(err, "failed to load config")
@@ -129,11 +139,20 @@ func (fp *discovery) Init(ctx context.Context) error {
 		err = errors.Wrapf(err, "failed to unmarshal config")
 		return err
 	}
-	fp.c, err = config.NewCenter(*cfg.Config)
+
+	fp.options = &cfg
+	return nil
+}
+
+func (fp *discovery) initConfigCenter() error {
+	c, err := config.NewCenter(*fp.options.Config)
 	if err != nil {
 		return err
 	}
-	return err
+
+	fp.c = c
+
+	return nil
 }
 
 func (fp *discovery) GetCluster(ctx context.Context, cluster string) (*Cluster, error) {

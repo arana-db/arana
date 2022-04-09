@@ -28,16 +28,6 @@ import (
 )
 
 import (
-	"github.com/bwmarrin/snowflake"
-
-	"github.com/pkg/errors"
-
-	"go.uber.org/atomic"
-
-	"golang.org/x/sync/errgroup"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
@@ -46,6 +36,14 @@ import (
 	"github.com/arana-db/arana/pkg/util/log"
 	"github.com/arana-db/arana/pkg/util/rand2"
 	"github.com/arana-db/arana/third_party/pools"
+
+	"github.com/bwmarrin/snowflake"
+
+	"github.com/pkg/errors"
+
+	"go.uber.org/atomic"
+
+	"golang.org/x/sync/errgroup"
 )
 
 var (

@@ -1,21 +1,22 @@
-//
-// Licensed to Apache Software Foundation (ASF) under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. Apache Software Foundation (ASF) licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-//
+/*
+ * Licensed to Apache Software Foundation (ASF) under one or more contributor
+ * license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright
+ * ownership. Apache Software Foundation (ASF) licenses this file to you under
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ *
+ */
 
 package config
 
@@ -46,9 +47,9 @@ const (
 )
 
 const (
-	_ DataSourceType = iota
-	DBMysql
-	DBPostgreSql
+	_            DataSourceType = ""
+	DBMysql                     = "mysql"
+	DBPostgreSql                = "postgresql"
 )
 
 var (
@@ -76,7 +77,7 @@ func Init(name string, options map[string]interface{}) error {
 	return storeOperate.Init(options)
 }
 
-//Register 注册一个存储插件
+//Register register store plugin
 func Register(s StoreOperate) {
 	if _, ok := slots[s.Name()]; ok {
 		panic(fmt.Errorf("StoreOperate=[%s] already exist", s.Name()))
@@ -85,22 +86,22 @@ func Register(s StoreOperate) {
 	slots[s.Name()] = s
 }
 
-//StoreOperate 配置存储相关插件
+//StoreOperate config storage related plugins
 type StoreOperate interface {
 	io.Closer
 
-	//Init 插件初始化
+	//Init plugin initialization
 	Init(options map[string]interface{}) error
 
-	//Save 保持某一个配置数据
+	//Save save a configuration data
 	Save(key string, val []byte) error
 
-	//Get 获取某一个配置
+	//Get get a configuration
 	Get(key string) ([]byte, error)
 
-	//Watch 监听
+	//Watch Monitor changes of the key
 	Watch(key string) (<-chan []byte, error)
 
-	//Name 插件名称
+	//Name plugin name
 	Name() string
 }

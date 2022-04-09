@@ -19,7 +19,9 @@
 
 package file
 
-import "path/filepath"
+import (
+	"path/filepath"
+)
 
 func IsYaml(path string) bool {
 	ext := filepath.Ext(path)

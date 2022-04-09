@@ -25,13 +25,11 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/runtime/misc"
+
 	"github.com/arana-db/parser/ast"
 
 	"github.com/pkg/errors"
-)
-
-import (
-	"github.com/arana-db/arana/pkg/runtime/misc"
 )
 
 const (

@@ -18,12 +18,10 @@
 package rule
 
 import (
-	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
+
+	"github.com/pkg/errors"
 )
 
 type Matcher interface {

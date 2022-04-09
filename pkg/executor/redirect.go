@@ -24,18 +24,16 @@ import (
 )
 
 import (
-	"github.com/arana-db/parser"
-	"github.com/arana-db/parser/ast"
-
-	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/util/log"
+
+	"github.com/arana-db/parser"
+	"github.com/arana-db/parser/ast"
+
+	"github.com/pkg/errors"
 )
 
 var errMissingTx = stdErrors.New("no transaction found")

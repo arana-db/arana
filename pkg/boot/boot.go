@@ -22,10 +22,6 @@ import (
 )
 
 import (
-	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime"
@@ -33,6 +29,8 @@ import (
 	"github.com/arana-db/arana/pkg/runtime/optimize"
 	"github.com/arana-db/arana/pkg/security"
 	"github.com/arana-db/arana/pkg/util/log"
+
+	"github.com/pkg/errors"
 )
 
 func Boot(ctx context.Context, provider Discovery) error {

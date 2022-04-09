@@ -8,6 +8,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.1.2
 	github.com/dop251/goja v0.0.0-20220102113305-2298ace6d09d
 	github.com/dubbogo/gost v1.11.23-0.20220113102152-a2ef9b809a45
+	github.com/dubbogo/tools v1.0.9 // indirect
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/golang/mock v1.5.0
@@ -21,8 +22,8 @@ require (
 	github.com/spf13/cobra v1.2.1
 	github.com/stretchr/testify v1.7.0
 	github.com/tidwall/gjson v1.14.0
-	go.etcd.io/etcd/api/v3 v3.5.0
-	go.etcd.io/etcd/client/v3 v3.5.0-alpha.0
+	go.etcd.io/etcd/api/v3 v3.5.1
+	go.etcd.io/etcd/client/v3 v3.5.0
 	go.etcd.io/etcd/server/v3 v3.5.0-alpha.0
 	go.uber.org/atomic v1.9.0
 	go.uber.org/zap v1.19.1

@@ -27,11 +27,9 @@ import (
 )
 
 import (
-	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/util/bytesconv"
+
+	"github.com/pkg/errors"
 )
 
 const (

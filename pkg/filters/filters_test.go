@@ -23,11 +23,9 @@ import (
 )
 
 import (
-	"github.com/stretchr/testify/assert"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/proto"
+
+	"github.com/stretchr/testify/assert"
 )
 
 const (

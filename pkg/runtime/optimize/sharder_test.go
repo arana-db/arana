@@ -26,15 +26,13 @@ import (
 )
 
 import (
-	"github.com/golang/mock/gomock"
-
-	"github.com/stretchr/testify/assert"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/testdata"
+
+	"github.com/golang/mock/gomock"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestShard(t *testing.T) {

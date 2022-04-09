@@ -23,11 +23,9 @@ import (
 )
 
 import (
-	"github.com/stretchr/testify/assert"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/runtime/cmp"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRule_Route(t *testing.T) {

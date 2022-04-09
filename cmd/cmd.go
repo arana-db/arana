@@ -25,12 +25,6 @@ import (
 )
 
 import (
-	"github.com/pkg/errors"
-
-	"github.com/spf13/cobra"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/boot"
 	"github.com/arana-db/arana/pkg/constants"
 	"github.com/arana-db/arana/pkg/executor"
@@ -38,6 +32,10 @@ import (
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/server"
 	"github.com/arana-db/arana/pkg/util/log"
+
+	"github.com/pkg/errors"
+
+	"github.com/spf13/cobra"
 )
 
 var (

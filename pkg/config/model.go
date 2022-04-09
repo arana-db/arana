@@ -1,28 +1,28 @@
-//
-// Licensed to Apache Software Foundation (ASF) under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. Apache Software Foundation (ASF) licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-//
+/*
+ *  Licensed to Apache Software Foundation (ASF) under one or more contributor
+ *  license agreements. See the NOTICE file distributed with
+ *  this work for additional information regarding copyright
+ *  ownership. Apache Software Foundation (ASF) licenses this file to you under
+ *  the Apache License, Version 2.0 (the "License"); you may
+ *  not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing,
+ *  software distributed under the License is distributed on an
+ *  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ *  KIND, either express or implied.  See the License for the
+ *  specific language governing permissions and limitations
+ *  under the License.
+ *
+ */
 
 package config
 
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/arana-db/arana/pkg/util/file"
 	"io/ioutil"
 	"path/filepath"
 	"regexp"
@@ -30,6 +30,8 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/util/file"
+
 	"github.com/ghodss/yaml"
 
 	"github.com/pkg/errors"
@@ -48,7 +50,7 @@ type (
 	}
 
 	// DataSourceType is the data source type
-	DataSourceType int
+	DataSourceType string
 
 	// SocketAddress specify either a logical or physical address and port, which are
 	// used to tell server where to bind/listen, connect to upstream and find
@@ -172,28 +174,38 @@ func LoadV2(path string) (*Configuration, error) {
 	return cfg, nil
 }
 
-func (t *DataSourceType) UnmarshalText(text []byte) error {
-	if t == nil {
-		return errors.New("can't unmarshal a nil *DataSourceType")
-	}
-	if !t.unmarshalText(bytes.ToLower(text)) {
-		return errors.Errorf("unrecognized datasource type: %q", text)
-	}
-	return nil
-}
-
-func (t *DataSourceType) unmarshalText(text []byte) bool {
-	dataSourceType := string(text)
-	switch dataSourceType {
-	case "mysql":
-		*t = DBMysql
-	case "postgresql":
-		*t = DBPostgreSql
-	default:
-		return false
-	}
-	return true
-}
+//func (t *DataSourceType) UnmarshalText(text []byte) error {
+//	if t == nil {
+//		return errors.New("can't unmarshal a nil *DataSourceType")
+//	}
+//	if !t.unmarshalText(bytes.ToLower(text)) {
+//		return errors.Errorf("unrecognized datasource type: %q", text)
+//	}
+//	return nil
+//}
+//
+//func (t *DataSourceType) UnmarshalJSON(text []byte) error {
+//	if t == nil {
+//		return errors.New("can't unmarshal a nil *DataSourceType")
+//	}
+//	if !t.unmarshalText(bytes.ToLower(text)) {
+//		return errors.Errorf("unrecognized datasource type: %q", text)
+//	}
+//	return nil
+//}
+//
+//func (t *DataSourceType) unmarshalText(text []byte) bool {
+//	dataSourceType := strings.ReplaceAll(string(text), "\"", "")
+//	switch dataSourceType {
+//	case "mysql":
+//		*t = DBMysql
+//	case "postgresql":
+//		*t = DBPostgreSql
+//	default:
+//		return false
+//	}
+//	return true
+//}
 
 var reg = regexp.MustCompile(`^[rR]([0-9]+)[wW]([0-9]+)$`)
 

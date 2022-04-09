@@ -23,12 +23,10 @@ import (
 )
 
 import (
-	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/proto"
 	rast "github.com/arana-db/arana/pkg/runtime/ast"
+
+	"github.com/pkg/errors"
 )
 
 var _ proto.Plan = (*TransparentPlan)(nil)

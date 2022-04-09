@@ -22,11 +22,9 @@ import (
 )
 
 import (
-	"github.com/stretchr/testify/assert"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/constants/mysql"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestTableName(t *testing.T) {

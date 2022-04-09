@@ -5,11 +5,9 @@ import (
 )
 
 import (
-	"github.com/golang/mock/gomock"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/proto"
+
+	"github.com/golang/mock/gomock"
 )
 
 // MockRow is a mock of Row interface.

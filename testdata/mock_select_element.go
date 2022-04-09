@@ -9,11 +9,9 @@ import (
 )
 
 import (
-	gomock "github.com/golang/mock/gomock"
-)
-
-import (
 	xxast "github.com/arana-db/arana/pkg/runtime/ast"
+
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockSelectElementFunction is a mock of SelectElement interface.

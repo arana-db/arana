@@ -25,12 +25,10 @@ import (
 )
 
 import (
-	"github.com/stretchr/testify/assert"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/constants/mysql"
 	errors2 "github.com/arana-db/arana/pkg/mysql/errors"
+
+	"github.com/stretchr/testify/assert"
 )
 
 var (

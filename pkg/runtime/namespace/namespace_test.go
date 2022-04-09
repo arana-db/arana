@@ -25,15 +25,13 @@ import (
 )
 
 import (
-	"github.com/golang/mock/gomock"
-
-	"github.com/stretchr/testify/assert"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/proto"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/testdata"
+
+	"github.com/golang/mock/gomock"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func getGroup(i int) string {

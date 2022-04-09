@@ -23,11 +23,9 @@ import (
 )
 
 import (
-	"github.com/stretchr/testify/assert"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/runtime/ast"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestEval(t *testing.T) {

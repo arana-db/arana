@@ -31,15 +31,13 @@ import (
 )
 
 import (
-	"github.com/pkg/errors"
-
-	"go.uber.org/atomic"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/constants/mysql"
 	err2 "github.com/arana-db/arana/pkg/mysql/errors"
 	"github.com/arana-db/arana/third_party/bucketpool"
+
+	"github.com/pkg/errors"
+
+	"go.uber.org/atomic"
 )
 
 const (
