@@ -88,6 +88,24 @@ func TestDecodeForRow(t *testing.T) {
 	assert.Nil(t, err)
 }
 
+func TestEncodeForRow(t *testing.T) {
+	values := make([]*proto.Value, 0, 3)
+	names := []string{
+		"id", "order_id", "order_amount",
+	}
+	fields := createColumns()
+	for i := 0; i < 3; i++ {
+		values = append(values, &proto.Value{Raw: []byte{byte(i)}, Len: 1})
+	}
+
+	row := &Row{}
+	r := row.Encode(values, fields, names)
+	assert.Equal(t, 3, len(r.Columns()))
+	assert.Equal(t, 3, len(r.Fields()))
+	assert.Equal(t, []byte{byte(0), byte(1), byte(2)}, r.Data())
+
+}
+
 func createContent() []byte {
 	result := []byte{
 		'1', '2', '3',

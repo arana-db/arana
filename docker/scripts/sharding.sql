@@ -34,3 +34,5 @@ END
 DELIMITER ;
 CALL sp_create_tab;
 DROP PROCEDURE sp_create_tab;
+
+insert into student_0001 values (1, 1, 'scott', 95, 'nc_scott', 0, 16, now(), now());
