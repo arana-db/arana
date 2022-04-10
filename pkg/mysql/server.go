@@ -168,16 +168,15 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32) {
 
 	err := l.handshake(c)
 	if err != nil {
-		werr := c.writeErrorPacketFromError(err)
-		if werr != nil {
-			log.Errorf("Cannot write error packet to %s: %v", c, werr)
+		if wErr := c.writeErrorPacketFromError(err); wErr != nil {
+			log.Errorf("Cannot write error packet to %s: %v", c, wErr)
 			return
 		}
 		return
 	}
 
 	// Negotiation worked, send OK packet.
-	if err := c.writeOKPacket(0, 0, c.StatusFlags, 0); err != nil {
+	if err = c.writeOKPacket(0, 0, c.StatusFlags, 0); err != nil {
 		log.Errorf("Cannot write OK packet to %s: %v", c, err)
 		return
 	}
@@ -201,8 +200,7 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32) {
 			ConnectionID: l.connectionID,
 			Data:         content,
 		}
-		err = l.ExecuteCommand(c, ctx)
-		if err != nil {
+		if err = l.ExecuteCommand(c, ctx); err != nil {
 			return
 		}
 	}
@@ -539,12 +537,12 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 		if err != nil {
 			return err
 		}
-		if err := c.writeOKPacket(0, 0, c.StatusFlags, 0); err != nil {
+		if err = c.writeOKPacket(0, 0, c.StatusFlags, 0); err != nil {
 			log.Errorf("Error writing ComInitDB result to %s: %v", c, err)
 			return err
 		}
 	case mysql.ComQuery:
-		err := func() error {
+		return func() error {
 			c.startWriterBuffering()
 			defer func() {
 				if err := c.endWriterBuffering(); err != nil {
@@ -555,43 +553,33 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 			c.recycleReadPacket()
 			result, warn, err := l.executor.ExecutorComQuery(ctx)
 			if err != nil {
-				if werr := c.writeErrorPacketFromError(err); werr != nil {
-					log.Error("Error writing query error to client %v: %v", l.connectionID, werr)
-					return werr
+				if wErr := c.writeErrorPacketFromError(err); wErr != nil {
+					log.Error("Error writing query error to client %v: %v", l.connectionID, wErr)
+					return wErr
 				}
 				return nil
 			}
-			if len(result.GetFields()) == 0 {
+			if rlt := result.(*Result); len(rlt.Fields) == 0 {
 				// A successful callback with no fields means that this was a
 				// DML or other write-only operation.
 				//
 				// We should not send any more packets after this, but make sure
 				// to extract the affected rows and last insert id from the result
 				// struct here since clients expect it.
-
-				var (
-					affected, _ = result.RowsAffected()
-					insertId, _ = result.LastInsertId()
-				)
-				return c.writeOKPacket(affected, insertId, c.StatusFlags, warn)
+				return c.writeOKPacket(rlt.AffectedRows, rlt.InsertId, c.StatusFlags, warn)
 			}
-			err = c.writeFields(l.capabilities, result)
-			if err != nil {
+			if err = c.writeFields(l.capabilities, result); err != nil {
 				return err
 			}
-			err = c.writeRows(result)
-			if err != nil {
+			if err = c.writeRows(result); err != nil {
 				return err
 			}
-			if err := c.writeEndResult(l.capabilities, false, 0, 0, warn); err != nil {
+			if err = c.writeEndResult(l.capabilities, false, 0, 0, warn); err != nil {
 				log.Errorf("Error writing result to %s: %v", c, err)
 				return err
 			}
 			return nil
 		}()
-		if err != nil {
-			return err
-		}
 	case mysql.ComPing:
 		c.recycleReadPacket()
 
@@ -606,10 +594,10 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 		fields, err := l.executor.ExecuteFieldList(ctx)
 		if err != nil {
 			log.Errorf("Conn %v: Error write field list: %v", c, err)
-			if werr := c.writeErrorPacketFromError(err); werr != nil {
+			if wErr := c.writeErrorPacketFromError(err); wErr != nil {
 				// If we can't even write the error, we're done.
-				log.Errorf("Conn %v: Error write field list error: %v", c, werr)
-				return werr
+				log.Errorf("Conn %v: Error write field list error: %v", c, wErr)
+				return wErr
 			}
 		}
 		result := &Result{Fields: fields}
@@ -632,10 +620,9 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 		act, err := p.ParseOneStmt(stmt.PrepareStmt, "", "")
 		if err != nil {
 			log.Errorf("Conn %v: Error parsing prepared statement: %v", c, err)
-			if werr := c.writeErrorPacketFromError(err); werr != nil {
-				// If we can't even write the error, we're done.
-				log.Errorf("Conn %v: Error writing prepared statement error: %v", c, werr)
-				return werr
+			if wErr := c.writeErrorPacketFromError(err); wErr != nil {
+				log.Errorf("Conn %v: Error writing prepared statement error: %v", c, wErr)
+				return wErr
 			}
 		}
 		stmt.StmtNode = act
@@ -650,11 +637,9 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 
 		l.stmts.Store(statementID, stmt)
 
-		if err := c.writePrepare(l.capabilities, stmt); err != nil {
-			return err
-		}
+		return c.writePrepare(l.capabilities, stmt)
 	case mysql.ComStmtExecute:
-		err := func() error {
+		return func() error {
 			c.startWriterBuffering()
 			defer func() {
 				if err := c.endWriterBuffering(); err != nil {
@@ -675,10 +660,10 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 			}
 
 			if err != nil {
-				if werr := c.writeErrorPacketFromError(err); werr != nil {
+				if wErr := c.writeErrorPacketFromError(err); wErr != nil {
 					// If we can't even write the error, we're done.
-					log.Error("Error writing query error to client %v: %v", l.connectionID, werr)
-					return werr
+					log.Error("Error writing query error to client %v: %v", l.connectionID, wErr)
+					return wErr
 				}
 				return nil
 			}
@@ -688,9 +673,9 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 
 			result, warn, err := l.executor.ExecutorComStmtExecute(ctx)
 			if err != nil {
-				if werr := c.writeErrorPacketFromError(err); werr != nil {
-					log.Error("Error writing query error to client %v: %v", l.connectionID, werr)
-					return werr
+				if wErr := c.writeErrorPacketFromError(err); wErr != nil {
+					log.Error("Error writing query error to client %v: %v", l.connectionID, wErr)
+					return wErr
 				}
 				return nil
 			}
@@ -704,24 +689,18 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 				// struct here since clients expect it.
 				return c.writeOKPacket(rlt.AffectedRows, rlt.InsertId, c.StatusFlags, warn)
 			}
-
-			err = c.writeFields(l.capabilities, result)
-			if err != nil {
+			if err = c.writeFields(l.capabilities, result); err != nil {
 				return err
 			}
-			err = c.writeBinaryRows(result)
-			if err != nil {
+			if err = c.writeBinaryRows(result); err != nil {
 				return err
 			}
-			if err := c.writeEndResult(l.capabilities, false, 0, 0, warn); err != nil {
+			if err = c.writeEndResult(l.capabilities, false, 0, 0, warn); err != nil {
 				log.Errorf("Error writing result to %s: %v", c, err)
 				return err
 			}
 			return nil
 		}()
-		if err != nil {
-			return err
-		}
 	case mysql.ComStmtClose: // no response
 		stmtID, _, ok := readUint32(ctx.Data, 1)
 		c.recycleReadPacket()
