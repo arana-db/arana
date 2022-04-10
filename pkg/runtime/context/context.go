@@ -64,7 +64,7 @@ func WithRule(ctx context.Context, ru *rule.Rule) context.Context {
 	return context.WithValue(ctx, keyRule{}, ru)
 }
 
-func WithSchema(ctx context.Context, data interface{}) context.Context {
+func WithSchema(ctx context.Context, data string) context.Context {
 	return context.WithValue(ctx, keySchema{}, data)
 }
 

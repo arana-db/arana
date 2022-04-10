@@ -18,7 +18,6 @@
 package plan
 
 import (
-	"bytes"
 	"context"
 	"strings"
 )
@@ -36,6 +35,14 @@ import (
 )
 
 var tenantErr = errors.New("current db tenant not fund")
+
+// defaultCluster default system databases
+var defaultCluster = map[string]string{
+	"information_schema": "",
+	"mysql":              "",
+	"performance_schema": "",
+	"sys":                "",
+}
 
 var _ proto.Plan = (*ShowDatabasesPlan)(nil)
 
@@ -69,17 +76,23 @@ func (s *ShowDatabasesPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto
 		return nil, tenantErr
 	}
 
-	clusters := security.DefaultTenantManager().GetClusters(tenant)
+	clusters := s.clusters(tenant)
 	var rows = make([]proto.Row, 0, len(clusters))
 
 	for _, row := range res.GetRows() {
-		for _, cluster := range clusters {
-			if string(bytes.TrimSpace(row.Data())) == cluster {
-				rows = append(rows, row)
-				break
-			}
+		if _, ok = clusters[string(row.Data()[1:])]; ok {
+			rows = append(rows, row)
 		}
 	}
 
-	return &mysql.Result{Fields: res.GetFields(), Rows: rows, AffectedRows: uint64(len(rows))}, err
+	return &mysql.Result{Fields: res.GetFields(), Rows: rows, AffectedRows: 0}, err
+}
+
+func (s *ShowDatabasesPlan) clusters(tenant string) map[string]string {
+	clusters := security.DefaultTenantManager().GetClusters(tenant)
+	clusterMap := defaultCluster
+	for _, cluster := range clusters {
+		clusterMap[cluster] = ""
+	}
+	return clusterMap
 }
