@@ -568,22 +568,22 @@ func (pi *defaultRuntime) extractArgs(ctx *proto.Context) []interface{} {
 	return args
 }
 
-func (pi *defaultRuntime) call(ctx context.Context, db, query string, args ...interface{}) (proto.Result, error) {
-	if len(db) < 1 { // empty db, select first
+func (pi *defaultRuntime) call(ctx context.Context, group, query string, args ...interface{}) (proto.Result, error) {
+	if len(group) < 1 { // empty db, select first
 		if groups := pi.ns.DBGroups(); len(groups) > 0 {
-			db = groups[0]
+			group = groups[0]
 		}
 	}
 
-	upstream := pi.ns.DB(ctx, db)
-	if upstream == nil {
-		return nil, errors.Errorf("cannot get upstream database %s", db)
+	db := pi.ns.DB(ctx, group)
+	if db == nil {
+		return nil, errors.Errorf("cannot get upstream database %s", group)
 	}
 
-	log.Debugf("call upstream: db=%s, sql=\"%s\", args=%v", db, query, args)
+	log.Debugf("call upstream: db=%s, sql=\"%s\", args=%v", group, query, args)
 
 	// TODO: how to pass warn???
-	res, _, err := upstream.Call(ctx, query, args...)
+	res, _, err := db.Call(ctx, query, args...)
 	return res, err
 }
 
