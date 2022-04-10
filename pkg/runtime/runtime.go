@@ -533,6 +533,7 @@ func (pi *defaultRuntime) Execute(ctx *proto.Context) (res proto.Result, warn ui
 
 	c = rcontext.WithRule(c, ru)
 	c = rcontext.WithSQL(c, ctx.GetQuery())
+	c = rcontext.WithSchema(c, ctx.Schema)
 
 	if plan, err = pi.ns.Optimizer().Optimize(c, ctx.Stmt.StmtNode, args...); err != nil {
 		err = errors.WithStack(err)

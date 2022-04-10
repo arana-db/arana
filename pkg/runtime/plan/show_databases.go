@@ -18,6 +18,7 @@
 package plan
 
 import (
+	"bytes"
 	"context"
 	"strings"
 )
@@ -27,9 +28,14 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime/ast"
+	rcontext "github.com/arana-db/arana/pkg/runtime/context"
+	"github.com/arana-db/arana/pkg/security"
 )
+
+var tenantErr = errors.New("current db tenant not fund")
 
 var _ proto.Plan = (*ShowDatabasesPlan)(nil)
 
@@ -54,6 +60,26 @@ func (s *ShowDatabasesPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto
 		return nil, errors.WithStack(err)
 	}
 
-	res, err = conn.Query(ctx, "", sb.String(), s.toArgs(args)...)
-	return res, err
+	if res, err = conn.Query(ctx, "", sb.String(), s.toArgs(args)...); err != nil {
+		return nil, err
+	}
+
+	tenant, ok := security.DefaultTenantManager().GetTenantOfCluster(rcontext.Schema(ctx))
+	if !ok {
+		return nil, tenantErr
+	}
+
+	clusters := security.DefaultTenantManager().GetClusters(tenant)
+	var rows = make([]proto.Row, 0, len(clusters))
+
+	for _, row := range res.GetRows() {
+		for _, cluster := range clusters {
+			if string(bytes.TrimSpace(row.Data())) == cluster {
+				rows = append(rows, row)
+				break
+			}
+		}
+	}
+
+	return &mysql.Result{Fields: res.GetFields(), Rows: rows, AffectedRows: uint64(len(rows))}, err
 }

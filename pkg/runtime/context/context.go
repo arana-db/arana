@@ -38,6 +38,7 @@ type (
 	keySequence  struct{}
 	keySql       struct{}
 	keyNodeLabel struct{}
+	keySchema    struct{}
 )
 
 type cFlag uint8
@@ -61,6 +62,10 @@ func WithSQL(ctx context.Context, sql string) context.Context {
 // WithRule binds a rule.
 func WithRule(ctx context.Context, ru *rule.Rule) context.Context {
 	return context.WithValue(ctx, keyRule{}, ru)
+}
+
+func WithSchema(ctx context.Context, data interface{}) context.Context {
+	return context.WithValue(ctx, keySchema{}, data)
 }
 
 // WithSequencer binds a sequencer.
@@ -115,6 +120,13 @@ func IsDirect(ctx context.Context) bool {
 func SQL(ctx context.Context) string {
 	if sql, ok := ctx.Value(keySql{}).(string); ok {
 		return sql
+	}
+	return ""
+}
+
+func Schema(ctx context.Context) string {
+	if schema, ok := ctx.Value(keySchema{}).(string); ok {
+		return schema
 	}
 	return ""
 }
