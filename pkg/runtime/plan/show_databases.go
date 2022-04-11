@@ -19,7 +19,6 @@ package plan
 
 import (
 	"context"
-	"strings"
 )
 
 import (
@@ -36,14 +35,6 @@ import (
 
 var tenantErr = errors.New("current db tenant not fund")
 
-// defaultCluster default system databases
-var defaultCluster = map[string]string{
-	"information_schema": "",
-	"mysql":              "",
-	"performance_schema": "",
-	"sys":                "",
-}
-
 var _ proto.Plan = (*ShowDatabasesPlan)(nil)
 
 type ShowDatabasesPlan struct {
@@ -55,44 +46,20 @@ func (s *ShowDatabasesPlan) Type() proto.PlanType {
 	return proto.PlanTypeQuery
 }
 
-func (s *ShowDatabasesPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
-	var (
-		sb   strings.Builder
-		args []int
-		res  proto.Result
-		err  error
-	)
-
-	if err = s.Stmt.Restore(ast.RestoreDefault, &sb, &args); err != nil {
-		return nil, errors.WithStack(err)
-	}
-
-	if res, err = conn.Query(ctx, "", sb.String(), s.toArgs(args)...); err != nil {
-		return nil, err
-	}
-
+func (s *ShowDatabasesPlan) ExecIn(ctx context.Context, _ proto.VConn) (proto.Result, error) {
 	tenant, ok := security.DefaultTenantManager().GetTenantOfCluster(rcontext.Schema(ctx))
 	if !ok {
 		return nil, tenantErr
 	}
 
-	clusters := s.clusters(tenant)
+	clusters := security.DefaultTenantManager().GetClusters(tenant)
 	var rows = make([]proto.Row, 0, len(clusters))
 
-	for _, row := range res.GetRows() {
-		if _, ok = clusters[string(row.Data()[1:])]; ok {
-			rows = append(rows, row)
-		}
-	}
-
-	return &mysql.Result{Fields: res.GetFields(), Rows: rows, AffectedRows: 0}, err
-}
-
-func (s *ShowDatabasesPlan) clusters(tenant string) map[string]string {
-	clusters := security.DefaultTenantManager().GetClusters(tenant)
-	clusterMap := defaultCluster
+	// todo raw bytes
 	for _, cluster := range clusters {
-		clusterMap[cluster] = ""
+		rows = append(rows, (&mysql.Row{}).Encode([]*proto.Value{{Raw: []byte(cluster),
+			Len: len(cluster)}}, []proto.Field{&mysql.Field{}}, nil))
 	}
-	return clusterMap
+
+	return &mysql.Result{Fields: []proto.Field{&mysql.Field{}}, Rows: rows, AffectedRows: 0}, nil
 }
