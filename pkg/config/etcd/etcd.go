@@ -91,7 +91,7 @@ type etcdWatcher struct {
 	ch        clientv3.WatchChan
 }
 
-func newEtcdWatcher(ch clientv3.WatchChan) *etcdWatcher {
+func newWatcher(ch clientv3.WatchChan) *etcdWatcher {
 	w := &etcdWatcher{
 		revision:  math.MinInt64,
 		lock:      &sync.RWMutex{},
@@ -116,6 +116,9 @@ func (w *etcdWatcher) run(ctx context.Context) {
 				}
 			}
 		case <-ctx.Done():
+			for p := range w.receivers {
+				close(w.receivers[p])
+			}
 			return
 		}
 	}
@@ -129,7 +132,7 @@ func (c *storeOperate) Watch(key string) (<-chan []byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		w := newEtcdWatcher(watchCh)
+		w := newWatcher(watchCh)
 		ctx, cancel := context.WithCancel(context.Background())
 		go w.run(ctx)
 		c.cancelList = append(c.cancelList, cancel)

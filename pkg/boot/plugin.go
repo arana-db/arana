@@ -23,4 +23,5 @@ package boot
 import (
 	_ "github.com/arana-db/arana/pkg/config/etcd"
 	_ "github.com/arana-db/arana/pkg/config/file"
+	_ "github.com/arana-db/arana/pkg/config/nacos"
 )

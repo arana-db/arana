@@ -33,6 +33,17 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+var (
+	ConfigKeyMapping map[string]string = map[string]string{
+		DefaultConfigMetadataPath:           "metadata",
+		DefaultConfigDataTenantsPath:        "data.tenants",
+		DefaultConfigDataFiltersPath:        "data.filters",
+		DefaultConfigDataListenersPath:      "data.listeners",
+		DefaultConfigDataSourceClustersPath: "data.clusters",
+		DefaultConfigDataShardingRulePath:   "data.sharding_rule",
+	}
+)
+
 type Changeable interface {
 	Name() string
 	Sign() string
@@ -195,7 +206,7 @@ func (c *Center) PersistContext(ctx context.Context) error {
 		return err
 	}
 
-	if err := c.storeOperate.Save(DefaultConfigDataSourceClustersPath, []byte(gjson.GetBytes(configJson, "data.dataSourceClusters").String())); err != nil {
+	if err := c.storeOperate.Save(DefaultConfigDataSourceClustersPath, []byte(gjson.GetBytes(configJson, "data.clusters").String())); err != nil {
 		return err
 	}
 
@@ -203,7 +214,7 @@ func (c *Center) PersistContext(ctx context.Context) error {
 		return err
 	}
 
-	if err = c.storeOperate.Save(DefaultConfigDataShardingRulePath, []byte(gjson.GetBytes(configJson, "data.shardingRule").String())); err != nil {
+	if err = c.storeOperate.Save(DefaultConfigDataShardingRulePath, []byte(gjson.GetBytes(configJson, "data.sharding_rule").String())); err != nil {
 		return err
 	}
 

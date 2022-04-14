@@ -66,12 +66,9 @@ func (s *storeOperate) Init(options map[string]interface{}) error {
 func (s *storeOperate) initCfgJsonMap(val string) {
 	s.cfgJson = make(map[string]string)
 
-	s.cfgJson[config.DefaultConfigMetadataPath] = gjson.Get(val, "metadata").String()
-	s.cfgJson[config.DefaultConfigDataTenantsPath] = gjson.Get(val, "data.tenants").String()
-	s.cfgJson[config.DefaultConfigDataFiltersPath] = gjson.Get(val, "data.filters").String()
-	s.cfgJson[config.DefaultConfigDataListenersPath] = gjson.Get(val, "data.listeners").String()
-	s.cfgJson[config.DefaultConfigDataSourceClustersPath] = gjson.Get(val, "data.clusters").String()
-	s.cfgJson[config.DefaultConfigDataShardingRulePath] = gjson.Get(val, "data.sharding_rule").String()
+	for k, v := range config.ConfigKeyMapping {
+		s.cfgJson[k] = gjson.Get(val, v).String()
+	}
 }
 
 func (s *storeOperate) Save(key string, val []byte) error {
