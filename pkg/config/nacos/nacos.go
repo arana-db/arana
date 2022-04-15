@@ -56,10 +56,10 @@ func init() {
 type storeOperate struct {
 	groupName  string
 	client     config_client.IConfigClient
-	confMap    map[string]string
+	confMap    map[config.PathKey]string
 	cfgLock    *sync.RWMutex
 	lock       *sync.RWMutex
-	receivers  map[string]*nacosWatcher
+	receivers  map[config.PathKey]*nacosWatcher
 	cancelList []context.CancelFunc
 }
 
@@ -67,8 +67,8 @@ type storeOperate struct {
 func (s *storeOperate) Init(options map[string]interface{}) error {
 	s.lock = &sync.RWMutex{}
 	s.cfgLock = &sync.RWMutex{}
-	s.confMap = make(map[string]string)
-	s.receivers = make(map[string]*nacosWatcher)
+	s.confMap = make(map[config.PathKey]string)
+	s.receivers = make(map[config.PathKey]*nacosWatcher)
 
 	if err := s.initNacosClient(options); err != nil {
 		return err
@@ -160,7 +160,7 @@ func (s *storeOperate) loadDataFromServer() error {
 
 	for dataId := range config.ConfigKeyMapping {
 		data, err := s.client.GetConfig(vo.ConfigParam{
-			DataId: dataId,
+			DataId: string(dataId),
 			Group:  s.groupName,
 		})
 		if err != nil {
@@ -176,15 +176,13 @@ func (s *storeOperate) loadDataFromServer() error {
 func (s *storeOperate) doNacosWatch() error {
 	for dataId := range config.ConfigKeyMapping {
 		err := s.client.ListenConfig(vo.ConfigParam{
-			DataId: dataId,
+			DataId: string(dataId),
 			Group:  s.groupName,
-			OnChange: func(namespace, group, dataId, data string) {
+			OnChange: func(_, _, dataId, data string) {
 				defer s.cfgLock.Unlock()
 				s.cfgLock.Lock()
-
-				s.confMap[dataId] = data
-
-				s.receivers[dataId].ch <- []byte(data)
+				s.confMap[config.PathKey(dataId)] = data
+				s.receivers[config.PathKey(dataId)].ch <- []byte(data)
 			},
 		})
 
@@ -197,12 +195,19 @@ func (s *storeOperate) doNacosWatch() error {
 }
 
 //Save save a configuration data
-func (s *storeOperate) Save(key string, val []byte) error {
-	return nil
+func (s *storeOperate) Save(key config.PathKey, val []byte) error {
+
+	_, err := s.client.PublishConfig(vo.ConfigParam{
+		Group:   s.groupName,
+		DataId:  string(key),
+		Content: string(val),
+	})
+
+	return err
 }
 
 //Get get a configuration
-func (s *storeOperate) Get(key string) ([]byte, error) {
+func (s *storeOperate) Get(key config.PathKey) ([]byte, error) {
 	defer s.cfgLock.RUnlock()
 	s.cfgLock.RLock()
 
@@ -211,7 +216,7 @@ func (s *storeOperate) Get(key string) ([]byte, error) {
 }
 
 //Watch Monitor changes of the key
-func (s *storeOperate) Watch(key string) (<-chan []byte, error) {
+func (s *storeOperate) Watch(key config.PathKey) (<-chan []byte, error) {
 	defer s.lock.Unlock()
 	s.lock.Lock()
 	if _, ok := s.receivers[key]; !ok {

@@ -40,11 +40,13 @@ import (
 )
 
 type (
+	// TypeMeta
 	TypeMeta struct {
 		Kind       string `yaml:"kind" json:"kind,omitempty"`
 		APIVersion string `yaml:"apiVersion" json:"apiVersion,omitempty"`
 	}
 
+	// Configuration
 	Configuration struct {
 		TypeMeta
 		Metadata map[string]interface{} `yaml:"metadata" json:"metadata"`

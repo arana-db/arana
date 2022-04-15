@@ -30,8 +30,6 @@ import (
 import (
 	etcdv3 "github.com/dubbogo/gost/database/kv/etcd/v3"
 
-	"github.com/pkg/errors"
-
 	"go.etcd.io/etcd/api/v3/mvccpb"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -39,6 +37,7 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/config"
+	"github.com/arana-db/arana/pkg/util/log"
 )
 
 func init() {
@@ -48,7 +47,7 @@ func init() {
 type storeOperate struct {
 	client     *etcdv3.Client
 	lock       *sync.RWMutex
-	receivers  map[string]*etcdWatcher
+	receivers  map[config.PathKey]*etcdWatcher
 	cancelList []context.CancelFunc
 }
 
@@ -60,23 +59,24 @@ func (c *storeOperate) Init(options map[string]interface{}) error {
 		etcdv3.WithEndpoints(endpoints...),
 	)
 	if err != nil {
-		return errors.Wrap(err, "failed to initialize etcd client")
+		log.Errorf("failed to initialize etcd client error: %s", err.Error())
+		return err
 	}
 
 	c.client = tmpClient
 	c.lock = &sync.RWMutex{}
-	c.receivers = make(map[string]*etcdWatcher)
+	c.receivers = make(map[config.PathKey]*etcdWatcher)
 	c.cancelList = make([]context.CancelFunc, 0, 2)
 
 	return nil
 }
 
-func (c *storeOperate) Save(key string, val []byte) error {
-	return c.client.Put(key, string(val))
+func (c *storeOperate) Save(key config.PathKey, val []byte) error {
+	return c.client.Put(string(key), string(val))
 }
 
-func (c *storeOperate) Get(key string) ([]byte, error) {
-	v, err := c.client.Get(key)
+func (c *storeOperate) Get(key config.PathKey) ([]byte, error) {
+	v, err := c.client.Get(string(key))
 	if err != nil {
 		return nil, err
 	}
@@ -124,19 +124,21 @@ func (w *etcdWatcher) run(ctx context.Context) {
 	}
 }
 
-func (c *storeOperate) Watch(key string) (<-chan []byte, error) {
+func (c *storeOperate) Watch(key config.PathKey) (<-chan []byte, error) {
 	defer c.lock.Unlock()
 	c.lock.Lock()
 	if _, ok := c.receivers[key]; !ok {
-		watchCh, err := c.client.Watch(key)
+		watchCh, err := c.client.Watch(string(key))
 		if err != nil {
 			return nil, err
 		}
 		w := newWatcher(watchCh)
-		ctx, cancel := context.WithCancel(context.Background())
-		go w.run(ctx)
-		c.cancelList = append(c.cancelList, cancel)
 		c.receivers[key] = w
+
+		ctx, cancel := context.WithCancel(context.Background())
+		c.cancelList = append(c.cancelList, cancel)
+		go w.run(ctx)
+
 	}
 
 	w := c.receivers[key]

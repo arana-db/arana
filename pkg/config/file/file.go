@@ -40,14 +40,14 @@ func init() {
 
 type storeOperate struct {
 	lock      *sync.RWMutex
-	receivers map[string][]chan []byte
+	receivers map[config.PathKey][]chan []byte
 	path      string
-	cfgJson   map[string]string
+	cfgJson   map[config.PathKey]string
 }
 
 func (s *storeOperate) Init(options map[string]interface{}) error {
 	s.lock = &sync.RWMutex{}
-	s.receivers = make(map[string][]chan []byte)
+	s.receivers = make(map[config.PathKey][]chan []byte)
 
 	s.path, _ = options["path"].(string)
 
@@ -64,24 +64,24 @@ func (s *storeOperate) Init(options map[string]interface{}) error {
 }
 
 func (s *storeOperate) initCfgJsonMap(val string) {
-	s.cfgJson = make(map[string]string)
+	s.cfgJson = make(map[config.PathKey]string)
 
 	for k, v := range config.ConfigKeyMapping {
 		s.cfgJson[k] = gjson.Get(val, v).String()
 	}
 }
 
-func (s *storeOperate) Save(key string, val []byte) error {
+func (s *storeOperate) Save(key config.PathKey, val []byte) error {
 	return nil
 }
 
-func (s *storeOperate) Get(key string) ([]byte, error) {
+func (s *storeOperate) Get(key config.PathKey) ([]byte, error) {
 	val := []byte(s.cfgJson[key])
 	return val, nil
 }
 
 //Watch TODO change notification through file inotify mechanism
-func (s *storeOperate) Watch(key string) (<-chan []byte, error) {
+func (s *storeOperate) Watch(key config.PathKey) (<-chan []byte, error) {
 	defer s.lock.Unlock()
 
 	if _, ok := s.receivers[key]; !ok {

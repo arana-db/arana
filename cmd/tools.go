@@ -18,7 +18,7 @@
 package main
 
 import (
-	"os"
+	"context"
 )
 
 import (
@@ -26,32 +26,28 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/constants"
+	"github.com/arana-db/arana/pkg/boot"
+	"github.com/arana-db/arana/pkg/util/log"
 )
 
-var (
-	Version = "0.1.0"
-
-	configPath string
-)
+var ()
 
 var (
-	rootCommand = &cobra.Command{
-		Use:     "arana",
-		Short:   "arana is a db proxy server",
-		Version: Version,
+	confImportCommand = &cobra.Command{
+		Use:   "import",
+		Short: "import arana config",
+		Run: func(*cobra.Command, []string) {
+			provider := boot.NewProvider(configPath)
+			if err := provider.Init(context.Background()); err != nil {
+				log.Fatal("init failed: %v", err)
+				return
+			}
+
+			c := provider.GetConfigCenter()
+			if err := c.Persist(); err != nil {
+				log.Fatal("persist config to config.store failed: %v", err)
+				return
+			}
+		},
 	}
 )
-
-// init Init startCmd
-func init() {
-	startCommand.PersistentFlags().StringVarP(&configPath, constants.ConfigPathKey, "c", os.Getenv(constants.EnvAranaConfig), "bootstrap configuration file path")
-	confImportCommand.PersistentFlags().StringVarP(&configPath, constants.ConfigPathKey, "c", os.Getenv(constants.EnvAranaConfig), "bootstrap configuration file path")
-
-	rootCommand.AddCommand(startCommand)
-	rootCommand.AddCommand(confImportCommand)
-}
-
-func main() {
-	rootCommand.Execute()
-}
