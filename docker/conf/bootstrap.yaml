@@ -16,9 +16,18 @@
 #
 
 config:
-  name: file
-  options:
-    path: ./config.yaml
-  # name: etcd
+  # name: file
   # options:
-  #   endpoints: "http://localhost:2382"
+  #   path: ./config.yaml
+  name: etcd
+  options:
+    endpoints: "http://localhost:2379"
+  # name: nacos
+  # options:
+  #   endpoints: "localhost:8080"
+  #   namespace: arana
+  #   group: arana
+  #   contextPath: /nacos
+  #   scheme: http
+  #   username: nacos
+  #   password: nacos

@@ -138,6 +138,11 @@ func (c *Center) LoadContext(ctx context.Context) (*Configuration, error) {
 	return val.(*Configuration), nil
 }
 
+func (c *Center) ImportConfiguration(cfg *Configuration) error {
+	c.confHolder.Store(cfg)
+	return c.Persist()
+}
+
 func (c *Center) loadFromStore(ctx context.Context) (*Configuration, error) {
 	operate := c.storeOperate
 

@@ -18,79 +18,96 @@
 package etcd
 
 import (
+	"encoding/json"
 	"net/url"
 	"testing"
 	"time"
 )
 
 import (
-	"github.com/stretchr/testify/suite"
+	"github.com/stretchr/testify/assert"
+
+	"github.com/tidwall/gjson"
 
 	"go.etcd.io/etcd/server/v3/embed"
 )
 
 import (
+	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/testdata"
 )
 
 const _defaultEtcdV3WorkDir = "/tmp/dubbo-go-arana/config"
 
-var _fakeConfigPath = testdata.Path("fake_bootstrap.yaml")
+var (
+	_fakeConfigPath = testdata.Path("fake_bootstrap.yaml")
 
-type ClientTestSuite struct {
-	suite.Suite
-
-	etcdConfig struct {
-		name      string
-		endpoints []string
-		timeout   time.Duration
-		heartbeat int
+	mockConfData = map[config.PathKey]string{
+		config.DefaultConfigMetadataPath:           "",
+		config.DefaultConfigDataListenersPath:      "",
+		config.DefaultConfigDataFiltersPath:        "",
+		config.DefaultConfigDataSourceClustersPath: "",
+		config.DefaultConfigDataShardingRulePath:   "",
+		config.DefaultConfigDataTenantsPath:        "",
 	}
 
-	etcd   *embed.Etcd
-	client *storeOperate
+	cfg *config.Configuration
+)
+
+func doDataMock() {
+	cfg, _ = config.LoadV2(testdata.Path("fake_config.yaml"))
+
+	data, _ := json.Marshal(cfg)
+
+	for k, v := range config.ConfigKeyMapping {
+		mockConfData[k] = string(gjson.GetBytes(data, v).String())
+	}
 }
 
-// start etcd server
-func (suite *ClientTestSuite) SetupSuite() {
-	t := suite.T()
+func Test_storeOpertae(t *testing.T) {
 	DefaultListenPeerURLs := "http://localhost:2382"
 	DefaultListenClientURLs := "http://localhost:2381"
 	lpurl, _ := url.Parse(DefaultListenPeerURLs)
 	lcurl, _ := url.Parse(DefaultListenClientURLs)
-	cfg := embed.NewConfig()
-	cfg.LPUrls = []url.URL{*lpurl}
-	cfg.LCUrls = []url.URL{*lcurl}
-	cfg.Dir = _defaultEtcdV3WorkDir
-	e, err := embed.StartEtcd(cfg)
+	etcdCfg := embed.NewConfig()
+	etcdCfg.LPUrls = []url.URL{*lpurl}
+	etcdCfg.LCUrls = []url.URL{*lcurl}
+	etcdCfg.Dir = _defaultEtcdV3WorkDir
+	e, err := embed.StartEtcd(etcdCfg)
 	if err != nil {
 		t.Fatal(err)
 	}
 	select {
 	case <-e.Server.ReadyNotify():
 		t.Log("Server is ready!")
-	case <-time.After(60 * time.Second):
-		e.Server.Stop() // trigger a shutdown
-		t.Logf("Server took too long to start!")
 	}
 
-	suite.etcd = e
-	return
-}
+	defer func() {
+		t.Logf("server start to stop...")
+		e.Server.Stop() // trigger a shutdown
+	}()
 
-func TestClientSuite(t *testing.T) {
-	t.Skip("reimplement etcd")
-	suite.Run(t, &ClientTestSuite{
-		etcdConfig: struct {
-			name      string
-			endpoints []string
-			timeout   time.Duration
-			heartbeat int
-		}{
-			name:      "test",
-			endpoints: []string{"localhost:2381"},
-			timeout:   time.Second,
-			heartbeat: 1,
-		},
+	time.Sleep(time.Second)
+
+	operate := &storeOperate{}
+	err = operate.Init(map[string]interface{}{
+		"endpoints": "localhost:2381",
 	})
+
+	assert.NoError(t, err, "init must success")
+
+	doDataMock()
+	cfg, _ := config.LoadV2(testdata.Path("fake_config.yaml"))
+	data, _ := json.Marshal(cfg)
+	for k, v := range config.ConfigKeyMapping {
+		err := operate.Save(k, []byte(gjson.GetBytes(data, v).String()))
+		assert.NoError(t, err, "save must success")
+	}
+
+	for k, v := range mockConfData {
+		ret, err := operate.Get(k)
+		assert.NoErrorf(t, err, "get %s must success", k)
+		assert.EqualValuesf(t, v, string(ret), "must equal")
+		t.Logf("%s => %s", k, string(ret))
+	}
 }

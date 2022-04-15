@@ -32,7 +32,7 @@ import (
 var (
 	Version = "0.1.0"
 
-	configPath string
+	bootstrapConfigPath string
 )
 
 var (
@@ -45,8 +45,16 @@ var (
 
 // init Init startCmd
 func init() {
-	startCommand.PersistentFlags().StringVarP(&configPath, constants.ConfigPathKey, "c", os.Getenv(constants.EnvAranaConfig), "bootstrap configuration file path")
-	confImportCommand.PersistentFlags().StringVarP(&configPath, constants.ConfigPathKey, "c", os.Getenv(constants.EnvAranaConfig), "bootstrap configuration file path")
+	startCommand.
+		PersistentFlags().
+		StringVarP(&bootstrapConfigPath, constants.ConfigPathKey, "c", os.Getenv(constants.EnvAranaConfig), "bootstrap configuration file path")
+
+	confImportCommand.
+		PersistentFlags().
+		StringVarP(&bootstrapConfigPath, constants.ConfigPathKey, "c", os.Getenv(constants.EnvAranaConfig), "bootstrap configuration file path")
+	confImportCommand.
+		PersistentFlags().
+		StringVarP(&importConfigPath, constants.ImportConfigPathKey, "s", "", "import configuration file path")
 
 	rootCommand.AddCommand(startCommand)
 	rootCommand.AddCommand(confImportCommand)

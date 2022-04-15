@@ -43,9 +43,9 @@ var (
 	startCommand = &cobra.Command{
 		Use:   "start",
 		Short: "start arana",
-
+		Example: "arana start -c bootstrap.yaml",
 		Run: func(cmd *cobra.Command, args []string) {
-			provider := boot.NewProvider(configPath)
+			provider := boot.NewProvider(bootstrapConfigPath)
 			if err := boot.Boot(context.Background(), provider); err != nil {
 				log.Fatal("start failed: %v", err)
 				return

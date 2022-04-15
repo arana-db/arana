@@ -20,6 +20,7 @@ package etcd
 import (
 	"context"
 	"math"
+	"strings"
 	"sync"
 	"time"
 )
@@ -34,6 +35,7 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/config"
+	"github.com/arana-db/arana/pkg/util/log"
 )
 
 func init() {
@@ -48,11 +50,11 @@ type storeOperate struct {
 }
 
 func (c *storeOperate) Init(options map[string]interface{}) error {
-	endpoints, _ := options["endpoints"].([]string)
+	endpoints, _ := options["endpoints"].(string)
 	tmpClient, err := etcdv3.NewConfigClientWithErr(
 		etcdv3.WithName(etcdv3.RegistryETCDV3Client),
 		etcdv3.WithTimeout(10*time.Second),
-		etcdv3.WithEndpoints(endpoints...),
+		etcdv3.WithEndpoints(strings.Split(endpoints, ",")...),
 	)
 	if err != nil {
 		log.Errorf("failed to initialize etcd client error: %s", err.Error())

@@ -27,25 +27,36 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/boot"
+	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
-var ()
+var (
+	importConfigPath string
+)
 
 var (
 	confImportCommand = &cobra.Command{
 		Use:   "import",
 		Short: "import arana config",
+		Example: "./arana import -c ../docker/conf/bootstrap.yaml -s ../docker/conf/config.yaml",
 		Run: func(*cobra.Command, []string) {
-			provider := boot.NewProvider(configPath)
+			provider := boot.NewProvider(bootstrapConfigPath)
 			if err := provider.Init(context.Background()); err != nil {
-				log.Fatal("init failed: %v", err)
+				log.Fatal("init failed: %+v", err)
+				return
+			}
+
+			cfg, err := config.LoadV2(importConfigPath)
+			if err != nil {
+				log.Fatal("load config from %s failed: %+v", importConfigPath, err)
 				return
 			}
 
 			c := provider.GetConfigCenter()
-			if err := c.Persist(); err != nil {
-				log.Fatal("persist config to config.store failed: %v", err)
+
+			if err := c.ImportConfiguration(cfg); err != nil {
+				log.Fatal("persist config to config.store failed: %+v", err)
 				return
 			}
 		},

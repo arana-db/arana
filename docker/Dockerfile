@@ -21,4 +21,4 @@ WORKDIR app
 
 COPY dist/ .
 
-CMD ["./arana", "start", "-c", "config.yaml"]
+CMD ["./arana", "start", "-c", "bootstrap.yaml"]

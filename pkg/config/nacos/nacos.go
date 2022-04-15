@@ -43,7 +43,7 @@ const (
 	_groupKey     string = "group"
 	_username     string = "username"
 	_password     string = "password"
-	_server       string = "server"
+	_server       string = "endpoints"
 	_contextPath  string = "contextPath"
 	_scheme       string = "scheme"
 )
