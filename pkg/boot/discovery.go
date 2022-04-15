@@ -105,6 +105,7 @@ type Discovery interface {
 	// GetTable returns the table info.
 	GetTable(ctx context.Context, cluster, table string) (*rule.VTable, error)
 
+	// GetConfigCenter
 	GetConfigCenter() *config.Center
 }
 
