@@ -75,22 +75,21 @@ type Cluster struct {
 }
 
 type Discovery interface {
-
-	// Init 初始化
+	// Init init discovery with context
 	Init(ctx context.Context) error
-	// ListTenants
+	// ListTenants list tenants name
 	ListTenants(ctx context.Context) ([]string, error)
-	// GetTable
+	// GetTenant returns the tenant info
 	GetTenant(ctx context.Context, tenant string) (*config.Tenant, error)
 
-	// ListListeners
+	// ListListeners lists the listener names
 	ListListeners(ctx context.Context) ([]*config.Listener, error)
-	// ListFilters
+	// ListFilters list the filter names
 	ListFilters(ctx context.Context) ([]*config.Filter, error)
 
 	// ListClusters lists the cluster names.
 	ListClusters(ctx context.Context) ([]string, error)
-	// GetCluster
+	// GetCluster returns the cluster info
 	GetCluster(ctx context.Context, cluster string) (*Cluster, error)
 	// ListGroups lists the group names.
 	ListGroups(ctx context.Context, cluster string) ([]string, error)
@@ -263,8 +262,7 @@ func (fp *discovery) ListTables(ctx context.Context, cluster string) ([]string, 
 	}
 
 	var tables []string
-	for _, it := range fp.loadTables(cfg, cluster) {
-		_, tb, _ := parseTable(it.Name)
+	for tb, _ := range fp.loadTables(cfg, cluster) {
 		tables = append(tables, tb)
 	}
 	sort.Strings(tables)
@@ -284,13 +282,13 @@ func (fp *discovery) GetNode(ctx context.Context, cluster, group, node string) (
 	return nil, nil
 }
 
-func (fp *discovery) GetTable(ctx context.Context, cluster, table string) (*rule.VTable, error) {
+func (fp *discovery) GetTable(ctx context.Context, cluster, tableName string) (*rule.VTable, error) {
 	cfg, err := fp.c.Load()
 	if err != nil {
 		return nil, err
 	}
 
-	exist, ok := fp.loadTables(cfg, cluster)[table]
+	table, ok := fp.loadTables(cfg, cluster)[tableName]
 	if !ok {
 		return nil, nil
 	}
@@ -303,14 +301,14 @@ func (fp *discovery) GetTable(ctx context.Context, cluster, table string) (*rule
 		dbEnd, tbEnd       int
 	)
 
-	if exist.Topology != nil {
-		if len(exist.Topology.DbPattern) > 0 {
-			if dbFormat, dbBegin, dbEnd, err = parseTopology(exist.Topology.DbPattern); err != nil {
+	if table.Topology != nil {
+		if len(table.Topology.DbPattern) > 0 {
+			if dbFormat, dbBegin, dbEnd, err = parseTopology(table.Topology.DbPattern); err != nil {
 				return nil, errors.WithStack(err)
 			}
 		}
-		if len(exist.Topology.TblPattern) > 0 {
-			if tbFormat, tbBegin, tbEnd, err = parseTopology(exist.Topology.TblPattern); err != nil {
+		if len(table.Topology.TblPattern) > 0 {
+			if tbFormat, tbBegin, tbEnd, err = parseTopology(table.Topology.TblPattern); err != nil {
 				return nil, errors.WithStack(err)
 			}
 		}
@@ -321,7 +319,7 @@ func (fp *discovery) GetTable(ctx context.Context, cluster, table string) (*rule
 		keys                 map[string]struct{}
 		dbSharder, tbSharder map[string]rule.ShardComputer
 	)
-	for _, it := range exist.DbRules {
+	for _, it := range table.DbRules {
 		var shd rule.ShardComputer
 		if shd, err = toSharder(it); err != nil {
 			return nil, err
@@ -336,7 +334,7 @@ func (fp *discovery) GetTable(ctx context.Context, cluster, table string) (*rule
 		keys[it.Column] = struct{}{}
 	}
 
-	for _, it := range exist.TblRules {
+	for _, it := range table.TblRules {
 		var shd rule.ShardComputer
 		if shd, err = toSharder(it); err != nil {
 			return nil, err
@@ -358,7 +356,6 @@ func (fp *discovery) GetTable(ctx context.Context, cluster, table string) (*rule
 		)
 		if shd, ok = dbSharder[k]; ok {
 			dbMetadata = &rule.ShardMetadata{
-
 				Computer: shd,
 				Stepper:  rule.DefaultNumberStepper,
 			}
@@ -403,12 +400,12 @@ func (fp *discovery) GetTable(ctx context.Context, cluster, table string) (*rule
 		}
 	}
 
-	if exist.AllowFullScan {
+	if table.AllowFullScan {
 		vt.SetAllowFullScan(true)
 	}
 
 	// TODO: process attributes
-	_ = exist.Attributes["sql_max_limit"]
+	_ = table.Attributes["sql_max_limit"]
 
 	vt.SetTopology(&topology)
 
@@ -443,7 +440,6 @@ func (fp *discovery) loadGroup(cluster, group string) (*config.Group, bool) {
 }
 
 func (fp *discovery) loadTables(cfg *config.Configuration, cluster string) map[string]*config.Table {
-
 	var tables map[string]*config.Table
 	for _, it := range cfg.Data.ShardingRule.Tables {
 		db, tb, err := parseTable(it.Name)
