@@ -431,23 +431,6 @@ func (o optimizer) optimizeTruncate(ctx context.Context, stmt *rast.TruncateStat
 		return plan.Transparent(stmt, args), nil
 	}
 
-	//plans := make([]proto.Plan, 0, len(shards))
-	//for k, v := range shards {
-	//	next := &plan.TruncatePlan {
-	//		Database: k,
-	//		Tables:   v,
-	//		Stmt:     stmt,
-	//	}
-	//	next.BindArgs(args)
-	//	plans = append(plans, next)
-	//}
-	//
-	//multiPlan := &plan.MultiPlan {
-	//	Plans: plans,
-	//}
-	//
-	//return multiPlan, nil
-
 	ret := plan.NewTruncatePlan(stmt)
 	ret.BindArgs(args)
 	ret.SetShards(shards)
