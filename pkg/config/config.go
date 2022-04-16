@@ -196,6 +196,7 @@ func (c *Center) watchFromStore() error {
 		go c.watchKey(ctx, k, ch)
 	}
 
+	c.watchCancels = cancels
 	return nil
 }
 
