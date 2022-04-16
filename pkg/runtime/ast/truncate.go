@@ -28,7 +28,7 @@ var (
 
 // TruncateStatement represents mysql describe statement. see https://dev.mysql.com/doc/refman/8.0/en/truncate-table.html
 type TruncateStatement struct {
-	Table  TableName
+	Table TableName
 }
 
 func (stmt *TruncateStatement) ResetTable(table string) *TruncateStatement {
