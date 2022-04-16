@@ -211,20 +211,21 @@ func Test_watch(t *testing.T) {
 	err := operate.loadDataFromServer()
 	assert.NoError(t, err, "should be success")
 
-	err = operate.doNacosWatch()
 	assert.NoError(t, err, "should be success")
 
 	newCfg, _ := config.LoadV2(testdata.Path("fake_config.yaml"))
 
 	newCfg.Data.Filters = append(newCfg.Data.Filters, &config.Filter{
 		Name:   "arana-nacos-watch",
-		Config: []byte("arana-nacos-watch"),
+		Config: []byte("{\"arana-nacos-watch\":\"arana-nacos-watch\"}"),
 	})
 
 	receiver, err := operate.Watch(config.DefaultConfigDataFiltersPath)
 	assert.NoError(t, err, "should be success")
 
-	data, _ := json.Marshal(newCfg)
+	data, err := json.Marshal(newCfg)
+	assert.NoError(t, err, "should be marshal success")
+
 	for k, v := range config.ConfigKeyMapping {
 		if k == config.DefaultConfigDataFiltersPath {
 			operate.client.PublishConfig(vo.ConfigParam{
@@ -234,8 +235,14 @@ func Test_watch(t *testing.T) {
 		}
 	}
 
+	t.Logf("new config val : %s", string(data))
+
 	ret := <-receiver
 
 	expectVal := string(gjson.GetBytes(data, config.ConfigKeyMapping[config.DefaultConfigDataFiltersPath]).String())
+
+	t.Logf("expect val : %s", expectVal)
+	t.Logf("acutal val : %s", string(ret))
+
 	assert.Equal(t, expectVal, string(ret))
 }

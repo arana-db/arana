@@ -41,8 +41,8 @@ import (
 
 var (
 	startCommand = &cobra.Command{
-		Use:   "start",
-		Short: "start arana",
+		Use:     "start",
+		Short:   "start arana",
 		Example: "arana start -c bootstrap.yaml",
 		Run: func(cmd *cobra.Command, args []string) {
 			provider := boot.NewProvider(bootstrapConfigPath)

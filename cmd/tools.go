@@ -37,8 +37,8 @@ var (
 
 var (
 	confImportCommand = &cobra.Command{
-		Use:   "import",
-		Short: "import arana config",
+		Use:     "import",
+		Short:   "import arana config",
 		Example: "./arana import -c ../docker/conf/bootstrap.yaml -s ../docker/conf/config.yaml",
 		Run: func(*cobra.Command, []string) {
 			provider := boot.NewProvider(bootstrapConfigPath)

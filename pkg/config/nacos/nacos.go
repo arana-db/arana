@@ -76,9 +76,6 @@ func (s *storeOperate) Init(options map[string]interface{}) error {
 	if err := s.loadDataFromServer(); err != nil {
 		return err
 	}
-	if err := s.doNacosWatch(); err != nil {
-		return err
-	}
 
 	return nil
 }
@@ -173,27 +170,6 @@ func (s *storeOperate) loadDataFromServer() error {
 	return nil
 }
 
-func (s *storeOperate) doNacosWatch() error {
-	for dataId := range config.ConfigKeyMapping {
-		err := s.client.ListenConfig(vo.ConfigParam{
-			DataId: string(dataId),
-			Group:  s.groupName,
-			OnChange: func(_, _, dataId, data string) {
-				defer s.cfgLock.Unlock()
-				s.cfgLock.Lock()
-				s.confMap[config.PathKey(dataId)] = data
-				s.receivers[config.PathKey(dataId)].ch <- []byte(data)
-			},
-		})
-
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 //Save save a configuration data
 func (s *storeOperate) Save(key config.PathKey, val []byte) error {
 
@@ -220,8 +196,11 @@ func (s *storeOperate) Watch(key config.PathKey) (<-chan []byte, error) {
 	defer s.lock.Unlock()
 	s.lock.Lock()
 	if _, ok := s.receivers[key]; !ok {
-		ch := make(chan []byte, 4)
-		w := newWatcher(ch)
+		w, err := s.newWatcher(key, s.client)
+		if err != nil {
+			return nil, err
+		}
+
 		ctx, cancel := context.WithCancel(context.Background())
 		go w.run(ctx)
 		s.cancelList = append(s.cancelList, cancel)
@@ -254,13 +233,29 @@ type nacosWatcher struct {
 	ch        chan []byte
 }
 
-func newWatcher(ch chan []byte) *nacosWatcher {
+func (s *storeOperate) newWatcher(key config.PathKey, client config_client.IConfigClient) (*nacosWatcher, error) {
 	w := &nacosWatcher{
 		lock:      &sync.RWMutex{},
 		receivers: make([]chan []byte, 0, 2),
-		ch:        ch,
+		ch:        make(chan []byte, 4),
 	}
-	return w
+
+	err := client.ListenConfig(vo.ConfigParam{
+		DataId: string(key),
+		Group:  s.groupName,
+		OnChange: func(_, _, dataId, content string) {
+			defer s.cfgLock.Unlock()
+			s.cfgLock.Lock()
+			s.confMap[config.PathKey(dataId)] = content
+			s.receivers[config.PathKey(dataId)].ch <- []byte(content)
+		},
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return w, nil
 }
 
 func (w *nacosWatcher) run(ctx context.Context) {

@@ -110,4 +110,31 @@ func Test_storeOpertae(t *testing.T) {
 		assert.EqualValuesf(t, v, string(ret), "must equal")
 		t.Logf("%s => %s", k, string(ret))
 	}
+
+	receiver, err := operate.Watch(config.DefaultConfigDataFiltersPath)
+	assert.NoError(t, err, "watch must success")
+
+	newCfg, _ := config.LoadV2(testdata.Path("fake_config.yaml"))
+	newCfg.Data.Filters = append(newCfg.Data.Filters, &config.Filter{
+		Name:   "arana-etcd-watch",
+		Config: []byte("{\"arana-etcd-watch\":\"arana-etcd-watch\"}"),
+	})
+	data, _ = json.Marshal(newCfg)
+
+	expectVal := string(gjson.GetBytes(data, config.ConfigKeyMapping[config.DefaultConfigDataFiltersPath]).String())
+
+	for k := range config.ConfigKeyMapping {
+		if k == config.DefaultConfigDataFiltersPath {
+			err := operate.client.Put(string(k), expectVal)
+			assert.NoError(t, err, "put to etcd must success")
+			break
+		}
+	}
+
+	ret := <-receiver
+
+	t.Logf("expect val : %s", expectVal)
+	t.Logf("acutal val : %s", string(ret))
+
+	assert.Equal(t, expectVal, string(ret))
 }
