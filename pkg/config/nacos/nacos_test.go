@@ -74,7 +74,6 @@ type TestNacosClient struct {
 func newNacosClient() *TestNacosClient {
 
 	client := &TestNacosClient{
-		lock:      sync.RWMutex{},
 		listeners: make(map[string][]vo.Listener),
 		ch:        make(chan vo.ConfigParam, 16),
 		wait:      sync.WaitGroup{},
