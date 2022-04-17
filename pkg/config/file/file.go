@@ -24,7 +24,11 @@ import (
 )
 
 import (
+	"github.com/pkg/errors"
+
 	"github.com/tidwall/gjson"
+
+	"gopkg.in/yaml.v3"
 )
 
 import (
@@ -38,7 +42,7 @@ func init() {
 type storeOperate struct {
 	lock      *sync.RWMutex
 	receivers map[config.PathKey][]chan []byte
-	path      string
+	content   string
 	cfgJson   map[config.PathKey]string
 }
 
@@ -46,11 +50,11 @@ func (s *storeOperate) Init(options map[string]interface{}) error {
 	s.lock = &sync.RWMutex{}
 	s.receivers = make(map[config.PathKey][]chan []byte)
 
-	s.path, _ = options["path"].(string)
+	s.content, _ = options["content"].(string)
 
-	cfg, err := config.LoadV2(s.path)
-	if err != nil {
-		return err
+	var cfg config.Configuration
+	if err := yaml.Unmarshal([]byte(s.content), &cfg); err != nil {
+		return errors.Wrapf(err, "failed to unmarshal config")
 	}
 	configJson, err := json.Marshal(cfg)
 	if err != nil {
