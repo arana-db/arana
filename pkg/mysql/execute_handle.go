@@ -33,7 +33,7 @@ import (
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
-func (l *Listener) comInitDBHandle(c *Conn, ctx *proto.Context) error {
+func (l *Listener) handleInitDB(c *Conn, ctx *proto.Context) error {
 	db := string(ctx.Data[1:])
 	c.recycleReadPacket()
 
@@ -66,7 +66,7 @@ func (l *Listener) comInitDBHandle(c *Conn, ctx *proto.Context) error {
 	return nil
 }
 
-func (l *Listener) comQueryHandle(c *Conn, ctx *proto.Context) error {
+func (l *Listener) handleQuery(c *Conn, ctx *proto.Context) error {
 	return func() error {
 		c.startWriterBuffering()
 		defer func() {
@@ -111,7 +111,7 @@ func (l *Listener) comQueryHandle(c *Conn, ctx *proto.Context) error {
 	}()
 }
 
-func (l *Listener) comFieldListHandle(c *Conn, ctx *proto.Context) error {
+func (l *Listener) handleFieldList(c *Conn, ctx *proto.Context) error {
 	c.recycleReadPacket()
 	fields, err := l.executor.ExecuteFieldList(ctx)
 	if err != nil {
@@ -125,7 +125,7 @@ func (l *Listener) comFieldListHandle(c *Conn, ctx *proto.Context) error {
 	return c.writeFields(l.capabilities, &Result{Fields: fields})
 }
 
-func (l *Listener) comStmtExecuteHandle(c *Conn, ctx *proto.Context) error {
+func (l *Listener) handleStmtExecute(c *Conn, ctx *proto.Context) error {
 	return func() error {
 		c.startWriterBuffering()
 		defer func() {
@@ -190,7 +190,7 @@ func (l *Listener) comStmtExecuteHandle(c *Conn, ctx *proto.Context) error {
 	}()
 }
 
-func (l *Listener) comPrepareHandle(c *Conn, ctx *proto.Context) error {
+func (l *Listener) handlePrepare(c *Conn, ctx *proto.Context) error {
 	query := string(ctx.Data[1:])
 	c.recycleReadPacket()
 
@@ -225,7 +225,7 @@ func (l *Listener) comPrepareHandle(c *Conn, ctx *proto.Context) error {
 	return c.writePrepare(l.capabilities, stmt)
 }
 
-func (l *Listener) comStmtResetHandle(c *Conn, ctx *proto.Context) error {
+func (l *Listener) handleStmtReset(c *Conn, ctx *proto.Context) error {
 	stmtID, _, ok := readUint32(ctx.Data, 1)
 	c.recycleReadPacket()
 	if ok {
@@ -237,7 +237,7 @@ func (l *Listener) comStmtResetHandle(c *Conn, ctx *proto.Context) error {
 	return c.writeOKPacket(0, 0, c.StatusFlags, 0)
 }
 
-func (l *Listener) comSetOptionHandle(c *Conn, ctx *proto.Context) error {
+func (l *Listener) handleSetOption(c *Conn, ctx *proto.Context) error {
 	operation, _, ok := readUint16(ctx.Data, 1)
 	c.recycleReadPacket()
 	if ok {

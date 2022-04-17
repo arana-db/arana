@@ -512,9 +512,9 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 		c.recycleReadPacket()
 		return err2.New("ComQuit")
 	case mysql.ComInitDB:
-		return l.comInitDBHandle(c, ctx)
+		return l.handleInitDB(c, ctx)
 	case mysql.ComQuery:
-		return l.comQueryHandle(c, ctx)
+		return l.handleQuery(c, ctx)
 	case mysql.ComPing:
 		c.recycleReadPacket()
 
@@ -524,11 +524,11 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 			return err
 		}
 	case mysql.ComFieldList:
-		return l.comFieldListHandle(c, ctx)
+		return l.handleFieldList(c, ctx)
 	case mysql.ComPrepare:
-		return l.comPrepareHandle(c, ctx)
+		return l.handlePrepare(c, ctx)
 	case mysql.ComStmtExecute:
-		return l.comStmtExecuteHandle(c, ctx)
+		return l.handleStmtExecute(c, ctx)
 	case mysql.ComStmtClose: // no response
 		stmtID, _, ok := readUint32(ctx.Data, 1)
 		c.recycleReadPacket()
@@ -538,9 +538,9 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 	case mysql.ComStmtSendLongData: // no response
 		// todo
 	case mysql.ComStmtReset:
-		return l.comStmtResetHandle(c, ctx)
+		return l.handleStmtReset(c, ctx)
 	case mysql.ComSetOption:
-		return l.comSetOptionHandle(c, ctx)
+		return l.handleSetOption(c, ctx)
 	}
 	return nil
 }
