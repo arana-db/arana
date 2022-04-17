@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package main
+package cmd
 
 import (
 	"os"
@@ -60,6 +60,7 @@ func init() {
 	rootCommand.AddCommand(confImportCommand)
 }
 
-func main() {
+// Execute 执行命令行解析
+func Execute() {
 	rootCommand.Execute()
 }

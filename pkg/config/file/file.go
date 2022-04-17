@@ -42,7 +42,6 @@ func init() {
 type storeOperate struct {
 	lock      *sync.RWMutex
 	receivers map[config.PathKey][]chan []byte
-	content   string
 	cfgJson   map[config.PathKey]string
 }
 
@@ -50,10 +49,8 @@ func (s *storeOperate) Init(options map[string]interface{}) error {
 	s.lock = &sync.RWMutex{}
 	s.receivers = make(map[config.PathKey][]chan []byte)
 
-	s.content, _ = options["content"].(string)
-
 	var cfg config.Configuration
-	if err := yaml.Unmarshal([]byte(s.content), &cfg); err != nil {
+	if err := yaml.Unmarshal([]byte(options["content"].(string)), &cfg); err != nil {
 		return errors.Wrapf(err, "failed to unmarshal config")
 	}
 	configJson, err := json.Marshal(cfg)
