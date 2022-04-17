@@ -152,8 +152,8 @@ func parseClientConfig(options map[string]interface{}) constant.ClientConfig {
 }
 
 func (s *storeOperate) loadDataFromServer() error {
-	defer s.cfgLock.Unlock()
 	s.cfgLock.Lock()
+	defer s.cfgLock.Unlock()
 
 	for dataId := range config.ConfigKeyMapping {
 		data, err := s.client.GetConfig(vo.ConfigParam{
@@ -228,14 +228,13 @@ func (s *storeOperate) Close() error {
 }
 
 type nacosWatcher struct {
-	lock      *sync.RWMutex
+	lock      sync.RWMutex
 	receivers []chan []byte
 	ch        chan []byte
 }
 
 func (s *storeOperate) newWatcher(key config.PathKey, client config_client.IConfigClient) (*nacosWatcher, error) {
 	w := &nacosWatcher{
-		lock:      &sync.RWMutex{},
 		receivers: make([]chan []byte, 0, 2),
 		ch:        make(chan []byte, 4),
 	}
@@ -244,8 +243,9 @@ func (s *storeOperate) newWatcher(key config.PathKey, client config_client.IConf
 		DataId: string(key),
 		Group:  s.groupName,
 		OnChange: func(_, _, dataId, content string) {
-			defer s.cfgLock.Unlock()
 			s.cfgLock.Lock()
+			defer s.cfgLock.Unlock()
+
 			s.confMap[config.PathKey(dataId)] = content
 			s.receivers[config.PathKey(dataId)].ch <- []byte(content)
 		},

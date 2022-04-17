@@ -25,6 +25,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+import (
+	"github.com/arana-db/arana/pkg/util/log"
+)
+
 const (
 	_flagInsertIgnore uint8 = 1 << iota
 	_flagInsertLowPriority

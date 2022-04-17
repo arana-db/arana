@@ -31,6 +31,8 @@ import (
 
 import (
 	"github.com/tidwall/gjson"
+
+	"gopkg.in/yaml.v3"
 )
 
 import (
@@ -132,9 +134,13 @@ func (c *Center) LoadContext(ctx context.Context) (*Configuration, error) {
 			return nil, err
 		}
 		c.confHolder.Store(cfg)
+
+		out, _ := yaml.Marshal(cfg)
+		log.Infof("load configuration : \n%s", string(out))
 	}
 
 	val = c.confHolder.Load()
+
 	return val.(*Configuration), nil
 }
 
@@ -202,8 +208,8 @@ func (c *Center) watchFromStore() error {
 
 func (c *Center) watchKey(ctx context.Context, key PathKey, ch <-chan []byte) {
 	consumer := func(ret []byte) {
-		defer c.lock.Unlock()
 		c.lock.Lock()
+		defer c.lock.Unlock()
 
 		supplier, ok := _configValSupplier[key]
 		if !ok {

@@ -33,6 +33,7 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/config"
+	"github.com/arana-db/arana/pkg/util/log"
 )
 
 func init() {
@@ -48,7 +49,6 @@ type storeOperate struct {
 func (s *storeOperate) Init(options map[string]interface{}) error {
 	s.lock = &sync.RWMutex{}
 	s.receivers = make(map[config.PathKey][]chan []byte)
-
 	var cfg config.Configuration
 	if err := yaml.Unmarshal([]byte(options["content"].(string)), &cfg); err != nil {
 		return errors.Wrapf(err, "failed to unmarshal config")
@@ -67,6 +67,8 @@ func (s *storeOperate) initCfgJsonMap(val string) {
 	for k, v := range config.ConfigKeyMapping {
 		s.cfgJson[k] = gjson.Get(val, v).String()
 	}
+
+	log.Debugf("[ConfigCenter][File] load config content : %#v", s.cfgJson)
 }
 
 func (s *storeOperate) Save(key config.PathKey, val []byte) error {

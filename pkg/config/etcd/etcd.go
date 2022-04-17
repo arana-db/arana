@@ -123,8 +123,9 @@ func (w *etcdWatcher) run(ctx context.Context) {
 }
 
 func (c *storeOperate) Watch(key config.PathKey) (<-chan []byte, error) {
-	defer c.lock.Unlock()
 	c.lock.Lock()
+	defer c.lock.Unlock()
+
 	if _, ok := c.receivers[key]; !ok {
 		watchCh, err := c.client.Watch(string(key))
 		if err != nil {

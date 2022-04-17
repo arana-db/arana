@@ -33,6 +33,7 @@ var (
 	Version = "0.1.0"
 
 	bootstrapConfigPath string
+	importBootConfPath  string
 )
 
 var (
@@ -51,16 +52,16 @@ func init() {
 
 	confImportCommand.
 		PersistentFlags().
-		StringVarP(&bootstrapConfigPath, constants.ConfigPathKey, "c", os.Getenv(constants.EnvAranaConfig), "bootstrap configuration file path")
+		StringVarP(&importBootConfPath, constants.ConfigPathKey, "c", os.Getenv(constants.EnvAranaConfig), "bootstrap configuration file path")
 	confImportCommand.
 		PersistentFlags().
-		StringVarP(&importConfigPath, constants.ImportConfigPathKey, "s", "", "import configuration file path")
+		StringVarP(&sourceConfigPath, constants.ImportConfigPathKey, "s", "", "import configuration file path")
 
 	rootCommand.AddCommand(startCommand)
 	rootCommand.AddCommand(confImportCommand)
 }
 
-// Execute 执行命令行解析
+// Execute Execute command line analysis
 func Execute() {
 	rootCommand.Execute()
 }

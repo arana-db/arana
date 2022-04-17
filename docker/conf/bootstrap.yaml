@@ -77,7 +77,7 @@ config:
                    expr: modShard(32)
                topology:
                  db_pattern: employees_0000
-                 tbl_Pattern: student_${0000...0031}
+                 tbl_pattern: student_${0000...0031}
                attributes:
                  sqlMaxLimit: -1
 

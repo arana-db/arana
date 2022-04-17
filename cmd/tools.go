@@ -32,7 +32,7 @@ import (
 )
 
 var (
-	importConfigPath string
+	sourceConfigPath string
 )
 
 var (
@@ -41,15 +41,15 @@ var (
 		Short:   "import arana config",
 		Example: "./arana import -c ../docker/conf/bootstrap.yaml -s ../docker/conf/config.yaml",
 		Run: func(*cobra.Command, []string) {
-			provider := boot.NewProvider(bootstrapConfigPath)
+			provider := boot.NewProvider(importBootConfPath)
 			if err := provider.Init(context.Background()); err != nil {
 				log.Fatal("init failed: %+v", err)
 				return
 			}
 
-			cfg, err := config.LoadV2(importConfigPath)
+			cfg, err := config.LoadV2(sourceConfigPath)
 			if err != nil {
-				log.Fatal("load config from %s failed: %+v", importConfigPath, err)
+				log.Fatal("load config from %s failed: %+v", sourceConfigPath, err)
 				return
 			}
 
