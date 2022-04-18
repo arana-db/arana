@@ -16,6 +16,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/lestrrat-go/strftime v1.0.5
+	github.com/nacos-group/nacos-sdk-go/v2 v2.0.1
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/pkg/errors v0.9.1

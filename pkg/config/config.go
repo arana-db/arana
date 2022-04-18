@@ -1,18 +1,21 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ *  Licensed to Apache Software Foundation (ASF) under one or more contributor
+ *  license agreements. See the NOTICE file distributed with
+ *  this work for additional information regarding copyright
+ *  ownership. Apache Software Foundation (ASF) licenses this file to you under
+ *  the Apache License, Version 2.0 (the "License"); you may
+ *  not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing,
+ *  software distributed under the License is distributed on an
+ *  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ *  KIND, either express or implied.  See the License for the
+ *  specific language governing permissions and limitations
+ *  under the License.
+ *
  */
 
 package config
@@ -28,6 +31,44 @@ import (
 
 import (
 	"github.com/tidwall/gjson"
+
+	"gopkg.in/yaml.v3"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/util/log"
+)
+
+var (
+	ConfigKeyMapping map[PathKey]string = map[PathKey]string{
+		DefaultConfigMetadataPath:           "metadata",
+		DefaultConfigDataTenantsPath:        "data.tenants",
+		DefaultConfigDataFiltersPath:        "data.filters",
+		DefaultConfigDataListenersPath:      "data.listeners",
+		DefaultConfigDataSourceClustersPath: "data.clusters",
+		DefaultConfigDataShardingRulePath:   "data.sharding_rule",
+	}
+
+	_configValSupplier map[PathKey]func(cfg *Configuration) interface{} = map[PathKey]func(cfg *Configuration) interface{}{
+		DefaultConfigMetadataPath: func(cfg *Configuration) interface{} {
+			return &cfg.Metadata
+		},
+		DefaultConfigDataTenantsPath: func(cfg *Configuration) interface{} {
+			return &cfg.Data.Tenants
+		},
+		DefaultConfigDataFiltersPath: func(cfg *Configuration) interface{} {
+			return &cfg.Data.Filters
+		},
+		DefaultConfigDataListenersPath: func(cfg *Configuration) interface{} {
+			return &cfg.Data.Listeners
+		},
+		DefaultConfigDataSourceClustersPath: func(cfg *Configuration) interface{} {
+			return &cfg.Data.DataSourceClusters
+		},
+		DefaultConfigDataShardingRulePath: func(cfg *Configuration) interface{} {
+			return &cfg.Data.ShardingRule
+		},
+	}
 )
 
 type Changeable interface {
@@ -43,10 +84,12 @@ type ConfigOptions struct {
 }
 
 type Center struct {
+	initialize   int32
 	storeOperate StoreOperate
 	confHolder   atomic.Value // 里面持有了最新的 *Configuration 对象
 	lock         sync.RWMutex
 	observers    []Observer
+	watchCancels []context.CancelFunc
 }
 
 func NewCenter(options ConfigOptions) (*Center, error) {
@@ -68,7 +111,15 @@ func NewCenter(options ConfigOptions) (*Center, error) {
 }
 
 func (c *Center) Close() error {
-	return c.storeOperate.Close()
+	if err := c.storeOperate.Close(); err != nil {
+		return err
+	}
+
+	for i := range c.watchCancels {
+		c.watchCancels[i]()
+	}
+
+	return nil
 }
 
 func (c *Center) Load() (*Configuration, error) {
@@ -82,12 +133,20 @@ func (c *Center) LoadContext(ctx context.Context) (*Configuration, error) {
 		if err != nil {
 			return nil, err
 		}
-
 		c.confHolder.Store(cfg)
+
+		out, _ := yaml.Marshal(cfg)
+		log.Infof("load configuration : \n%s", string(out))
 	}
 
 	val = c.confHolder.Load()
+
 	return val.(*Configuration), nil
+}
+
+func (c *Center) ImportConfiguration(cfg *Configuration) error {
+	c.confHolder.Store(cfg)
+	return c.Persist()
 }
 
 func (c *Center) loadFromStore(ctx context.Context) (*Configuration, error) {
@@ -105,62 +164,78 @@ func (c *Center) loadFromStore(ctx context.Context) (*Configuration, error) {
 		},
 	}
 
-	metadataVal, err := operate.Get(DefaultConfigMetadataPath)
-	if err != nil {
-		return nil, err
-	}
-	listenersVal, err := operate.Get(DefaultConfigDataListenersPath)
-	if err != nil {
-		return nil, err
-	}
-	filtersVal, err := operate.Get(DefaultConfigDataFiltersPath)
-	if err != nil {
-		return nil, err
-	}
-	clustersVal, err := operate.Get(DefaultConfigDataSourceClustersPath)
-	if err != nil {
-		return nil, err
-	}
-	shardingRuleVal, err := operate.Get(DefaultConfigDataShardingRulePath)
-	if err != nil {
-		return nil, err
-	}
-	tenantsVal, err := operate.Get(DefaultConfigDataTenantsPath)
-	if err != nil {
-		return nil, err
-	}
+	for k := range ConfigKeyMapping {
+		val, err := operate.Get(k)
+		if err != nil {
+			return nil, err
+		}
 
-	if len(metadataVal) != 0 {
-		if err := json.Unmarshal(metadataVal, &cfg.Metadata); err != nil {
-			return nil, err
+		supplier, ok := _configValSupplier[k]
+
+		if !ok {
+			return nil, fmt.Errorf("%s not register val supplier", k)
 		}
-	}
-	if len(listenersVal) != 0 {
-		if err := json.Unmarshal(listenersVal, &cfg.Data.Listeners); err != nil {
-			return nil, err
-		}
-	}
-	if len(filtersVal) != 0 {
-		if err := json.Unmarshal(filtersVal, &cfg.Data.Filters); err != nil {
-			return nil, err
-		}
-	}
-	if len(clustersVal) != 0 {
-		if err := json.Unmarshal(clustersVal, &cfg.Data.DataSourceClusters); err != nil {
-			return nil, err
-		}
-	}
-	if len(tenantsVal) != 0 {
-		if err := json.Unmarshal(tenantsVal, &cfg.Data.Tenants); err != nil {
-			return nil, err
-		}
-	}
-	if len(shardingRuleVal) != 0 {
-		if err := json.Unmarshal(shardingRuleVal, cfg.Data.ShardingRule); err != nil {
-			return nil, err
+
+		if len(val) != 0 {
+			if err := json.Unmarshal(val, supplier(cfg)); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return cfg, nil
+}
+
+func (c *Center) watchFromStore() error {
+	if !atomic.CompareAndSwapInt32(&c.initialize, 0, 1) {
+		return nil
+	}
+
+	cancels := make([]context.CancelFunc, 0, len(ConfigKeyMapping))
+
+	for k := range ConfigKeyMapping {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancels = append(cancels, cancel)
+		ch, err := c.storeOperate.Watch(k)
+		if err != nil {
+			return err
+		}
+		go c.watchKey(ctx, k, ch)
+	}
+
+	c.watchCancels = cancels
+	return nil
+}
+
+func (c *Center) watchKey(ctx context.Context, key PathKey, ch <-chan []byte) {
+	consumer := func(ret []byte) {
+		c.lock.Lock()
+		defer c.lock.Unlock()
+
+		supplier, ok := _configValSupplier[key]
+		if !ok {
+			log.Errorf("%s not register val supplier", key)
+			return
+		}
+
+		cfg := c.confHolder.Load().(*Configuration)
+
+		if len(ret) != 0 {
+			if err := json.Unmarshal(ret, supplier(cfg)); err != nil {
+				log.Errorf("", err)
+			}
+		}
+
+		c.confHolder.Store(cfg)
+	}
+
+	for {
+		select {
+		case ret := <-ch:
+			consumer(ret)
+		case <-ctx.Done():
+			log.Infof("stop watch : %s", key)
+		}
+	}
 }
 
 func (c *Center) Persist() error {
@@ -180,29 +255,11 @@ func (c *Center) PersistContext(ctx context.Context) error {
 		return fmt.Errorf("config json.marshal failed  %v err:", err)
 	}
 
-	if err := c.storeOperate.Save(DefaultConfigMetadataPath, []byte(gjson.GetBytes(configJson, "metadata").String())); err != nil {
-		return err
-	}
+	for k, v := range ConfigKeyMapping {
 
-	if err := c.storeOperate.Save(DefaultConfigDataListenersPath, []byte(gjson.GetBytes(configJson, "data.listeners").String())); err != nil {
-		return err
+		if err := c.storeOperate.Save(k, []byte(gjson.GetBytes(configJson, v).String())); err != nil {
+			return err
+		}
 	}
-
-	if err := c.storeOperate.Save(DefaultConfigDataFiltersPath, []byte(gjson.GetBytes(configJson, "data.filters").String())); err != nil {
-		return err
-	}
-
-	if err := c.storeOperate.Save(DefaultConfigDataSourceClustersPath, []byte(gjson.GetBytes(configJson, "data.dataSourceClusters").String())); err != nil {
-		return err
-	}
-
-	if err := c.storeOperate.Save(DefaultConfigDataTenantsPath, []byte(gjson.GetBytes(configJson, "data.tenants").String())); err != nil {
-		return err
-	}
-
-	if err = c.storeOperate.Save(DefaultConfigDataShardingRulePath, []byte(gjson.GetBytes(configJson, "data.shardingRule").String())); err != nil {
-		return err
-	}
-
 	return nil
 }

@@ -15,9 +15,8 @@
  * limitations under the License.
  */
 
-package constants
+package main
 
-const (
-	ConfigPathKey       = "config"
-	ImportConfigPathKey = "source"
-)
+func main() {
+	Execute()
+}

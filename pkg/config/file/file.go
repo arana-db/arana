@@ -24,11 +24,16 @@ import (
 )
 
 import (
+	"github.com/pkg/errors"
+
 	"github.com/tidwall/gjson"
+
+	"gopkg.in/yaml.v3"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/config"
+	"github.com/arana-db/arana/pkg/util/log"
 )
 
 func init() {
@@ -37,20 +42,16 @@ func init() {
 
 type storeOperate struct {
 	lock      *sync.RWMutex
-	receivers map[string][]chan []byte
-	path      string
-	cfgJson   map[string]string
+	receivers map[config.PathKey][]chan []byte
+	cfgJson   map[config.PathKey]string
 }
 
 func (s *storeOperate) Init(options map[string]interface{}) error {
 	s.lock = &sync.RWMutex{}
-	s.receivers = make(map[string][]chan []byte)
-
-	s.path, _ = options["path"].(string)
-
-	cfg, err := config.LoadV2(s.path)
-	if err != nil {
-		return err
+	s.receivers = make(map[config.PathKey][]chan []byte)
+	var cfg config.Configuration
+	if err := yaml.Unmarshal([]byte(options["content"].(string)), &cfg); err != nil {
+		return errors.Wrapf(err, "failed to unmarshal config")
 	}
 	configJson, err := json.Marshal(cfg)
 	if err != nil {
@@ -61,27 +62,26 @@ func (s *storeOperate) Init(options map[string]interface{}) error {
 }
 
 func (s *storeOperate) initCfgJsonMap(val string) {
-	s.cfgJson = make(map[string]string)
+	s.cfgJson = make(map[config.PathKey]string)
 
-	s.cfgJson[config.DefaultConfigMetadataPath] = gjson.Get(val, "metadata").String()
-	s.cfgJson[config.DefaultConfigDataTenantsPath] = gjson.Get(val, "data.tenants").String()
-	s.cfgJson[config.DefaultConfigDataFiltersPath] = gjson.Get(val, "data.filters").String()
-	s.cfgJson[config.DefaultConfigDataListenersPath] = gjson.Get(val, "data.listeners").String()
-	s.cfgJson[config.DefaultConfigDataSourceClustersPath] = gjson.Get(val, "data.clusters").String()
-	s.cfgJson[config.DefaultConfigDataShardingRulePath] = gjson.Get(val, "data.sharding_rule").String()
+	for k, v := range config.ConfigKeyMapping {
+		s.cfgJson[k] = gjson.Get(val, v).String()
+	}
+
+	log.Debugf("[ConfigCenter][File] load config content : %#v", s.cfgJson)
 }
 
-func (s *storeOperate) Save(key string, val []byte) error {
+func (s *storeOperate) Save(key config.PathKey, val []byte) error {
 	return nil
 }
 
-func (s *storeOperate) Get(key string) ([]byte, error) {
+func (s *storeOperate) Get(key config.PathKey) ([]byte, error) {
 	val := []byte(s.cfgJson[key])
 	return val, nil
 }
 
 //Watch TODO change notification through file inotify mechanism
-func (s *storeOperate) Watch(key string) (<-chan []byte, error) {
+func (s *storeOperate) Watch(key config.PathKey) (<-chan []byte, error) {
 	defer s.lock.Unlock()
 
 	if _, ok := s.receivers[key]; !ok {
