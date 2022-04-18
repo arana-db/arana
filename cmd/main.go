@@ -17,10 +17,6 @@
 
 package main
 
-import (
-	"github.com/arana-db/arana/cmd"
-)
-
 func main() {
-	cmd.Execute()
+	Execute()
 }

@@ -20,8 +20,8 @@ unit-test:
 dist dist/arana-linux-amd64 dist/arana-darwin-amd64 dist/arana-linux-amd64-sha-256 dist/arana-darwin-amd64-sha-256:
 	rm -fr ./dist
 	mkdir -p ./dist
-	GOOS="linux"  GOARCH="amd64" CGO_ENABLED=0 go build $(GO_FLAGS) -o ./dist/arana-linux-amd64
-	GOOS="darwin" GOARCH="amd64" CGO_ENABLED=0 go build $(GO_FLAGS) -o ./dist/arana-darwin-amd64
+	GOOS="linux"  GOARCH="amd64" CGO_ENABLED=0 go build $(GO_FLAGS) -o ./dist/arana-linux-amd64 ./cmd
+	GOOS="darwin" GOARCH="amd64" CGO_ENABLED=0 go build $(GO_FLAGS) -o ./dist/arana-darwin-amd64 ./cmd
 	sha256sum ./dist/arana-darwin-amd64 | cut -d ' ' -f 1 > ./dist/arana-darwin-amd64-sha-256
 	sha256sum ./dist/arana-linux-amd64  | cut -d ' ' -f 1 > ./dist/arana-linux-amd64-sha-256
 
@@ -29,7 +29,7 @@ dist dist/arana-linux-amd64 dist/arana-darwin-amd64 dist/arana-linux-amd64-sha-2
 build dist/arana dist/arana-sha-256:
 	rm -fr ./dist
 	mkdir -p ./dist
-	CGO_ENABLED=0 go build $(GO_FLAGS) -o ./dist/arana
+	CGO_ENABLED=0 go build $(GO_FLAGS) -o ./dist/arana ./cmd
 	sha256sum ./dist/arana  | cut -d ' ' -f 1 > ./dist/arana-sha-256
 
 docker-build: build
