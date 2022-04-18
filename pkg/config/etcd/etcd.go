@@ -20,14 +20,13 @@ package etcd
 import (
 	"context"
 	"math"
+	"strings"
 	"sync"
 	"time"
 )
 
 import (
 	etcdv3 "github.com/dubbogo/gost/database/kv/etcd/v3"
-
-	"github.com/pkg/errors"
 
 	"go.etcd.io/etcd/api/v3/mvccpb"
 
@@ -36,6 +35,7 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/config"
+	"github.com/arana-db/arana/pkg/util/log"
 )
 
 func init() {
@@ -45,35 +45,36 @@ func init() {
 type storeOperate struct {
 	client     *etcdv3.Client
 	lock       *sync.RWMutex
-	receivers  map[string]*etcdWatcher
+	receivers  map[config.PathKey]*etcdWatcher
 	cancelList []context.CancelFunc
 }
 
 func (c *storeOperate) Init(options map[string]interface{}) error {
-	endpoints, _ := options["endpoints"].([]string)
+	endpoints, _ := options["endpoints"].(string)
 	tmpClient, err := etcdv3.NewConfigClientWithErr(
 		etcdv3.WithName(etcdv3.RegistryETCDV3Client),
 		etcdv3.WithTimeout(10*time.Second),
-		etcdv3.WithEndpoints(endpoints...),
+		etcdv3.WithEndpoints(strings.Split(endpoints, ",")...),
 	)
 	if err != nil {
-		return errors.Wrap(err, "failed to initialize etcd client")
+		log.Errorf("failed to initialize etcd client error: %s", err.Error())
+		return err
 	}
 
 	c.client = tmpClient
 	c.lock = &sync.RWMutex{}
-	c.receivers = make(map[string]*etcdWatcher)
+	c.receivers = make(map[config.PathKey]*etcdWatcher)
 	c.cancelList = make([]context.CancelFunc, 0, 2)
 
 	return nil
 }
 
-func (c *storeOperate) Save(key string, val []byte) error {
-	return c.client.Put(key, string(val))
+func (c *storeOperate) Save(key config.PathKey, val []byte) error {
+	return c.client.Put(string(key), string(val))
 }
 
-func (c *storeOperate) Get(key string) ([]byte, error) {
-	v, err := c.client.Get(key)
+func (c *storeOperate) Get(key config.PathKey) ([]byte, error) {
+	v, err := c.client.Get(string(key))
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +89,7 @@ type etcdWatcher struct {
 	ch        clientv3.WatchChan
 }
 
-func newEtcdWatcher(ch clientv3.WatchChan) *etcdWatcher {
+func newWatcher(ch clientv3.WatchChan) *etcdWatcher {
 	w := &etcdWatcher{
 		revision:  math.MinInt64,
 		lock:      &sync.RWMutex{},
@@ -113,24 +114,30 @@ func (w *etcdWatcher) run(ctx context.Context) {
 				}
 			}
 		case <-ctx.Done():
+			for p := range w.receivers {
+				close(w.receivers[p])
+			}
 			return
 		}
 	}
 }
 
-func (c *storeOperate) Watch(key string) (<-chan []byte, error) {
-	defer c.lock.Unlock()
+func (c *storeOperate) Watch(key config.PathKey) (<-chan []byte, error) {
 	c.lock.Lock()
+	defer c.lock.Unlock()
+
 	if _, ok := c.receivers[key]; !ok {
-		watchCh, err := c.client.Watch(key)
+		watchCh, err := c.client.Watch(string(key))
 		if err != nil {
 			return nil, err
 		}
-		w := newEtcdWatcher(watchCh)
-		ctx, cancel := context.WithCancel(context.Background())
-		go w.run(ctx)
-		c.cancelList = append(c.cancelList, cancel)
+		w := newWatcher(watchCh)
 		c.receivers[key] = w
+
+		ctx, cancel := context.WithCancel(context.Background())
+		c.cancelList = append(c.cancelList, cancel)
+		go w.run(ctx)
+
 	}
 
 	w := c.receivers[key]
