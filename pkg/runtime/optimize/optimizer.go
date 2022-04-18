@@ -95,6 +95,9 @@ func (o optimizer) doOptimize(ctx context.Context, stmt rast.Statement, args ...
 		return o.optimizeDelete(ctx, t, args)
 	case *rast.UpdateStatement:
 		return o.optimizeUpdate(ctx, t, args)
+	case *rast.TruncateStatement:
+		return o.optimizeTruncate(ctx, t, args)
+
 	}
 
 	//TODO implement all statements
@@ -411,6 +414,24 @@ func (o optimizer) optimizeDelete(ctx context.Context, stmt *rast.DeleteStatemen
 	}
 
 	ret := plan.NewSimpleDeletePlan(stmt)
+	ret.BindArgs(args)
+	ret.SetShards(shards)
+
+	return ret, nil
+}
+
+func (o optimizer) optimizeTruncate(ctx context.Context, stmt *rast.TruncateStatement, args []interface{}) (proto.Plan, error) {
+	ru := rcontext.Rule(ctx)
+	shards, err := o.computeShards(ru, stmt.Table, nil, args)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to optimize TRUNCATE statement")
+	}
+
+	if shards == nil {
+		return plan.Transparent(stmt, args), nil
+	}
+
+	ret := plan.NewTruncatePlan(stmt)
 	ret.BindArgs(args)
 	ret.SetShards(shards)
 
