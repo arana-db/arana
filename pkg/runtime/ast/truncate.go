@@ -18,8 +18,11 @@
 package ast
 
 import (
-	"github.com/pkg/errors"
 	"strings"
+)
+
+import (
+	"github.com/pkg/errors"
 )
 
 var (
