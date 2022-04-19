@@ -32,6 +32,7 @@ import (
 import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
+	"github.com/arana-db/arana/pkg/proto/schema_manager"
 	rast "github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
@@ -70,7 +71,7 @@ func GetOptimizer() proto.Optimizer {
 type optimizer struct {
 }
 
-func (o optimizer) Optimize(ctx context.Context, stmt ast.StmtNode, args ...interface{}) (plan proto.Plan, err error) {
+func (o optimizer) Optimize(ctx context.Context, conn proto.VConn, stmt ast.StmtNode, args ...interface{}) (plan proto.Plan, err error) {
 	defer func() {
 		if rec := recover(); rec != nil {
 			err = errors.Errorf("cannot analyze sql %s", rcontext.SQL(ctx))
@@ -82,22 +83,21 @@ func (o optimizer) Optimize(ctx context.Context, stmt ast.StmtNode, args ...inte
 	if rstmt, err = rast.FromStmtNode(stmt); err != nil {
 		return nil, errors.Wrap(err, "optimize failed")
 	}
-	return o.doOptimize(ctx, rstmt, args...)
+	return o.doOptimize(ctx, conn, rstmt, args...)
 }
 
-func (o optimizer) doOptimize(ctx context.Context, stmt rast.Statement, args ...interface{}) (proto.Plan, error) {
+func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.Statement, args ...interface{}) (proto.Plan, error) {
 	switch t := stmt.(type) {
 	case *rast.SelectStatement:
-		return o.optimizeSelect(ctx, t, args)
+		return o.optimizeSelect(ctx, conn, t, args)
 	case *rast.InsertStatement:
-		return o.optimizeInsert(ctx, t, args)
+		return o.optimizeInsert(ctx, conn, t, args)
 	case *rast.DeleteStatement:
 		return o.optimizeDelete(ctx, t, args)
 	case *rast.UpdateStatement:
-		return o.optimizeUpdate(ctx, t, args)
+		return o.optimizeUpdate(ctx, conn, t, args)
 	case *rast.TruncateStatement:
 		return o.optimizeTruncate(ctx, t, args)
-
 	}
 
 	//TODO implement all statements
@@ -138,7 +138,7 @@ func (o optimizer) getSelectFlag(ctx context.Context, stmt *rast.SelectStatement
 	return
 }
 
-func (o optimizer) optimizeSelect(ctx context.Context, stmt *rast.SelectStatement, args []interface{}) (proto.Plan, error) {
+func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *rast.SelectStatement, args []interface{}) (proto.Plan, error) {
 	var ru *rule.Rule
 	if ru = rcontext.Rule(ctx); ru == nil {
 		return nil, errors.WithStack(errNoRuleFound)
@@ -150,6 +150,12 @@ func (o optimizer) optimizeSelect(ctx context.Context, stmt *rast.SelectStatemen
 	}
 
 	if flag&_bypass != 0 {
+		if len(stmt.From) > 0 {
+			err := o.rewriteStatement(ctx, conn, stmt, rcontext.DBGroup(ctx), stmt.From[0].TableName().Suffix())
+			if err != nil {
+				return nil, err
+			}
+		}
 		ret := &plan.SimpleQueryPlan{Stmt: stmt}
 		ret.BindArgs(args)
 		return ret, nil
@@ -181,7 +187,10 @@ func (o optimizer) optimizeSelect(ctx context.Context, stmt *rast.SelectStatemen
 		if db0, tbl0, ok = vt.Topology().Render(0, 0); !ok {
 			return nil, errors.Errorf("cannot compute minimal topology from '%s'", stmt.From[0].TableName().Suffix())
 		}
-
+		err := o.rewriteStatement(ctx, conn, stmt, db0, tbl0)
+		if err != nil {
+			return nil, err
+		}
 		ret := &plan.SimpleQueryPlan{
 			Stmt:     stmt,
 			Database: db0,
@@ -201,6 +210,11 @@ func (o optimizer) optimizeSelect(ctx context.Context, stmt *rast.SelectStatemen
 		for k, v := range shards {
 			ret.Database = k
 			ret.Tables = v
+		}
+		// TODO now only support single table
+		err := o.rewriteStatement(ctx, conn, ret.Stmt, ret.Database, ret.Tables[0])
+		if err != nil {
+			return nil, err
 		}
 		return ret, nil
 	case 0:
@@ -227,6 +241,13 @@ func (o optimizer) optimizeSelect(ctx context.Context, stmt *rast.SelectStatemen
 		plans = append(plans, next)
 	}
 
+	if len(plans) > 0 {
+		tempPlan := plans[0].(*plan.SimpleQueryPlan)
+		err := o.rewriteStatement(ctx, conn, stmt, tempPlan.Database, tempPlan.Tables[0])
+		if err != nil {
+			return nil, err
+		}
+	}
 	unionPlan := &plan.UnionPlan{
 		Plans: plans,
 	}
@@ -235,7 +256,35 @@ func (o optimizer) optimizeSelect(ctx context.Context, stmt *rast.SelectStatemen
 	return unionPlan, nil
 }
 
-func (o optimizer) optimizeUpdate(ctx context.Context, stmt *rast.UpdateStatement, args []interface{}) (proto.Plan, error) {
+func (o optimizer) rewriteStatement(ctx context.Context, conn proto.VConn, stmt *rast.SelectStatement,
+	db, tb string) error {
+	// todo db 计算逻辑&tb shard 的计算逻辑
+	var starExpand = false
+	if len(stmt.Select) == 1 {
+		if _, ok := stmt.Select[0].(*rast.SelectElementAll); ok {
+			starExpand = true
+		}
+	}
+	if starExpand {
+		if len(tb) < 1 {
+			tb = stmt.From[0].TableName().Suffix()
+		}
+		schemaLoader := &schema_manager.SimpleSchemaLoader{Schema: db}
+		metaData := schemaLoader.Load(ctx, conn, []string{tb})[tb]
+		if metaData == nil || len(metaData.ColumnNames) == 0 {
+			return errors.Errorf("can not get metadata for db:%s and table:%s", db, tb)
+		}
+		selectElements := make([]rast.SelectElement, len(metaData.Columns))
+		for i, column := range metaData.ColumnNames {
+			selectElements[i] = rast.NewSelectElementColumn([]string{column}, "")
+		}
+		stmt.Select = selectElements
+	}
+
+	return nil
+}
+
+func (o optimizer) optimizeUpdate(ctx context.Context, conn proto.VConn, stmt *rast.UpdateStatement, args []interface{}) (proto.Plan, error) {
 	var (
 		ru    = rcontext.Rule(ctx)
 		table = stmt.Table
@@ -295,7 +344,7 @@ func (o optimizer) optimizeUpdate(ctx context.Context, stmt *rast.UpdateStatemen
 	return ret, nil
 }
 
-func (o optimizer) optimizeInsert(ctx context.Context, stmt *rast.InsertStatement, args []interface{}) (proto.Plan, error) {
+func (o optimizer) optimizeInsert(ctx context.Context, conn proto.VConn, stmt *rast.InsertStatement, args []interface{}) (proto.Plan, error) {
 	var (
 		ru  = rcontext.Rule(ctx)
 		ret = plan.NewSimpleInsertPlan()
