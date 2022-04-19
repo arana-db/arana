@@ -18,5 +18,6 @@
 package constants
 
 const (
-	ConfigPathKey = "config"
+	ConfigPathKey       = "config"
+	ImportConfigPathKey = "source"
 )

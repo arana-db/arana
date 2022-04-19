@@ -15,31 +15,12 @@
  * limitations under the License.
  */
 
-package aggregater
+package boot
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
+	"github.com/arana-db/arana/pkg/config"
 )
 
-type AddAggregater struct {
-	count *gxbig.Decimal
-}
-
-func (s *AddAggregater) Aggregate(values []interface{}) {
-	if len(values) == 0 {
-		return
-	}
-
-	val1, err := parseDecimal2(values[0])
-	if err != nil {
-		panic(err)
-	}
-	if s.count == nil {
-		s.count = &gxbig.Decimal{}
-	}
-	gxbig.DecimalAdd(s.count, val1, s.count)
-}
-
-func (s *AddAggregater) GetResult() (*gxbig.Decimal, bool) {
-	return s.count, true
+type BootOptions struct {
+	Config *config.ConfigOptions `yaml:"config"`
 }

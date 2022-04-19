@@ -31,9 +31,9 @@ import (
 )
 
 func TestFileProvider(t *testing.T) {
-	provider := NewFileProvider(testdata.Path("fake_config.yaml"))
+	provider := NewProvider(testdata.Path("fake_bootstrap.yaml"))
 
-	err := provider.Init(context.Background())
+	err := Boot(context.Background(), provider)
 	assert.NoError(t, err, "should init ok")
 
 	clusters, err := provider.ListClusters(context.Background())

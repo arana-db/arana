@@ -42,7 +42,7 @@ type (
 		TypeDatabaseName() string
 	}
 
-	// Rows is an iterator over an executed query's results.
+	// Row is an iterator over an executed query's results.
 	Row interface {
 		// Columns returns the names of the columns. The number of
 		// columns of the result is inferred from the length of the
@@ -52,12 +52,14 @@ type (
 
 		Fields() []Field
 
-		// Data
+		// Data returns the result in bytes.
 		Data() []byte
 
 		Decode() ([]*Value, error)
 
 		GetColumnValue(column string) (interface{}, error)
+
+		Encode(values []*Value, columns []Field, columnNames []string) Row
 	}
 
 	// Result is the result of a query execution.

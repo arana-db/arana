@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package aggregater
+package aggregator
 
 import (
 	"fmt"
@@ -26,12 +26,12 @@ import (
 	gxbig "github.com/dubbogo/gost/math/big"
 )
 
-type AvgAggregater struct {
+type AvgAggregator struct {
 	sum   gxbig.Decimal
 	count gxbig.Decimal
 }
 
-func (s *AvgAggregater) Aggregate(values []interface{}) {
+func (s *AvgAggregator) Aggregate(values []interface{}) {
 	if len(values) < 2 {
 		return
 	}
@@ -49,7 +49,7 @@ func (s *AvgAggregater) Aggregate(values []interface{}) {
 	gxbig.DecimalAdd(&s.count, val2, &s.count)
 }
 
-func (s *AvgAggregater) GetResult() (*gxbig.Decimal, bool) {
+func (s *AvgAggregator) GetResult() (*gxbig.Decimal, bool) {
 	if s.count.IsZero() {
 		return nil, false
 	}

@@ -1,274 +1,265 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ *  Licensed to Apache Software Foundation (ASF) under one or more contributor
+ *  license agreements. See the NOTICE file distributed with
+ *  this work for additional information regarding copyright
+ *  ownership. Apache Software Foundation (ASF) licenses this file to you under
+ *  the Apache License, Version 2.0 (the "License"); you may
+ *  not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing,
+ *  software distributed under the License is distributed on an
+ *  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ *  KIND, either express or implied.  See the License for the
+ *  specific language governing permissions and limitations
+ *  under the License.
+ *
  */
 
 package config
 
 import (
-	"bytes"
+	"context"
 	"encoding/json"
-	"io/ioutil"
-	"path/filepath"
-	"regexp"
-	"strconv"
+	"errors"
+	"fmt"
+	"sync"
+	"sync/atomic"
 )
 
 import (
-	"github.com/creasty/defaults"
+	"github.com/tidwall/gjson"
 
-	"github.com/ghodss/yaml"
-
-	"github.com/pkg/errors"
+	"gopkg.in/yaml.v3"
 )
 
-type (
-	// ProtocolType protocol type enum
-	ProtocolType int32
+import (
+	"github.com/arana-db/arana/pkg/util/log"
 )
 
-const (
-	Http ProtocolType = iota
-	Mysql
-)
-
-const (
-	_ DataSourceType = iota
-	DBMysql
-	DBPostgreSql
-)
-
-type (
-	// DataSourceType is the data source type
-	DataSourceType int
-
-	// SocketAddress specify either a logical or physical address and port, which are
-	// used to tell server where to bind/listen, connect to upstream and find
-	// management servers
-	SocketAddress struct {
-		Address string `default:"0.0.0.0" yaml:"address" json:"address"`
-		Port    int    `default:"8881" yaml:"port" json:"port"`
+var (
+	ConfigKeyMapping map[PathKey]string = map[PathKey]string{
+		DefaultConfigMetadataPath:           "metadata",
+		DefaultConfigDataTenantsPath:        "data.tenants",
+		DefaultConfigDataFiltersPath:        "data.filters",
+		DefaultConfigDataListenersPath:      "data.listeners",
+		DefaultConfigDataSourceClustersPath: "data.clusters",
+		DefaultConfigDataShardingRulePath:   "data.sharding_rule",
 	}
 
-	Filter struct {
-		Name   string          `json:"name,omitempty"`
-		Config json.RawMessage `json:"config,omitempty"`
-	}
-
-	Configuration struct {
-		TypeMeta
-		Metadata map[string]interface{} `yaml:"metadata" json:"metadata"`
-		Data     *Data                  `validate:"required" yaml:"data" json:"data"`
-	}
-
-	TypeMeta struct {
-		Kind       string `yaml:"kind" json:"kind,omitempty"`
-		APIVersion string `yaml:"apiVersion" json:"apiVersion,omitempty"`
-	}
-
-	Data struct {
-		Filters            []*Filter            `yaml:"filters" json:"filters,omitempty"`
-		Listeners          []*Listener          `validate:"required" yaml:"listeners" json:"listeners"`
-		Tenants            []*Tenant            `validate:"required" yaml:"tenants" json:"tenants"`
-		DataSourceClusters []*DataSourceCluster `validate:"required" yaml:"clusters" json:"clusters"`
-		ShardingRule       *ShardingRule        `yaml:"sharding_rule,omitempty" json:"sharding_rule,omitempty"`
-	}
-
-	Tenant struct {
-		Name  string  `validate:"required" yaml:"name" json:"name"`
-		Users []*User `validate:"required" yaml:"users" json:"users"`
-	}
-
-	DataSourceCluster struct {
-		Name        string         `yaml:"name" json:"name"`
-		Type        DataSourceType `yaml:"type" json:"type"`
-		SqlMaxLimit int            `default:"-1" yaml:"sql_max_limit" json:"sql_max_limit,omitempty"`
-		Tenant      string         `yaml:"tenant" json:"tenant"`
-		ConnProps   *ConnProp      `yaml:"conn_props" json:"conn_props,omitempty"`
-		Groups      []*Group       `yaml:"groups" json:"groups"`
-	}
-
-	ConnProp struct {
-		Capacity    int `yaml:"capacity" json:"capacity,omitempty"`         // connection pool capacity
-		MaxCapacity int `yaml:"max_capacity" json:"max_capacity,omitempty"` // max connection pool capacity
-		IdleTimeout int `yaml:"idle_timeout" json:"idle_timeout,omitempty"` // close backend direct connection after idle_timeout
-	}
-
-	Group struct {
-		Name  string  `yaml:"name" json:"name"`
-		Nodes []*Node `yaml:"nodes" json:"nodes"`
-	}
-
-	Node struct {
-		Name      string            `yaml:"name" json:"name"`
-		Host      string            `yaml:"host" json:"host"`
-		Port      int               `yaml:"port" json:"port"`
-		Username  string            `yaml:"username" json:"username"`
-		Password  string            `yaml:"password" json:"password"`
-		Database  string            `yaml:"database" json:"database"`
-		ConnProps map[string]string `yaml:"conn_props" json:"conn_props,omitempty"`
-		Weight    string            `default:"r10w10" yaml:"weight" json:"weight"`
-		Labels    map[string]string `yaml:"labels" json:"labels,omitempty"`
-	}
-
-	ShardingRule struct {
-		Tables []*Table `yaml:"tables" json:"tables"`
-	}
-
-	Listener struct {
-		ProtocolType  string         `yaml:"protocol_type" json:"protocol_type"`
-		SocketAddress *SocketAddress `yaml:"socket_address" json:"socket_address"`
-		ServerVersion string         `yaml:"server_version" json:"server_version"`
-	}
-
-	User struct {
-		Username string `yaml:"username" json:"username"`
-		Password string `yaml:"password" json:"password"`
-	}
-
-	Table struct {
-		Name           string            `yaml:"name" json:"name"`
-		AllowFullScan  bool              `yaml:"allow_full_scan" json:"allow_full_scan,omitempty"`
-		DbRules        []*Rule           `yaml:"db_rules" json:"db_rules"`
-		TblRules       []*Rule           `yaml:"tbl_rules" json:"tbl_rules"`
-		Topology       *Topology         `yaml:"topology" json:"topology"`
-		ShadowTopology *Topology         `yaml:"shadow_topology" json:"shadow_topology"`
-		Attributes     map[string]string `yaml:"attributes" json:"attributes"`
-	}
-
-	Rule struct {
-		Column string `yaml:"column" json:"column"`
-		Expr   string `yaml:"expr" json:"expr"`
-	}
-
-	Topology struct {
-		DbPattern  string `yaml:"db_pattern" json:"db_pattern"`
-		TblPattern string `yaml:"tbl_pattern" json:"tbl_pattern"`
+	_configValSupplier map[PathKey]func(cfg *Configuration) interface{} = map[PathKey]func(cfg *Configuration) interface{}{
+		DefaultConfigMetadataPath: func(cfg *Configuration) interface{} {
+			return &cfg.Metadata
+		},
+		DefaultConfigDataTenantsPath: func(cfg *Configuration) interface{} {
+			return &cfg.Data.Tenants
+		},
+		DefaultConfigDataFiltersPath: func(cfg *Configuration) interface{} {
+			return &cfg.Data.Filters
+		},
+		DefaultConfigDataListenersPath: func(cfg *Configuration) interface{} {
+			return &cfg.Data.Listeners
+		},
+		DefaultConfigDataSourceClustersPath: func(cfg *Configuration) interface{} {
+			return &cfg.Data.DataSourceClusters
+		},
+		DefaultConfigDataShardingRulePath: func(cfg *Configuration) interface{} {
+			return &cfg.Data.ShardingRule
+		},
 	}
 )
 
-func (c *Configuration) Init() error {
-	return defaults.Set(c)
+type Changeable interface {
+	Name() string
+	Sign() string
 }
 
-func ParseV2(path string) (*Configuration, error) {
-	content, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to load config")
-	}
+type Observer func()
 
-	if !yamlFormat(path) {
-		return nil, errors.Errorf("invalid config file format: %s", filepath.Ext(path))
-	}
-
-	var cfg Configuration
-	if err = yaml.Unmarshal(content, &cfg); err != nil {
-		return nil, errors.Wrapf(err, "failed to unmarshal config")
-	}
-
-	if err = cfg.Init(); err != nil {
-		return nil, errors.Wrapf(err, "failed to init default config")
-	}
-
-	return &cfg, nil
+type ConfigOptions struct {
+	StoreName string                 `yaml:"name"`
+	Options   map[string]interface{} `yaml:"options"`
 }
 
-// LoadV2 loads the configuration.
-func LoadV2(path string) (*Configuration, error) {
-	configPath, _ := filepath.Abs(path)
-	cfg, err := ParseV2(configPath)
+type Center struct {
+	initialize   int32
+	storeOperate StoreOperate
+	confHolder   atomic.Value // 里面持有了最新的 *Configuration 对象
+	lock         sync.RWMutex
+	observers    []Observer
+	watchCancels []context.CancelFunc
+}
+
+func NewCenter(options ConfigOptions) (*Center, error) {
+	if err := Init(options.StoreName, options.Options); err != nil {
+		return nil, err
+	}
+
+	operate, err := GetStoreOperate()
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
+	}
+
+	return &Center{
+		confHolder:   atomic.Value{},
+		lock:         sync.RWMutex{},
+		storeOperate: operate,
+		observers:    make([]Observer, 0, 2),
+	}, nil
+}
+
+func (c *Center) Close() error {
+	if err := c.storeOperate.Close(); err != nil {
+		return err
+	}
+
+	for i := range c.watchCancels {
+		c.watchCancels[i]()
+	}
+
+	return nil
+}
+
+func (c *Center) Load() (*Configuration, error) {
+	return c.LoadContext(context.Background())
+}
+
+func (c *Center) LoadContext(ctx context.Context) (*Configuration, error) {
+	val := c.confHolder.Load()
+	if val == nil {
+		cfg, err := c.loadFromStore(ctx)
+		if err != nil {
+			return nil, err
+		}
+		c.confHolder.Store(cfg)
+
+		out, _ := yaml.Marshal(cfg)
+		log.Infof("load configuration : \n%s", string(out))
+	}
+
+	val = c.confHolder.Load()
+
+	return val.(*Configuration), nil
+}
+
+func (c *Center) ImportConfiguration(cfg *Configuration) error {
+	c.confHolder.Store(cfg)
+	return c.Persist()
+}
+
+func (c *Center) loadFromStore(ctx context.Context) (*Configuration, error) {
+	operate := c.storeOperate
+
+	cfg := &Configuration{
+		TypeMeta: TypeMeta{},
+		Metadata: make(map[string]interface{}),
+		Data: &Data{
+			Filters:            make([]*Filter, 0),
+			Listeners:          make([]*Listener, 0),
+			Tenants:            make([]*Tenant, 0),
+			DataSourceClusters: make([]*DataSourceCluster, 0),
+			ShardingRule:       &ShardingRule{},
+		},
+	}
+
+	for k := range ConfigKeyMapping {
+		val, err := operate.Get(k)
+		if err != nil {
+			return nil, err
+		}
+
+		supplier, ok := _configValSupplier[k]
+
+		if !ok {
+			return nil, fmt.Errorf("%s not register val supplier", k)
+		}
+
+		if len(val) != 0 {
+			if err := json.Unmarshal(val, supplier(cfg)); err != nil {
+				return nil, err
+			}
+		}
 	}
 	return cfg, nil
 }
 
-func yamlFormat(path string) bool {
-	ext := filepath.Ext(path)
-	if ext == ".yaml" || ext == ".yml" {
-		return true
+func (c *Center) watchFromStore() error {
+	if !atomic.CompareAndSwapInt32(&c.initialize, 0, 1) {
+		return nil
 	}
-	return false
-}
 
-func (t *DataSourceType) UnmarshalText(text []byte) error {
-	if t == nil {
-		return errors.New("can't unmarshal a nil *DataSourceType")
+	cancels := make([]context.CancelFunc, 0, len(ConfigKeyMapping))
+
+	for k := range ConfigKeyMapping {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancels = append(cancels, cancel)
+		ch, err := c.storeOperate.Watch(k)
+		if err != nil {
+			return err
+		}
+		go c.watchKey(ctx, k, ch)
 	}
-	if !t.unmarshalText(bytes.ToLower(text)) {
-		return errors.Errorf("unrecognized datasource type: %q", text)
-	}
+
+	c.watchCancels = cancels
 	return nil
 }
 
-func (t *DataSourceType) unmarshalText(text []byte) bool {
-	dataSourceType := string(text)
-	switch dataSourceType {
-	case "mysql":
-		*t = DBMysql
-	case "postgresql":
-		*t = DBPostgreSql
-	default:
-		return false
+func (c *Center) watchKey(ctx context.Context, key PathKey, ch <-chan []byte) {
+	consumer := func(ret []byte) {
+		c.lock.Lock()
+		defer c.lock.Unlock()
+
+		supplier, ok := _configValSupplier[key]
+		if !ok {
+			log.Errorf("%s not register val supplier", key)
+			return
+		}
+
+		cfg := c.confHolder.Load().(*Configuration)
+
+		if len(ret) != 0 {
+			if err := json.Unmarshal(ret, supplier(cfg)); err != nil {
+				log.Errorf("", err)
+			}
+		}
+
+		c.confHolder.Store(cfg)
 	}
-	return true
+
+	for {
+		select {
+		case ret := <-ch:
+			consumer(ret)
+		case <-ctx.Done():
+			log.Infof("stop watch : %s", key)
+		}
+	}
 }
 
-var reg = regexp.MustCompile(`^[rR]([0-9]+)[wW]([0-9]+)$`)
+func (c *Center) Persist() error {
+	return c.PersistContext(context.Background())
+}
 
-func (d *Node) GetReadAndWriteWeight() (int, int, error) {
-	items := reg.FindStringSubmatch(d.Weight)
-	if len(items) != 3 {
-		return 0, 0, errors.New("weight config should be r10w10")
+func (c *Center) PersistContext(ctx context.Context) error {
+	val := c.confHolder.Load()
+	if val == nil {
+		return errors.New("ConfHolder.load is nil")
 	}
-	readWeight, err := strconv.Atoi(items[1])
+
+	conf := val.(*Configuration)
+
+	configJson, err := json.Marshal(conf)
 	if err != nil {
-		return 0, 0, err
-	}
-	writeWeight, err := strconv.Atoi(items[2])
-	if err != nil {
-		return 0, 0, err
+		return fmt.Errorf("config json.marshal failed  %v err:", err)
 	}
 
-	return readWeight, writeWeight, nil
-}
+	for k, v := range ConfigKeyMapping {
 
-func (d *Node) String() string {
-	b, _ := json.Marshal(d)
-	return string(b)
-}
-
-func (t *ProtocolType) UnmarshalText(text []byte) error {
-	if t == nil {
-		return errors.New("can't unmarshal a nil *ProtocolType")
-	}
-	if !t.unmarshalText(bytes.ToLower(text)) {
-		return errors.Errorf("unrecognized protocol type: %q", text)
+		if err := c.storeOperate.Save(k, []byte(gjson.GetBytes(configJson, v).String())); err != nil {
+			return err
+		}
 	}
 	return nil
-}
-
-func (t *ProtocolType) unmarshalText(text []byte) bool {
-	protocolType := string(text)
-	switch protocolType {
-	case "mysql":
-		*t = Mysql
-	case "http":
-		*t = Http
-	default:
-		return false
-	}
-	return true
 }

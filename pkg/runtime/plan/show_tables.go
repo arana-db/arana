@@ -12,15 +12,15 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
-type ShowPlan struct {
+type ShowTablesPlan struct {
 	Plans []proto.Plan
 }
 
-func (u ShowPlan) Type() proto.PlanType {
+func (u ShowTablesPlan) Type() proto.PlanType {
 	return proto.PlanTypeQuery
 }
 
-func (u ShowPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+func (u ShowTablesPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
 	var results []proto.Result
 	for _, it := range u.Plans {
 		res, err := it.ExecIn(ctx, conn)

@@ -102,6 +102,8 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		default:
 			return &ExplainStatement{tgt: tgt}, nil
 		}
+	case *ast.TruncateTableStmt:
+		return cc.convTruncateTableStmt(stmt), nil
 	default:
 		return nil, errors.Errorf("unimplement: stmt type %T!", stmt)
 	}
@@ -324,6 +326,12 @@ func (cc *convCtx) convInsertStmt(stmt *ast.InsertStmt) Statement {
 		baseInsertStatement: &bi,
 		values:              values,
 		duplicatedUpdates:   updates,
+	}
+}
+
+func (cc *convCtx) convTruncateTableStmt(node *ast.TruncateTableStmt) Statement {
+	return &TruncateStatement{
+		Table: []string{node.Table.Name.O},
 	}
 }
 

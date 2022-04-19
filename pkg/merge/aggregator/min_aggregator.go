@@ -15,18 +15,18 @@
  * limitations under the License.
  */
 
-package aggregater
+package aggregator
 
 import (
 	gxbig "github.com/dubbogo/gost/math/big"
 )
 
-type MinAggregater struct {
+type MinAggregator struct {
 	min  *gxbig.Decimal
 	init bool
 }
 
-func (s *MinAggregater) Aggregate(values []interface{}) {
+func (s *MinAggregator) Aggregate(values []interface{}) {
 	if len(values) == 0 {
 		return
 	}
@@ -44,7 +44,7 @@ func (s *MinAggregater) Aggregate(values []interface{}) {
 	}
 }
 
-func (s *MinAggregater) GetResult() (*gxbig.Decimal, bool) {
+func (s *MinAggregator) GetResult() (*gxbig.Decimal, bool) {
 	if s.init {
 		return s.min, true
 	}
