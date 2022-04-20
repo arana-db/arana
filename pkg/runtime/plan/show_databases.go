@@ -19,6 +19,7 @@ package plan
 
 import (
 	"context"
+	"fmt"
 )
 
 import (
@@ -46,7 +47,7 @@ func (s *ShowDatabasesPlan) Type() proto.PlanType {
 	return proto.PlanTypeQuery
 }
 
-func (s *ShowDatabasesPlan) ExecIn(ctx context.Context, _ proto.VConn) (proto.Result, error) {
+func (s *ShowDatabasesPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
 	tenant, ok := security.DefaultTenantManager().GetTenantOfCluster(rcontext.Schema(ctx))
 	if !ok {
 		return nil, tenantErr
@@ -55,11 +56,13 @@ func (s *ShowDatabasesPlan) ExecIn(ctx context.Context, _ proto.VConn) (proto.Re
 	clusters := security.DefaultTenantManager().GetClusters(tenant)
 	var rows = make([]proto.Row, 0, len(clusters))
 
-	// todo raw bytes
+	var res proto.Result
+
 	for _, cluster := range clusters {
-		rows = append(rows, (&mysql.Row{}).Encode([]*proto.Value{{Raw: []byte(cluster),
-			Len: len(cluster)}}, []proto.Field{&mysql.Field{}}, nil))
+		res, _ = conn.Query(ctx, "", fmt.Sprintf("SELECT CONVERT('%s' USING utf8mb4)", cluster))
+		rows = append(rows, res.GetRows()[0])
 	}
 
-	return &mysql.Result{Fields: []proto.Field{&mysql.Field{}}, Rows: rows, AffectedRows: 0}, nil
+	res, _ = conn.Query(ctx, "", "SELECT 'Databases'")
+	return &mysql.Result{Fields: res.GetFields(), Rows: rows, AffectedRows: 0}, nil
 }
