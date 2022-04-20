@@ -472,9 +472,9 @@ func (o optimizer) optimizeDelete(ctx context.Context, stmt *rast.DeleteStatemen
 }
 
 func (o optimizer) optimizeShowTables(ctx context.Context, stmt *rast.ShowTables, args []interface{}) (proto.Plan, error) {
-	ru := rcontext.Rule(ctx)
-	vts := ru.VTables()
-	for _, vt := range vts {
+	vts := rcontext.Rule(ctx).VTables()
+	databaseTablesMap := make(map[string]rule.DatabaseTables, len(vts))
+	for tableName, vt := range vts {
 		shards := rule.DatabaseTables{}
 		// compute all tables
 		topology := vt.Topology()
@@ -484,8 +484,25 @@ func (o optimizer) optimizeShowTables(ctx context.Context, stmt *rast.ShowTables
 			}
 			return true
 		})
+		databaseTablesMap[tableName] = shards
 	}
-	return nil, nil
+
+	tmpPlanData := make(map[string]plan.DatabaseTable)
+	for showTableName, databaseTables := range databaseTablesMap {
+		for databaseName, shardingTables := range databaseTables {
+			for _, shardingTable := range shardingTables {
+				tmpPlanData[shardingTable] = plan.DatabaseTable{
+					Database:  databaseName,
+					TableName: showTableName,
+				}
+			}
+		}
+	}
+
+	ret := plan.NewShowTablesPlan(stmt)
+	ret.BindArgs(args)
+	ret.SetAllShards(tmpPlanData)
+	return ret, nil
 }
 
 func (o optimizer) optimizeTruncate(ctx context.Context, stmt *rast.TruncateStatement, args []interface{}) (proto.Plan, error) {

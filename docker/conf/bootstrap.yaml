@@ -55,7 +55,7 @@ config:
                      host: arana-mysql
                      port: 3306
                      username: root
-                     password: "hhf521fhn"
+                     password: "123456"
                      database: employees
                      weight: r10w10
                      labels:
