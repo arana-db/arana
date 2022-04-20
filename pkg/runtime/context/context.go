@@ -33,12 +33,13 @@ const (
 )
 
 type (
-	keyFlag      struct{}
-	keyRule      struct{}
-	keySequence  struct{}
-	keySql       struct{}
-	keyNodeLabel struct{}
-	keySchema    struct{}
+	keyFlag           struct{}
+	keyRule           struct{}
+	keySequence       struct{}
+	keySql            struct{}
+	keyNodeLabel      struct{}
+	keySchema         struct{}
+	keyDefaultDBGroup struct{}
 )
 
 type cFlag uint8
@@ -57,6 +58,11 @@ func WithDirect(ctx context.Context) context.Context {
 // WithSQL binds the original sql.
 func WithSQL(ctx context.Context, sql string) context.Context {
 	return context.WithValue(ctx, keySql{}, sql)
+}
+
+// WithDBGroup binds the default db.
+func WithDBGroup(ctx context.Context, group string) context.Context {
+	return context.WithValue(ctx, keyDefaultDBGroup{}, group)
 }
 
 // WithRule binds a rule.
@@ -90,6 +96,15 @@ func Sequencer(ctx context.Context) proto.Sequencer {
 		return nil
 	}
 	return s
+}
+
+// DBGroup extracts the db.
+func DBGroup(ctx context.Context) string {
+	db, ok := ctx.Value(keyDefaultDBGroup{}).(string)
+	if !ok {
+		return ""
+	}
+	return db
 }
 
 // Rule extracts the rule.

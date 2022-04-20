@@ -33,7 +33,7 @@ import (
 )
 
 var (
-	db *sql.DB
+	utContainerMySQL *sql.DB
 )
 
 func TestMain(m *testing.M) {
@@ -45,7 +45,7 @@ func TestMain(m *testing.M) {
 	}
 	container := tester.SetupMySQLContainer()
 	var err error
-	db, err = tester.OpenDBConnection(container)
+	utContainerMySQL, err = tester.OpenDBConnection(container)
 	defer tester.CloseContainer(container)
 	if err != nil {
 		log.Error("Failed to setup MySQL container")
@@ -55,7 +55,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestSelect_Integration(t *testing.T) {
-	rows, err := db.Query(`SELECT uid, name, score, nickname FROM student_0001 where uid = ?`, 1)
+	rows, err := utContainerMySQL.Query(`SELECT uid, name, score, nickname FROM student_0001 where uid = ?`, 1)
 	assert.NoErrorf(t, err, "select row error: %v", err)
 	defer rows.Close()
 	var (

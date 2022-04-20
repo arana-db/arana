@@ -22,12 +22,13 @@ import (
 )
 
 const (
-	_        SQLType = iota
-	Squery           // QUERY
-	Sdelete          // DELETE
-	Supdate          // UPDATE
-	Sinsert          // INSERT
-	Sreplace         // REPLACE
+	_         SQLType = iota
+	Squery            // QUERY
+	Sdelete           // DELETE
+	Supdate           // UPDATE
+	Sinsert           // INSERT
+	Sreplace          // REPLACE
+	Struncate         // TRUNCATE
 )
 
 type RestoreFlag uint32
@@ -42,11 +43,12 @@ type Restorer interface {
 }
 
 var _sqlTypeNames = [...]string{
-	Squery:   "QUERY",
-	Sdelete:  "DELETE",
-	Supdate:  "UPDATE",
-	Sinsert:  "INSERT",
-	Sreplace: "REPLACE",
+	Squery:    "QUERY",
+	Sdelete:   "DELETE",
+	Supdate:   "UPDATE",
+	Sinsert:   "INSERT",
+	Sreplace:  "REPLACE",
+	Struncate: "TRUNCATE",
 }
 
 // SQLType represents the type of SQL.

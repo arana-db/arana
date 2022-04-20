@@ -191,7 +191,7 @@ func (tx *compositeTx) Execute(ctx *proto.Context) (res proto.Result, warn uint1
 	c = rcontext.WithRule(c, ru)
 	c = rcontext.WithSQL(c, ctx.GetQuery())
 
-	if plan, err = tx.rt.ns.Optimizer().Optimize(c, ctx.Stmt.StmtNode, args...); err != nil {
+	if plan, err = tx.rt.ns.Optimizer().Optimize(c, tx, ctx.Stmt.StmtNode, args...); err != nil {
 		err = errors.WithStack(err)
 		return
 	}
@@ -534,8 +534,10 @@ func (pi *defaultRuntime) Execute(ctx *proto.Context) (res proto.Result, warn ui
 	c = rcontext.WithRule(c, ru)
 	c = rcontext.WithSQL(c, ctx.GetQuery())
 	c = rcontext.WithSchema(c, ctx.Schema)
+	c = rcontext.WithDBGroup(c, pi.ns.DBGroups()[0])
 
-	if plan, err = pi.ns.Optimizer().Optimize(c, ctx.Stmt.StmtNode, args...); err != nil {
+
+	if plan, err = pi.ns.Optimizer().Optimize(c, pi, ctx.Stmt.StmtNode, args...); err != nil {
 		err = errors.WithStack(err)
 		return
 	}
@@ -569,22 +571,22 @@ func (pi *defaultRuntime) extractArgs(ctx *proto.Context) []interface{} {
 	return args
 }
 
-func (pi *defaultRuntime) call(ctx context.Context, db, query string, args ...interface{}) (proto.Result, error) {
-	if len(db) < 1 { // empty db, select first
+func (pi *defaultRuntime) call(ctx context.Context, group, query string, args ...interface{}) (proto.Result, error) {
+	if len(group) < 1 { // empty db, select first
 		if groups := pi.ns.DBGroups(); len(groups) > 0 {
-			db = groups[0]
+			group = groups[0]
 		}
 	}
 
-	upstream := pi.ns.DB(ctx, db)
-	if upstream == nil {
-		return nil, errors.Errorf("cannot get upstream database %s", db)
+	db := pi.ns.DB(ctx, group)
+	if db == nil {
+		return nil, errors.Errorf("cannot get upstream database %s", group)
 	}
 
-	log.Debugf("call upstream: db=%s, sql=\"%s\", args=%v", db, query, args)
+	log.Debugf("call upstream: db=%s, sql=\"%s\", args=%v", group, query, args)
 
 	// TODO: how to pass warn???
-	res, _, err := upstream.Call(ctx, query, args...)
+	res, _, err := db.Call(ctx, query, args...)
 	return res, err
 }
 

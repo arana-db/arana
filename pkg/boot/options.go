@@ -15,9 +15,12 @@
  * limitations under the License.
  */
 
-package constants
+package boot
 
-const (
-	ConfigPathKey       = "config"
-	ImportConfigPathKey = "source"
+import (
+	"github.com/arana-db/arana/pkg/config"
 )
+
+type BootOptions struct {
+	Config *config.ConfigOptions `yaml:"config"`
+}

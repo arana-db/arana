@@ -1,0 +1,95 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+config:
+  name: file
+  options:
+    content: |-
+       kind: ConfigMap
+       apiVersion: "1.0"
+       metadata:
+         name: arana-config
+       data:
+         listeners:
+           - protocol_type: mysql
+             server_version: 5.7.0
+             socket_address:
+               address: 0.0.0.0
+               port: 13306
+       
+         tenants:
+           - name: arana
+             users:
+               - username: arana
+                 password: "123456"
+               - username: dksl
+                 password: "123456"
+       
+         clusters:
+           - name: employees
+             type: mysql
+             sql_max_limit: -1
+             tenant: arana
+             conn_props:
+               capacity: 10
+               max_capacity: 20
+               idle_timeout: 60
+             groups:
+               - name: employees_0000
+                 nodes:
+                   - name: arana-node-1
+                     host: arana-mysql
+                     port: 3306
+                     username: root
+                     password: "123456"
+                     database: employees
+                     weight: r10w10
+                     labels:
+                       zone: shanghai
+                     conn_props:
+                       readTimeout: "1s"
+                       writeTimeout: "1s"
+                       parseTime: true
+                       loc: Local
+                       charset: utf8mb4,utf8
+       
+         sharding_rule:
+           tables:
+             - name: employees.student
+               allow_full_scan: true
+               db_rules:
+               tbl_rules:
+                 - column: uid
+                   expr: modShard(32)
+               topology:
+                 db_pattern: employees_0000
+                 tbl_pattern: student_${0000...0031}
+               attributes:
+                 sqlMaxLimit: -1
+
+  # name: etcd
+  # options:
+  #   endpoints: "http://localhost:2379"
+  # name: nacos
+  # options:
+  #   endpoints: "localhost:8080"
+  #   namespace: arana
+  #   group: arana
+  #   contextPath: /nacos
+  #   scheme: http
+  #   username: nacos
+  #   password: nacos
