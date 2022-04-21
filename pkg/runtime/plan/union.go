@@ -27,11 +27,14 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/transformer"
 )
 
 // UnionPlan merges multiple query plan.
 type UnionPlan struct {
 	Plans []proto.Plan
+	transformer.Combiner
+	AggrLoader *transformer.AggrLoader
 }
 
 func (u UnionPlan) Type() proto.PlanType {
@@ -47,7 +50,8 @@ func (u UnionPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, 
 		}
 		results = append(results, res)
 	}
-	return compositeResult(results), nil
+
+	return u.Combiner.Merge(compositeResult(results), u.AggrLoader)
 }
 
 type compositeResult []proto.Result

@@ -37,6 +37,7 @@ import (
 	"github.com/arana-db/arana/pkg/runtime/cmp"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/runtime/plan"
+	"github.com/arana-db/arana/pkg/transformer"
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
@@ -309,8 +310,11 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 			return nil, err
 		}
 	}
+
 	unionPlan := &plan.UnionPlan{
-		Plans: plans,
+		Plans:      plans,
+		Combiner:   transformer.NewCombinerManager(),
+		AggrLoader: transformer.LoadAggrs(stmt.Select),
 	}
 	// TODO: order/groupBy/aggregate
 
