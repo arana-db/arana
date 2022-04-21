@@ -67,48 +67,46 @@ func (l *Listener) handleInitDB(c *Conn, ctx *proto.Context) error {
 }
 
 func (l *Listener) handleQuery(c *Conn, ctx *proto.Context) error {
-	return func() error {
-		c.startWriterBuffering()
-		defer func() {
-			if err := c.endWriterBuffering(); err != nil {
-				log.Errorf("conn %v: flush() failed: %v", c.ID(), err)
-			}
-		}()
+	c.startWriterBuffering()
+	defer func() {
+		if err := c.endWriterBuffering(); err != nil {
+			log.Errorf("conn %v: flush() failed: %v", c.ID(), err)
+		}
+	}()
 
-		c.recycleReadPacket()
-		result, warn, err := l.executor.ExecutorComQuery(ctx)
-		if err != nil {
-			if wErr := c.writeErrorPacketFromError(err); wErr != nil {
-				log.Error("Error writing query error to client %v: %v", l.connectionID, wErr)
-				return wErr
-			}
-			return nil
-		}
-		if len(result.GetFields()) == 0 {
-			// A successful callback with no fields means that this was a
-			// DML or other write-only operation.
-			//
-			// We should not send any more packets after this, but make sure
-			// to extract the affected rows and last insert id from the result
-			// struct here since clients expect it.
-			var (
-				affected, _ = result.RowsAffected()
-				insertId, _ = result.LastInsertId()
-			)
-			return c.writeOKPacket(affected, insertId, c.StatusFlags, warn)
-		}
-		if err = c.writeFields(l.capabilities, result); err != nil {
-			return err
-		}
-		if err = c.writeRows(result); err != nil {
-			return err
-		}
-		if err = c.writeEndResult(l.capabilities, false, 0, 0, warn); err != nil {
-			log.Errorf("Error writing result to %s: %v", c, err)
-			return err
+	c.recycleReadPacket()
+	result, warn, err := l.executor.ExecutorComQuery(ctx)
+	if err != nil {
+		if wErr := c.writeErrorPacketFromError(err); wErr != nil {
+			log.Error("Error writing query error to client %v: %v", l.connectionID, wErr)
+			return wErr
 		}
 		return nil
-	}()
+	}
+	if len(result.GetFields()) == 0 {
+		// A successful callback with no fields means that this was a
+		// DML or other write-only operation.
+		//
+		// We should not send any more packets after this, but make sure
+		// to extract the affected rows and last insert id from the result
+		// struct here since clients expect it.
+		var (
+			affected, _ = result.RowsAffected()
+			insertId, _ = result.LastInsertId()
+		)
+		return c.writeOKPacket(affected, insertId, c.StatusFlags, warn)
+	}
+	if err = c.writeFields(l.capabilities, result); err != nil {
+		return err
+	}
+	if err = c.writeRows(result); err != nil {
+		return err
+	}
+	if err = c.writeEndResult(l.capabilities, false, 0, 0, warn); err != nil {
+		log.Errorf("Error writing result to %s: %v", c, err)
+		return err
+	}
+	return nil
 }
 
 func (l *Listener) handleFieldList(c *Conn, ctx *proto.Context) error {
@@ -126,68 +124,66 @@ func (l *Listener) handleFieldList(c *Conn, ctx *proto.Context) error {
 }
 
 func (l *Listener) handleStmtExecute(c *Conn, ctx *proto.Context) error {
-	return func() error {
-		c.startWriterBuffering()
+	c.startWriterBuffering()
+	defer func() {
+		if err := c.endWriterBuffering(); err != nil {
+			log.Errorf("conn %v: flush() failed: %v", c.ID(), err)
+		}
+	}()
+	stmtID, _, err := c.parseComStmtExecute(&l.stmts, ctx.Data)
+	c.recycleReadPacket()
+
+	if stmtID != uint32(0) {
 		defer func() {
-			if err := c.endWriterBuffering(); err != nil {
-				log.Errorf("conn %v: flush() failed: %v", c.ID(), err)
+			// Allocate a new bindvar map every time since VTGate.Execute() mutates it.
+			if prepare, ok := l.stmts.Load(stmtID); ok {
+				prepareStmt, _ := prepare.(*proto.Stmt)
+				prepareStmt.BindVars = make(map[string]interface{}, prepareStmt.ParamsCount)
 			}
 		}()
-		stmtID, _, err := c.parseComStmtExecute(&l.stmts, ctx.Data)
-		c.recycleReadPacket()
+	}
 
-		if stmtID != uint32(0) {
-			defer func() {
-				// Allocate a new bindvar map every time since VTGate.Execute() mutates it.
-				if prepare, ok := l.stmts.Load(stmtID); ok {
-					prepareStmt, _ := prepare.(*proto.Stmt)
-					prepareStmt.BindVars = make(map[string]interface{}, prepareStmt.ParamsCount)
-				}
-			}()
-		}
-
-		if err != nil {
-			if wErr := c.writeErrorPacketFromError(err); wErr != nil {
-				// If we can't even write the error, we're done.
-				log.Error("Error writing query error to client %v: %v", l.connectionID, wErr)
-				return wErr
-			}
-			return nil
-		}
-
-		prepareStmt, _ := l.stmts.Load(stmtID)
-		ctx.Stmt = prepareStmt.(*proto.Stmt)
-
-		result, warn, err := l.executor.ExecutorComStmtExecute(ctx)
-		if err != nil {
-			if wErr := c.writeErrorPacketFromError(err); wErr != nil {
-				log.Error("Error writing query error to client %v: %v", l.connectionID, wErr)
-				return wErr
-			}
-			return nil
-		}
-		rlt := result.(*Result)
-		if len(rlt.Fields) == 0 {
-			// A successful callback with no fields means that this was a
-			// DML or other write-only operation.
-			//
-			// We should not send any more packets after this, but make sure
-			// to extract the affected rows and last insert id from the result
-			// struct here since clients expect it.
-			return c.writeOKPacket(rlt.AffectedRows, rlt.InsertId, c.StatusFlags, warn)
-		}
-		if err = c.writeFields(l.capabilities, result); err != nil {
-			return err
-		}
-		if err = c.writeBinaryRows(result); err != nil {
-			return err
-		}
-		if err = c.writeEndResult(l.capabilities, false, 0, 0, warn); err != nil {
-			log.Errorf("Error writing result to %s: %v", c, err)
-			return err
+	if err != nil {
+		if wErr := c.writeErrorPacketFromError(err); wErr != nil {
+			// If we can't even write the error, we're done.
+			log.Error("Error writing query error to client %v: %v", l.connectionID, wErr)
+			return wErr
 		}
 		return nil
-	}()
+	}
+
+	prepareStmt, _ := l.stmts.Load(stmtID)
+	ctx.Stmt = prepareStmt.(*proto.Stmt)
+
+	result, warn, err := l.executor.ExecutorComStmtExecute(ctx)
+	if err != nil {
+		if wErr := c.writeErrorPacketFromError(err); wErr != nil {
+			log.Error("Error writing query error to client %v: %v", l.connectionID, wErr)
+			return wErr
+		}
+		return nil
+	}
+	rlt := result.(*Result)
+	if len(rlt.Fields) == 0 {
+		// A successful callback with no fields means that this was a
+		// DML or other write-only operation.
+		//
+		// We should not send any more packets after this, but make sure
+		// to extract the affected rows and last insert id from the result
+		// struct here since clients expect it.
+		return c.writeOKPacket(rlt.AffectedRows, rlt.InsertId, c.StatusFlags, warn)
+	}
+	if err = c.writeFields(l.capabilities, result); err != nil {
+		return err
+	}
+	if err = c.writeBinaryRows(result); err != nil {
+		return err
+	}
+	if err = c.writeEndResult(l.capabilities, false, 0, 0, warn); err != nil {
+		log.Errorf("Error writing result to %s: %v", c, err)
+		return err
+	}
+	return nil
 }
 
 func (l *Listener) handlePrepare(c *Conn, ctx *proto.Context) error {
