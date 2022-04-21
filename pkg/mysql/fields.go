@@ -61,6 +61,10 @@ type Field struct {
 	defaultValue       []byte
 }
 
+func NewDatabaseName(name string) *Field {
+	return &Field{name: name}
+}
+
 func (mf *Field) TableName() string {
 	return mf.table
 }
