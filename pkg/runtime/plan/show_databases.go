@@ -61,5 +61,5 @@ func (s *ShowDatabasesPlan) ExecIn(ctx context.Context, _ proto.VConn) (proto.Re
 			[]proto.Field{&mysql.Field{}}, nil))
 	}
 
-	return &mysql.Result{Fields: []proto.Field{mysql.NewDatabaseName("Databases")}, Rows: rows, AffectedRows: 0}, nil
+	return &mysql.Result{Fields: []proto.Field{mysql.NewDatabaseName("Database")}, Rows: rows, AffectedRows: 0}, nil
 }
