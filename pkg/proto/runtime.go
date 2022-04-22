@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-//go:generate mockgen -destination=../../testdata/mock_runtime.go -package=testdata . VConn,Plan,Optimizer,DB
+//go:generate mockgen -destination=../../testdata/mock_runtime.go -package=testdata . VConn,Plan,Optimizer,DB,SchemaLoader
 package proto
 
 import (
@@ -56,7 +56,7 @@ type (
 	// Optimizer represents a sql statement optimizer which can be used to create QueryPlan or ExecPlan.
 	Optimizer interface {
 		// Optimize optimizes the sql with arguments then returns a Plan.
-		Optimize(ctx context.Context, stmt ast.StmtNode, args ...interface{}) (Plan, error)
+		Optimize(ctx context.Context, conn VConn, stmt ast.StmtNode, args ...interface{}) (Plan, error)
 	}
 
 	// Weight represents the read/write weight info.
@@ -112,5 +112,9 @@ type (
 		Commit(ctx context.Context) (Result, uint16, error)
 		// Rollback rollbacks current transaction.
 		Rollback(ctx context.Context) (Result, uint16, error)
+	}
+
+	SchemaLoader interface {
+		Load(ctx context.Context, conn VConn, tables []string) map[string]*TableMetadata
 	}
 )

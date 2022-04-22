@@ -103,6 +103,9 @@ type Discovery interface {
 	ListTables(ctx context.Context, cluster string) ([]string, error)
 	// GetTable returns the table info.
 	GetTable(ctx context.Context, cluster, table string) (*rule.VTable, error)
+
+	// GetConfigCenter
+	GetConfigCenter() *config.Center
 }
 
 type discovery struct {
@@ -154,6 +157,10 @@ func (fp *discovery) initConfigCenter() error {
 	fp.c = c
 
 	return nil
+}
+
+func (fp *discovery) GetConfigCenter() *config.Center {
+	return fp.c
 }
 
 func (fp *discovery) GetCluster(ctx context.Context, cluster string) (*Cluster, error) {

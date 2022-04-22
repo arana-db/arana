@@ -21,4 +21,6 @@ WORKDIR app
 
 COPY dist/ .
 
-CMD ["./arana", "start", "-c", "config.yaml"]
+RUN chmod +x ./arana
+
+CMD ["./arana", "start", "-c", "bootstrap.yaml"]

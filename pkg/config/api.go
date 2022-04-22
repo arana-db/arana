@@ -26,16 +26,19 @@ import (
 type (
 	// ProtocolType protocol type enum
 	ProtocolType int32
+
+	// PathKey config path key type
+	PathKey string
 )
 
 const (
-	DefaultConfigPath                   = "/arana-db/config"
-	DefaultConfigMetadataPath           = "/arana-db/config/metadata"
-	DefaultConfigDataListenersPath      = "/arana-db/config/data/listeners"
-	DefaultConfigDataFiltersPath        = "/arana-db/config/data/filters"
-	DefaultConfigDataSourceClustersPath = "/arana-db/config/data/dataSourceClusters"
-	DefaultConfigDataShardingRulePath   = "/arana-db/config/data/shardingRule"
-	DefaultConfigDataTenantsPath        = "/arana-db/config/data/tenants"
+	DefaultConfigPath                   PathKey = "/arana-db/config"
+	DefaultConfigMetadataPath           PathKey = "/arana-db/config/metadata"
+	DefaultConfigDataListenersPath      PathKey = "/arana-db/config/data/listeners"
+	DefaultConfigDataFiltersPath        PathKey = "/arana-db/config/data/filters"
+	DefaultConfigDataSourceClustersPath PathKey = "/arana-db/config/data/dataSourceClusters"
+	DefaultConfigDataShardingRulePath   PathKey = "/arana-db/config/data/shardingRule"
+	DefaultConfigDataTenantsPath        PathKey = "/arana-db/config/data/tenants"
 )
 
 const (
@@ -91,13 +94,13 @@ type StoreOperate interface {
 	Init(options map[string]interface{}) error
 
 	//Save save a configuration data
-	Save(key string, val []byte) error
+	Save(key PathKey, val []byte) error
 
 	//Get get a configuration
-	Get(key string) ([]byte, error)
+	Get(key PathKey) ([]byte, error)
 
 	//Watch Monitor changes of the key
-	Watch(key string) (<-chan []byte, error)
+	Watch(key PathKey) (<-chan []byte, error)
 
 	//Name plugin name
 	Name() string

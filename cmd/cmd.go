@@ -18,32 +18,22 @@
 package main
 
 import (
-	"context"
 	"os"
-	"os/signal"
-	"syscall"
 )
 
 import (
-	"github.com/pkg/errors"
-
 	"github.com/spf13/cobra"
 )
 
 import (
-	"github.com/arana-db/arana/pkg/boot"
 	"github.com/arana-db/arana/pkg/constants"
-	"github.com/arana-db/arana/pkg/executor"
-	"github.com/arana-db/arana/pkg/filters"
-	"github.com/arana-db/arana/pkg/mysql"
-	"github.com/arana-db/arana/pkg/server"
-	"github.com/arana-db/arana/pkg/util/log"
 )
 
 var (
 	Version = "0.1.0"
 
-	configPath string
+	bootstrapConfigPath string
+	importBootConfPath  string
 )
 
 var (
@@ -52,79 +42,26 @@ var (
 		Short:   "arana is a db proxy server",
 		Version: Version,
 	}
-
-	startCommand = &cobra.Command{
-		Use:   "start",
-		Short: "start arana",
-
-		Run: func(cmd *cobra.Command, args []string) {
-			provider := boot.NewProvider(configPath)
-			if err := boot.Boot(context.Background(), provider); err != nil {
-				log.Fatal("start failed: %v", err)
-				return
-			}
-
-			filters, err := provider.ListFilters(context.Background())
-			if err != nil {
-				log.Fatal("start failed: %v", err)
-				return
-			}
-
-			for _, filterConf := range filters {
-				factory := filter.GetFilterFactory(filterConf.Name)
-				if factory == nil {
-					panic(errors.Errorf("there is no filter factory for filter: %s", filterConf.Name))
-				}
-				f, err := factory.NewFilter(filterConf.Config)
-				if err != nil {
-					panic(errors.WithMessagef(err, "failed to create filter: %s", filterConf.Name))
-				}
-				filter.RegisterFilter(f.GetName(), f)
-			}
-
-			propeller := server.NewServer()
-
-			listenersConf, err := provider.ListListeners(context.Background())
-			if err != nil {
-				log.Fatal("start failed: %v", err)
-				return
-			}
-
-			for _, listenerConf := range listenersConf {
-				listener, err := mysql.NewListener(listenerConf)
-				if err != nil {
-					log.Fatalf("create listener failed: %v", err)
-					return
-				}
-				executor := executor.NewRedirectExecutor()
-				listener.SetExecutor(executor)
-				propeller.AddListener(listener)
-			}
-			propeller.Start()
-
-			ctx, cancel := context.WithCancel(context.Background())
-			c := make(chan os.Signal, 2)
-			signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-			go func() {
-				<-c
-				cancel()
-				<-c
-				os.Exit(1) // second signal. Exit directly.
-			}()
-			select {
-			case <-ctx.Done():
-				return
-			}
-		},
-	}
 )
 
 // init Init startCmd
 func init() {
-	startCommand.PersistentFlags().StringVarP(&configPath, constants.ConfigPathKey, "c", os.Getenv(constants.EnvAranaConfig), "Load configuration from `FILE`")
+	startCommand.
+		PersistentFlags().
+		StringVarP(&bootstrapConfigPath, constants.ConfigPathKey, "c", os.Getenv(constants.EnvAranaConfig), "bootstrap configuration file path")
+
+	confImportCommand.
+		PersistentFlags().
+		StringVarP(&importBootConfPath, constants.ConfigPathKey, "c", os.Getenv(constants.EnvAranaConfig), "bootstrap configuration file path")
+	confImportCommand.
+		PersistentFlags().
+		StringVarP(&sourceConfigPath, constants.ImportConfigPathKey, "s", "", "import configuration file path")
+
 	rootCommand.AddCommand(startCommand)
+	rootCommand.AddCommand(confImportCommand)
 }
 
-func main() {
+// Execute Execute command line analysis
+func Execute() {
 	rootCommand.Execute()
 }
