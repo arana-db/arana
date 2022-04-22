@@ -20,7 +20,9 @@ package executor
 import (
 	"bytes"
 	stdErrors "errors"
+	"github.com/arana-db/arana/pkg/metrics"
 	"sync"
+	"time"
 )
 
 import (
@@ -126,10 +128,12 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 
 	p := parser.New()
 	query := ctx.GetQuery()
+	start := time.Now()
 	act, err := p.ParseOneStmt(query, "", "")
 	if err != nil {
 		return nil, 0, err
 	}
+	metrics.ParserDuration.Observe(time.Since(start).Seconds())
 	log.Debugf("ComQuery: %s", query)
 
 	ctx.Stmt = &proto.Stmt{

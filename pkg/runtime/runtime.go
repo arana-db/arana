@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	stdErrors "errors"
 	"fmt"
+	"github.com/arana-db/arana/pkg/metrics"
 	"sort"
 	"sync"
 	"time"
@@ -161,6 +162,10 @@ func (tx *compositeTx) String() string {
 }
 
 func (tx *compositeTx) Execute(ctx *proto.Context) (res proto.Result, warn uint16, err error) {
+	execStart := time.Now()
+	defer func() {
+		metrics.ExecuteDuration.Observe(time.Since(execStart).Seconds())
+	}()
 	if tx.closed.Load() {
 		err = errTxClosed
 		return
@@ -519,6 +524,10 @@ func (pi *defaultRuntime) Exec(ctx context.Context, db string, query string, arg
 }
 
 func (pi *defaultRuntime) Execute(ctx *proto.Context) (res proto.Result, warn uint16, err error) {
+	execStart := time.Now()
+	defer func() {
+		metrics.ExecuteDuration.Observe(time.Since(execStart).Seconds())
+	}()
 	args := pi.extractArgs(ctx)
 
 	if direct := rcontext.IsDirect(ctx.Context); direct {
@@ -534,10 +543,12 @@ func (pi *defaultRuntime) Execute(ctx *proto.Context) (res proto.Result, warn ui
 	c = rcontext.WithRule(c, ru)
 	c = rcontext.WithSQL(c, ctx.GetQuery())
 
+	start := time.Now()
 	if plan, err = pi.ns.Optimizer().Optimize(c, ctx.Stmt.StmtNode, args...); err != nil {
 		err = errors.WithStack(err)
 		return
 	}
+	metrics.OptimizeDuration.Observe(time.Since(start).Seconds())
 
 	if res, err = plan.ExecIn(c, pi); err != nil {
 		// TODO: how to warp error packet
