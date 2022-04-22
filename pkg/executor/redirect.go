@@ -20,12 +20,12 @@ package executor
 import (
 	"bytes"
 	stdErrors "errors"
-	"github.com/arana-db/arana/pkg/metrics"
 	"sync"
 	"time"
 )
 
 import (
+	"github.com/arana-db/arana/pkg/metrics"
 	"github.com/arana-db/parser"
 	"github.com/arana-db/parser/ast"
 

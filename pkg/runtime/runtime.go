@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	stdErrors "errors"
 	"fmt"
-	"github.com/arana-db/arana/pkg/metrics"
 	"sort"
 	"sync"
 	"time"
@@ -40,6 +39,7 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/config"
+	"github.com/arana-db/arana/pkg/metrics"
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
