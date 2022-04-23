@@ -61,7 +61,7 @@ type Field struct {
 	defaultValue       []byte
 }
 
-func NewDatabaseName(name string) *Field {
+func NewField(name string) *Field {
 	return &Field{name: name}
 }
 
