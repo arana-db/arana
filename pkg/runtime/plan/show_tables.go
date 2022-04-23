@@ -92,16 +92,17 @@ func (s *ShowTablesPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Re
 				continue
 			}
 
+			encodeTableName := mysql.PutLengthEncodedString([]byte(databaseTable.TableName))
 			tmpValues := rowValues
 			for idx := range tmpValues {
-				tmpValues[idx].Val = databaseTable.TableName
-				tmpValues[idx].Raw = []byte(databaseTable.TableName)
-				tmpValues[idx].Len = len(databaseTable.TableName)
+				tmpValues[idx].Val = string(encodeTableName)
+				tmpValues[idx].Raw = encodeTableName
+				tmpValues[idx].Len = len(encodeTableName)
 			}
 
 			var tmpNewRow mysql.Row
-			r := tmpNewRow.Encode(tmpValues, textRow.Fields(), textRow.Columns())
-			rebuildResult.Rows = append(rebuildResult.Rows, r)
+			tmpNewRow.Encode(tmpValues, textRow.Fields(), textRow.Columns())
+			rebuildResult.Rows = append(rebuildResult.Rows, &tmpNewRow)
 			hasRebuildTables[databaseTable.TableName] = struct{}{}
 			affectRows++
 			continue
