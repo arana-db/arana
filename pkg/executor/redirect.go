@@ -178,15 +178,6 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 			res, warn, err = rt.Execute(ctx)
 		}
 	case *ast.ShowStmt:
-		if query == "SHOW DATABASES" || query == "show databases" {
-			ctx.Context = rcontext.WithDirect(ctx.Context)
-		}
-		if tx, ok := executor.getTx(ctx); ok {
-			res, warn, err = tx.Execute(ctx)
-		} else {
-			res, warn, err = rt.Execute(ctx)
-		}
-	case *ast.ShowStmt:
 		res, warn, err = rt.Execute(ctx)
 	case *ast.TruncateTableStmt:
 		res, warn, err = rt.Execute(ctx)
