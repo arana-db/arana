@@ -88,6 +88,8 @@ func (o optimizer) Optimize(ctx context.Context, conn proto.VConn, stmt ast.Stmt
 
 func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.Statement, args ...interface{}) (proto.Plan, error) {
 	switch t := stmt.(type) {
+	case *rast.ShowDatabases:
+		return o.optimizeShowDatabases(ctx, t, args)
 	case *rast.SelectStatement:
 		return o.optimizeSelect(ctx, conn, t, args)
 	case *rast.InsertStatement:
@@ -138,6 +140,12 @@ func (o optimizer) getSelectFlag(ctx context.Context, stmt *rast.SelectStatement
 		flag |= _supported
 	}
 	return
+}
+
+func (o optimizer) optimizeShowDatabases(ctx context.Context, stmt *rast.ShowDatabases, args []interface{}) (proto.Plan, error) {
+	ret := &plan.ShowDatabasesPlan{Stmt: stmt}
+	ret.BindArgs(args)
+	return ret, nil
 }
 
 func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *rast.SelectStatement, args []interface{}) (proto.Plan, error) {
