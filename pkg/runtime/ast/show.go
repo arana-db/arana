@@ -306,3 +306,49 @@ func (sh *ShowColumns) TableFormat() string {
 	}
 	return "FROM"
 }
+
+type ShowVariables struct {
+	flag showColumnsFlag
+	like sql.NullString
+}
+
+func (s *ShowVariables) Validate() error {
+	return nil
+}
+
+func (s *ShowVariables) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	sb.WriteString("SHOW VARIABLES ")
+
+	if s.like.Valid {
+		sb.WriteString(" LIKE ")
+
+		sb.WriteByte('\'')
+		sb.WriteString(s.like.String)
+		sb.WriteByte('\'')
+	}
+
+	return nil
+}
+
+func (s *ShowVariables) Like() (string, bool) {
+	if s.like.Valid {
+		return s.like.String, true
+	}
+	return "", false
+}
+
+func (s *ShowVariables) CntParams() int {
+	return 0
+}
+
+func (s *ShowVariables) Mode() SQLType {
+	return Squery
+}
+
+func (s *ShowVariables) Full() bool {
+	return s.flag&scFlagFull != 0
+}
+
+func (s *ShowVariables) Extended() bool {
+	return s.flag&scFlagExtended != 0
+}
