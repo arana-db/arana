@@ -52,8 +52,8 @@ config:
                - name: employees_0000
                  nodes:
                    - name: arana-node-1
-                     host: arana-mysql
-                     port: 3306
+                     host: 127.0.0.1
+                     port: 3307
                      username: root
                      password: "123456"
                      database: employees
