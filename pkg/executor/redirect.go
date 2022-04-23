@@ -177,6 +177,8 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 		} else {
 			res, warn, err = rt.Execute(ctx)
 		}
+	case *ast.ShowStmt:
+		res, warn, err = rt.Execute(ctx)
 	case *ast.TruncateTableStmt:
 		res, warn, err = rt.Execute(ctx)
 	default:
