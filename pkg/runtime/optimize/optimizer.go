@@ -187,6 +187,9 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 		return nil, errors.WithStack(errDenyFullScan)
 	}
 
+	// Go through first table if no shards matched.
+	// For example:
+	//    SELECT ... FROM xxx WHERE a > 8 and a < 4
 	if shards.IsEmpty() {
 		var (
 			db0, tbl0 string
