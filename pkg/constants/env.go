@@ -18,5 +18,5 @@
 package constants
 
 const (
-	EnvAranaConfig = "Arana_Config"
+	EnvAranaConfig = "ARANA_CONFIG"
 )
