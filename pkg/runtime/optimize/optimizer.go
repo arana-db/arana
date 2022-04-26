@@ -24,6 +24,7 @@ import (
 )
 
 import (
+	"github.com/arana-db/parser/ast"
 	"github.com/pkg/errors"
 )
 
@@ -36,7 +37,6 @@ import (
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/runtime/plan"
 	"github.com/arana-db/arana/pkg/util/log"
-	"github.com/arana-db/parser/ast"
 )
 
 var _ proto.Optimizer = (*optimizer)(nil)
