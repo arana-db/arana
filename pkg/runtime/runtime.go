@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	stdErrors "errors"
 	"fmt"
-	gxnet "github.com/dubbogo/gost/net"
 	"sort"
 	"sync"
 	"time"
@@ -30,7 +29,7 @@ import (
 
 import (
 	"github.com/bwmarrin/snowflake"
-
+	gxnet "github.com/dubbogo/gost/net"
 	"github.com/pkg/errors"
 
 	"go.uber.org/atomic"
