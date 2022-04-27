@@ -1381,3 +1381,7 @@ func (conn *BackendConnection) prepare(query string) (*BackendStatement, error) 
 func (conn *BackendConnection) Close() {
 	conn.c.Close()
 }
+
+func (conn *BackendConnection) GetDatabaseConn() *Conn {
+	return conn.c
+}
