@@ -256,6 +256,18 @@ func TestDelete(t *testing.T) {
 	assert.Equal(t, int64(1), affected)
 }
 
+func TestShowDatabases(t *testing.T) {
+	db, err := sql.Open(driverName, dataSourceName)
+	assert.NoErrorf(t, err, "connection error: %v", err)
+	defer db.Close()
+
+	result, err := db.Query("show databases")
+	assert.NoErrorf(t, err, "show databases error: %v", err)
+	affected, err := result.ColumnTypes()
+	assert.NoErrorf(t, err, "show databases: %v", err)
+	assert.Equal(t, affected[0].DatabaseTypeName(), "VARCHAR")
+}
+
 func TestDropTable(t *testing.T) {
 	db, err := sql.Open(driverName, dataSourceName)
 	assert.NoErrorf(t, err, "connection error: %v", err)
