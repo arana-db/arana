@@ -26,6 +26,7 @@ import (
 )
 
 import (
+	fieldType "github.com/arana-db/arana/pkg/constants/mysql"
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime/ast"
@@ -61,5 +62,5 @@ func (s *ShowDatabasesPlan) ExecIn(ctx context.Context, _ proto.VConn) (proto.Re
 			[]proto.Field{&mysql.Field{}}, nil))
 	}
 
-	return &mysql.Result{Fields: []proto.Field{mysql.NewField("Database")}, Rows: rows, AffectedRows: 0}, nil
+	return &mysql.Result{Fields: []proto.Field{mysql.NewField("Database", fieldType.FieldTypeVarString)}, Rows: rows, AffectedRows: 0}, nil
 }

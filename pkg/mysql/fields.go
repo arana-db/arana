@@ -61,8 +61,8 @@ type Field struct {
 	defaultValue       []byte
 }
 
-func NewField(name string) *Field {
-	return &Field{name: name}
+func NewField(name string, filedType mysql.FieldType) *Field {
+	return &Field{name: name, fieldType: filedType}
 }
 
 func (mf *Field) TableName() string {
