@@ -104,8 +104,23 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		}
 	case *ast.TruncateTableStmt:
 		return cc.convTruncateTableStmt(stmt), nil
+	case *ast.DropTableStmt:
+		return cc.convDropTableStmt(stmt), nil
+
 	default:
 		return nil, errors.Errorf("unimplement: stmt type %T!", stmt)
+	}
+}
+
+func (cc *convCtx) convDropTableStmt(stmt *ast.DropTableStmt) *DropTableStatement {
+	var tables = make([]*TableName, len(stmt.Tables))
+	for i, table := range stmt.Tables {
+		tables[i] = &TableName{
+			table.Name.String(),
+		}
+	}
+	return &DropTableStatement{
+		Tables: tables,
 	}
 }
 

@@ -181,6 +181,9 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 		res, warn, err = rt.Execute(ctx)
 	case *ast.TruncateTableStmt:
 		res, warn, err = rt.Execute(ctx)
+	case *ast.DropTableStmt:
+		res, warn, err = rt.Execute(ctx)
+
 	default:
 		// TODO: mark direct flag temporarily, remove when write-mode is supported for runtime
 		ctx.Context = rcontext.WithDirect(ctx.Context)
