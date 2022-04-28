@@ -29,7 +29,7 @@ import (
 
 import (
 	"github.com/bwmarrin/snowflake"
-	gxnet "github.com/dubbogo/gost/net"
+
 	"github.com/pkg/errors"
 
 	"go.uber.org/atomic"
@@ -479,21 +479,12 @@ func (db *AtomDB) SetWeight(weight proto.Weight) error {
 }
 
 func (db *AtomDB) borrowConnection(ctx context.Context) (*mysql.BackendConnection, error) {
-	if db.pool.Available() < 1 {
-		_ = db.pool.SetCapacity(db.Capacity() + 1)
-	}
-	res, err := db.pool.Get(ctx)
+	bcp := (*pools.BackendResourcePool)(db.pool)
+	res, err := bcp.Get(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-
-	conn := res.(*mysql.BackendConnection).GetDatabaseConn()
-
-	if err := gxnet.ConnCheck(conn.GetNetConn()); err != nil {
-		db.pool.Put(nil)
-		res, err = db.pool.Get(ctx)
-	}
-	return res.(*mysql.BackendConnection), nil
+	return res, nil
 }
 
 func (db *AtomDB) returnConnection(bc *mysql.BackendConnection) {
