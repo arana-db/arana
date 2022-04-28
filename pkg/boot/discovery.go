@@ -516,30 +516,31 @@ func parseTopology(input string) (format string, begin, end int, err error) {
 }
 
 func toSharder(input *config.Rule) (rule.ShardComputer, error) {
-	mat := getRuleExprRegexp().FindStringSubmatch(input.Expr)
-	if len(mat) != 3 {
-		return nil, errors.Errorf("invalid shard rule: %s", input.Expr)
-	}
-
 	var (
 		computer rule.ShardComputer
-		method   = mat[1]
-		n, _     = strconv.Atoi(mat[2])
+		method   string
+		mod      int
+		err      error
 	)
+
+	if mat := getRuleExprRegexp().FindStringSubmatch(input.Expr); len(mat) == 3 {
+		method = mat[1]
+		mod, _ = strconv.Atoi(mat[2])
+	}
 
 	switch method {
 	case string(rrule.ModShard):
-		computer = rrule.NewModShard(n)
+		computer = rrule.NewModShard(mod)
 	case string(rrule.HashMd5Shard):
-		computer = rrule.NewHashMd5Shard(n)
+		computer = rrule.NewHashMd5Shard(mod)
 	case string(rrule.HashBKDRShard):
-		computer = rrule.NewHashBKDRShard(n)
+		computer = rrule.NewHashBKDRShard(mod)
 	case string(rrule.HashCrc32Shard):
-		computer = rrule.NewHashCrc32Shard(n)
+		computer = rrule.NewHashCrc32Shard(mod)
 	default:
-		return nil, errors.Errorf("invalid shard rule: %s", input.Expr)
+		computer, err = rrule.NewJavascriptShardComputer(input.Expr)
 	}
-	return computer, nil
+	return computer, err
 }
 
 func getRender(format string) func(int) string {

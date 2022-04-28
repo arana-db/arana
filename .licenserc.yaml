@@ -72,7 +72,10 @@ header: # `header` section is configurations for source codes license header.
     - '.gitmodules'
     - 'Makefile'
     - 'justfile'
-    - 'docker'
+    - 'conf/**'
+    - '.dockerignore'
+    - 'Dockerfile'
+    - 'docker-compose.yaml'
     - 'pkg/resolver/mysql/constants.go' # with two license: apache and Vitess
     - 'pkg/resolver/mysql/encoding.go'
     - 'pkg/resolver/mysql/sql_error.go'

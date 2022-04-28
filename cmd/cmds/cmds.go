@@ -15,33 +15,25 @@
  * limitations under the License.
  */
 
-package main
+package cmds
 
 import (
 	"github.com/spf13/cobra"
 )
 
-import (
-	"github.com/arana-db/arana/cmd/cmds"
+var _handlers []Handler
 
-	// load sub-commands
-	_ "github.com/arana-db/arana/cmd/start"
-	_ "github.com/arana-db/arana/cmd/tools"
-)
+// Handler represents the command handler.
+type Handler func(cmd *cobra.Command)
 
-var (
-	Version = "0.1.0"
-)
+// Handle handles the main command.
+func Handle(input Handler) {
+	_handlers = append(_handlers, input)
+}
 
-func main() {
-	rootCommand := &cobra.Command{
-		Use:     "arana",
-		Short:   "arana is a db proxy server",
-		Version: Version,
+// Do process the root command with handlers.
+func Do(cmd *cobra.Command) {
+	for _, it := range _handlers {
+		it(cmd)
 	}
-
-	// initialize sub commands
-	cmds.Do(rootCommand)
-
-	_ = rootCommand.Execute()
 }

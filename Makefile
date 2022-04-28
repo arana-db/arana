@@ -32,13 +32,11 @@ build dist/arana dist/arana-sha-256:
 	CGO_ENABLED=0 go build $(GO_FLAGS) -o ./dist/arana ./cmd
 	sha256sum ./dist/arana  | cut -d ' ' -f 1 > ./dist/arana-sha-256
 
-docker-build: build
-	docker build -f docker/Dockerfile -t arana:latest .
+docker-build:
+	docker build -t aranadb/arana:latest .
 
-integration-test: build docker-build
-	@mkdir -p docker/data
-	@mkdir -p docker/mysqld
-	docker-compose -f docker/docker-compose.yaml up -d
+integration-test: docker-build
+	docker-compose up -d
 	@sleep 30
 	@go clean -testcache
 	go test -tags integration -v ./test/...

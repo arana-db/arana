@@ -349,33 +349,21 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 		return node.Pattern.Pattern.(ast.ValueExpr).GetValue().(string), true
 	}
 
+	toBaseShow := func() *baseShow {
+		var bs baseShow
+		if like, ok := toLike(node); ok {
+			bs.filter = like
+		} else if where, ok := toWhere(node); ok {
+			bs.filter = where
+		}
+		return &bs
+	}
+
 	switch node.Tp {
 	case ast.ShowTables:
-		var (
-			bs    baseShow
-			like  string
-			where ExpressionNode
-			ok    bool
-		)
-		if like, ok = toLike(node); ok {
-			bs.filter = like
-		} else if where, ok = toWhere(node); ok {
-			bs.filter = where
-		}
-		return &ShowTables{baseShow: &bs}
+		return &ShowTables{baseShow: toBaseShow()}
 	case ast.ShowDatabases:
-		var (
-			bs    baseShow
-			like  string
-			where ExpressionNode
-			ok    bool
-		)
-		if like, ok = toLike(node); ok {
-			bs.filter = like
-		} else if where, ok = toWhere(node); ok {
-			bs.filter = where
-		}
-		return &ShowDatabases{baseShow: &bs}
+		return &ShowDatabases{baseShow: toBaseShow()}
 	case ast.ShowCreateTable:
 		return &ShowCreate{
 			typ: ShowCreateTypeTable,

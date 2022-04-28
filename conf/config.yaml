@@ -70,7 +70,7 @@ data:
         db_rules:
         tbl_rules:
           - column: uid
-            expr: modShard(32)
+            expr: $value % 32
         topology:
           db_pattern: employees_0000
           tbl_Pattern: student_${0000...0031}

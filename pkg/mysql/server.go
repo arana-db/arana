@@ -31,7 +31,6 @@ import (
 )
 
 import (
-	"github.com/arana-db/parser"
 	_ "github.com/arana-db/parser/test_driver"
 
 	err2 "github.com/pkg/errors"
@@ -168,16 +167,15 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32) {
 
 	err := l.handshake(c)
 	if err != nil {
-		werr := c.writeErrorPacketFromError(err)
-		if werr != nil {
-			log.Errorf("Cannot write error packet to %s: %v", c, werr)
+		if wErr := c.writeErrorPacketFromError(err); wErr != nil {
+			log.Errorf("Cannot write error packet to %s: %v", c, wErr)
 			return
 		}
 		return
 	}
 
 	// Negotiation worked, send OK packet.
-	if err := c.writeOKPacket(0, 0, c.StatusFlags, 0); err != nil {
+	if err = c.writeOKPacket(0, 0, c.StatusFlags, 0); err != nil {
 		log.Errorf("Cannot write OK packet to %s: %v", c, err)
 		return
 	}
@@ -201,8 +199,7 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32) {
 			ConnectionID: l.connectionID,
 			Data:         content,
 		}
-		err = l.ExecuteCommand(c, ctx)
-		if err != nil {
+		if err = l.ExecuteCommand(c, ctx); err != nil {
 			return
 		}
 	}
@@ -515,83 +512,9 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 		c.recycleReadPacket()
 		return err2.New("ComQuit")
 	case mysql.ComInitDB:
-		db := string(ctx.Data[1:])
-		c.recycleReadPacket()
-
-		var allow bool
-		for _, it := range security.DefaultTenantManager().GetClusters(c.Tenant) {
-			if db == it {
-				allow = true
-				break
-			}
-		}
-
-		if !allow {
-			if err := c.writeErrorPacketFromError(errors.NewSQLError(mysql.ERBadDb, "", "Unknown database '%s'", db)); err != nil {
-				log.Errorf("failed to write ComInitDB error to %s: %v", c, err)
-				return err
-			}
-			return nil
-		}
-
-		c.Schema = db
-		err := l.executor.ExecuteUseDB(ctx)
-		if err != nil {
-			return err
-		}
-		if err := c.writeOKPacket(0, 0, c.StatusFlags, 0); err != nil {
-			log.Errorf("Error writing ComInitDB result to %s: %v", c, err)
-			return err
-		}
+		return l.handleInitDB(c, ctx)
 	case mysql.ComQuery:
-		err := func() error {
-			c.startWriterBuffering()
-			defer func() {
-				if err := c.endWriterBuffering(); err != nil {
-					log.Errorf("conn %v: flush() failed: %v", c.ID(), err)
-				}
-			}()
-
-			c.recycleReadPacket()
-			result, warn, err := l.executor.ExecutorComQuery(ctx)
-			if err != nil {
-				if werr := c.writeErrorPacketFromError(err); werr != nil {
-					log.Error("Error writing query error to client %v: %v", l.connectionID, werr)
-					return werr
-				}
-				return nil
-			}
-			if len(result.GetFields()) == 0 {
-				// A successful callback with no fields means that this was a
-				// DML or other write-only operation.
-				//
-				// We should not send any more packets after this, but make sure
-				// to extract the affected rows and last insert id from the result
-				// struct here since clients expect it.
-
-				var (
-					affected, _ = result.RowsAffected()
-					insertId, _ = result.LastInsertId()
-				)
-				return c.writeOKPacket(affected, insertId, c.StatusFlags, warn)
-			}
-			err = c.writeFields(l.capabilities, result)
-			if err != nil {
-				return err
-			}
-			err = c.writeRows(result)
-			if err != nil {
-				return err
-			}
-			if err := c.writeEndResult(l.capabilities, false, 0, 0, warn); err != nil {
-				log.Errorf("Error writing result to %s: %v", c, err)
-				return err
-			}
-			return nil
-		}()
-		if err != nil {
-			return err
-		}
+		return l.handleQuery(c, ctx)
 	case mysql.ComPing:
 		c.recycleReadPacket()
 
@@ -601,127 +524,11 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 			return err
 		}
 	case mysql.ComFieldList:
-		c.recycleReadPacket()
-
-		fields, err := l.executor.ExecuteFieldList(ctx)
-		if err != nil {
-			log.Errorf("Conn %v: Error write field list: %v", c, err)
-			if werr := c.writeErrorPacketFromError(err); werr != nil {
-				// If we can't even write the error, we're done.
-				log.Errorf("Conn %v: Error write field list error: %v", c, werr)
-				return werr
-			}
-		}
-		result := &Result{Fields: fields}
-		err = c.writeFields(l.capabilities, result)
-		if err != nil {
-			return err
-		}
+		return l.handleFieldList(c, ctx)
 	case mysql.ComPrepare:
-		query := string(ctx.Data[1:])
-		c.recycleReadPacket()
-
-		// Popoulate PrepareData
-		statementID := l.statementID.Inc()
-
-		stmt := &proto.Stmt{
-			StatementID: statementID,
-			PrepareStmt: query,
-		}
-		p := parser.New()
-		act, err := p.ParseOneStmt(stmt.PrepareStmt, "", "")
-		if err != nil {
-			log.Errorf("Conn %v: Error parsing prepared statement: %v", c, err)
-			if werr := c.writeErrorPacketFromError(err); werr != nil {
-				// If we can't even write the error, we're done.
-				log.Errorf("Conn %v: Error writing prepared statement error: %v", c, werr)
-				return werr
-			}
-		}
-		stmt.StmtNode = act
-
-		paramsCount := uint16(strings.Count(query, "?"))
-
-		if paramsCount > 0 {
-			stmt.ParamsCount = paramsCount
-			stmt.ParamsType = make([]int32, paramsCount)
-			stmt.BindVars = make(map[string]interface{}, paramsCount)
-		}
-
-		l.stmts.Store(statementID, stmt)
-
-		if err := c.writePrepare(l.capabilities, stmt); err != nil {
-			return err
-		}
+		return l.handlePrepare(c, ctx)
 	case mysql.ComStmtExecute:
-		err := func() error {
-			c.startWriterBuffering()
-			defer func() {
-				if err := c.endWriterBuffering(); err != nil {
-					log.Errorf("conn %v: flush() failed: %v", c.ID(), err)
-				}
-			}()
-			stmtID, _, err := c.parseComStmtExecute(&l.stmts, ctx.Data)
-			c.recycleReadPacket()
-
-			if stmtID != uint32(0) {
-				defer func() {
-					// Allocate a new bindvar map every time since VTGate.Execute() mutates it.
-					if prepare, ok := l.stmts.Load(stmtID); ok {
-						prepareStmt, _ := prepare.(*proto.Stmt)
-						prepareStmt.BindVars = make(map[string]interface{}, prepareStmt.ParamsCount)
-					}
-				}()
-			}
-
-			if err != nil {
-				if werr := c.writeErrorPacketFromError(err); werr != nil {
-					// If we can't even write the error, we're done.
-					log.Error("Error writing query error to client %v: %v", l.connectionID, werr)
-					return werr
-				}
-				return nil
-			}
-
-			prepareStmt, _ := l.stmts.Load(stmtID)
-			ctx.Stmt = prepareStmt.(*proto.Stmt)
-
-			result, warn, err := l.executor.ExecutorComStmtExecute(ctx)
-			if err != nil {
-				if werr := c.writeErrorPacketFromError(err); werr != nil {
-					log.Error("Error writing query error to client %v: %v", l.connectionID, werr)
-					return werr
-				}
-				return nil
-			}
-			rlt := result.(*Result)
-			if len(rlt.Fields) == 0 {
-				// A successful callback with no fields means that this was a
-				// DML or other write-only operation.
-				//
-				// We should not send any more packets after this, but make sure
-				// to extract the affected rows and last insert id from the result
-				// struct here since clients expect it.
-				return c.writeOKPacket(rlt.AffectedRows, rlt.InsertId, c.StatusFlags, warn)
-			}
-
-			err = c.writeFields(l.capabilities, result)
-			if err != nil {
-				return err
-			}
-			err = c.writeBinaryRows(result)
-			if err != nil {
-				return err
-			}
-			if err := c.writeEndResult(l.capabilities, false, 0, 0, warn); err != nil {
-				log.Errorf("Error writing result to %s: %v", c, err)
-				return err
-			}
-			return nil
-		}()
-		if err != nil {
-			return err
-		}
+		return l.handleStmtExecute(c, ctx)
 	case mysql.ComStmtClose: // no response
 		stmtID, _, ok := readUint32(ctx.Data, 1)
 		c.recycleReadPacket()
@@ -731,42 +538,9 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 	case mysql.ComStmtSendLongData: // no response
 		// todo
 	case mysql.ComStmtReset:
-		stmtID, _, ok := readUint32(ctx.Data, 1)
-		c.recycleReadPacket()
-		if ok {
-			if prepare, ok := l.stmts.Load(stmtID); ok {
-				prepareStmt, _ := prepare.(*proto.Stmt)
-				prepareStmt.BindVars = make(map[string]interface{})
-			}
-		}
-		return c.writeOKPacket(0, 0, c.StatusFlags, 0)
+		return l.handleStmtReset(c, ctx)
 	case mysql.ComSetOption:
-		operation, _, ok := readUint16(ctx.Data, 1)
-		c.recycleReadPacket()
-		if ok {
-			switch operation {
-			case 0:
-				l.capabilities |= mysql.CapabilityClientMultiStatements
-			case 1:
-				l.capabilities &^= mysql.CapabilityClientMultiStatements
-			default:
-				log.Errorf("Got unhandled packet (ComSetOption default) from client %v, returning error: %v", l.connectionID, ctx.Data)
-				if err := c.writeErrorPacket(mysql.ERUnknownComError, mysql.SSUnknownComError, "error handling packet: %v", ctx.Data); err != nil {
-					log.Errorf("Error writing error packet to client: %v", err)
-					return err
-				}
-			}
-			if err := c.writeEndResult(l.capabilities, false, 0, 0, 0); err != nil {
-				log.Errorf("Error writeEndResult error %v ", err)
-				return err
-			}
-		} else {
-			log.Errorf("Got unhandled packet (ComSetOption else) from client %v, returning error: %v", l.connectionID, ctx.Data)
-			if err := c.writeErrorPacket(mysql.ERUnknownComError, mysql.SSUnknownComError, "error handling packet: %v", ctx.Data); err != nil {
-				log.Errorf("Error writing error packet to client: %v", err)
-				return err
-			}
-		}
+		return l.handleSetOption(c, ctx)
 	}
 	return nil
 }
