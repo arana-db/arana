@@ -18,11 +18,13 @@ package plan
 
 import (
 	"context"
+	"strings"
+)
+import (
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/ast"
-	"strings"
 )
 
 type DropTablePlan struct {

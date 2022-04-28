@@ -106,7 +106,6 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		return cc.convTruncateTableStmt(stmt), nil
 	case *ast.DropTableStmt:
 		return cc.convDropTableStmt(stmt), nil
-
 	default:
 		return nil, errors.Errorf("unimplement: stmt type %T!", stmt)
 	}

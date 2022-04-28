@@ -102,7 +102,6 @@ func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.S
 		return o.optimizeTruncate(ctx, t, args)
 	case *rast.DropTableStatement:
 		return o.optimizeDropTable(ctx, t, args)
-
 	}
 
 	//TODO implement all statements

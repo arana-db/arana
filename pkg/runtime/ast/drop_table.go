@@ -18,8 +18,10 @@
 package ast
 
 import (
-	"github.com/pingcap/errors"
 	"strings"
+)
+import (
+	"github.com/pingcap/errors"
 )
 
 type DropTableStatement struct {
