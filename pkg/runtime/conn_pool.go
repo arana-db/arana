@@ -47,9 +47,13 @@ func (bcp *BackendResourcePool) Get(ctx context.Context) (*mysql.BackendConnecti
 
 	conn := res.(*mysql.BackendConnection).GetDatabaseConn()
 
-	if err := gxnet.ConnCheck(conn.GetNetConn()); err != nil {
+	if err = gxnet.ConnCheck(conn.GetNetConn()); err != nil {
 		rp.Put(nil)
+		// Tolerate a fetch failure.
 		res, err = rp.Get(ctx)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return res.(*mysql.BackendConnection), nil
 }
