@@ -43,15 +43,12 @@ import (
 )
 
 import (
-	gxnet "github.com/dubbogo/gost/net"
-
 	"go.uber.org/atomic"
 
 	"golang.org/x/net/context"
 )
 
 import (
-	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/third_party/sync2"
 	"github.com/arana-db/arana/third_party/timer"
 )
@@ -214,30 +211,6 @@ func (rp *ResourcePool) closeIdleResources() {
 		}()
 
 	}
-}
-
-type BackendResourcePool ResourcePool
-
-// Get will return the next available resource and convert to mysql.BackendConnection.
-// If available less than 1, it will make capacity increase by 1.
-// If the net connection check failure, it will take again.
-func (bcp *BackendResourcePool) Get(ctx context.Context) (*mysql.BackendConnection, error) {
-	rp := (*ResourcePool)(bcp)
-	if rp.Available() < 1 {
-		_ = rp.SetCapacity(int(rp.Capacity()) + 1)
-	}
-	res, err := rp.Get(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	conn := res.(*mysql.BackendConnection).GetDatabaseConn()
-
-	if err := gxnet.ConnCheck(conn.GetNetConn()); err != nil {
-		rp.Put(nil)
-		res, err = rp.Get(ctx)
-	}
-	return res.(*mysql.BackendConnection), nil
 }
 
 // Get will return the next available resource. If capacity
