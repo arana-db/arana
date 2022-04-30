@@ -393,9 +393,6 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 		return ret
 	case ast.ShowVariables:
 		ret := &ShowVariables{}
-		if node.Extended {
-			ret.flag |= scFlagExtended
-		}
 		if node.Full {
 			ret.flag |= scFlagFull
 		}

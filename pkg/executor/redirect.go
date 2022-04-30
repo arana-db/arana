@@ -25,7 +25,6 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/metrics"
 	"github.com/arana-db/parser"
 	"github.com/arana-db/parser/ast"
 
@@ -33,6 +32,7 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/metrics"
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime"
@@ -184,8 +184,6 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 	case *ast.ShowStmt:
 		res, warn, err = rt.Execute(ctx)
 	case *ast.TruncateTableStmt:
-		res, warn, err = rt.Execute(ctx)
-	case *ast.ShowStmt:
 		res, warn, err = rt.Execute(ctx)
 	default:
 		// TODO: mark direct flag temporarily, remove when write-mode is supported for runtime

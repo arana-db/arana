@@ -32,6 +32,7 @@ import (
 
 import (
 	gxnet "github.com/dubbogo/gost/net"
+
 	"github.com/pkg/errors"
 
 	"go.uber.org/atomic"

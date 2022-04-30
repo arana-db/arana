@@ -20,20 +20,32 @@ package plan
 
 import (
 	"context"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/config"
+	fieldType "github.com/arana-db/arana/pkg/constants/mysql"
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
-	"github.com/pkg/errors"
 )
 
-var tenantErr = errors.New("current db tenant not fund")
-
 var _ proto.Plan = (*ShowVariablesPlan)(nil)
+
+var (
+	_systemSchema = map[config.DataSourceType]string{
+		config.DBMySQL: "mysql",
+	}
+)
 
 type ShowVariablesPlan struct {
 	basePlan
 	Stmt *ast.ShowVariables
+}
+
+func NewShowVariablesPlan(stmt *ast.ShowVariables) *ShowVariablesPlan {
+	return &ShowVariablesPlan{Stmt: stmt}
 }
 
 func (s *ShowVariablesPlan) Type() proto.PlanType {
@@ -41,13 +53,14 @@ func (s *ShowVariablesPlan) Type() proto.PlanType {
 }
 
 func (s *ShowVariablesPlan) ExecIn(ctx context.Context, vConn proto.VConn) (proto.Result, error) {
-
-	ret, err := vConn.Exec(ctx, "", rcontext.SQL(ctx))
+	ret, err := vConn.Query(ctx, "", rcontext.SQL(ctx))
 	if err != nil {
 		return nil, err
 	}
 
 	return &mysql.Result{
+		Fields: []proto.Field{mysql.NewField("Variable_name", fieldType.FieldTypeString),
+			mysql.NewField("Value", fieldType.FieldTypeString)},
 		Rows: ret.GetRows(),
 	}, nil
 }

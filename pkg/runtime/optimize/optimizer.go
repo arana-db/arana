@@ -25,6 +25,7 @@ import (
 
 import (
 	"github.com/arana-db/parser/ast"
+
 	"github.com/pkg/errors"
 )
 
@@ -536,7 +537,7 @@ func (o optimizer) optimizeTruncate(ctx context.Context, stmt *rast.TruncateStat
 }
 
 func (o optimizer) optimizeShowVariables(ctx context.Context, stmt *rast.ShowVariables, args []interface{}) (proto.Plan, error) {
-	ret := &plan.ShowVariablesPlan{Stmt: stmt}
+	ret := plan.NewShowVariablesPlan(stmt)
 	ret.BindArgs(args)
 	return ret, nil
 }

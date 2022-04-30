@@ -344,11 +344,3 @@ func (s *ShowVariables) CntParams() int {
 func (s *ShowVariables) Mode() SQLType {
 	return Squery
 }
-
-func (s *ShowVariables) Full() bool {
-	return s.flag&scFlagFull != 0
-}
-
-func (s *ShowVariables) Extended() bool {
-	return s.flag&scFlagExtended != 0
-}
