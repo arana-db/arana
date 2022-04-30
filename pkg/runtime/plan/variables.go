@@ -23,7 +23,6 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/config"
 	fieldType "github.com/arana-db/arana/pkg/constants/mysql"
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
@@ -32,12 +31,6 @@ import (
 )
 
 var _ proto.Plan = (*ShowVariablesPlan)(nil)
-
-var (
-	_systemSchema = map[config.DataSourceType]string{
-		config.DBMySQL: "mysql",
-	}
-)
 
 type ShowVariablesPlan struct {
 	basePlan
