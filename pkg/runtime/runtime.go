@@ -484,11 +484,12 @@ func (db *AtomDB) SetWeight(weight proto.Weight) error {
 }
 
 func (db *AtomDB) borrowConnection(ctx context.Context) (*mysql.BackendConnection, error) {
-	res, err := db.pool.Get(ctx)
+	bcp := (*BackendResourcePool)(db.pool)
+	res, err := bcp.Get(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	return res.(*mysql.BackendConnection), nil
+	return res, nil
 }
 
 func (db *AtomDB) returnConnection(bc *mysql.BackendConnection) {
