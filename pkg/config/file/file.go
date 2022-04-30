@@ -19,7 +19,9 @@ package file
 
 import (
 	"encoding/json"
-	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -33,6 +35,7 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/config"
+	"github.com/arana-db/arana/pkg/constants"
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
@@ -41,21 +44,46 @@ func init() {
 }
 
 type storeOperate struct {
-	lock      *sync.RWMutex
+	lock      sync.RWMutex
 	receivers map[config.PathKey][]chan []byte
 	cfgJson   map[config.PathKey]string
 }
 
 func (s *storeOperate) Init(options map[string]interface{}) error {
-	s.lock = &sync.RWMutex{}
 	s.receivers = make(map[config.PathKey][]chan []byte)
-	var cfg config.Configuration
-	if err := yaml.Unmarshal([]byte(options["content"].(string)), &cfg); err != nil {
-		return errors.Wrapf(err, "failed to unmarshal config")
+	var (
+		content string
+		ok      bool
+		cfg     config.Configuration
+	)
+
+	if content, ok = options["content"].(string); ok && len(content) > 0 {
+		if err := yaml.NewDecoder(strings.NewReader(content)).Decode(&cfg); err != nil {
+			return errors.Wrapf(err, "failed to unmarshal config")
+		}
+	} else {
+		var path string
+		// 1. path in bootstrap.yaml
+		// 2. read ARANA_CONFIG_PATH
+		// 3. read default path: ./config.y(a)ml -> ./conf/config.y(a)ml -> ~/.arana/config.y(a)ml -> /etc/arana/config.y(a)ml
+		if path, ok = options["path"].(string); !ok {
+			if path, ok = os.LookupEnv(constants.EnvConfigPath); !ok {
+				path, ok = s.searchDefaultConfigFile()
+			}
+		}
+
+		if !ok {
+			return errors.New("no config file found")
+		}
+
+		if err := s.readFromFile(path, &cfg); err != nil {
+			return err
+		}
 	}
+
 	configJson, err := json.Marshal(cfg)
 	if err != nil {
-		return fmt.Errorf("config json.marshal failed  %v err:", err)
+		return errors.Wrap(err, "config json.marshal failed")
 	}
 	s.initCfgJsonMap(string(configJson))
 	return nil
@@ -101,4 +129,49 @@ func (s *storeOperate) Name() string {
 
 func (s *storeOperate) Close() error {
 	return nil
+}
+
+func (s *storeOperate) readFromFile(path string, cfg *config.Configuration) error {
+	var (
+		f   *os.File
+		err error
+	)
+
+	if strings.HasPrefix(path, "~") {
+		var home string
+		if home, err = os.UserHomeDir(); err != nil {
+			return err
+		}
+		path = strings.Replace(path, "~", home, 1)
+	}
+
+	path = filepath.Clean(path)
+
+	if f, err = os.Open(path); err != nil {
+		return errors.Wrapf(err, "failed to open arana config file '%s'", path)
+	}
+	defer func() {
+		_ = f.Close()
+	}()
+
+	if err = config.NewDecoder(f).Decode(cfg); err != nil {
+		return errors.Wrapf(err, "failed to parse arana config file '%s'", path)
+	}
+
+	return nil
+}
+
+func (s *storeOperate) searchDefaultConfigFile() (string, bool) {
+	var p string
+	for _, it := range constants.GetConfigSearchPathList() {
+		p = filepath.Join(it, "config.yaml")
+		if _, err := os.Stat(p); err == nil {
+			return p, true
+		}
+		p = filepath.Join(it, "config.yml")
+		if _, err := os.Stat(p); err == nil {
+			return p, true
+		}
+	}
+	return "", false
 }

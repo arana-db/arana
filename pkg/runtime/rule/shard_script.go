@@ -24,6 +24,7 @@ import (
 
 import (
 	"github.com/dop251/goja"
+
 	"github.com/pkg/errors"
 )
 

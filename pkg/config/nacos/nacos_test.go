@@ -55,7 +55,7 @@ var (
 )
 
 func doDataMock() {
-	cfg, _ = config.LoadV2(testdata.Path("fake_config.yaml"))
+	cfg, _ = config.Load(testdata.Path("fake_config.yaml"))
 
 	data, _ := json.Marshal(cfg)
 
@@ -212,7 +212,7 @@ func Test_watch(t *testing.T) {
 
 	assert.NoError(t, err, "should be success")
 
-	newCfg, _ := config.LoadV2(testdata.Path("fake_config.yaml"))
+	newCfg, _ := config.Load(testdata.Path("fake_config.yaml"))
 
 	newCfg.Data.Filters = append(newCfg.Data.Filters, &config.Filter{
 		Name:   "arana-nacos-watch",

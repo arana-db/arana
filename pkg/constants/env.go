@@ -17,6 +17,24 @@
 
 package constants
 
-const (
-	EnvAranaConfig = "ARANA_CONFIG"
+import (
+	"os"
+	"path/filepath"
 )
+
+// Environments
+const (
+	EnvBootstrapPath = "ARANA_BOOTSTRAP_PATH" // bootstrap file path, eg: /etc/arana/bootstrap.yaml
+	EnvConfigPath    = "ARANA_CONFIG_PATH"    // config file path, eg: /etc/arana/config.yaml
+)
+
+// GetConfigSearchPathList returns the default search path list of configuration.
+func GetConfigSearchPathList() []string {
+	var dirs []string
+	dirs = append(dirs, ".", "./conf")
+	if home, err := os.UserHomeDir(); err == nil {
+		dirs = append(dirs, filepath.Join(home, ".arana"))
+	}
+	dirs = append(dirs, "/etc/arana")
+	return dirs
+}
