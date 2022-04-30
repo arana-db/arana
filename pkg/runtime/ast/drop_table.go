@@ -21,7 +21,7 @@ import (
 	"strings"
 )
 import (
-	"github.com/pingcap/errors"
+	"github.com/pkg/errors"
 )
 
 type DropTableStatement struct {
@@ -29,9 +29,7 @@ type DropTableStatement struct {
 }
 
 func NewDropTableStatement() *DropTableStatement {
-	return &DropTableStatement{
-		Tables: []*TableName{},
-	}
+	return &DropTableStatement{}
 }
 
 func (d DropTableStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -41,7 +39,7 @@ func (d DropTableStatement) Restore(flag RestoreFlag, sb *strings.Builder, args 
 			sb.WriteString(", ")
 		}
 		if err := table.Restore(flag, sb, args); err != nil {
-			return errors.Annotatef(err, "An error occurred while restore DropTableStatement.Tables[%d]", index)
+			return errors.Errorf("An error occurred while restore DropTableStatement.Tables[%d],error:%s", index, err)
 		}
 	}
 	return nil

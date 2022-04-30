@@ -115,9 +115,9 @@ const (
 
 func (o optimizer) optimizeDropTable(ctx context.Context, stmt *rast.DropTableStatement, args []interface{}) (proto.Plan, error) {
 	ru := rcontext.Rule(ctx)
-	//tables not shard
-	var shards []*rule.DatabaseTables
 	//table shard
+	var shards []rule.DatabaseTables
+	//tables not shard
 	noShardStmt := rast.NewDropTableStatement()
 	for _, table := range stmt.Tables {
 		shard, err := o.computeShards(ru, *table, nil, args)
@@ -128,14 +128,18 @@ func (o optimizer) optimizeDropTable(ctx context.Context, stmt *rast.DropTableSt
 			noShardStmt.Tables = append(noShardStmt.Tables, table)
 			continue
 		}
-		shards = append(shards, &shard)
+		shards = append(shards, shard)
 	}
-
-	noShardPlan := plan.Transparent(noShardStmt, args)
 
 	shardPlan := plan.NewDropTablePlan(stmt)
 	shardPlan.BindArgs(args)
 	shardPlan.SetShards(shards)
+
+	if len(noShardStmt.Tables) == 0 {
+		return shardPlan, nil
+	}
+
+	noShardPlan := plan.Transparent(noShardStmt, args)
 
 	return &plan.UnionPlan{
 		Plans: []proto.Plan{

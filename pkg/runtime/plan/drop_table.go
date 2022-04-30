@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package plan
 
 import (
@@ -30,7 +31,7 @@ import (
 type DropTablePlan struct {
 	basePlan
 	stmt      *ast.DropTableStatement
-	shardsMap []*rule.DatabaseTables
+	shardsMap []rule.DatabaseTables
 }
 
 func NewDropTablePlan(stmt *ast.DropTableStatement) *DropTablePlan {
@@ -49,7 +50,7 @@ func (d DropTablePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Resu
 
 	for _, shards := range d.shardsMap {
 		var stmt = new(ast.DropTableStatement)
-		for db, tables := range *shards {
+		for db, tables := range shards {
 			for _, table := range tables {
 
 				stmt.Tables = append(stmt.Tables, &ast.TableName{
@@ -73,6 +74,6 @@ func (d DropTablePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Resu
 
 }
 
-func (s *DropTablePlan) SetShards(shardsMap []*rule.DatabaseTables) {
+func (s *DropTablePlan) SetShards(shardsMap []rule.DatabaseTables) {
 	s.shardsMap = shardsMap
 }
