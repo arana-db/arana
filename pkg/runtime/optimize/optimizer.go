@@ -25,7 +25,6 @@ import (
 
 import (
 	"github.com/arana-db/parser/ast"
-
 	"github.com/pkg/errors"
 )
 
@@ -88,6 +87,8 @@ func (o optimizer) Optimize(ctx context.Context, conn proto.VConn, stmt ast.Stmt
 
 func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.Statement, args ...interface{}) (proto.Plan, error) {
 	switch t := stmt.(type) {
+	case *rast.ShowDatabases:
+		return o.optimizeShowDatabases(ctx, t, args)
 	case *rast.SelectStatement:
 		return o.optimizeSelect(ctx, conn, t, args)
 	case *rast.InsertStatement:
@@ -96,6 +97,8 @@ func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.S
 		return o.optimizeDelete(ctx, t, args)
 	case *rast.UpdateStatement:
 		return o.optimizeUpdate(ctx, conn, t, args)
+	case *rast.ShowTables:
+		return o.optimizeShowTables(ctx, t, args)
 	case *rast.TruncateStatement:
 		return o.optimizeTruncate(ctx, t, args)
 	case *rast.ShowVariables:
@@ -140,6 +143,12 @@ func (o optimizer) getSelectFlag(ctx context.Context, stmt *rast.SelectStatement
 	return
 }
 
+func (o optimizer) optimizeShowDatabases(ctx context.Context, stmt *rast.ShowDatabases, args []interface{}) (proto.Plan, error) {
+	ret := &plan.ShowDatabasesPlan{Stmt: stmt}
+	ret.BindArgs(args)
+	return ret, nil
+}
+
 func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *rast.SelectStatement, args []interface{}) (proto.Plan, error) {
 	var ru *rule.Rule
 	if ru = rcontext.Rule(ctx); ru == nil {
@@ -181,6 +190,9 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 		return nil, errors.WithStack(errDenyFullScan)
 	}
 
+	// Go through first table if no shards matched.
+	// For example:
+	//    SELECT ... FROM xxx WHERE a > 8 and a < 4
 	if shards.IsEmpty() {
 		var (
 			db0, tbl0 string
@@ -468,6 +480,40 @@ func (o optimizer) optimizeDelete(ctx context.Context, stmt *rast.DeleteStatemen
 	ret.BindArgs(args)
 	ret.SetShards(shards)
 
+	return ret, nil
+}
+
+func (o optimizer) optimizeShowTables(ctx context.Context, stmt *rast.ShowTables, args []interface{}) (proto.Plan, error) {
+	vts := rcontext.Rule(ctx).VTables()
+	databaseTablesMap := make(map[string]rule.DatabaseTables, len(vts))
+	for tableName, vt := range vts {
+		shards := rule.DatabaseTables{}
+		// compute all tables
+		topology := vt.Topology()
+		topology.Each(func(dbIdx, tbIdx int) bool {
+			if d, t, ok := topology.Render(dbIdx, tbIdx); ok {
+				shards[d] = append(shards[d], t)
+			}
+			return true
+		})
+		databaseTablesMap[tableName] = shards
+	}
+
+	tmpPlanData := make(map[string]plan.DatabaseTable)
+	for showTableName, databaseTables := range databaseTablesMap {
+		for databaseName, shardingTables := range databaseTables {
+			for _, shardingTable := range shardingTables {
+				tmpPlanData[shardingTable] = plan.DatabaseTable{
+					Database:  databaseName,
+					TableName: showTableName,
+				}
+			}
+		}
+	}
+
+	ret := plan.NewShowTablesPlan(stmt)
+	ret.BindArgs(args)
+	ret.SetAllShards(tmpPlanData)
 	return ret, nil
 }
 

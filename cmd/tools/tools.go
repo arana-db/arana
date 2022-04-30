@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
-package main
+package tools
 
 import (
+	"context"
 	"os"
 )
 
@@ -26,42 +27,56 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/cmd/cmds"
+	"github.com/arana-db/arana/pkg/boot"
+	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/constants"
+	"github.com/arana-db/arana/pkg/util/log"
 )
 
 var (
-	Version = "0.1.0"
-
-	bootstrapConfigPath string
-	importBootConfPath  string
-)
-
-var (
-	rootCommand = &cobra.Command{
-		Use:     "arana",
-		Short:   "arana is a db proxy server",
-		Version: Version,
-	}
+	sourceConfigPath   string
+	importBootConfPath string
 )
 
 // init Init startCmd
 func init() {
-	startCommand.
-		PersistentFlags().
-		StringVarP(&bootstrapConfigPath, constants.ConfigPathKey, "c", os.Getenv(constants.EnvAranaConfig), "bootstrap configuration file path")
+	cmd := &cobra.Command{
+		Use:     "import",
+		Short:   "import arana config",
+		Example: "./arana import -c ../docker/conf/bootstrap.yaml -s ../docker/conf/config.yaml",
+		Run:     Run,
+	}
 
-	confImportCommand.
-		PersistentFlags().
+	cmd.PersistentFlags().
 		StringVarP(&importBootConfPath, constants.ConfigPathKey, "c", os.Getenv(constants.EnvAranaConfig), "bootstrap configuration file path")
-	confImportCommand.
-		PersistentFlags().
+	cmd.PersistentFlags().
 		StringVarP(&sourceConfigPath, constants.ImportConfigPathKey, "s", "", "import configuration file path")
 
-	rootCommand.AddCommand(startCommand)
-	rootCommand.AddCommand(confImportCommand)
+	cmds.Handle(func(root *cobra.Command) {
+		root.AddCommand(cmd)
+	})
 }
 
-// Execute Execute command line analysis
-func Execute() {
-	rootCommand.Execute()
+func Run(cmd *cobra.Command, args []string) {
+	_, _ = cmd, args
+
+	provider := boot.NewProvider(importBootConfPath)
+	if err := provider.Init(context.Background()); err != nil {
+		log.Fatal("init failed: %+v", err)
+		return
+	}
+
+	cfg, err := config.LoadV2(sourceConfigPath)
+	if err != nil {
+		log.Fatal("load config from %s failed: %+v", sourceConfigPath, err)
+		return
+	}
+
+	c := provider.GetConfigCenter()
+
+	if err := c.ImportConfiguration(cfg); err != nil {
+		log.Fatal("persist config to config.store failed: %+v", err)
+		return
+	}
 }

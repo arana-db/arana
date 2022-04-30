@@ -21,9 +21,11 @@ import (
 	"bytes"
 	stdErrors "errors"
 	"sync"
+	"time"
 )
 
 import (
+	"github.com/arana-db/arana/pkg/metrics"
 	"github.com/arana-db/parser"
 	"github.com/arana-db/parser/ast"
 
@@ -126,10 +128,12 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 
 	p := parser.New()
 	query := ctx.GetQuery()
+	start := time.Now()
 	act, err := p.ParseOneStmt(query, "", "")
 	if err != nil {
 		return nil, 0, err
 	}
+	metrics.ParserDuration.Observe(time.Since(start).Seconds())
 	log.Debugf("ComQuery: %s", query)
 
 	ctx.Stmt = &proto.Stmt{
@@ -177,6 +181,8 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 		} else {
 			res, warn, err = rt.Execute(ctx)
 		}
+	case *ast.ShowStmt:
+		res, warn, err = rt.Execute(ctx)
 	case *ast.TruncateTableStmt:
 		res, warn, err = rt.Execute(ctx)
 	case *ast.ShowStmt:

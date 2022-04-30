@@ -31,6 +31,7 @@ import (
 )
 
 import (
+	gxnet "github.com/dubbogo/gost/net"
 	"github.com/pkg/errors"
 
 	"go.uber.org/atomic"
@@ -431,6 +432,9 @@ func (c *Conn) ReadPacket() ([]byte, error) {
 //
 // This method returns a generic error, not a SQLError.
 func (c *Conn) writePacket(data []byte) error {
+	if err := gxnet.ConnCheck(c.conn); err != nil {
+		return errors.Errorf("Check conn status error")
+	}
 	index := 0
 	length := len(data)
 

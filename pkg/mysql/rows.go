@@ -29,6 +29,7 @@ import (
 	"github.com/arana-db/arana/pkg/constants/mysql"
 	"github.com/arana-db/arana/pkg/mysql/errors"
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/util/log"
 )
 
 type ResultSet struct {
@@ -114,6 +115,34 @@ func (row *Row) GetColumnValue(column string) (interface{}, error) {
 	return nil, nil
 }
 
+func (rows *TextRow) Encode(row []*proto.Value, fields []proto.Field, columnNames []string) proto.Row {
+	var val []byte
+
+	for i := 0; i < len(fields); i++ {
+		field := fields[i].(*Field)
+		switch field.fieldType {
+		case mysql.FieldTypeTimestamp, mysql.FieldTypeDateTime,
+			mysql.FieldTypeDate, mysql.FieldTypeNewDate:
+			data, err := appendDateTime(row[i].Raw, row[i].Val.(time.Time))
+			if err != nil {
+				log.Errorf("appendDateTime fail, val=%+v, err=%v", &row[i], err)
+				return nil
+			}
+			val = append(val, data...)
+		default:
+			val = append(val, appendLengthEncodedInteger(row[i].Raw, uint64(row[i].Len))...)
+		}
+	}
+
+	rows.ResultSet = &ResultSet{
+		Columns:     fields,
+		ColumnNames: columnNames,
+	}
+
+	rows.Content = val
+	return rows
+}
+
 func (rows *TextRow) Decode() ([]*proto.Value, error) {
 	dest := make([]*proto.Value, len(rows.ResultSet.Columns))
 
@@ -161,6 +190,57 @@ func (rows *TextRow) Decode() ([]*proto.Value, error) {
 	}
 
 	return dest, nil
+}
+
+func (rows *BinaryRow) Encode(row []*proto.Value, fields []proto.Field, columnNames []string) proto.Row {
+	length := 0
+	nullBitMapLen := (len(fields) + 7 + 2) / 8
+	for _, val := range row {
+		if val != nil && val.Val != nil {
+			l, err := val2MySQLLen(val)
+			if err != nil {
+				return nil
+			}
+			length += l
+		}
+	}
+
+	length += nullBitMapLen + 1
+
+	Data := *bufPool.Get(length)
+	pos := 0
+
+	pos = writeByte(Data, pos, 0x00)
+
+	for i := 0; i < nullBitMapLen; i++ {
+		pos = writeByte(Data, pos, 0x00)
+	}
+
+	for i, val := range row {
+		if val == nil || val.Val == nil {
+			bytePos := (i+2)/8 + 1
+			bitPos := (i + 2) % 8
+			Data[bytePos] |= 1 << uint(bitPos)
+		} else {
+			v, err := val2MySQL(val)
+			if err != nil {
+				return nil
+			}
+			pos += copy(Data[pos:], v)
+		}
+	}
+
+	if pos != length {
+		return nil
+	}
+
+	rows.ResultSet = &ResultSet{
+		Columns:     fields,
+		ColumnNames: columnNames,
+	}
+
+	rows.Content = Data
+	return rows
 }
 
 func (rows *BinaryRow) Decode() ([]*proto.Value, error) {
