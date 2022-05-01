@@ -39,20 +39,18 @@ const (
 	indexMetadataSQL         = "SELECT TABLE_NAME, INDEX_NAME FROM information_schema.statistics WHERE TABLE_NAME IN (%s)"
 )
 
-type SimpleSchemaLoader struct {
-	Schema string
-}
+type SimpleSchemaLoader struct{}
 
-func (l *SimpleSchemaLoader) Load(ctx context.Context, conn proto.VConn, tables []string) map[string]*proto.TableMetadata {
+func (l *SimpleSchemaLoader) Load(ctx context.Context, conn proto.VConn, schema string, tables []string) map[string]*proto.TableMetadata {
 	ctx = rcontext.WithRead(rcontext.WithDirect(ctx))
 	var (
 		tableMetadataMap  = make(map[string]*proto.TableMetadata, len(tables))
 		indexMetadataMap  map[string][]*proto.IndexMetadata
 		columnMetadataMap map[string][]*proto.ColumnMetadata
 	)
-	columnMetadataMap = l.LoadColumnMetadataMap(ctx, conn, tables)
+	columnMetadataMap = l.LoadColumnMetadataMap(ctx, conn, schema, tables)
 	if columnMetadataMap != nil {
-		indexMetadataMap = l.LoadIndexMetadata(ctx, conn, tables)
+		indexMetadataMap = l.LoadIndexMetadata(ctx, conn, schema, tables)
 	}
 
 	for tableName, columns := range columnMetadataMap {
@@ -62,8 +60,8 @@ func (l *SimpleSchemaLoader) Load(ctx context.Context, conn proto.VConn, tables 
 	return tableMetadataMap
 }
 
-func (l *SimpleSchemaLoader) LoadColumnMetadataMap(ctx context.Context, conn proto.VConn, tables []string) map[string][]*proto.ColumnMetadata {
-	resultSet, err := conn.Query(ctx, l.Schema, getColumnMetadataSQL(tables))
+func (l *SimpleSchemaLoader) LoadColumnMetadataMap(ctx context.Context, conn proto.VConn, schema string, tables []string) map[string][]*proto.ColumnMetadata {
+	resultSet, err := conn.Query(ctx, schema, getColumnMetadataSQL(tables))
 	if err != nil {
 		return nil
 	}
@@ -119,8 +117,8 @@ func convertInterfaceToStrNullable(value interface{}) string {
 	return ""
 }
 
-func (l *SimpleSchemaLoader) LoadIndexMetadata(ctx context.Context, conn proto.VConn, tables []string) map[string][]*proto.IndexMetadata {
-	resultSet, err := conn.Query(ctx, l.Schema, getIndexMetadataSQL(tables))
+func (l *SimpleSchemaLoader) LoadIndexMetadata(ctx context.Context, conn proto.VConn, schema string, tables []string) map[string][]*proto.IndexMetadata {
+	resultSet, err := conn.Query(ctx, schema, getIndexMetadataSQL(tables))
 	if err != nil {
 		return nil
 	}

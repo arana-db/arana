@@ -54,9 +54,7 @@ func TestLoader(t *testing.T) {
 	}
 	schemeName := "employees"
 	tableName := "employees"
-	s := &SimpleSchemaLoader{
-		Schema: schemeName,
-	}
+	s := &SimpleSchemaLoader{}
 
-	s.Load(context.Background(), rt.(proto.VConn), []string{tableName})
+	s.Load(context.Background(), rt.(proto.VConn), schemeName, []string{tableName})
 }

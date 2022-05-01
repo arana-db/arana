@@ -64,10 +64,21 @@ func IsDenyFullScanErr(err error) bool {
 }
 
 func GetOptimizer() proto.Optimizer {
-	return optimizer{}
+	return optimizer{
+		schemaLoader: &schema_manager.SimpleSchemaLoader{},
+	}
 }
 
 type optimizer struct {
+	schemaLoader proto.SchemaLoader
+}
+
+func (o *optimizer) SetSchemaLoader(schemaLoader proto.SchemaLoader) {
+	o.schemaLoader = schemaLoader
+}
+
+func (o *optimizer) SchemaLoader() proto.SchemaLoader {
+	return o.schemaLoader
 }
 
 func (o optimizer) Optimize(ctx context.Context, conn proto.VConn, stmt ast.StmtNode, args ...interface{}) (plan proto.Plan, err error) {
@@ -160,7 +171,7 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 
 	if flag&_bypass != 0 {
 		if len(stmt.From) > 0 {
-			err := o.rewriteStatement(ctx, conn, stmt, rcontext.DBGroup(ctx), stmt.From[0].TableName().Suffix())
+			err := o.rewriteSelectStatement(ctx, conn, stmt, rcontext.DBGroup(ctx), stmt.From[0].TableName().Suffix())
 			if err != nil {
 				return nil, err
 			}
@@ -199,7 +210,7 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 		if db0, tbl0, ok = vt.Topology().Render(0, 0); !ok {
 			return nil, errors.Errorf("cannot compute minimal topology from '%s'", stmt.From[0].TableName().Suffix())
 		}
-		err := o.rewriteStatement(ctx, conn, stmt, db0, tbl0)
+		err := o.rewriteSelectStatement(ctx, conn, stmt, db0, tbl0)
 		if err != nil {
 			return nil, err
 		}
@@ -224,7 +235,7 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 			ret.Tables = v
 		}
 		// TODO now only support single table
-		err := o.rewriteStatement(ctx, conn, ret.Stmt, ret.Database, ret.Tables[0])
+		err := o.rewriteSelectStatement(ctx, conn, ret.Stmt, ret.Database, ret.Tables[0])
 		if err != nil {
 			return nil, err
 		}
@@ -255,7 +266,7 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 
 	if len(plans) > 0 {
 		tempPlan := plans[0].(*plan.SimpleQueryPlan)
-		err := o.rewriteStatement(ctx, conn, stmt, tempPlan.Database, tempPlan.Tables[0])
+		err := o.rewriteSelectStatement(ctx, conn, stmt, tempPlan.Database, tempPlan.Tables[0])
 		if err != nil {
 			return nil, err
 		}
@@ -266,34 +277,6 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 	// TODO: order/groupBy/aggregate
 
 	return unionPlan, nil
-}
-
-func (o optimizer) rewriteStatement(ctx context.Context, conn proto.VConn, stmt *rast.SelectStatement,
-	db, tb string) error {
-	// todo db 计算逻辑&tb shard 的计算逻辑
-	var starExpand = false
-	if len(stmt.Select) == 1 {
-		if _, ok := stmt.Select[0].(*rast.SelectElementAll); ok {
-			starExpand = true
-		}
-	}
-	if starExpand {
-		if len(tb) < 1 {
-			tb = stmt.From[0].TableName().Suffix()
-		}
-		schemaLoader := &schema_manager.SimpleSchemaLoader{Schema: db}
-		metaData := schemaLoader.Load(ctx, conn, []string{tb})[tb]
-		if metaData == nil || len(metaData.ColumnNames) == 0 {
-			return errors.Errorf("can not get metadata for db:%s and table:%s", db, tb)
-		}
-		selectElements := make([]rast.SelectElement, len(metaData.Columns))
-		for i, column := range metaData.ColumnNames {
-			selectElements[i] = rast.NewSelectElementColumn([]string{column}, "")
-		}
-		stmt.Select = selectElements
-	}
-
-	return nil
 }
 
 func (o optimizer) optimizeUpdate(ctx context.Context, conn proto.VConn, stmt *rast.UpdateStatement, args []interface{}) (proto.Plan, error) {
@@ -454,6 +437,7 @@ func (o optimizer) optimizeInsert(ctx context.Context, conn proto.VConn, stmt *r
 			}
 			newborn.SetValues(values)
 
+			o.rewriteInsertStatement(ctx, conn, newborn, db, table)
 			ret.Put(db, newborn)
 		}
 	}
@@ -569,4 +553,73 @@ func (o optimizer) computeShards(ru *rule.Rule, table rast.TableName, where rast
 	}
 
 	return shards, nil
+}
+
+func (o optimizer) rewriteSelectStatement(ctx context.Context, conn proto.VConn, stmt *rast.SelectStatement,
+	db, tb string) error {
+	// todo db 计算逻辑&tb shard 的计算逻辑
+	var starExpand = false
+	if len(stmt.Select) == 1 {
+		if _, ok := stmt.Select[0].(*rast.SelectElementAll); ok {
+			starExpand = true
+		}
+	}
+	if starExpand {
+		if len(tb) < 1 {
+			tb = stmt.From[0].TableName().Suffix()
+		}
+		metaData := o.schemaLoader.Load(ctx, conn, db, []string{tb})[tb]
+		if metaData == nil || len(metaData.ColumnNames) == 0 {
+			return errors.Errorf("can not get metadata for db:%s and table:%s", db, tb)
+		}
+		selectElements := make([]rast.SelectElement, len(metaData.Columns))
+		for i, column := range metaData.ColumnNames {
+			selectElements[i] = rast.NewSelectElementColumn([]string{column}, "")
+		}
+		stmt.Select = selectElements
+	}
+
+	return nil
+}
+
+func (o optimizer) rewriteInsertStatement(ctx context.Context, conn proto.VConn, stmt *rast.InsertStatement,
+	db, tb string) error {
+	metaData := o.schemaLoader.Load(ctx, conn, db, []string{tb})[tb]
+	if metaData == nil || len(metaData.ColumnNames) == 0 {
+		return errors.Errorf("can not get metadata for db:%s and table:%s", db, tb)
+	}
+
+	if len(metaData.ColumnNames) == len(stmt.Columns()) {
+		// User had explicitly specified every value
+		return nil
+	}
+	columnsMetadata := metaData.Columns
+
+	for _, colName := range stmt.Columns() {
+		if columnsMetadata[colName].PrimaryKey && columnsMetadata[colName].Generated {
+			// User had explicitly specified auto-generated primary key column
+			return nil
+		}
+	}
+
+	pkColName := ""
+	for name, column := range columnsMetadata {
+		if column.PrimaryKey && column.Generated {
+			pkColName = name
+			break
+		}
+	}
+	if len(pkColName) < 1 {
+		// There's no auto-generated primary key column
+		return nil
+	}
+
+	// TODO rewrite columns and add distributed primary key
+	//stmt.SetColumns(append(stmt.Columns(), pkColName))
+	// append value of distributed primary key
+	//newValues := stmt.Values()
+	//for _, newValue := range newValues {
+	//	newValue = append(newValue, )
+	//}
+	return nil
 }

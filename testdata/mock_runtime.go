@@ -418,15 +418,15 @@ func (m *MockSchemaLoader) EXPECT() *MockSchemaLoaderMockRecorder {
 }
 
 // Load mocks base method.
-func (m *MockSchemaLoader) Load(arg0 context.Context, arg1 proto.VConn, arg2 []string) map[string]*proto.TableMetadata {
+func (m *MockSchemaLoader) Load(arg0 context.Context, arg1 proto.VConn, arg2 string, arg3 []string) map[string]*proto.TableMetadata {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Load", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "Load", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(map[string]*proto.TableMetadata)
 	return ret0
 }
 
 // Load indicates an expected call of Load.
-func (mr *MockSchemaLoaderMockRecorder) Load(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockSchemaLoaderMockRecorder) Load(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Load", reflect.TypeOf((*MockSchemaLoader)(nil).Load), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Load", reflect.TypeOf((*MockSchemaLoader)(nil).Load), arg0, arg1, arg2, arg3)
 }
