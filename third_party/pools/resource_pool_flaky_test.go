@@ -34,6 +34,7 @@
 package pools
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -41,8 +42,6 @@ import (
 
 import (
 	"go.uber.org/atomic"
-
-	"golang.org/x/net/context"
 )
 
 var (

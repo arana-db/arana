@@ -384,6 +384,18 @@ func (stmt *BackendStatement) execArgs(args []interface{}) (*Result, uint16, err
 	}, warnings, nil
 }
 
+// queryArgsIterRow is iterator for binary protocol result set
+func (stmt *BackendStatement) queryArgsIterRow(args []interface{}) (Iter, uint16, error) {
+	err := stmt.writeExecutePacket(args)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	result, _, warnings, err := stmt.conn.ReadQueryRow()
+
+	return &BinaryIterRow{result}, warnings, err
+}
+
 func (stmt *BackendStatement) queryArgs(args []interface{}) (*Result, uint16, error) {
 	err := stmt.writeExecutePacket(args)
 	if err != nil {

@@ -878,6 +878,80 @@ func (conn *BackendConnection) WriteComFieldList(table string, wildcard string) 
 	return nil
 }
 
+func (conn *BackendConnection) readResultSetHeaderPacket() (colNumber int, more bool, warnings uint16, err error) {
+	// Get the result.
+	_, _, colNumber, more, warning, err := conn.ReadComQueryResponse()
+	if err != nil {
+		return colNumber, more, warning, err
+	}
+	return colNumber, more, warning, nil
+}
+
+func (conn *BackendConnection) readResultSetColumnsPacket(colNumber int) (columns []proto.Field, err error) {
+	// Read column headers. One packet per column.
+	// Build the fields.
+	columns = make([]proto.Field, colNumber)
+	for i := 0; i < colNumber; i++ {
+		field := &Field{}
+		columns[i] = field
+		if err = conn.ReadColumnDefinition(field, i); err != nil {
+			return
+		}
+	}
+	return
+}
+
+// ReadQueryRow returns iterator, and the line reads the results set
+func (conn *BackendConnection) ReadQueryRow() (iter *IterRow, more bool, warnings uint16, err error) {
+	colNumber, more, warning, err := conn.readResultSetHeaderPacket()
+	if colNumber == 0 {
+		// OK packet, means no results. Just use the numbers.
+		return nil, more, warning, nil
+	}
+
+	// Read column headers. One packet per column.
+	// Build the fields.
+	columns := make([]proto.Field, colNumber)
+	for i := 0; i < colNumber; i++ {
+		field := &Field{}
+		columns[i] = field
+		if err = conn.ReadColumnDefinition(field, i); err != nil {
+			return
+		}
+	}
+	iterRow := &IterRow{BackendConnection: conn,
+		Row: &Row{
+			Content: []byte{}, ResultSet: &ResultSet{
+				Columns: columns,
+			}},
+		hasNext: true,
+	}
+
+	if conn.capabilities&mysql.CapabilityClientDeprecateEOF == 0 {
+		// EOF is only present here if it's not deprecated.
+		data, err := conn.c.readEphemeralPacket()
+		if err != nil {
+			return nil, more, warning, err2.NewSQLError(mysql.CRServerLost, mysql.SSUnknownSQLState, "%v", err)
+		}
+		if isEOFPacket(data) {
+
+			// This is what we expect.
+			// Warnings and status flags are ignored.
+			conn.c.recycleReadPacket()
+			// goto: read row loop
+
+		} else if isErrorPacket(data) {
+			defer conn.c.recycleReadPacket()
+			return nil, more, warning, ParseErrorPacket(data)
+		} else {
+			defer conn.c.recycleReadPacket()
+			return nil, more, warning, fmt.Errorf("unexpected packet after fields: %v", data)
+		}
+	}
+
+	return iterRow, more, warnings, err
+}
+
 // ReadQueryResult gets the result from the last written query.
 func (conn *BackendConnection) ReadQueryResult(wantFields bool) (result *Result, more bool, warnings uint16, err error) {
 	// Get the result.
@@ -1292,14 +1366,36 @@ func (conn *BackendConnection) ExecuteMulti(query string, wantFields bool) (resu
 	return
 }
 
+// ExecuteWithWarningCountIterRow is for fetching results and a warning count
+// Note: In a future iteration this should be abolished and merged into the
+// Execute API.
+func (conn *BackendConnection) ExecuteWithWarningCountIterRow(query string) (iterRow Iter, warnings uint16, err error) {
+	defer func() {
+		if err != nil {
+			if sqlErr, ok := err.(*err2.SQLError); ok {
+				sqlErr.Query = query
+			}
+		}
+	}()
+
+	// Send the query as a COM_QUERY packet.
+	if err = conn.WriteComQuery(query); err != nil {
+		return nil, 0, err
+	}
+
+	iterTextRow, _, warnings, err := conn.ReadQueryRow()
+	iterRow = &TextIterRow{iterTextRow}
+	return
+}
+
 // ExecuteWithWarningCount is for fetching results and a warning count
 // Note: In a future iteration this should be abolished and merged into the
 // Execute API.
 func (conn *BackendConnection) ExecuteWithWarningCount(query string, wantFields bool) (result *Result, warnings uint16, err error) {
 	defer func() {
 		if err != nil {
-			if sqlerr, ok := err.(*err2.SQLError); ok {
-				sqlerr.Query = query
+			if sqlErr, ok := err.(*err2.SQLError); ok {
+				sqlErr.Query = query
 			}
 		}
 	}()
@@ -1319,6 +1415,14 @@ func (conn *BackendConnection) PrepareExecuteArgs(query string, args []interface
 		return nil, 0, err
 	}
 	return stmt.execArgs(args)
+}
+
+func (conn *BackendConnection) PrepareQueryArgsIterRow(query string, data []interface{}) (iterRow Iter, warnings uint16, err error) {
+	stmt, err := conn.prepare(query)
+	if err != nil {
+		return nil, 0, err
+	}
+	return stmt.queryArgsIterRow(data)
 }
 
 func (conn *BackendConnection) PrepareQueryArgs(query string, data []interface{}) (Result *Result, warnings uint16, err error) {
