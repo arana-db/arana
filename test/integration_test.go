@@ -269,6 +269,7 @@ func TestShowDatabases(t *testing.T) {
 }
 
 func TestDropTable(t *testing.T) {
+	t.Skip()
 	db, err := sql.Open(driverName, dataSourceName)
 	assert.NoErrorf(t, err, "connection error: %v", err)
 	defer db.Close()
