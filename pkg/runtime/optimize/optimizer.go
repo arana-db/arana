@@ -25,6 +25,7 @@ import (
 
 import (
 	"github.com/arana-db/parser/ast"
+
 	"github.com/pkg/errors"
 )
 

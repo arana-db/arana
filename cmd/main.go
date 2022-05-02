@@ -23,8 +23,6 @@ import (
 
 import (
 	"github.com/arana-db/arana/cmd/cmds"
-
-	// load sub-commands
 	_ "github.com/arana-db/arana/cmd/start"
 	_ "github.com/arana-db/arana/cmd/tools"
 )

@@ -32,7 +32,7 @@ import (
 var FakeConfigPath = testdata.Path("fake_config.yaml")
 
 func TestMetadataConf(t *testing.T) {
-	conf, err := LoadV2(FakeConfigPath)
+	conf, err := Load(FakeConfigPath)
 	assert.NoError(t, err)
 	assert.NotNil(t, conf)
 
@@ -44,8 +44,17 @@ func TestMetadataConf(t *testing.T) {
 	assert.Equal(t, expectMetadata, conf.Metadata)
 }
 
+func TestValidate(t *testing.T) {
+	conf, err := Load(FakeConfigPath)
+	assert.NoError(t, err)
+	assert.NotNil(t, conf)
+
+	err = Validate(conf)
+	assert.NoError(t, err)
+}
+
 func TestDataSourceClustersConf(t *testing.T) {
-	conf, err := LoadV2(FakeConfigPath)
+	conf, err := Load(FakeConfigPath)
 	assert.NoError(t, err)
 	assert.NotEqual(t, nil, conf)
 
@@ -76,7 +85,7 @@ func TestDataSourceClustersConf(t *testing.T) {
 }
 
 func TestShardingRuleConf(t *testing.T) {
-	conf, err := LoadV2(FakeConfigPath)
+	conf, err := Load(FakeConfigPath)
 	assert.NoError(t, err)
 	assert.NotEqual(t, nil, conf)
 

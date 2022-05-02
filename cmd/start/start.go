@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 )
 
@@ -53,8 +54,6 @@ _____________________________________________
 
 `
 
-var bootstrapConfigPath string
-
 func init() {
 	cmd := &cobra.Command{
 		Use:     "start",
@@ -63,7 +62,7 @@ func init() {
 		Run:     Run,
 	}
 	cmd.PersistentFlags().
-		StringVarP(&bootstrapConfigPath, constants.ConfigPathKey, "c", os.Getenv(constants.EnvAranaConfig), "bootstrap configuration file path")
+		StringP(constants.ConfigPathKey, "c", os.Getenv(constants.EnvBootstrapPath), "bootstrap configuration file path")
 
 	cmds.Handle(func(root *cobra.Command) {
 		root.AddCommand(cmd)
@@ -71,7 +70,22 @@ func init() {
 }
 
 func Run(cmd *cobra.Command, args []string) {
-	_, _ = cmd, args
+	_ = args
+
+	bootstrapConfigPath, _ := cmd.PersistentFlags().GetString(constants.ConfigPathKey)
+	if len(bootstrapConfigPath) < 1 {
+		// search bootstrap yaml
+		for _, path := range constants.GetConfigSearchPathList() {
+			bootstrapConfigPath = filepath.Join(path, "bootstrap.yaml")
+			if _, err := os.Stat(bootstrapConfigPath); err == nil {
+				break
+			}
+			bootstrapConfigPath = filepath.Join(path, "bootstrap.yml")
+			if _, err := os.Stat(bootstrapConfigPath); err == nil {
+				break
+			}
+		}
+	}
 
 	// print slogan
 	fmt.Printf("\033[92m%s\033[0m\n", slogan) // 92m: light green

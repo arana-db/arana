@@ -25,7 +25,6 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/metrics"
 	"github.com/arana-db/parser"
 	"github.com/arana-db/parser/ast"
 
@@ -33,6 +32,7 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/metrics"
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime"
