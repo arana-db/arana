@@ -112,6 +112,8 @@ func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.S
 		return o.optimizeShowTables(ctx, t, args)
 	case *rast.TruncateStatement:
 		return o.optimizeTruncate(ctx, t, args)
+	case *rast.DropTableStatement:
+		return o.optimizeDropTable(ctx, t, args)
 	}
 
 	//TODO implement all statements
@@ -122,6 +124,41 @@ const (
 	_bypass uint32 = 1 << iota
 	_supported
 )
+
+func (o optimizer) optimizeDropTable(ctx context.Context, stmt *rast.DropTableStatement, args []interface{}) (proto.Plan, error) {
+	ru := rcontext.Rule(ctx)
+	//table shard
+	var shards []rule.DatabaseTables
+	//tables not shard
+	noShardStmt := rast.NewDropTableStatement()
+	for _, table := range stmt.Tables {
+		shard, err := o.computeShards(ru, *table, nil, args)
+		if err != nil {
+			return nil, err
+		}
+		if shard == nil {
+			noShardStmt.Tables = append(noShardStmt.Tables, table)
+			continue
+		}
+		shards = append(shards, shard)
+	}
+
+	shardPlan := plan.NewDropTablePlan(stmt)
+	shardPlan.BindArgs(args)
+	shardPlan.SetShards(shards)
+
+	if len(noShardStmt.Tables) == 0 {
+		return shardPlan, nil
+	}
+
+	noShardPlan := plan.Transparent(noShardStmt, args)
+
+	return &plan.UnionPlan{
+		Plans: []proto.Plan{
+			noShardPlan, shardPlan,
+		},
+	}, nil
+}
 
 func (o optimizer) getSelectFlag(ctx context.Context, stmt *rast.SelectStatement) (flag uint32) {
 	switch len(stmt.From) {

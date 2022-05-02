@@ -267,3 +267,23 @@ func TestShowDatabases(t *testing.T) {
 	assert.NoErrorf(t, err, "show databases: %v", err)
 	assert.Equal(t, affected[0].DatabaseTypeName(), "VARCHAR")
 }
+
+func TestDropTable(t *testing.T) {
+	t.Skip()
+	db, err := sql.Open(driverName, dataSourceName)
+	assert.NoErrorf(t, err, "connection error: %v", err)
+	defer db.Close()
+
+	//drop table  physical name != logical name  and  physical name = logical name
+	result, err := db.Exec(`DROP TABLE student,salaries`)
+
+	assert.NoErrorf(t, err, "drop table error:%v", err)
+	affected, err := result.RowsAffected()
+	assert.Equal(t, int64(0), affected)
+	assert.NoErrorf(t, err, "drop table  error: %v", err)
+
+	//drop again, return error
+	result, err = db.Exec(`DROP TABLE student,salaries`)
+	assert.Error(t, err, "drop table error: %v", err)
+	assert.Nil(t, result)
+}
