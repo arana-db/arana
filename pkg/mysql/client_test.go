@@ -277,6 +277,16 @@ func TestWriteComFieldList(t *testing.T) {
 	assert.Equal(t, mysql.ComFieldList, int(written[4]))
 	assert.Equal(t, table, string(written[5:5+len(table)]))
 	assert.Equal(t, column, string(written[5+len(table)+1:5+len(table)+1+len(column)]))
+
+	conn.c = newConn(new(mockConn))
+	column = ""
+	err = conn.WriteComFieldList(table, column)
+	assert.NoError(t, err)
+	written = conn.c.conn.(*mockConn).written
+	assert.Equal(t, uint8(1+len(table)+len(column)+1), written[0])
+	assert.Equal(t, mysql.ComFieldList, int(written[4]))
+	assert.Equal(t, table, string(written[5:5+len(table)]))
+	assert.Equal(t, column, string(written[5+len(table)+1:5+len(table)+1+len(column)]))
 }
 
 func TestPrepare(t *testing.T) {

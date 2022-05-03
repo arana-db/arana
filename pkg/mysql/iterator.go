@@ -361,9 +361,9 @@ func (rows *BinaryIterRow) Decode() ([]*proto.Value, error) {
 				dest[i] = &proto.Value{
 					Typ:   field.fieldType,
 					Flags: field.flags,
-					Len:   n,
+					Len:   int(num),
 					Val:   val,
-					Raw:   rows.Content[pos : pos+n],
+					Raw:   rows.Content[pos : pos+int(num)],
 				}
 				if err == nil {
 					break
@@ -389,7 +389,7 @@ func (rows *BinaryIterRow) Decode() ([]*proto.Value, error) {
 				dest[i] = &proto.Value{
 					Typ:   field.fieldType,
 					Flags: field.flags,
-					Len:   n,
+					Len:   int(num),
 					Val:   val,
 					Raw:   rows.Content[pos : pos+n],
 				}

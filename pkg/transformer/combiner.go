@@ -44,6 +44,13 @@ type (
 )
 
 func (c combinerManager) Merge(result proto.Result, loader *AggrLoader) (proto.Result, error) {
+
+	result = &mysql.Result{
+		Fields:   result.GetFields(),
+		Rows:     result.GetRows(),
+		DataChan: make(chan proto.Row, 1),
+	}
+
 	if len(loader.Aggrs) < 1 {
 		return result, nil
 	}
@@ -133,11 +140,13 @@ func (c combinerManager) Merge(result proto.Result, loader *AggrLoader) (proto.R
 	r := &mysql.TextRow{}
 	row := r.Encode(mergeVals, result.GetFields(), loader.Alias).(*mysql.TextRow)
 	mergeRows = append(mergeRows, &row.Row)
+
 	return &mysql.Result{
 		Fields:       result.GetFields(),
 		Rows:         mergeRows,
 		AffectedRows: 1,
 		InsertId:     0,
+		DataChan:     make(chan proto.Row, 1),
 	}, nil
 }
 

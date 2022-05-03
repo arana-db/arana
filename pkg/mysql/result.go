@@ -26,6 +26,7 @@ type Result struct {
 	AffectedRows uint64
 	InsertId     uint64
 	Rows         []proto.Row
+	DataChan     chan proto.Row
 }
 
 func (res *Result) GetFields() []proto.Field {
@@ -42,4 +43,8 @@ func (res *Result) LastInsertId() (uint64, error) {
 
 func (res *Result) RowsAffected() (uint64, error) {
 	return res.AffectedRows, nil
+}
+
+func (res *Result) GetDataChan() chan proto.Row {
+	return res.DataChan
 }

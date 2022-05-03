@@ -28,7 +28,7 @@ import (
 )
 
 type (
-	// Context
+	// Context is used to carry context objects
 	Context struct {
 		context.Context
 

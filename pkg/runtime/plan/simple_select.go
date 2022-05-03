@@ -64,7 +64,6 @@ func (s *SimpleQueryPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 	if res, err = conn.Query(ctx, s.Database, query, args...); err != nil {
 		return nil, errors.WithStack(err)
 	}
-
 	return res, nil
 }
 

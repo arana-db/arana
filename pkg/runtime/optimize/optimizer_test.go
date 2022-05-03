@@ -47,7 +47,7 @@ func TestOptimizer_OptimizeSelect(t *testing.T) {
 	conn.EXPECT().Query(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, db string, sql string, args ...interface{}) (proto.Result, error) {
 			t.Logf("fake query: db=%s, sql=%s, args=%v\n", db, sql, args)
-			return nil, nil
+			return &mysql.Result{}, nil
 		}).
 		AnyTimes()
 

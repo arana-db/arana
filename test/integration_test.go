@@ -198,11 +198,11 @@ func (s *IntegrationSuite) TestSelect() {
 	assert.NoErrorf(t, err, "select row error: %v", err)
 
 	var empNo string
-	var birthDate time.Time
+	var birthDate string
 	var firstName string
 	var lastName string
 	var gender string
-	var hireDate time.Time
+	var hireDate string
 	if rows.Next() {
 		err = rows.Scan(&empNo, &birthDate, &firstName, &lastName, &gender, &hireDate)
 		if err != nil {
@@ -222,11 +222,11 @@ func (s *IntegrationSuite) TestSelectLimit1() {
 	assert.NoErrorf(t, err, "select row error: %v", err)
 
 	var empNo string
-	var birthDate time.Time
+	var birthDate string
 	var firstName string
 	var lastName string
 	var gender string
-	var hireDate time.Time
+	var hireDate string
 	if rows.Next() {
 		err = rows.Scan(&empNo, &birthDate, &firstName, &lastName, &gender, &hireDate)
 		if err != nil {

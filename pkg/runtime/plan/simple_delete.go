@@ -93,7 +93,10 @@ func (s *SimpleDeletePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.
 		}
 	}
 
-	return &mysql.Result{AffectedRows: affects}, nil
+	return &mysql.Result{
+		AffectedRows: affects,
+		DataChan:     make(chan proto.Row, 1),
+	}, nil
 }
 
 func (s *SimpleDeletePlan) SetShards(shards rule.DatabaseTables) {

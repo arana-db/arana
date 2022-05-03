@@ -978,7 +978,7 @@ func (c *Conn) writeColumnDefinition(field *Field) error {
 		2 // filler
 
 	// Get the type and the flags back. If the Field contains
-	// non-zero flags, we use them. Otherwise use the flags we
+	// non-zero flags, we use them. Otherwise, use the flags we
 	// derive from the type.
 	typ, flags := mysql.TypeToMySQL(field.fieldType)
 	if field.flags != 0 {
@@ -988,7 +988,7 @@ func (c *Conn) writeColumnDefinition(field *Field) error {
 	data := c.startEphemeralPacket(length)
 	pos := 0
 
-	pos = writeLenEncString(data, pos, "def") // Always the same.
+	pos = writeLenEncString(data, pos, "def") // Always same.
 	pos = writeLenEncString(data, pos, field.database)
 	pos = writeLenEncString(data, pos, field.table)
 	pos = writeLenEncString(data, pos, field.orgTable)
@@ -1067,6 +1067,42 @@ func (c *Conn) writeRow(row []*proto.Value) error {
 	}
 
 	return c.writeEphemeralPacket()
+}
+
+// writeRowIter sends the rows of a Result.
+func (c *Conn) writeRowIter(result proto.Result) error {
+	row := result.GetRows()[0]
+	rowIter := row.(*TextIterRow)
+	var (
+		has    bool
+		err    error
+		values []*proto.Value
+	)
+	for has, err = rowIter.Next(); has && err == nil; has, err = rowIter.Next() {
+		if values, err = rowIter.Decode(); err != nil {
+			return err
+		}
+		if err = c.writeRow(values); err != nil {
+			return err
+		}
+	}
+	return err
+}
+
+// writeRowChan sends the rows of a Result.
+func (c *Conn) writeRowChan(result proto.Result) error {
+	res := result.(*Result)
+	for row := range res.GetDataChan() {
+		textRow := row.(*TextIterRow)
+		values, err := textRow.Decode()
+		if err != nil {
+			return err
+		}
+		if err = c.writeRow(values); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // writeRows sends the rows of a Result.
@@ -1196,6 +1232,37 @@ func (c *Conn) writeBinaryRow(fields []proto.Field, row []*proto.Value) error {
 	return c.writeEphemeralPacket()
 }
 
+func (c *Conn) writeBinaryRowIter(result proto.Result) error {
+	row := result.GetRows()[0]
+	rowIter := row.(*BinaryIterRow)
+	var (
+		has    bool
+		err    error
+		values []*proto.Value
+	)
+	for has, err = rowIter.Next(); has && err == nil; has, err = rowIter.Next() {
+		if values, err = rowIter.Decode(); err != nil {
+			return err
+		}
+		if err = c.writeBinaryRow(rowIter.Fields(), values); err != nil {
+			return err
+		}
+	}
+	return err
+}
+
+// writeRowChan sends the rows of a Result.
+func (c *Conn) writeBinaryRowChan(result proto.Result) error {
+	res := result.(*Result)
+	for row := range res.GetDataChan() {
+		r := row.(*BinaryIterRow)
+		if err := c.writePacket(r.Data()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // writeTextToBinaryRows sends the rows of a Result with binary form.
 func (c *Conn) writeTextToBinaryRows(result proto.Result) error {
 	for _, row := range result.GetRows() {
@@ -1223,49 +1290,49 @@ func val2MySQL(v *proto.Value) ([]byte, error) {
 	case mysql.FieldTypeNULL:
 		// no-op
 	case mysql.FieldTypeTiny:
-		val, err := strconv.ParseInt(fmt.Sprintf("%s", v.Val), 10, 8)
+		val, err := strconv.ParseInt(fmt.Sprint(v.Val), 10, 8)
 		if err != nil {
 			return []byte{}, err
 		}
 		out = make([]byte, 1)
 		writeByte(out, pos, uint8(val))
 	case mysql.FieldTypeUint8:
-		val, err := strconv.ParseUint(fmt.Sprintf("%s", v.Val), 10, 8)
+		val, err := strconv.ParseUint(fmt.Sprint(v.Val), 10, 8)
 		if err != nil {
 			return []byte{}, err
 		}
 		out = make([]byte, 1)
 		writeByte(out, pos, uint8(val))
 	case mysql.FieldTypeUint16:
-		val, err := strconv.ParseUint(fmt.Sprintf("%s", v.Val), 10, 16)
+		val, err := strconv.ParseUint(fmt.Sprint(v.Val), 10, 16)
 		if err != nil {
 			return []byte{}, err
 		}
 		out = make([]byte, 2)
 		writeUint16(out, pos, uint16(val))
 	case mysql.FieldTypeShort, mysql.FieldTypeYear:
-		val, err := strconv.ParseInt(fmt.Sprintf("%s", v.Val), 10, 16)
+		val, err := strconv.ParseInt(fmt.Sprint(v.Val), 10, 16)
 		if err != nil {
 			return []byte{}, err
 		}
 		out = make([]byte, 2)
 		writeUint16(out, pos, uint16(val))
 	case mysql.FieldTypeUint24, mysql.FieldTypeUint32:
-		val, err := strconv.ParseUint(fmt.Sprintf("%s", v.Val), 10, 32)
+		val, err := strconv.ParseUint(fmt.Sprint(v.Val), 10, 32)
 		if err != nil {
 			return []byte{}, err
 		}
 		out = make([]byte, 4)
 		writeUint32(out, pos, uint32(val))
 	case mysql.FieldTypeInt24, mysql.FieldTypeLong:
-		val, err := strconv.ParseInt(fmt.Sprintf("%s", v.Val), 10, 32)
+		val, err := strconv.ParseInt(fmt.Sprint(v.Val), 10, 32)
 		if err != nil {
 			return []byte{}, err
 		}
 		out = make([]byte, 4)
 		writeUint32(out, pos, uint32(val))
 	case mysql.FieldTypeFloat:
-		val, err := strconv.ParseFloat(fmt.Sprintf("%s", v.Val), 32)
+		val, err := strconv.ParseFloat(fmt.Sprint(v.Val), 32)
 		if err != nil {
 			return []byte{}, err
 		}
@@ -1273,21 +1340,21 @@ func val2MySQL(v *proto.Value) ([]byte, error) {
 		out = make([]byte, 4)
 		writeUint32(out, pos, bits)
 	case mysql.FieldTypeUint64:
-		val, err := strconv.ParseUint(fmt.Sprintf("%s", v.Val), 10, 64)
+		val, err := strconv.ParseUint(fmt.Sprint(v.Val), 10, 64)
 		if err != nil {
 			return []byte{}, err
 		}
 		out = make([]byte, 8)
 		writeUint64(out, pos, uint64(val))
 	case mysql.FieldTypeLongLong:
-		val, err := strconv.ParseInt(fmt.Sprintf("%s", v.Val), 10, 64)
+		val, err := strconv.ParseInt(fmt.Sprint(v.Val), 10, 64)
 		if err != nil {
 			return []byte{}, err
 		}
 		out = make([]byte, 8)
 		writeUint64(out, pos, uint64(val))
 	case mysql.FieldTypeDouble:
-		val, err := strconv.ParseFloat(fmt.Sprintf("%s", v.Val), 64)
+		val, err := strconv.ParseFloat(fmt.Sprint(v.Val), 64)
 		if err != nil {
 			return []byte{}, err
 		}

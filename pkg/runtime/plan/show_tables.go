@@ -79,53 +79,48 @@ func (s *ShowTablesPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Re
 	}
 
 	rebuildResult := mysql.Result{
-		Fields: res.GetFields(),
+		Fields:   res.GetFields(),
+		DataChan: make(chan proto.Row, 1),
 	}
-
 	hasRebuildTables := make(map[string]struct{})
 	var affectRows uint64
-	for _, row := range res.GetRows() {
-		var innerRow mysql.Row
-		switch r := row.(type) {
-		case *mysql.BinaryRow:
-			innerRow = r.Row
-		case *mysql.Row:
-			innerRow = *r
-		case *mysql.TextRow:
-			innerRow = r.Row
-		}
-		textRow := mysql.TextRow{Row: innerRow}
-		rowValues, err := textRow.Decode()
-		if err != nil {
-			return nil, err
-		}
-		tableName := s.convertInterfaceToStrNullable(rowValues[0].Val)
-		if databaseTable, exist := s.allShards[tableName]; exist {
-			if _, ok := hasRebuildTables[databaseTable.TableName]; ok {
+	if len(res.GetRows()) > 0 {
+		row := res.GetRows()[0]
+		rowIter := row.(*mysql.TextIterRow)
+		for has, err := rowIter.Next(); has && err == nil; has, err = rowIter.Next() {
+			rowValues, err := row.Decode()
+			if err != nil {
+				return nil, err
+			}
+			tableName := s.convertInterfaceToStrNullable(rowValues[0].Val)
+			if databaseTable, exist := s.allShards[tableName]; exist {
+				if _, ok := hasRebuildTables[databaseTable.TableName]; ok {
+					continue
+				}
+
+				if _, ok := hasRebuildTables[databaseTable.TableName]; ok {
+					continue
+				}
+
+				encodeTableName := mysql.PutLengthEncodedString([]byte(databaseTable.TableName))
+				tmpValues := rowValues
+				for idx := range tmpValues {
+					tmpValues[idx].Val = string(encodeTableName)
+					tmpValues[idx].Raw = encodeTableName
+					tmpValues[idx].Len = len(encodeTableName)
+				}
+
+				var tmpNewRow mysql.TextRow
+				tmpNewRow.Encode(tmpValues, row.Fields(), row.Columns())
+				rebuildResult.Rows = append(rebuildResult.Rows, &tmpNewRow)
+				hasRebuildTables[databaseTable.TableName] = struct{}{}
+				affectRows++
 				continue
 			}
-
-			if _, ok := hasRebuildTables[databaseTable.TableName]; ok {
-				continue
-			}
-
-			encodeTableName := mysql.PutLengthEncodedString([]byte(databaseTable.TableName))
-			tmpValues := rowValues
-			for idx := range tmpValues {
-				tmpValues[idx].Val = string(encodeTableName)
-				tmpValues[idx].Raw = encodeTableName
-				tmpValues[idx].Len = len(encodeTableName)
-			}
-
-			var tmpNewRow mysql.Row
-			tmpNewRow.Encode(tmpValues, textRow.Fields(), textRow.Columns())
-			rebuildResult.Rows = append(rebuildResult.Rows, &tmpNewRow)
-			hasRebuildTables[databaseTable.TableName] = struct{}{}
 			affectRows++
-			continue
+			textRow := &mysql.TextRow{Row: *rowIter.Row}
+			rebuildResult.Rows = append(rebuildResult.Rows, textRow)
 		}
-		affectRows++
-		rebuildResult.Rows = append(rebuildResult.Rows, row)
 	}
 	rebuildResult.AffectedRows = affectRows
 	return &rebuildResult, nil

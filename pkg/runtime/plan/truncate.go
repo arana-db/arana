@@ -78,7 +78,9 @@ func (s *TruncatePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Resu
 		}
 	}
 
-	return &mysql.Result{AffectedRows: 0}, nil
+	return &mysql.Result{
+		DataChan: make(chan proto.Row, 1),
+	}, nil
 }
 
 func (s *TruncatePlan) SetShards(shards rule.DatabaseTables) {

@@ -113,7 +113,7 @@ func (executor *RedirectExecutor) ExecuteUseDB(ctx *proto.Context) error {
 
 func (executor *RedirectExecutor) ExecuteFieldList(ctx *proto.Context) ([]proto.Field, error) {
 	index := bytes.IndexByte(ctx.Data, 0x00)
-	table := string(ctx.Data[0:index])
+	table := string(ctx.Data[1:index])
 	wildcard := string(ctx.Data[index+1:])
 
 	rt, err := runtime.Load(ctx.Schema)
