@@ -59,7 +59,7 @@ func init() {
 		Use:     "start",
 		Short:   "start arana",
 		Example: "arana start -c bootstrap.yaml",
-		Run:     Run,
+		Run:     run,
 	}
 	cmd.PersistentFlags().
 		StringP(constants.ConfigPathKey, "c", os.Getenv(constants.EnvBootstrapPath), "bootstrap configuration file path")
@@ -69,24 +69,7 @@ func init() {
 	})
 }
 
-func Run(cmd *cobra.Command, args []string) {
-	_ = args
-
-	bootstrapConfigPath, _ := cmd.PersistentFlags().GetString(constants.ConfigPathKey)
-	if len(bootstrapConfigPath) < 1 {
-		// search bootstrap yaml
-		for _, path := range constants.GetConfigSearchPathList() {
-			bootstrapConfigPath = filepath.Join(path, "bootstrap.yaml")
-			if _, err := os.Stat(bootstrapConfigPath); err == nil {
-				break
-			}
-			bootstrapConfigPath = filepath.Join(path, "bootstrap.yml")
-			if _, err := os.Stat(bootstrapConfigPath); err == nil {
-				break
-			}
-		}
-	}
-
+func Run(bootstrapConfigPath string) {
 	// print slogan
 	fmt.Printf("\033[92m%s\033[0m\n", slogan) // 92m: light green
 
@@ -146,4 +129,24 @@ func Run(cmd *cobra.Command, args []string) {
 	case <-ctx.Done():
 		return
 	}
+}
+
+func run(cmd *cobra.Command, args []string) {
+	_ = args
+	bootstrapConfigPath, _ := cmd.PersistentFlags().GetString(constants.ConfigPathKey)
+	if len(bootstrapConfigPath) < 1 {
+		// search bootstrap yaml
+		for _, path := range constants.GetConfigSearchPathList() {
+			bootstrapConfigPath = filepath.Join(path, "bootstrap.yaml")
+			if _, err := os.Stat(bootstrapConfigPath); err == nil {
+				break
+			}
+			bootstrapConfigPath = filepath.Join(path, "bootstrap.yml")
+			if _, err := os.Stat(bootstrapConfigPath); err == nil {
+				break
+			}
+		}
+	}
+
+	Run(bootstrapConfigPath)
 }

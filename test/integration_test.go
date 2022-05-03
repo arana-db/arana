@@ -18,7 +18,6 @@
 package test
 
 import (
-	"database/sql"
 	"fmt"
 	"testing"
 	"time"
@@ -26,8 +25,8 @@ import (
 
 import (
 	_ "github.com/go-sql-driver/mysql" // register mysql
-
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 )
 
 import (
@@ -35,18 +34,20 @@ import (
 	utils "github.com/arana-db/arana/pkg/util/tableprint"
 )
 
-const (
-	driverName string = "mysql"
+type IntegrationSuite struct {
+	*MySuite
+}
 
-	// user:password@tcp(127.0.0.1:3306)/dbName?
-	dataSourceName string = "dksl:123456@tcp(127.0.0.1:13306)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8"
-)
+func TestSuite(t *testing.T) {
+	su := NewMySuite(WithMySQLServerAuth("root", "123456"), WithMySQLDatabase("employees"))
+	suite.Run(t, &IntegrationSuite{su})
+}
 
-func TestBasicTx(t *testing.T) {
-	db, err := sql.Open(driverName, dataSourceName)
-	assert.NoErrorf(t, err, "connection error: %v", err)
-	defer db.Close()
-
+func (s *IntegrationSuite) TestBasicTx() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
 	tx, err := db.Begin()
 	assert.NoError(t, err, "should begin a new tx")
 
@@ -99,10 +100,11 @@ func TestBasicTx(t *testing.T) {
 	_, _ = db.Exec("delete from sequence where name = ?", name)
 }
 
-func TestSimpleSharding(t *testing.T) {
-	db, err := sql.Open(driverName, dataSourceName)
-	assert.NoErrorf(t, err, "connection error: %v", err)
-	defer db.Close()
+func (s *IntegrationSuite) TestSimpleSharding() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
 
 	const total = 100
 
@@ -171,11 +173,11 @@ func TestSimpleSharding(t *testing.T) {
 	})
 }
 
-func TestInsert(t *testing.T) {
-	db, err := sql.Open(driverName, dataSourceName)
-	assert.NoErrorf(t, err, "connection error: %v", err)
-	defer db.Close()
-
+func (s *IntegrationSuite) TestInsert() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
 	result, err := db.Exec(`INSERT INTO employees ( emp_no, birth_date, first_name, last_name, gender, hire_date )
 		VALUES (?, ?, ?, ?, ?, ?)`, 100001, "1992-01-07", "scott", "lewis", "M", "2014-09-01")
 	assert.NoErrorf(t, err, "insert row error: %v", err)
@@ -184,10 +186,11 @@ func TestInsert(t *testing.T) {
 	assert.Equal(t, int64(1), affected)
 }
 
-func TestSelect(t *testing.T) {
-	db, err := sql.Open(driverName, dataSourceName)
-	assert.NoErrorf(t, err, "connection error: %v", err)
-	defer db.Close()
+func (s *IntegrationSuite) TestSelect() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
 
 	rows, err := db.Query(`SELECT emp_no, birth_date, first_name, last_name, gender, hire_date FROM employees 
 		WHERE emp_no = ?`, 100001)
@@ -208,10 +211,11 @@ func TestSelect(t *testing.T) {
 	assert.Equal(t, "scott", firstName)
 }
 
-func TestSelectLimit1(t *testing.T) {
-	db, err := sql.Open(driverName, dataSourceName)
-	assert.NoErrorf(t, err, "connection error: %v", err)
-	defer db.Close()
+func (s *IntegrationSuite) TestSelectLimit1() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
 
 	rows, err := db.Query(`SELECT emp_no, birth_date, first_name, last_name, gender, hire_date FROM employees LIMIT 1`)
 	assert.NoErrorf(t, err, "select row error: %v", err)
@@ -231,10 +235,11 @@ func TestSelectLimit1(t *testing.T) {
 	assert.Equal(t, "scott", firstName)
 }
 
-func TestUpdate(t *testing.T) {
-	db, err := sql.Open(driverName, dataSourceName)
-	assert.NoErrorf(t, err, "connection error: %v", err)
-	defer db.Close()
+func (s *IntegrationSuite) TestUpdate() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
 
 	result, err := db.Exec(`UPDATE employees set last_name = ? where emp_no = ?`, "louis", 100001)
 	assert.NoErrorf(t, err, "update row error: %v", err)
@@ -244,10 +249,15 @@ func TestUpdate(t *testing.T) {
 	assert.Equal(t, int64(1), affected)
 }
 
-func TestDelete(t *testing.T) {
-	db, err := sql.Open(driverName, dataSourceName)
-	assert.NoErrorf(t, err, "connection error: %v", err)
-	defer db.Close()
+func (s *IntegrationSuite) TestDelete() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	// prepare test records
+	_, _ = db.Exec(`INSERT IGNORE INTO employees ( emp_no, birth_date, first_name, last_name, gender, hire_date )
+		VALUES (?, ?, ?, ?, ?, ?)`, 100001, "1992-01-07", "scott", "lewis", "M", "2014-09-01")
 
 	result, err := db.Exec(`DELETE FROM employees WHERE emp_no = ?`, 100001)
 	assert.NoErrorf(t, err, "delete row error: %v", err)
@@ -256,10 +266,11 @@ func TestDelete(t *testing.T) {
 	assert.Equal(t, int64(1), affected)
 }
 
-func TestShowDatabases(t *testing.T) {
-	db, err := sql.Open(driverName, dataSourceName)
-	assert.NoErrorf(t, err, "connection error: %v", err)
-	defer db.Close()
+func (s *IntegrationSuite) TestShowDatabases() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
 
 	result, err := db.Query("show databases")
 	assert.NoErrorf(t, err, "show databases error: %v", err)
@@ -268,11 +279,13 @@ func TestShowDatabases(t *testing.T) {
 	assert.Equal(t, affected[0].DatabaseTypeName(), "VARCHAR")
 }
 
-func TestDropTable(t *testing.T) {
+func (s *IntegrationSuite) TestDropTable() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
 	t.Skip()
-	db, err := sql.Open(driverName, dataSourceName)
-	assert.NoErrorf(t, err, "connection error: %v", err)
-	defer db.Close()
 
 	//drop table  physical name != logical name  and  physical name = logical name
 	result, err := db.Exec(`DROP TABLE student,salaries`)
