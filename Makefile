@@ -35,18 +35,13 @@ build dist/arana dist/arana-sha-256:
 docker-build:
 	docker build -t aranadb/arana:latest .
 
-integration-test: docker-build
-	docker-compose up -d
-	@sleep 30
+integration-test:
 	@go clean -testcache
 	go test -tags integration -v ./test/...
 
 clean:
-	docker-compose -f docker/docker-compose.yaml down
 	@rm -rf coverage.txt
 	@rm -rf dist
-	@rm -rf docker/data
-	@rm -rf docker/mysqld
 
 prepareLic:
 	echo 'The makefile is for ci test and has dependencies. Do not run it locally. If you want to run the unit tests, run command `go test ./...` directly.'
