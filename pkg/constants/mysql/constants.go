@@ -584,6 +584,9 @@ const (
 
 	// SSLockDeadlock is ER_LOCK_DEADLOCK
 	SSLockDeadlock = "40001"
+
+	// SSNoDatabaseSelected is ER_NO_DB
+	SSNoDatabaseSelected = "3D000"
 )
 
 // Status flags. They are returned by the server in a few cases.
