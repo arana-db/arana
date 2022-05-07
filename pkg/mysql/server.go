@@ -1198,15 +1198,14 @@ func (c *Conn) writeBinaryRow(fields []proto.Field, row []*proto.Value) error {
 
 // writeTextToBinaryRows sends the rows of a Result with binary form.
 func (c *Conn) writeTextToBinaryRows(result proto.Result) error {
-	rlt := result.(*Result)
-	for _, row := range rlt.Rows {
+	for _, row := range result.GetRows() {
 		r := row.(*Row)
 		textRow := TextRow{*r}
 		values, err := textRow.Decode()
 		if err != nil {
 			return err
 		}
-		if err := c.writeBinaryRow(rlt.Fields, values); err != nil {
+		if err := c.writeBinaryRow(result.GetFields(), values); err != nil {
 			return err
 		}
 	}
@@ -1582,8 +1581,7 @@ func val2MySQLLen(v *proto.Value) (int, error) {
 }
 
 func (c *Conn) writeBinaryRows(result proto.Result) error {
-	rlt := result.(*Result)
-	for _, row := range rlt.Rows {
+	for _, row := range result.GetRows() {
 		r := row.(*Row)
 		if err := c.writePacket(r.Data()); err != nil {
 			return err

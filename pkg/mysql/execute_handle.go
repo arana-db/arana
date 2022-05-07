@@ -163,15 +163,16 @@ func (l *Listener) handleStmtExecute(c *Conn, ctx *proto.Context) error {
 		}
 		return nil
 	}
-	rlt := result.(*Result)
-	if len(rlt.Fields) == 0 {
+	if len(result.GetFields()) == 0 {
 		// A successful callback with no fields means that this was a
 		// DML or other write-only operation.
 		//
 		// We should not send any more packets after this, but make sure
 		// to extract the affected rows and last insert id from the result
 		// struct here since clients expect it.
-		return c.writeOKPacket(rlt.AffectedRows, rlt.InsertId, c.StatusFlags, warn)
+		affected, _ := result.RowsAffected()
+		lastInsertId, _ := result.LastInsertId()
+		return c.writeOKPacket(affected, lastInsertId, c.StatusFlags, warn)
 	}
 	if err = c.writeFields(l.capabilities, result); err != nil {
 		return err
