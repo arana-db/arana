@@ -98,8 +98,12 @@ func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.S
 		return o.optimizeDelete(ctx, t, args)
 	case *rast.UpdateStatement:
 		return o.optimizeUpdate(ctx, conn, t, args)
+	case *rast.ShowTables:
+		return o.optimizeShowTables(ctx, t, args)
 	case *rast.TruncateStatement:
 		return o.optimizeTruncate(ctx, t, args)
+	case *rast.ShowVariables:
+		return o.optimizeShowVariables(ctx, t, args)
 	}
 
 	//TODO implement all statements
@@ -480,6 +484,40 @@ func (o optimizer) optimizeDelete(ctx context.Context, stmt *rast.DeleteStatemen
 	return ret, nil
 }
 
+func (o optimizer) optimizeShowTables(ctx context.Context, stmt *rast.ShowTables, args []interface{}) (proto.Plan, error) {
+	vts := rcontext.Rule(ctx).VTables()
+	databaseTablesMap := make(map[string]rule.DatabaseTables, len(vts))
+	for tableName, vt := range vts {
+		shards := rule.DatabaseTables{}
+		// compute all tables
+		topology := vt.Topology()
+		topology.Each(func(dbIdx, tbIdx int) bool {
+			if d, t, ok := topology.Render(dbIdx, tbIdx); ok {
+				shards[d] = append(shards[d], t)
+			}
+			return true
+		})
+		databaseTablesMap[tableName] = shards
+	}
+
+	tmpPlanData := make(map[string]plan.DatabaseTable)
+	for showTableName, databaseTables := range databaseTablesMap {
+		for databaseName, shardingTables := range databaseTables {
+			for _, shardingTable := range shardingTables {
+				tmpPlanData[shardingTable] = plan.DatabaseTable{
+					Database:  databaseName,
+					TableName: showTableName,
+				}
+			}
+		}
+	}
+
+	ret := plan.NewShowTablesPlan(stmt)
+	ret.BindArgs(args)
+	ret.SetAllShards(tmpPlanData)
+	return ret, nil
+}
+
 func (o optimizer) optimizeTruncate(ctx context.Context, stmt *rast.TruncateStatement, args []interface{}) (proto.Plan, error) {
 	ru := rcontext.Rule(ctx)
 	shards, err := o.computeShards(ru, stmt.Table, nil, args)
@@ -495,6 +533,12 @@ func (o optimizer) optimizeTruncate(ctx context.Context, stmt *rast.TruncateStat
 	ret.BindArgs(args)
 	ret.SetShards(shards)
 
+	return ret, nil
+}
+
+func (o optimizer) optimizeShowVariables(ctx context.Context, stmt *rast.ShowVariables, args []interface{}) (proto.Plan, error) {
+	ret := plan.NewShowVariablesPlan(stmt)
+	ret.BindArgs(args)
 	return ret, nil
 }
 

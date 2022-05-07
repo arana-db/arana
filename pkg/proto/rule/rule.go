@@ -188,6 +188,13 @@ func (ru *Rule) VTable(table string) (*VTable, bool) {
 	return vt, ok
 }
 
+// VTables returns all the VTable
+func (ru *Rule) VTables() map[string]*VTable {
+	ru.mu.RLock()
+	defer ru.mu.RUnlock()
+	return ru.vtabs
+}
+
 // MustVTable returns the VTable with given table name, panic if not exist.
 func (ru *Rule) MustVTable(name string) *VTable {
 	v, ok := ru.VTable(name)

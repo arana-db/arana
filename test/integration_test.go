@@ -267,3 +267,26 @@ func TestShowDatabases(t *testing.T) {
 	assert.NoErrorf(t, err, "show databases: %v", err)
 	assert.Equal(t, affected[0].DatabaseTypeName(), "VARCHAR")
 }
+
+func TestShowVariables(t *testing.T) {
+	db, err := sql.Open(driverName, dataSourceName)
+	assert.NoErrorf(t, err, "connection error: %v", err)
+	defer db.Close()
+
+	result, err := db.Query("show variables like 'innodb_default_row_format'")
+	assert.NoErrorf(t, err, "show variables error: %v", err)
+	columns, err := result.Columns()
+	assert.NoErrorf(t, err, "show variables: %v", err)
+	assert.Equal(t, columns[0], "Variable_name")
+
+	var (
+		name  string
+		value string
+	)
+
+	assert.True(t, result.Next())
+
+	err = result.Scan(&name, &value)
+	assert.NoError(t, err, "show variables get result error: %v", err)
+	assert.Equal(t, name, "innodb_default_row_format")
+}

@@ -391,6 +391,15 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 			ret.like.Valid, ret.like.String = true, like
 		}
 		return ret
+	case ast.ShowVariables:
+		ret := &ShowVariables{}
+		if node.Full {
+			ret.flag |= scFlagFull
+		}
+		if like, ok := toLike(node); ok {
+			ret.like.Valid, ret.like.String = true, like
+		}
+		return ret
 	default:
 		panic(fmt.Sprintf("unimplement: show type %v!", node.Tp))
 	}
