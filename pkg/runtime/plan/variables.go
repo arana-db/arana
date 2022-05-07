@@ -50,11 +50,10 @@ func (s *ShowVariablesPlan) ExecIn(ctx context.Context, vConn proto.VConn) (prot
 
 	var (
 		sb   strings.Builder
-		stmt = new(ast.ShowVariables)
 		args []int
 	)
 
-	if err := stmt.Restore(ast.RestoreDefault, &sb, &args); err != nil {
+	if err := s.stmt.Restore(ast.RestoreDefault, &sb, &args); err != nil {
 		return nil, errors.Wrap(err, "failed to execute DELETE statement")
 	}
 
