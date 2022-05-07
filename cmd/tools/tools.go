@@ -49,7 +49,7 @@ func init() {
 	}
 
 	cmd.PersistentFlags().
-		StringVarP(&importBootConfPath, constants.ConfigPathKey, "c", os.Getenv(constants.EnvAranaConfig), "bootstrap configuration file path")
+		StringVarP(&importBootConfPath, constants.ConfigPathKey, "c", os.Getenv(constants.EnvBootstrapPath), "bootstrap configuration file path")
 	cmd.PersistentFlags().
 		StringVarP(&sourceConfigPath, constants.ImportConfigPathKey, "s", "", "import configuration file path")
 
@@ -67,7 +67,7 @@ func Run(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	cfg, err := config.LoadV2(sourceConfigPath)
+	cfg, err := config.Load(sourceConfigPath)
 	if err != nil {
 		log.Fatal("load config from %s failed: %+v", sourceConfigPath, err)
 		return

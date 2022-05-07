@@ -45,7 +45,7 @@ type TransparentPlan struct {
 func Transparent(stmt rast.Statement, args []interface{}) *TransparentPlan {
 	var typ proto.PlanType
 	switch stmt.Mode() {
-	case rast.Sinsert, rast.Sdelete, rast.Sreplace, rast.Supdate, rast.Struncate:
+	case rast.Sinsert, rast.Sdelete, rast.Sreplace, rast.Supdate, rast.Struncate, rast.SdropTable:
 		typ = proto.PlanTypeExec
 	default:
 		typ = proto.PlanTypeQuery

@@ -29,6 +29,8 @@ var _ TenantManager = (*simpleTenantManager)(nil)
 
 // TenantManager represents the manager of tenants.
 type TenantManager interface {
+	// GetTenants returns all tenants.
+	GetTenants() []string
 	// GetUser returns user by tenant and username.
 	GetUser(tenant string, username string) (*config.User, bool)
 	// GetClusters returns cluster names.
@@ -53,6 +55,16 @@ type tenantItem struct {
 type simpleTenantManager struct {
 	sync.RWMutex
 	tenants map[string]*tenantItem
+}
+
+func (st *simpleTenantManager) GetTenants() []string {
+	st.RLock()
+	defer st.RUnlock()
+	tenants := make([]string, 0, len(st.tenants))
+	for k := range st.tenants {
+		tenants = append(tenants, k)
+	}
+	return tenants
 }
 
 func (st *simpleTenantManager) GetUser(tenant string, username string) (*config.User, bool) {

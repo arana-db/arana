@@ -15,26 +15,45 @@
  * limitations under the License.
  */
 
-package constants
+package ast
 
 import (
-	"os"
-	"path/filepath"
+	"strings"
 )
 
-// Environments
-const (
-	EnvBootstrapPath = "ARANA_BOOTSTRAP_PATH" // bootstrap file path, eg: /etc/arana/bootstrap.yaml
-	EnvConfigPath    = "ARANA_CONFIG_PATH"    // config file path, eg: /etc/arana/config.yaml
+import (
+	"github.com/pkg/errors"
 )
 
-// GetConfigSearchPathList returns the default search path list of configuration.
-func GetConfigSearchPathList() []string {
-	var dirs []string
-	dirs = append(dirs, ".", "./conf")
-	if home, err := os.UserHomeDir(); err == nil {
-		dirs = append(dirs, filepath.Join(home, ".arana"))
+type DropTableStatement struct {
+	Tables []*TableName
+}
+
+func NewDropTableStatement() *DropTableStatement {
+	return &DropTableStatement{}
+}
+
+func (d DropTableStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	sb.WriteString("DROP TABLE ")
+	for index, table := range d.Tables {
+		if index != 0 {
+			sb.WriteString(", ")
+		}
+		if err := table.Restore(flag, sb, args); err != nil {
+			return errors.Errorf("An error occurred while restore DropTableStatement.Tables[%d],error:%s", index, err)
+		}
 	}
-	dirs = append(dirs, "/etc/arana")
-	return dirs
+	return nil
+}
+
+func (d DropTableStatement) CntParams() int {
+	return 0
+}
+
+func (d DropTableStatement) Validate() error {
+	return nil
+}
+
+func (d DropTableStatement) Mode() SQLType {
+	return SdropTable
 }

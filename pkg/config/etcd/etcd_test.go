@@ -40,8 +40,6 @@ import (
 const _defaultEtcdV3WorkDir = "/tmp/dubbo-go-arana/config"
 
 var (
-	_fakeConfigPath = testdata.Path("fake_bootstrap.yaml")
-
 	mockConfData = map[config.PathKey]string{
 		config.DefaultConfigMetadataPath:           "",
 		config.DefaultConfigDataListenersPath:      "",
@@ -55,7 +53,7 @@ var (
 )
 
 func doDataMock() {
-	cfg, _ = config.LoadV2(testdata.Path("fake_config.yaml"))
+	cfg, _ = config.Load(testdata.Path("fake_config.yaml"))
 
 	data, _ := json.Marshal(cfg)
 
@@ -97,7 +95,7 @@ func Test_storeOpertae(t *testing.T) {
 	assert.NoError(t, err, "init must success")
 
 	doDataMock()
-	cfg, _ := config.LoadV2(testdata.Path("fake_config.yaml"))
+	cfg, _ := config.Load(testdata.Path("fake_config.yaml"))
 	data, _ := json.Marshal(cfg)
 	for k, v := range config.ConfigKeyMapping {
 		err := operate.Save(k, []byte(gjson.GetBytes(data, v).String()))
@@ -114,7 +112,7 @@ func Test_storeOpertae(t *testing.T) {
 	receiver, err := operate.Watch(config.DefaultConfigDataFiltersPath)
 	assert.NoError(t, err, "watch must success")
 
-	newCfg, _ := config.LoadV2(testdata.Path("fake_config.yaml"))
+	newCfg, _ := config.Load(testdata.Path("fake_config.yaml"))
 	newCfg.Data.Filters = append(newCfg.Data.Filters, &config.Filter{
 		Name:   "arana-etcd-watch",
 		Config: []byte("{\"arana-etcd-watch\":\"arana-etcd-watch\"}"),

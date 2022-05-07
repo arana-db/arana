@@ -784,3 +784,7 @@ func (c *Conn) GetTLSClientCerts() []*x509.Certificate {
 	}
 	return nil
 }
+
+func (c *Conn) GetNetConn() net.Conn {
+	return c.conn
+}

@@ -72,8 +72,43 @@ func TestOptimizer_OptimizeInsert(t *testing.T) {
 	defer ctrl.Finish()
 
 	conn := testdata.NewMockVConn(ctrl)
+	loader := testdata.NewMockSchemaLoader(ctrl)
 
 	var fakeId uint64
+
+	fakeStudentMetadata := make(map[string]*proto.TableMetadata)
+	fakeStuColumnMetadata := make(map[string]*proto.ColumnMetadata)
+	fakeStuColumnMetadata["name"] = &proto.ColumnMetadata{
+		Name:          "name",
+		DataType:      "varchar",
+		Ordinal:       "1",
+		PrimaryKey:    false,
+		Generated:     false,
+		CaseSensitive: false,
+	}
+	fakeStuColumnMetadata["uid"] = &proto.ColumnMetadata{
+		Name:          "uid",
+		DataType:      "bigint",
+		Ordinal:       "2",
+		PrimaryKey:    false,
+		Generated:     false,
+		CaseSensitive: false,
+	}
+	fakeStuColumnMetadata["age"] = &proto.ColumnMetadata{
+		Name:          "age",
+		DataType:      "tinyint",
+		Ordinal:       "3",
+		PrimaryKey:    false,
+		Generated:     false,
+		CaseSensitive: false,
+	}
+	fakeStudentMetadata["student"] = &proto.TableMetadata{
+		Name:              "student",
+		Columns:           fakeStuColumnMetadata,
+		Indexes:           nil,
+		ColumnNames:       []string{"name", "uid", "age"},
+		PrimaryKeyColumns: nil,
+	}
 
 	conn.EXPECT().Exec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, db string, sql string, args ...interface{}) (proto.Result, error) {
@@ -86,11 +121,12 @@ func TestOptimizer_OptimizeInsert(t *testing.T) {
 			}, nil
 		}).
 		AnyTimes()
+	loader.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fakeStudentMetadata).Times(2)
 
 	var (
 		ctx  = context.Background()
 		rule = makeFakeRule(ctrl, 8)
-		opt  optimizer
+		opt  = optimizer{schemaLoader: loader}
 	)
 
 	t.Run("sharding", func(t *testing.T) {

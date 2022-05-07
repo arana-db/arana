@@ -196,6 +196,7 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32) {
 		ctx := &proto.Context{
 			Context:      context.Background(),
 			Schema:       c.Schema,
+			Tenant:       c.Tenant,
 			ConnectionID: l.connectionID,
 			Data:         content,
 		}
@@ -483,18 +484,49 @@ func (l *Listener) parseClientHandshakePacket(firstTime bool, data []byte) (*han
 }
 
 func (l *Listener) ValidateHash(handshake *handshakeResult) error {
-	tenant, ok := security.DefaultTenantManager().GetTenantOfCluster(handshake.schema)
-	if !ok {
-		return errors.NewSQLError(mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied for user '%v'", handshake.username)
+	doAuth := func(tenant string) error {
+		user, ok := security.DefaultTenantManager().GetUser(tenant, handshake.username)
+		if !ok {
+			return errors.NewSQLError(mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied for user '%v'", handshake.username)
+		}
+
+		computedAuthResponse := scramblePassword(handshake.salt, user.Password)
+		if !bytes.Equal(handshake.authResponse, computedAuthResponse) {
+			return errors.NewSQLError(mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied for user '%v'", handshake.username)
+		}
+
+		return nil
 	}
 
-	user, ok := security.DefaultTenantManager().GetUser(tenant, handshake.username)
-	if !ok {
-		return errors.NewSQLError(mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied for user '%v'", handshake.username)
+	var (
+		tenant string
+		err    error
+	)
+
+	if len(handshake.schema) < 1 { // login without schema
+		var cnt int
+		for _, next := range security.DefaultTenantManager().GetTenants() {
+			if err = doAuth(next); err == nil {
+				tenant = next
+				cnt++
+			}
+		}
+		if cnt > 1 { // reject conflict user login
+			return errors.NewSQLError(mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied for user '%v'", handshake.username)
+		}
+	} else { // login with schema
+		var ok bool
+		if tenant, ok = security.DefaultTenantManager().GetTenantOfCluster(handshake.schema); !ok {
+			return errors.NewSQLError(mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied for user '%v'", handshake.username)
+		}
+		err = doAuth(tenant)
 	}
 
-	computedAuthResponse := scramblePassword(handshake.salt, user.Password)
-	if !bytes.Equal(handshake.authResponse, computedAuthResponse) {
+	if err != nil {
+		return err
+	}
+
+	if len(tenant) < 1 {
 		return errors.NewSQLError(mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied for user '%v'", handshake.username)
 	}
 

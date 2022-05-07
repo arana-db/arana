@@ -20,34 +20,27 @@ package config
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
-	"path/filepath"
+	"io"
+	"os"
 	"regexp"
 	"strconv"
 )
 
 import (
-	"github.com/ghodss/yaml"
+	"github.com/go-playground/validator/v10"
 
 	"github.com/pkg/errors"
-)
 
-import (
-	"github.com/arana-db/arana/pkg/util/file"
+	"gopkg.in/yaml.v3"
 )
 
 type (
-	// TypeMeta
-	TypeMeta struct {
-		Kind       string `yaml:"kind" json:"kind,omitempty"`
-		APIVersion string `yaml:"apiVersion" json:"apiVersion,omitempty"`
-	}
-
-	// Configuration
+	// Configuration represents an Arana configuration.
 	Configuration struct {
-		TypeMeta
-		Metadata map[string]interface{} `yaml:"metadata" json:"metadata"`
-		Data     *Data                  `validate:"required" yaml:"data" json:"data"`
+		Kind       string                 `yaml:"kind" json:"kind,omitempty"`
+		APIVersion string                 `yaml:"apiVersion" json:"apiVersion,omitempty"`
+		Metadata   map[string]interface{} `yaml:"metadata" json:"metadata"`
+		Data       *Data                  `validate:"required,structonly" yaml:"data" json:"data"`
 	}
 
 	// DataSourceType is the data source type
@@ -58,15 +51,15 @@ type (
 	// management servers
 	SocketAddress struct {
 		Address string `default:"0.0.0.0" yaml:"address" json:"address"`
-		Port    int    `default:"8881" yaml:"port" json:"port"`
+		Port    int    `default:"13306" yaml:"port" json:"port"`
 	}
 
 	Data struct {
 		Filters            []*Filter            `yaml:"filters" json:"filters,omitempty"`
-		Listeners          []*Listener          `validate:"required" yaml:"listeners" json:"listeners"`
-		Tenants            []*Tenant            `validate:"required" yaml:"tenants" json:"tenants"`
-		DataSourceClusters []*DataSourceCluster `validate:"required" yaml:"clusters" json:"clusters"`
-		ShardingRule       *ShardingRule        `yaml:"sharding_rule,omitempty" json:"sharding_rule,omitempty"`
+		Listeners          []*Listener          `validate:"required,dive" yaml:"listeners" json:"listeners"`
+		Tenants            []*Tenant            `validate:"required,dive" yaml:"tenants" json:"tenants"`
+		DataSourceClusters []*DataSourceCluster `validate:"required,dive" yaml:"clusters" json:"clusters"`
+		ShardingRule       *ShardingRule        `validate:"required,dive" yaml:"sharding_rule,omitempty" json:"sharding_rule,omitempty"`
 	}
 
 	Filter struct {
@@ -100,12 +93,12 @@ type (
 	}
 
 	Node struct {
-		Name      string            `yaml:"name" json:"name"`
-		Host      string            `yaml:"host" json:"host"`
-		Port      int               `yaml:"port" json:"port"`
-		Username  string            `yaml:"username" json:"username"`
-		Password  string            `yaml:"password" json:"password"`
-		Database  string            `yaml:"database" json:"database"`
+		Name      string            `validate:"required" yaml:"name" json:"name"`
+		Host      string            `validate:"required" yaml:"host" json:"host"`
+		Port      int               `validate:"required" yaml:"port" json:"port"`
+		Username  string            `validate:"required" yaml:"username" json:"username"`
+		Password  string            `validate:"required" yaml:"password" json:"password"`
+		Database  string            `validate:"required" yaml:"database" json:"database"`
 		ConnProps map[string]string `yaml:"conn_props" json:"conn_props,omitempty"`
 		Weight    string            `default:"r10w10" yaml:"weight" json:"weight"`
 		Labels    map[string]string `yaml:"labels" json:"labels,omitempty"`
@@ -127,7 +120,7 @@ type (
 	}
 
 	Table struct {
-		Name           string            `yaml:"name" json:"name"`
+		Name           string            `validate:"required" yaml:"name" json:"name"`
 		AllowFullScan  bool              `yaml:"allow_full_scan" json:"allow_full_scan,omitempty"`
 		DbRules        []*Rule           `yaml:"db_rules" json:"db_rules"`
 		TblRules       []*Rule           `yaml:"tbl_rules" json:"tbl_rules"`
@@ -137,48 +130,58 @@ type (
 	}
 
 	Rule struct {
-		Column string `yaml:"column" json:"column"`
-		Expr   string `yaml:"expr" json:"expr"`
+		Column string `validate:"required" yaml:"column" json:"column"`
+		Expr   string `validate:"required" yaml:"expr" json:"expr"`
 	}
 
 	Topology struct {
-		DbPattern  string `yaml:"db_pattern" json:"db_pattern"`
-		TblPattern string `yaml:"tbl_pattern" json:"tbl_pattern"`
+		DbPattern  string `validate:"required" yaml:"db_pattern" json:"db_pattern"`
+		TblPattern string `validate:"required" yaml:"tbl_pattern" json:"tbl_pattern"`
 	}
 )
 
-func ParseV2(path string) (*Configuration, error) {
-	content, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to load config")
-	}
+// Decoder decodes configuration.
+type Decoder struct {
+	reader io.Reader
+}
 
-	if !file.IsYaml(path) {
-		return nil, errors.Errorf("invalid config file format: %s", filepath.Ext(path))
+func (d *Decoder) Decode(v interface{}) error {
+	if err := yaml.NewDecoder(d.reader).Decode(v); err != nil {
+		return errors.WithStack(err)
 	}
+	return nil
+}
+
+// NewDecoder creates a Decoder from a reader.
+func NewDecoder(reader io.Reader) *Decoder {
+	return &Decoder{reader: reader}
+}
+
+// Load loads the configuration from file path.
+func Load(path string) (*Configuration, error) {
+	var (
+		f   *os.File
+		err error
+	)
+
+	if f, err = os.Open(path); err != nil {
+		return nil, errors.Wrap(err, "failed to load configuration file")
+	}
+	defer func() {
+		_ = f.Close()
+	}()
 
 	var cfg Configuration
-	if err = yaml.Unmarshal(content, &cfg); err != nil {
-		return nil, errors.Wrapf(err, "failed to unmarshal config")
+	if err = NewDecoder(f).Decode(&cfg); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal config")
 	}
-
 	return &cfg, nil
 }
 
-// LoadV2 loads the configuration.
-func LoadV2(path string) (*Configuration, error) {
-	configPath, _ := filepath.Abs(path)
-	cfg, err := ParseV2(configPath)
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-	return cfg, nil
-}
-
-var reg = regexp.MustCompile(`^[rR]([0-9]+)[wW]([0-9]+)$`)
+var _weightRegexp = regexp.MustCompile(`^[rR]([0-9]+)[wW]([0-9]+)$`)
 
 func (d *Node) GetReadAndWriteWeight() (int, int, error) {
-	items := reg.FindStringSubmatch(d.Weight)
+	items := _weightRegexp.FindStringSubmatch(d.Weight)
 	if len(items) != 3 {
 		return 0, 0, errors.New("weight config should be r10w10")
 	}
@@ -220,4 +223,10 @@ func (t *ProtocolType) unmarshalText(text []byte) bool {
 		return false
 	}
 	return true
+}
+
+// Validate validates the input configuration.
+func Validate(cfg *Configuration) error {
+	v := validator.New()
+	return v.Struct(cfg)
 }

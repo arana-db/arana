@@ -391,14 +391,42 @@ func (db *AtomDB) CallFieldList(ctx context.Context, table, wildcard string) ([]
 		return nil, errors.WithStack(err)
 	}
 
-	defer db.returnConnection(bc)
-	defer db.pending()
+	defer func() {
+		db.pending()
+		db.returnConnection(bc)
+	}()
 
 	if err = bc.WriteComFieldList(table, wildcard); err != nil {
 		return nil, errors.WithStack(err)
 	}
 
 	return bc.ReadColumnDefinitions()
+}
+
+func (db *AtomDB) CallToIter(ctx context.Context, sql string, args ...interface{}) (next mysql.Iter, warn uint16, err error) {
+	if db.closed.Load() {
+		err = errors.Errorf("the db instance '%s' is closed already", db.id)
+		return
+	}
+
+	var bc *mysql.BackendConnection
+
+	if bc, err = db.borrowConnection(ctx); err != nil {
+		err = errors.WithStack(err)
+		return
+	}
+
+	defer func() {
+		db.pending()
+		db.returnConnection(bc)
+	}()
+
+	if len(args) > 0 {
+		next, warn, err = bc.PrepareQueryArgsIterRow(sql, args)
+	} else {
+		next, warn, err = bc.ExecuteWithWarningCountIterRow(sql)
+	}
+	return
 }
 
 func (db *AtomDB) Call(ctx context.Context, sql string, args ...interface{}) (res proto.Result, warn uint16, err error) {
@@ -414,8 +442,10 @@ func (db *AtomDB) Call(ctx context.Context, sql string, args ...interface{}) (re
 		return
 	}
 
-	defer db.returnConnection(bc)
-	defer db.pending()
+	defer func() {
+		db.pending()
+		db.returnConnection(bc)
+	}()
 
 	if len(args) > 0 {
 		res, warn, err = bc.PrepareQueryArgs(sql, args)
@@ -484,11 +514,12 @@ func (db *AtomDB) SetWeight(weight proto.Weight) error {
 }
 
 func (db *AtomDB) borrowConnection(ctx context.Context) (*mysql.BackendConnection, error) {
-	res, err := db.pool.Get(ctx)
+	bcp := (*BackendResourcePool)(db.pool)
+	res, err := bcp.Get(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	return res.(*mysql.BackendConnection), nil
+	return res, nil
 }
 
 func (db *AtomDB) returnConnection(bc *mysql.BackendConnection) {

@@ -136,7 +136,7 @@ func (c *Center) LoadContext(ctx context.Context) (*Configuration, error) {
 		c.confHolder.Store(cfg)
 
 		out, _ := yaml.Marshal(cfg)
-		log.Infof("load configuration : \n%s", string(out))
+		log.Debugf("load configuration:\n%s", string(out))
 	}
 
 	val = c.confHolder.Load()
@@ -153,7 +153,6 @@ func (c *Center) loadFromStore(ctx context.Context) (*Configuration, error) {
 	operate := c.storeOperate
 
 	cfg := &Configuration{
-		TypeMeta: TypeMeta{},
 		Metadata: make(map[string]interface{}),
 		Data: &Data{
 			Filters:            make([]*Filter, 0),

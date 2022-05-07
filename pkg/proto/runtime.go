@@ -115,6 +115,6 @@ type (
 	}
 
 	SchemaLoader interface {
-		Load(ctx context.Context, conn VConn, tables []string) map[string]*TableMetadata
+		Load(ctx context.Context, conn VConn, schema string, tables []string) map[string]*TableMetadata
 	}
 )

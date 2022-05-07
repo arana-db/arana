@@ -40,8 +40,8 @@ const (
 	// the server supports.
 	MaxPacketSize = (1 << 24) - 1
 
-	// protocolVersion is the current version of the protocol.
-	// Always 10.
+	// ProtocolVersion is the current version of the protocol.
+	// The value always 10.
 	ProtocolVersion = 10
 
 	TimeFormat = "2006-01-02 15:04:05.999999"
@@ -584,6 +584,9 @@ const (
 
 	// SSLockDeadlock is ER_LOCK_DEADLOCK
 	SSLockDeadlock = "40001"
+
+	// SSNoDatabaseSelected is ER_NO_DB
+	SSNoDatabaseSelected = "3D000"
 )
 
 // Status flags. They are returned by the server in a few cases.

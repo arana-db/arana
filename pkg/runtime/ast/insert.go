@@ -70,6 +70,10 @@ func (b *baseInsertStatement) Table() TableName {
 	return b.table
 }
 
+func (b *baseInsertStatement) SetColumns(columns []string) {
+	b.columns = columns
+}
+
 func (b *baseInsertStatement) Columns() []string {
 	return b.columns
 }

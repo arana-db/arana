@@ -32,15 +32,21 @@ import (
 )
 
 import (
+	mConstants "github.com/arana-db/arana/pkg/constants/mysql"
 	"github.com/arana-db/arana/pkg/metrics"
 	"github.com/arana-db/arana/pkg/mysql"
+	mysqlErrors "github.com/arana-db/arana/pkg/mysql/errors"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
+	"github.com/arana-db/arana/pkg/security"
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
-var errMissingTx = stdErrors.New("no transaction found")
+var (
+	errMissingTx          = stdErrors.New("no transaction found")
+	errNoDatabaseSelected = mysqlErrors.NewSQLError(mConstants.ERNoDb, mConstants.SSNoDatabaseSelected, "No database selected")
+)
 
 // IsErrMissingTx returns true if target error was caused by missing-tx.
 func IsErrMissingTx(err error) bool {
@@ -124,7 +130,10 @@ func (executor *RedirectExecutor) ExecuteFieldList(ctx *proto.Context) ([]proto.
 }
 
 func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Result, uint16, error) {
-	var err error
+	var (
+		schemaless bool // true if schema is not specified
+		err        error
+	)
 
 	p := parser.New()
 	query := ctx.GetQuery()
@@ -135,6 +144,17 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 	}
 	metrics.ParserDuration.Observe(time.Since(start).Seconds())
 	log.Debugf("ComQuery: %s", query)
+
+	if len(ctx.Schema) < 1 {
+		// TODO: handle multiple clusters
+		clusters := security.DefaultTenantManager().GetClusters(ctx.Tenant)
+		if len(clusters) != 1 {
+			// reject if no schema specified
+			return nil, 0, mysqlErrors.NewSQLError(mConstants.ERNoDb, mConstants.SSNoDatabaseSelected, "No database selected")
+		}
+		schemaless = true
+		ctx.Schema = security.DefaultTenantManager().GetClusters(ctx.Tenant)[0]
+	}
 
 	ctx.Stmt = &proto.Stmt{
 		StmtNode: act,
@@ -152,47 +172,105 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 
 	executor.doPreFilter(ctx)
 
-	switch act.(type) {
+	switch stmt := act.(type) {
 	case *ast.BeginStmt:
-		// begin a new tx
-		var tx proto.Tx
-		if tx, err = rt.Begin(ctx); err == nil {
-			executor.putTx(ctx, tx)
-			res = &mysql.Result{}
+		if schemaless {
+			err = errNoDatabaseSelected
+		} else {
+			// begin a new tx
+			var tx proto.Tx
+			if tx, err = rt.Begin(ctx); err == nil {
+				executor.putTx(ctx, tx)
+				res = &mysql.Result{}
+			}
 		}
 	case *ast.CommitStmt:
-		// remove existing tx, and commit it
-		if tx, ok := executor.removeTx(ctx); ok {
-			res, warn, err = tx.Commit(ctx.Context)
+		if schemaless {
+			err = errNoDatabaseSelected
 		} else {
-			res, warn, err = nil, 0, errMissingTx
+			// remove existing tx, and commit it
+			if tx, ok := executor.removeTx(ctx); ok {
+				res, warn, err = tx.Commit(ctx.Context)
+			} else {
+				res, warn, err = nil, 0, errMissingTx
+			}
 		}
 	case *ast.RollbackStmt:
-		// remove existing tx, and rollback it
-		if tx, ok := executor.removeTx(ctx); ok {
-			res, warn, err = tx.Rollback(ctx.Context)
+		if schemaless {
+			err = errNoDatabaseSelected
 		} else {
-			res, warn, err = nil, 0, errMissingTx
+			// remove existing tx, and rollback it
+			if tx, ok := executor.removeTx(ctx); ok {
+				res, warn, err = tx.Rollback(ctx.Context)
+			} else {
+				res, warn, err = nil, 0, errMissingTx
+			}
 		}
-	case *ast.SelectStmt, *ast.InsertStmt, *ast.UpdateStmt, *ast.DeleteStmt:
-		// TODO: merge with other stmt when write-mode is supported for runtime
-		if tx, ok := executor.getTx(ctx); ok {
-			res, warn, err = tx.Execute(ctx)
+	case *ast.SelectStmt:
+		if !schemaless || stmt.From == nil {
+			// only SELECT without FROM is allowed in schemaless mode
+			// for example: select connection_id()
+			if tx, ok := executor.getTx(ctx); ok {
+				res, warn, err = tx.Execute(ctx)
+			} else {
+				res, warn, err = rt.Execute(ctx)
+			}
 		} else {
-			res, warn, err = rt.Execute(ctx)
+			err = errNoDatabaseSelected
+		}
+	case *ast.InsertStmt, *ast.UpdateStmt, *ast.DeleteStmt:
+		if schemaless {
+			err = errNoDatabaseSelected
+		} else {
+			// TODO: merge with other stmt when write-mode is supported for runtime
+			if tx, ok := executor.getTx(ctx); ok {
+				res, warn, err = tx.Execute(ctx)
+			} else {
+				res, warn, err = rt.Execute(ctx)
+			}
 		}
 	case *ast.ShowStmt:
-		res, warn, err = rt.Execute(ctx)
+		allowSchemaless := func(stmt *ast.ShowStmt) bool {
+			if stmt.Tp == ast.ShowDatabases {
+				return true
+			}
+			if stmt.Tp == ast.ShowVariables {
+				return true
+			}
+
+			return false
+		}
+
+		if !schemaless || allowSchemaless(stmt) { // only SHOW DATABASES is allowed in schemaless mode
+			res, warn, err = rt.Execute(ctx)
+		} else {
+			err = errNoDatabaseSelected
+		}
 	case *ast.TruncateTableStmt:
-		res, warn, err = rt.Execute(ctx)
-	default:
-		// TODO: mark direct flag temporarily, remove when write-mode is supported for runtime
-		ctx.Context = rcontext.WithDirect(ctx.Context)
-		if tx, ok := executor.getTx(ctx); ok {
-			res, warn, err = tx.Execute(ctx)
+		if schemaless {
+			err = errNoDatabaseSelected
 		} else {
 			res, warn, err = rt.Execute(ctx)
 		}
+	case *ast.DropTableStmt:
+		if schemaless {
+			err = errNoDatabaseSelected
+		} else {
+			res, warn, err = rt.Execute(ctx)
+		}
+	default:
+		if schemaless {
+			err = errNoDatabaseSelected
+		} else {
+			// TODO: mark direct flag temporarily, remove when write-mode is supported for runtime
+			ctx.Context = rcontext.WithDirect(ctx.Context)
+			if tx, ok := executor.getTx(ctx); ok {
+				res, warn, err = tx.Execute(ctx)
+			} else {
+				res, warn, err = rt.Execute(ctx)
+			}
+		}
+
 	}
 
 	executor.doPostFilter(ctx, res)
