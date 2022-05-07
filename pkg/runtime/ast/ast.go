@@ -397,7 +397,8 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 			ret.flag |= scFlagFull
 		}
 		if like, ok := toLike(node); ok {
-			ret.like.Valid, ret.like.String = true, like
+			ret.like.Valid = true
+			ret.like.String = like
 		}
 		return ret
 	default:

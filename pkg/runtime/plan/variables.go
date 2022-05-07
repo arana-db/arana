@@ -13,32 +13,33 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
  */
 
 package plan
 
 import (
 	"context"
+	"strings"
 )
 
 import (
-	fieldType "github.com/arana-db/arana/pkg/constants/mysql"
-	"github.com/arana-db/arana/pkg/mysql"
+	"github.com/pkg/errors"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime/ast"
-	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 )
 
 var _ proto.Plan = (*ShowVariablesPlan)(nil)
 
 type ShowVariablesPlan struct {
 	basePlan
-	Stmt *ast.ShowVariables
+	stmt *ast.ShowVariables
 }
 
 func NewShowVariablesPlan(stmt *ast.ShowVariables) *ShowVariablesPlan {
-	return &ShowVariablesPlan{Stmt: stmt}
+	return &ShowVariablesPlan{stmt: stmt}
 }
 
 func (s *ShowVariablesPlan) Type() proto.PlanType {
@@ -46,14 +47,21 @@ func (s *ShowVariablesPlan) Type() proto.PlanType {
 }
 
 func (s *ShowVariablesPlan) ExecIn(ctx context.Context, vConn proto.VConn) (proto.Result, error) {
-	ret, err := vConn.Query(ctx, "", rcontext.SQL(ctx))
+
+	var (
+		sb   strings.Builder
+		stmt = new(ast.ShowVariables)
+		args []int
+	)
+
+	if err := stmt.Restore(ast.RestoreDefault, &sb, &args); err != nil {
+		return nil, errors.Wrap(err, "failed to execute DELETE statement")
+	}
+
+	ret, err := vConn.Query(ctx, "", sb.String(), s.toArgs(args)...)
 	if err != nil {
 		return nil, err
 	}
 
-	return &mysql.Result{
-		Fields: []proto.Field{mysql.NewField("Variable_name", fieldType.FieldTypeString),
-			mysql.NewField("Value", fieldType.FieldTypeString)},
-		Rows: ret.GetRows(),
-	}, nil
+	return ret, nil
 }
