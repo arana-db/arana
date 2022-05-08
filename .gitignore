@@ -22,3 +22,6 @@ vendor/
 /docker/mysqld/
 /dist
 /default.etcd
+
+.codecc
+.vscode

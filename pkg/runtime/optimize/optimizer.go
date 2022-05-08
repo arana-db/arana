@@ -115,6 +115,8 @@ func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.S
 		return o.optimizeTruncate(ctx, t, args)
 	case *rast.DropTableStatement:
 		return o.optimizeDropTable(ctx, t, args)
+	case *rast.ShowVariables:
+		return o.optimizeShowVariables(ctx, t, args)
 	}
 
 	//TODO implement all statements
@@ -551,6 +553,12 @@ func (o optimizer) optimizeTruncate(ctx context.Context, stmt *rast.TruncateStat
 	ret.BindArgs(args)
 	ret.SetShards(shards)
 
+	return ret, nil
+}
+
+func (o optimizer) optimizeShowVariables(ctx context.Context, stmt *rast.ShowVariables, args []interface{}) (proto.Plan, error) {
+	ret := plan.NewShowVariablesPlan(stmt)
+	ret.BindArgs(args)
 	return ret, nil
 }
 

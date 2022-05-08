@@ -230,7 +230,18 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 			}
 		}
 	case *ast.ShowStmt:
-		if !schemaless || stmt.Tp == ast.ShowDatabases { // only SHOW DATABASES is allowed in schemaless mode
+		allowSchemaless := func(stmt *ast.ShowStmt) bool {
+			if stmt.Tp == ast.ShowDatabases {
+				return true
+			}
+			if stmt.Tp == ast.ShowVariables {
+				return true
+			}
+
+			return false
+		}
+
+		if !schemaless || allowSchemaless(stmt) { // only SHOW DATABASES is allowed in schemaless mode
 			res, warn, err = rt.Execute(ctx)
 		} else {
 			err = errNoDatabaseSelected
