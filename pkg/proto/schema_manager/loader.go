@@ -31,12 +31,11 @@ import (
 )
 
 const (
-	orderByOrdinalPosition = " ORDER BY ORDINAL_POSITION"
-	// TODO add table schema filter
-	tableMetadataNoOrder     = "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, COLUMN_KEY, EXTRA, COLLATION_NAME, ORDINAL_POSITION FROM information_schema.columns WHERE"
+	orderByOrdinalPosition   = " ORDER BY ORDINAL_POSITION"
+	tableMetadataNoOrder     = "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, COLUMN_KEY, EXTRA, COLLATION_NAME, ORDINAL_POSITION FROM information_schema.columns WHERE TABLE_SCHEMA=database()"
 	tableMetadataSQL         = tableMetadataNoOrder + orderByOrdinalPosition
-	tableMetadataSQLInTables = tableMetadataNoOrder + " TABLE_NAME IN (%s)" + orderByOrdinalPosition
-	indexMetadataSQL         = "SELECT TABLE_NAME, INDEX_NAME FROM information_schema.statistics WHERE TABLE_NAME IN (%s)"
+	tableMetadataSQLInTables = tableMetadataNoOrder + " AND TABLE_NAME IN (%s)" + orderByOrdinalPosition
+	indexMetadataSQL         = "SELECT TABLE_NAME, INDEX_NAME FROM information_schema.statistics WHERE TABLE_SCHEMA=database() AND TABLE_NAME IN (%s)"
 )
 
 type SimpleSchemaLoader struct{}
