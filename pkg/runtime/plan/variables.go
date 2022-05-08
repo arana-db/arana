@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
-package ast
+package plan
 
 import (
+	"context"
 	"strings"
 )
 
@@ -25,35 +26,41 @@ import (
 	"github.com/pkg/errors"
 )
 
-type DropTableStatement struct {
-	Tables []*TableName
+import (
+	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/runtime/ast"
+)
+
+var _ proto.Plan = (*ShowVariablesPlan)(nil)
+
+type ShowVariablesPlan struct {
+	basePlan
+	stmt *ast.ShowVariables
 }
 
-func NewDropTableStatement() *DropTableStatement {
-	return &DropTableStatement{}
+func NewShowVariablesPlan(stmt *ast.ShowVariables) *ShowVariablesPlan {
+	return &ShowVariablesPlan{stmt: stmt}
 }
 
-func (d DropTableStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
-	sb.WriteString("DROP TABLE ")
-	for index, table := range d.Tables {
-		if index != 0 {
-			sb.WriteString(", ")
-		}
-		if err := table.Restore(flag, sb, args); err != nil {
-			return errors.Errorf("An error occurred while restore DropTableStatement.Tables[%d],error:%s", index, err)
-		}
+func (s *ShowVariablesPlan) Type() proto.PlanType {
+	return proto.PlanTypeQuery
+}
+
+func (s *ShowVariablesPlan) ExecIn(ctx context.Context, vConn proto.VConn) (proto.Result, error) {
+
+	var (
+		sb   strings.Builder
+		args []int
+	)
+
+	if err := s.stmt.Restore(ast.RestoreDefault, &sb, &args); err != nil {
+		return nil, errors.Wrap(err, "failed to execute DELETE statement")
 	}
-	return nil
-}
 
-func (d DropTableStatement) CntParams() int {
-	return 0
-}
+	ret, err := vConn.Query(ctx, "", sb.String(), s.toArgs(args)...)
+	if err != nil {
+		return nil, err
+	}
 
-func (d DropTableStatement) Validate() error {
-	return nil
-}
-
-func (d DropTableStatement) Mode() SQLType {
-	return SdropTable
+	return ret, nil
 }

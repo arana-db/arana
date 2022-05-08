@@ -32,6 +32,7 @@ type (
 	Context struct {
 		context.Context
 
+		Tenant string
 		Schema string
 
 		ConnectionID uint32

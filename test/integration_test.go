@@ -25,6 +25,7 @@ import (
 
 import (
 	_ "github.com/go-sql-driver/mysql" // register mysql
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
