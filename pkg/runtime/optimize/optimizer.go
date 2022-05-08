@@ -237,6 +237,20 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 		return nil, errors.WithStack(errDenyFullScan)
 	}
 
+	toSingle := func(db, tbl string) (proto.Plan, error) {
+		if err := o.rewriteSelectStatement(ctx, conn, stmt, db, tbl); err != nil {
+			return nil, err
+		}
+		ret := &plan.SimpleQueryPlan{
+			Stmt:     stmt,
+			Database: db,
+			Tables:   []string{tbl},
+		}
+		ret.BindArgs(args)
+
+		return ret, nil
+	}
+
 	// Go through first table if no shards matched.
 	// For example:
 	//    SELECT ... FROM xxx WHERE a > 8 and a < 4
@@ -248,37 +262,23 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 		if db0, tbl0, ok = vt.Topology().Render(0, 0); !ok {
 			return nil, errors.Errorf("cannot compute minimal topology from '%s'", stmt.From[0].TableName().Suffix())
 		}
-		err := o.rewriteSelectStatement(ctx, conn, stmt, db0, tbl0)
-		if err != nil {
-			return nil, err
-		}
-		ret := &plan.SimpleQueryPlan{
-			Stmt:     stmt,
-			Database: db0,
-			Tables:   []string{tbl0},
-		}
-		ret.BindArgs(args)
 
-		return ret, nil
+		return toSingle(db0, tbl0)
 	}
 
-	switch len(shards) {
-	case 1:
-		ret := &plan.SimpleQueryPlan{
-			Stmt: stmt,
-		}
-		ret.BindArgs(args)
+	// Handle single shard
+	if shards.Len() == 1 {
+		var db, tbl string
 		for k, v := range shards {
-			ret.Database = k
-			ret.Tables = v
+			db = k
+			tbl = v[0]
 		}
-		// TODO now only support single table
-		err := o.rewriteSelectStatement(ctx, conn, ret.Stmt, ret.Database, ret.Tables[0])
-		if err != nil {
-			return nil, err
-		}
-		return ret, nil
-	case 0:
+		return toSingle(db, tbl)
+	}
+
+	// Handle multiple shards
+
+	if shards.IsFullScan() { // expand all shards if all shards matched
 		// init shards
 		shards = rule.DatabaseTables{}
 		// compute all tables
@@ -304,8 +304,7 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 
 	if len(plans) > 0 {
 		tempPlan := plans[0].(*plan.SimpleQueryPlan)
-		err := o.rewriteSelectStatement(ctx, conn, stmt, tempPlan.Database, tempPlan.Tables[0])
-		if err != nil {
+		if err = o.rewriteSelectStatement(ctx, conn, stmt, tempPlan.Database, tempPlan.Tables[0]); err != nil {
 			return nil, err
 		}
 	}
