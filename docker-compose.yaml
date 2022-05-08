@@ -45,7 +45,7 @@ services:
     networks:
       - local
     ports:
-      - "13306:13306"
+      - "3307:13306"
     volumes:
       - ./conf/config.yaml:/etc/arana/config.yaml:ro
       - ./conf/bootstrap.yaml:/etc/arana/bootstrap.yaml:ro
