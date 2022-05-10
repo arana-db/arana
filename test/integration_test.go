@@ -301,3 +301,121 @@ func (s *IntegrationSuite) TestDropTable() {
 	assert.Error(t, err, "drop table error: %v", err)
 	assert.Nil(t, result)
 }
+
+func (s *IntegrationSuite) TestShardingAgg() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	const total = 100
+
+	// insert into logical table
+	for i := 1; i <= total; i++ {
+		result, err := db.Exec(
+			`INSERT IGNORE INTO student(id,uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?,?)`,
+			time.Now().UnixNano(),
+			i,
+			3.14,
+			fmt.Sprintf("fake_name_%d", i),
+			fmt.Sprintf("fake_nickname_%d", i),
+			1,
+			2022,
+		)
+		assert.NoErrorf(t, err, "insert row error: %v", err)
+		affected, err := result.RowsAffected()
+		assert.NoErrorf(t, err, "insert row error: %v", err)
+		assert.True(t, affected <= 1)
+	}
+
+	t.Run("Count", func(t *testing.T) {
+		row := db.QueryRow("select count(*) as ttt from student")
+		var cnt int64
+		assert.NoError(t, row.Scan(&cnt))
+		assert.Equal(t, int64(100), cnt)
+	})
+
+	t.Run("MAX", func(t *testing.T) {
+		row := db.QueryRow("select max(score) as ttt from student")
+		var cnt float64
+		assert.NoError(t, row.Scan(&cnt))
+		assert.Equal(t, 95, int(cnt))
+	})
+
+	t.Run("MIN", func(t *testing.T) {
+		row := db.QueryRow("select min(score) as ttt from student")
+		var cnt float64
+		assert.NoError(t, row.Scan(&cnt))
+		assert.Equal(t, 3.14, cnt)
+	})
+
+	t.Run("SUM", func(t *testing.T) {
+		row := db.QueryRow("select sum(score) as ttt from student")
+		var cnt float64
+		assert.NoError(t, row.Scan(&cnt))
+		assert.Equal(t, int64(405), int64(cnt))
+	})
+
+	result, err := db.Exec(
+		`INSERT IGNORE INTO student(id,uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?,?)`,
+		time.Now().UnixNano(),
+		9527,
+		100,
+		"jason",
+		"jason",
+		1,
+		2022,
+	)
+	assert.NoErrorf(t, err, "insert row error: %v", err)
+	affected, err := result.RowsAffected()
+	assert.NoErrorf(t, err, "insert row error: %v", err)
+	assert.True(t, affected <= 1)
+	result, err = db.Exec(
+		`INSERT IGNORE INTO student(id,uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?,?)`,
+		time.Now().UnixNano(),
+		9559,
+		100,
+		"jason",
+		"jason",
+		1,
+		2022,
+	)
+	assert.NoErrorf(t, err, "insert row error: %v", err)
+	affected, err = result.RowsAffected()
+	assert.NoErrorf(t, err, "insert row error: %v", err)
+	assert.True(t, affected <= 1)
+
+	type tt struct {
+		sql       string
+		args      []interface{}
+		expectLen int
+	}
+
+	for _, it := range []tt{
+		{"SELECT * FROM student WHERE uid >= 9527", nil, 2},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			// select from logical table
+			rows, err := db.Query(it.sql, it.args...)
+			assert.NoError(t, err, "should query from sharding table successfully")
+			data, _ := utils.PrintTable(rows)
+			assert.Equal(t, it.expectLen, len(data))
+		})
+	}
+
+	t.Run("SUM_Jason", func(t *testing.T) {
+		row := db.QueryRow("select sum(score) as ttt from student where uid >= 9527")
+		var cnt float64
+		assert.NoError(t, row.Scan(&cnt))
+		assert.Equal(t, 200, int(cnt))
+	})
+
+	t.Run("COUNT_Jason", func(t *testing.T) {
+		row := db.QueryRow("select count(score) as ttt from student where uid >= 9527")
+		var cnt int
+		assert.NoError(t, row.Scan(&cnt))
+		assert.Equal(t, 2, cnt)
+	})
+
+	db.Exec("DELETE FROM student WHERE uid >= 9527")
+}

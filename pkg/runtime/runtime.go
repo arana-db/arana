@@ -96,7 +96,9 @@ func Load(schema string) (Runtime, error) {
 	if ns = namespace.Load(schema); ns == nil {
 		return nil, errors.Errorf("no such logical database %s", schema)
 	}
-	return &defaultRuntime{ns: ns}, nil
+	return &defaultRuntime{
+		ns: ns,
+	}, nil
 }
 
 var (

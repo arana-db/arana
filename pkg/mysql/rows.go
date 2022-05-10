@@ -130,7 +130,7 @@ func (rows *TextRow) Encode(row []*proto.Value, fields []proto.Field, columnName
 			}
 			val = append(val, data...)
 		default:
-			val = append(val, appendLengthEncodedInteger(row[i].Raw, uint64(row[i].Len))...)
+			val = PutLengthEncodedString(row[i].Raw)
 		}
 	}
 
