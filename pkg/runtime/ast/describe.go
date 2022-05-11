@@ -32,14 +32,14 @@ var (
 
 // DescribeStatement represents mysql describe statement. see https://dev.mysql.com/doc/refman/8.0/en/describe.html
 type DescribeStatement struct {
-	table  TableName
+	Table  TableName
 	column string
 }
 
 // Restore implements Restorer.
 func (d *DescribeStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("DESC ")
-	if err := d.table.Restore(flag, sb, args); err != nil {
+	if err := d.Table.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
 	if len(d.column) > 0 {
@@ -60,10 +60,6 @@ func (d *DescribeStatement) CntParams() int {
 
 func (d *DescribeStatement) Mode() SQLType {
 	return Squery
-}
-
-func (d *DescribeStatement) Table() TableName {
-	return d.table
 }
 
 func (d *DescribeStatement) Column() (string, bool) {

@@ -258,6 +258,12 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 		} else {
 			res, warn, err = rt.Execute(ctx)
 		}
+	case *ast.ExplainStmt:
+		if schemaless {
+			err = errNoDatabaseSelected
+		} else {
+			res, warn, err = rt.Execute(ctx)
+		}
 	default:
 		if schemaless {
 			err = errNoDatabaseSelected
