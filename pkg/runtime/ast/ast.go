@@ -98,7 +98,7 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		}
 		switch tgt := result.(type) {
 		case *ShowColumns:
-			return &DescribeStatement{table: tgt.tableName}, nil
+			return &DescribeStatement{Table: tgt.tableName}, nil
 		default:
 			return &ExplainStatement{tgt: tgt}, nil
 		}

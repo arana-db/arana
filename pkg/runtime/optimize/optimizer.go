@@ -118,6 +118,8 @@ func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.S
 		return o.optimizeDropTable(ctx, t, args)
 	case *rast.ShowVariables:
 		return o.optimizeShowVariables(ctx, t, args)
+	case *rast.DescribeStatement:
+		return o.optimizeDescribeStatement(ctx, t, args)
 	}
 
 	//TODO implement all statements
@@ -563,6 +565,30 @@ func (o optimizer) optimizeTruncate(ctx context.Context, stmt *rast.TruncateStat
 func (o optimizer) optimizeShowVariables(ctx context.Context, stmt *rast.ShowVariables, args []interface{}) (proto.Plan, error) {
 	ret := plan.NewShowVariablesPlan(stmt)
 	ret.BindArgs(args)
+	return ret, nil
+}
+
+func (o optimizer) optimizeDescribeStatement(ctx context.Context, stmt *rast.DescribeStatement, args []interface{}) (proto.Plan, error) {
+	vts := rcontext.Rule(ctx).VTables()
+	vtName := []string(stmt.Table)[0]
+	ret := plan.NewDescribePlan(stmt)
+	ret.BindArgs(args)
+
+	if vTable, ok := vts[vtName]; ok {
+		shards := rule.DatabaseTables{}
+		// compute all tables
+		topology := vTable.Topology()
+		topology.Each(func(dbIdx, tbIdx int) bool {
+			if d, t, ok := topology.Render(dbIdx, tbIdx); ok {
+				shards[d] = append(shards[d], t)
+			}
+			return true
+		})
+		dbName, tblName := shards.Smallest()
+		ret.Database = dbName
+		ret.Table = tblName
+	}
+
 	return ret, nil
 }
 
