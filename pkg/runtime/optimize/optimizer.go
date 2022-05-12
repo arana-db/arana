@@ -313,13 +313,17 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 	}
 
 	unionPlan := &plan.UnionPlan{
-		Plans:      plans,
+		Plans: plans,
+	}
+
+	// TODO: order/groupBy/aggregate
+	aggregate := &plan.AggregatePlan{
+		UnionPlan:  unionPlan,
 		Combiner:   transformer.NewCombinerManager(),
 		AggrLoader: transformer.LoadAggrs(stmt.Select),
 	}
-	// TODO: order/groupBy/aggregate
 
-	return unionPlan, nil
+	return aggregate, nil
 }
 
 func (o optimizer) optimizeUpdate(ctx context.Context, conn proto.VConn, stmt *rast.UpdateStatement, args []interface{}) (proto.Plan, error) {
