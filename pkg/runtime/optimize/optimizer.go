@@ -204,7 +204,9 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 	if ru = rcontext.Rule(ctx); ru == nil {
 		return nil, errors.WithStack(errNoRuleFound)
 	}
-
+	if stmt.HasJoin() {
+		return o.optimizeJoin(ctx, conn, stmt, args)
+	}
 	flag := o.getSelectFlag(ctx, stmt)
 	if flag&_supported == 0 {
 		return nil, errors.Errorf("unsupported sql: %s", rcontext.SQL(ctx))
@@ -320,6 +322,76 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 	// TODO: order/groupBy/aggregate
 
 	return unionPlan, nil
+}
+
+//optimizeJoin ony support  a join b in one db
+func (o optimizer) optimizeJoin(ctx context.Context, conn proto.VConn, stmt *rast.SelectStatement, args []interface{}) (proto.Plan, error) {
+
+	var ru *rule.Rule
+	if ru = rcontext.Rule(ctx); ru == nil {
+		return nil, errors.WithStack(errNoRuleFound)
+	}
+
+	join := stmt.From[0].Source().(*rast.JoinNode)
+
+	compute := func(tableSource *rast.TableSourceNode) (alias string, shardList []string, err error) {
+		table := tableSource.TableName()
+		alias = tableSource.Alias()
+		if table == nil {
+			err = errors.New("must table，not statement or join node")
+			return
+		}
+		shards, err := o.computeShards(ru, table, nil, args)
+		if err != nil {
+			return
+		}
+		//table no shard
+		if shards == nil {
+			shardList = append(shardList, table.Suffix())
+			return
+		}
+		//table  shard more than one db
+		if len(shards) > 1 {
+			err = errors.New("not support more than one db")
+			return
+		}
+
+		for _, v := range shards {
+			shardList = v
+		}
+
+		if alias == "" {
+			alias = table.Suffix()
+		}
+
+		return
+	}
+
+	aliasLeft, shardLeft, err := compute(join.Left)
+	if err != nil {
+		return nil, err
+	}
+	aliasRight, shardRight, err := compute(join.Right)
+
+	if err != nil {
+		return nil, err
+	}
+
+	joinPan := &plan.SimpleJoinPlan{
+		Left: &plan.JoinTable{
+			Tables: shardLeft,
+			Alias:  aliasLeft,
+		},
+		Join: join,
+		Right: &plan.JoinTable{
+			Tables: shardRight,
+			Alias:  aliasRight,
+		},
+		Stmt: stmt,
+	}
+	joinPan.BindArgs(args)
+
+	return joinPan, nil
 }
 
 func (o optimizer) optimizeUpdate(ctx context.Context, conn proto.VConn, stmt *rast.UpdateStatement, args []interface{}) (proto.Plan, error) {

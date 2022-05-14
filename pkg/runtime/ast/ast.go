@@ -509,17 +509,17 @@ func (cc *convCtx) convFrom(from *ast.TableRefsClause) (ret []*TableSourceNode) 
 
 	var jn JoinNode
 
-	jn.left = left
-	jn.right = right
-	jn.on = on
+	jn.Left = left
+	jn.Right = right
+	jn.On = on
 
 	switch from.TableRefs.Tp {
 	case ast.LeftJoin:
-		jn.typ = LeftJoin
+		jn.Typ = LeftJoin
 	case ast.RightJoin:
-		jn.typ = RightJoin
+		jn.Typ = RightJoin
 	case ast.CrossJoin:
-		jn.typ = InnerJoin
+		jn.Typ = InnerJoin
 	}
 
 	if from.TableRefs.NaturalJoin {
