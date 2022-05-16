@@ -27,53 +27,24 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/transformer"
 )
 
-// UnionPlan merges multiple query plan.
-type UnionPlan struct {
-	Plans []proto.Plan
+type AggregatePlan struct {
+	transformer.Combiner
+	AggrLoader *transformer.AggrLoader
+	UnionPlan  *UnionPlan
 }
 
-func (u UnionPlan) Type() proto.PlanType {
+func (a *AggregatePlan) Type() proto.PlanType {
 	return proto.PlanTypeQuery
 }
 
-func (u UnionPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
-	var results []proto.Result
-	for _, it := range u.Plans {
-		res, err := it.ExecIn(ctx, conn)
-		if err != nil {
-			return nil, errors.WithStack(err)
-		}
-		results = append(results, res)
+func (a *AggregatePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+	res, err := a.UnionPlan.ExecIn(ctx, conn)
+	if err != nil {
+		return nil, errors.WithStack(err)
 	}
 
-	return compositeResult(results), nil
-}
-
-type compositeResult []proto.Result
-
-func (c compositeResult) GetFields() []proto.Field {
-	for _, it := range c {
-		if ret := it.GetFields(); ret != nil {
-			return ret
-		}
-	}
-	return nil
-}
-
-func (c compositeResult) GetRows() []proto.Row {
-	var rows []proto.Row
-	for _, it := range c {
-		rows = append(rows, it.GetRows()...)
-	}
-	return rows
-}
-
-func (c compositeResult) LastInsertId() (uint64, error) {
-	return 0, nil
-}
-
-func (c compositeResult) RowsAffected() (uint64, error) {
-	return 0, nil
+	return a.Combiner.Merge(res, a.AggrLoader)
 }
