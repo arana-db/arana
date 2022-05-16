@@ -78,6 +78,7 @@ func (sp *SimpleInsertPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto
 	return &mysql.Result{
 		AffectedRows: effected,
 		InsertId:     lastInsertId,
+		DataChan:     make(chan proto.Row, 1),
 	}, nil
 }
 

@@ -19,10 +19,13 @@ package plan
 
 import (
 	"context"
+	"io"
 )
 
 import (
 	"github.com/pkg/errors"
+
+	"go.uber.org/multierr"
 )
 
 import (
@@ -52,6 +55,18 @@ func (u UnionPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, 
 }
 
 type compositeResult []proto.Result
+
+func (c compositeResult) Close() error {
+	var errs []error
+	for _, it := range c {
+		if closer, ok := it.(io.Closer); ok {
+			if err := closer.Close(); err != nil {
+				errs = append(errs, err)
+			}
+		}
+	}
+	return multierr.Combine(errs...)
+}
 
 func (c compositeResult) GetFields() []proto.Field {
 	for _, it := range c {

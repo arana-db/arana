@@ -120,7 +120,10 @@ func (up *UpdatePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Resul
 
 	log.Debugf("sharding update success: batch=%d, affects=%d", cnt.Load(), affects.Load())
 
-	return &mysql.Result{AffectedRows: affects.Load()}, nil
+	return &mysql.Result{
+		AffectedRows: affects.Load(),
+		DataChan:     make(chan proto.Row, 1),
+	}, nil
 }
 
 func (up *UpdatePlan) SetShards(shards rule.DatabaseTables) {

@@ -18,12 +18,34 @@
 package proto
 
 import (
+	"sync"
+)
+
+import (
 	"github.com/arana-db/parser/ast"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/constants/mysql"
 )
+
+// CloseableResult is a temporary solution for chan-based result.
+// Deprecated: TODO, should be removed in the future
+type CloseableResult struct {
+	once sync.Once
+	Result
+	Closer func() error
+}
+
+func (c *CloseableResult) Close() error {
+	var err error
+	c.once.Do(func() {
+		if c.Closer != nil {
+			err = c.Closer()
+		}
+	})
+	return err
+}
 
 type (
 	Value struct {

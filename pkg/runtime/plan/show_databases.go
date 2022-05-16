@@ -58,9 +58,21 @@ func (s *ShowDatabasesPlan) ExecIn(ctx context.Context, _ proto.VConn) (proto.Re
 
 	for _, cluster := range clusters {
 		encoded := mysql.PutLengthEncodedString([]byte(cluster))
-		rows = append(rows, (&mysql.Row{}).Encode([]*proto.Value{{Raw: encoded, Len: len(encoded)}},
+		rows = append(rows, (&mysql.TextRow{}).Encode([]*proto.Value{
+			{
+				Typ:   fieldType.FieldTypeVarString,
+				Flags: fieldType.NotNullFlag,
+				Raw:   encoded,
+				Val:   cluster,
+				Len:   len(encoded),
+			},
+		},
 			[]proto.Field{&mysql.Field{}}, nil))
 	}
 
-	return &mysql.Result{Fields: []proto.Field{mysql.NewField("Database", fieldType.FieldTypeVarString)}, Rows: rows, AffectedRows: 0}, nil
+	return &mysql.Result{
+		Fields:   []proto.Field{mysql.NewField("Database", fieldType.FieldTypeVarString)},
+		Rows:     rows,
+		DataChan: make(chan proto.Row, 1),
+	}, nil
 }

@@ -28,6 +28,7 @@ import (
 import (
 	"github.com/arana-db/arana/pkg/constants/mysql"
 	err2 "github.com/arana-db/arana/pkg/mysql/errors"
+	"github.com/arana-db/arana/pkg/proto"
 )
 
 type BackendStatement struct {
@@ -385,15 +386,23 @@ func (stmt *BackendStatement) execArgs(args []interface{}) (*Result, uint16, err
 }
 
 // queryArgsIterRow is iterator for binary protocol result set
-func (stmt *BackendStatement) queryArgsIterRow(args []interface{}) (Iter, uint16, error) {
+func (stmt *BackendStatement) queryArgsIterRow(args []interface{}) (*Result, uint16, error) {
 	err := stmt.writeExecutePacket(args)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	result, _, warnings, err := stmt.conn.ReadQueryRow()
+	result, affectedRows, lastInsertID, _, warnings, err := stmt.conn.ReadQueryRow()
 
-	return &BinaryIterRow{result}, warnings, err
+	iterRow := &BinaryIterRow{result}
+
+	return &Result{
+		AffectedRows: affectedRows,
+		InsertId:     lastInsertID,
+		Fields:       iterRow.Fields(),
+		Rows:         []proto.Row{iterRow},
+		DataChan:     make(chan proto.Row, 1),
+	}, warnings, err
 }
 
 func (stmt *BackendStatement) queryArgs(args []interface{}) (*Result, uint16, error) {

@@ -860,16 +860,22 @@ func (conn *BackendConnection) WriteComSetOption(operation uint16) error {
 
 func (conn *BackendConnection) WriteComFieldList(table string, wildcard string) error {
 	conn.c.sequence = 0
-	length := 1 +
-		lenNullString(table) +
-		lenNullString(wildcard)
+	length := lenNullString(table) + lenNullString(wildcard)
+	if len(wildcard) > 0 {
+		length++
+	}
 
 	data := conn.c.startEphemeralPacket(length)
 	pos := 0
 
 	pos = writeByte(data, 0, mysql.ComFieldList)
-	pos = writeNullString(data, pos, table)
-	writeNullString(data, pos, wildcard)
+	if len(wildcard) > 0 {
+		pos = writeNullString(data, pos, table)
+		writeNullString(data, pos, wildcard)
+	} else {
+		pos = writeEOFString(data, pos, table)
+		writeEOFString(data, pos, wildcard)
+	}
 
 	if err := conn.c.writeEphemeralPacket(); err != nil {
 		return err
@@ -878,13 +884,13 @@ func (conn *BackendConnection) WriteComFieldList(table string, wildcard string) 
 	return nil
 }
 
-func (conn *BackendConnection) readResultSetHeaderPacket() (colNumber int, more bool, warnings uint16, err error) {
+func (conn *BackendConnection) readResultSetHeaderPacket() (affectedRows, lastInsertID uint64, colNumber int, more bool, warnings uint16, err error) {
 	// Get the result.
-	_, _, colNumber, more, warning, err := conn.ReadComQueryResponse()
+	affectedRows, lastInsertID, colNumber, more, warning, err := conn.ReadComQueryResponse()
 	if err != nil {
-		return colNumber, more, warning, err
+		return affectedRows, lastInsertID, colNumber, more, warning, err
 	}
-	return colNumber, more, warning, nil
+	return affectedRows, lastInsertID, colNumber, more, warning, nil
 }
 
 func (conn *BackendConnection) readResultSetColumnsPacket(colNumber int) (columns []proto.Field, err error) {
@@ -902,11 +908,21 @@ func (conn *BackendConnection) readResultSetColumnsPacket(colNumber int) (column
 }
 
 // ReadQueryRow returns iterator, and the line reads the results set
-func (conn *BackendConnection) ReadQueryRow() (iter *IterRow, more bool, warnings uint16, err error) {
-	colNumber, more, warning, err := conn.readResultSetHeaderPacket()
+func (conn *BackendConnection) ReadQueryRow() (iter *IterRow, affectedRows, lastInsertID uint64, more bool, warnings uint16, err error) {
+	iterRow := &IterRow{BackendConnection: conn,
+		Row: &Row{
+			Content: []byte{}, ResultSet: &ResultSet{
+				Columns: make([]proto.Field, 0),
+			}},
+		hasNext: true,
+	}
+	affectedRows, lastInsertID, colNumber, more, warning, err := conn.readResultSetHeaderPacket()
+	if err != nil {
+		return iterRow, affectedRows, lastInsertID, more, warning, err
+	}
 	if colNumber == 0 {
 		// OK packet, means no results. Just use the numbers.
-		return nil, more, warning, nil
+		return iterRow, affectedRows, lastInsertID, more, warning, nil
 	}
 
 	// Read column headers. One packet per column.
@@ -919,19 +935,14 @@ func (conn *BackendConnection) ReadQueryRow() (iter *IterRow, more bool, warning
 			return
 		}
 	}
-	iterRow := &IterRow{BackendConnection: conn,
-		Row: &Row{
-			Content: []byte{}, ResultSet: &ResultSet{
-				Columns: columns,
-			}},
-		hasNext: true,
-	}
+
+	iterRow.Row.ResultSet.Columns = columns
 
 	if conn.capabilities&mysql.CapabilityClientDeprecateEOF == 0 {
 		// EOF is only present here if it's not deprecated.
 		data, err := conn.c.readEphemeralPacket()
 		if err != nil {
-			return nil, more, warning, err2.NewSQLError(mysql.CRServerLost, mysql.SSUnknownSQLState, "%v", err)
+			return nil, affectedRows, lastInsertID, more, warning, err2.NewSQLError(mysql.CRServerLost, mysql.SSUnknownSQLState, "%v", err)
 		}
 		if isEOFPacket(data) {
 
@@ -942,14 +953,14 @@ func (conn *BackendConnection) ReadQueryRow() (iter *IterRow, more bool, warning
 
 		} else if isErrorPacket(data) {
 			defer conn.c.recycleReadPacket()
-			return nil, more, warning, ParseErrorPacket(data)
+			return nil, affectedRows, lastInsertID, more, warning, ParseErrorPacket(data)
 		} else {
 			defer conn.c.recycleReadPacket()
-			return nil, more, warning, fmt.Errorf("unexpected packet after fields: %v", data)
+			return nil, affectedRows, lastInsertID, more, warning, fmt.Errorf("unexpected packet after fields: %v", data)
 		}
 	}
 
-	return iterRow, more, warnings, err
+	return iterRow, affectedRows, lastInsertID, more, warnings, err
 }
 
 // ReadQueryResult gets the result from the last written query.
@@ -1369,7 +1380,7 @@ func (conn *BackendConnection) ExecuteMulti(query string, wantFields bool) (resu
 // ExecuteWithWarningCountIterRow is for fetching results and a warning count
 // Note: In a future iteration this should be abolished and merged into the
 // Execute API.
-func (conn *BackendConnection) ExecuteWithWarningCountIterRow(query string) (iterRow Iter, warnings uint16, err error) {
+func (conn *BackendConnection) ExecuteWithWarningCountIterRow(query string) (res *Result, warnings uint16, err error) {
 	defer func() {
 		if err != nil {
 			if sqlErr, ok := err.(*err2.SQLError); ok {
@@ -1383,8 +1394,16 @@ func (conn *BackendConnection) ExecuteWithWarningCountIterRow(query string) (ite
 		return nil, 0, err
 	}
 
-	iterTextRow, _, warnings, err := conn.ReadQueryRow()
-	iterRow = &TextIterRow{iterTextRow}
+	iterTextRow, affectedRows, lastInsertID, _, warnings, err := conn.ReadQueryRow()
+	iterRow := &TextIterRow{iterTextRow}
+
+	res = &Result{
+		AffectedRows: affectedRows,
+		InsertId:     lastInsertID,
+		Fields:       iterRow.Fields(),
+		Rows:         []proto.Row{iterRow},
+		DataChan:     make(chan proto.Row, 1),
+	}
 	return
 }
 
@@ -1417,7 +1436,7 @@ func (conn *BackendConnection) PrepareExecuteArgs(query string, args []interface
 	return stmt.execArgs(args)
 }
 
-func (conn *BackendConnection) PrepareQueryArgsIterRow(query string, data []interface{}) (iterRow Iter, warnings uint16, err error) {
+func (conn *BackendConnection) PrepareQueryArgsIterRow(query string, data []interface{}) (result *Result, warnings uint16, err error) {
 	stmt, err := conn.prepare(query)
 	if err != nil {
 		return nil, 0, err
@@ -1425,7 +1444,7 @@ func (conn *BackendConnection) PrepareQueryArgsIterRow(query string, data []inte
 	return stmt.queryArgsIterRow(data)
 }
 
-func (conn *BackendConnection) PrepareQueryArgs(query string, data []interface{}) (Result *Result, warnings uint16, err error) {
+func (conn *BackendConnection) PrepareQueryArgs(query string, data []interface{}) (result *Result, warnings uint16, err error) {
 	stmt, err := conn.prepare(query)
 	if err != nil {
 		return nil, 0, err

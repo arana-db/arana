@@ -78,11 +78,19 @@ func (l *Listener) handleQuery(c *Conn, ctx *proto.Context) error {
 	result, warn, err := l.executor.ExecutorComQuery(ctx)
 	if err != nil {
 		if wErr := c.writeErrorPacketFromError(err); wErr != nil {
-			log.Error("Error writing query error to client %v: %v", l.connectionID, wErr)
+			log.Errorf("Error writing query error to client %v: %v", l.connectionID, wErr)
 			return wErr
 		}
 		return nil
 	}
+
+	if cr, ok := result.(*proto.CloseableResult); ok {
+		result = cr.Result
+		defer func() {
+			_ = cr.Close()
+		}()
+	}
+
 	if len(result.GetFields()) == 0 {
 		// A successful callback with no fields means that this was a
 		// DML or other write-only operation.
@@ -99,7 +107,7 @@ func (l *Listener) handleQuery(c *Conn, ctx *proto.Context) error {
 	if err = c.writeFields(l.capabilities, result); err != nil {
 		return err
 	}
-	if err = c.writeRows(result); err != nil {
+	if err = c.writeRowChan(result); err != nil {
 		return err
 	}
 	if err = c.writeEndResult(l.capabilities, false, 0, 0, warn); err != nil {
@@ -158,11 +166,19 @@ func (l *Listener) handleStmtExecute(c *Conn, ctx *proto.Context) error {
 	result, warn, err := l.executor.ExecutorComStmtExecute(ctx)
 	if err != nil {
 		if wErr := c.writeErrorPacketFromError(err); wErr != nil {
-			log.Error("Error writing query error to client %v: %v", l.connectionID, wErr)
+			log.Errorf("Error writing query error to client %v: %v, executor error: %v", l.connectionID, wErr, err)
 			return wErr
 		}
 		return nil
 	}
+
+	if cr, ok := result.(*proto.CloseableResult); ok {
+		result = cr.Result
+		defer func() {
+			_ = cr.Close()
+		}()
+	}
+
 	if len(result.GetFields()) == 0 {
 		// A successful callback with no fields means that this was a
 		// DML or other write-only operation.
@@ -177,7 +193,7 @@ func (l *Listener) handleStmtExecute(c *Conn, ctx *proto.Context) error {
 	if err = c.writeFields(l.capabilities, result); err != nil {
 		return err
 	}
-	if err = c.writeBinaryRows(result); err != nil {
+	if err = c.writeBinaryRowChan(result); err != nil {
 		return err
 	}
 	if err = c.writeEndResult(l.capabilities, false, 0, 0, warn); err != nil {

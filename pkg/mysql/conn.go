@@ -499,7 +499,7 @@ func (c *Conn) startEphemeralPacket(length int) []byte {
 	}
 
 	c.currentEphemeralPolicy = ephemeralWrite
-	// get buffer from pool or it'll be allocated if length is too big
+	// get buffer from pool, or it'll be allocated if length is too big
 	c.currentEphemeralBuffer = bufPool.Get(length)
 	return *c.currentEphemeralBuffer
 }

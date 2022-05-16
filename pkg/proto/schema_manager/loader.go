@@ -20,6 +20,7 @@ package schema_manager
 import (
 	"context"
 	"fmt"
+	"io"
 	"strings"
 )
 
@@ -64,6 +65,12 @@ func (l *SimpleSchemaLoader) LoadColumnMetadataMap(ctx context.Context, conn pro
 	if err != nil {
 		return nil
 	}
+	if closer, ok := resultSet.(io.Closer); ok {
+		defer func() {
+			_ = closer.Close()
+		}()
+	}
+
 	result := make(map[string][]*proto.ColumnMetadata, 0)
 	if err != nil {
 		log.Errorf("Load ColumnMetadata error when call db: %v", err)
@@ -74,20 +81,21 @@ func (l *SimpleSchemaLoader) LoadColumnMetadataMap(ctx context.Context, conn pro
 		return nil
 	}
 
-	for _, row := range resultSet.GetRows() {
-		var innerRow mysql.Row
-		switch r := row.(type) {
-		case *mysql.BinaryRow:
-			innerRow = r.Row
-		case *mysql.Row:
-			innerRow = *r
-		case *mysql.TextRow:
-			innerRow = r.Row
-		}
-		textRow := mysql.TextRow{Row: innerRow}
-		rowValues, err := textRow.Decode()
-		if err != nil {
-			//logger.Errorf("Load ColumnMetadata error when decode text row: %v", err)
+	row := resultSet.GetRows()[0]
+	var rowIter mysql.Iter
+	switch r := row.(type) {
+	case *mysql.BinaryIterRow:
+		rowIter = r
+	case *mysql.TextIterRow:
+		rowIter = r
+	}
+
+	var (
+		has       bool
+		rowValues []*proto.Value
+	)
+	for has, err = rowIter.Next(); has && err == nil; has, err = rowIter.Next() {
+		if rowValues, err = row.Decode(); err != nil {
 			return nil
 		}
 		tableName := convertInterfaceToStrNullable(rowValues[0].Val)
@@ -106,6 +114,39 @@ func (l *SimpleSchemaLoader) LoadColumnMetadataMap(ctx context.Context, conn pro
 			CaseSensitive: columnKey != "" && !strings.HasSuffix(collationName, "_ci"),
 		})
 	}
+
+	//for _, row := range resultSet.GetRows() {
+	//	var innerRow mysql.Row
+	//	switch r := row.(type) {
+	//	case *mysql.BinaryRow:
+	//		innerRow = r.Row
+	//	case *mysql.Row:
+	//		innerRow = *r
+	//	case *mysql.TextRow:
+	//		innerRow = r.Row
+	//	}
+	//	textRow := mysql.TextRow{Row: innerRow}
+	//	rowValues, err := textRow.Decode()
+	//	if err != nil {
+	//		//logger.Errorf("Load ColumnMetadata error when decode text row: %v", err)
+	//		return nil
+	//	}
+	//	tableName := convertInterfaceToStrNullable(rowValues[0].Val)
+	//	columnName := convertInterfaceToStrNullable(rowValues[1].Val)
+	//	dataType := convertInterfaceToStrNullable(rowValues[2].Val)
+	//	columnKey := convertInterfaceToStrNullable(rowValues[3].Val)
+	//	extra := convertInterfaceToStrNullable(rowValues[4].Val)
+	//	collationName := convertInterfaceToStrNullable(rowValues[5].Val)
+	//	ordinalPosition := convertInterfaceToStrNullable(rowValues[6].Val)
+	//	result[tableName] = append(result[tableName], &proto.ColumnMetadata{
+	//		Name:          columnName,
+	//		DataType:      dataType,
+	//		Ordinal:       ordinalPosition,
+	//		PrimaryKey:    strings.EqualFold("PRI", columnKey),
+	//		Generated:     strings.EqualFold("auto_increment", extra),
+	//		CaseSensitive: columnKey != "" && !strings.HasSuffix(collationName, "_ci"),
+	//	})
+	//}
 	return result
 }
 
@@ -121,28 +162,57 @@ func (l *SimpleSchemaLoader) LoadIndexMetadata(ctx context.Context, conn proto.V
 	if err != nil {
 		return nil
 	}
+
+	if closer, ok := resultSet.(io.Closer); ok {
+		defer func() {
+			_ = closer.Close()
+		}()
+	}
+
 	result := make(map[string][]*proto.IndexMetadata, 0)
 
-	for _, row := range resultSet.GetRows() {
-		var innerRow mysql.Row
-		switch r := row.(type) {
-		case *mysql.BinaryRow:
-			innerRow = r.Row
-		case *mysql.Row:
-			innerRow = *r
-		case *mysql.TextRow:
-			innerRow = r.Row
-		}
-		textRow := mysql.TextRow{Row: innerRow}
-		rowValues, err := textRow.Decode()
-		if err != nil {
-			log.Errorf("Load ColumnMetadata error when decode text row: %v", err)
+	row := resultSet.GetRows()[0]
+	var rowIter mysql.Iter
+	switch r := row.(type) {
+	case *mysql.BinaryIterRow:
+		rowIter = r
+	case *mysql.TextIterRow:
+		rowIter = r
+	}
+
+	var (
+		has       bool
+		rowValues []*proto.Value
+	)
+	for has, err = rowIter.Next(); has && err == nil; has, err = rowIter.Next() {
+		if rowValues, err = row.Decode(); err != nil {
 			return nil
 		}
 		tableName := convertInterfaceToStrNullable(rowValues[0].Val)
 		indexName := convertInterfaceToStrNullable(rowValues[1].Val)
 		result[tableName] = append(result[tableName], &proto.IndexMetadata{Name: indexName})
 	}
+
+	//for _, row := range resultSet.GetRows() {
+	//	var innerRow mysql.Row
+	//	switch r := row.(type) {
+	//	case *mysql.BinaryRow:
+	//		innerRow = r.Row
+	//	case *mysql.Row:
+	//		innerRow = *r
+	//	case *mysql.TextRow:
+	//		innerRow = r.Row
+	//	}
+	//	textRow := mysql.TextRow{Row: innerRow}
+	//	rowValues, err := textRow.Decode()
+	//	if err != nil {
+	//		log.Errorf("Load ColumnMetadata error when decode text row: %v", err)
+	//		return nil
+	//	}
+	//	tableName := convertInterfaceToStrNullable(rowValues[0].Val)
+	//	indexName := convertInterfaceToStrNullable(rowValues[1].Val)
+	//	result[tableName] = append(result[tableName], &proto.IndexMetadata{Name: indexName})
+	//}
 
 	return result
 }
