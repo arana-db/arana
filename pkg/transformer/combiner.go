@@ -18,6 +18,7 @@
 package transformer
 
 import (
+	"io"
 	"math"
 )
 
@@ -44,6 +45,11 @@ type (
 )
 
 func (c combinerManager) Merge(result proto.Result, loader *AggrLoader) (proto.Result, error) {
+	if closer, ok := result.(io.Closer); ok {
+		defer func() {
+			_ = closer.Close()
+		}()
+	}
 
 	result = &mysql.Result{
 		Fields:   result.GetFields(),

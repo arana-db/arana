@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	stdErrors "errors"
 	"fmt"
+	"io"
 	"sort"
 	"sync"
 	"time"
@@ -422,14 +423,35 @@ func (db *AtomDB) Call(ctx context.Context, sql string, args ...interface{}) (re
 		return
 	}
 
-	defer db.returnConnection(bc)
-	defer db.pending()()
+	undoPending := db.pending()
 
 	if len(args) > 0 {
 		res, warn, err = bc.PrepareQueryArgsIterRow(sql, args)
 	} else {
 		res, warn, err = bc.ExecuteWithWarningCountIterRow(sql)
 	}
+
+	if err != nil {
+		undoPending()
+		db.returnConnection(bc)
+		return
+	}
+
+	if len(res.GetFields()) < 1 {
+		undoPending()
+		db.returnConnection(bc)
+		return
+	}
+
+	res = &proto.CloseableResult{
+		Result: res,
+		Closer: func() error {
+			undoPending()
+			db.returnConnection(bc)
+			return nil
+		},
+	}
+
 	return
 }
 
@@ -493,7 +515,9 @@ func (db *AtomDB) SetWeight(weight proto.Weight) error {
 
 func (db *AtomDB) borrowConnection(ctx context.Context) (*mysql.BackendConnection, error) {
 	bcp := (*BackendResourcePool)(db.pool)
+	//log.Infof("^^^^^ begin borrow conn: active=%d, available=%d", db.pool.Active(), db.pool.Available())
 	res, err := bcp.Get(ctx)
+	//log.Infof("^^^^^ end borrow conn: active=%d, available=%d", db.pool.Active(), db.pool.Available())
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -502,6 +526,7 @@ func (db *AtomDB) borrowConnection(ctx context.Context) (*mysql.BackendConnectio
 
 func (db *AtomDB) returnConnection(bc *mysql.BackendConnection) {
 	db.pool.Put(bc)
+	//log.Infof("^^^^^ return conn: active=%d, available=%d", db.pool.Active(), db.pool.Available())
 }
 
 type defaultRuntime struct {
@@ -529,7 +554,17 @@ func (pi *defaultRuntime) Query(ctx context.Context, db string, query string, ar
 
 func (pi *defaultRuntime) Exec(ctx context.Context, db string, query string, args ...interface{}) (proto.Result, error) {
 	ctx = rcontext.WithWrite(ctx)
-	return pi.call(ctx, db, query, args...)
+	res, err := pi.call(ctx, db, query, args...)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	if closer, ok := res.(io.Closer); ok {
+		defer func() {
+			_ = closer.Close()
+		}()
+	}
+	return res, nil
 }
 
 func (pi *defaultRuntime) Execute(ctx *proto.Context) (res proto.Result, warn uint16, err error) {
@@ -614,9 +649,9 @@ func (pi *defaultRuntime) call(ctx context.Context, group, query string, args ..
 	}
 
 	log.Debugf("call upstream: db=%s, sql=\"%s\", args=%v", group, query, args)
-
 	// TODO: how to pass warn???
 	res, _, err := db.Call(ctx, query, args...)
+
 	return res, err
 }
 
@@ -634,12 +669,21 @@ func nextTxID() int64 {
 
 // writeRow write data to the chan
 func writeRow(result proto.Result) {
-	res := result.(*mysql.Result)
+	var res *mysql.Result
+	switch val := result.(type) {
+	case *proto.CloseableResult:
+		res = val.Result.(*mysql.Result)
+	case *mysql.Result:
+		res = val
+	default:
+		panic("unreachable")
+	}
+
 	defer func() {
 		close(res.DataChan)
 	}()
 
-	if len(res.GetRows()) <= 0 {
+	if len(res.GetFields()) <= 0 {
 		return
 	}
 	var (

@@ -19,6 +19,7 @@ package plan
 
 import (
 	"context"
+	"io"
 	"strings"
 )
 
@@ -76,6 +77,12 @@ func (s *ShowTablesPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Re
 
 	if res, err = conn.Query(ctx, s.Database, query, args...); err != nil {
 		return nil, errors.WithStack(err)
+	}
+
+	if closer, ok := res.(io.Closer); ok {
+		defer func() {
+			_ = closer.Close()
+		}()
 	}
 
 	rebuildResult := mysql.Result{

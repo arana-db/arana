@@ -20,6 +20,7 @@ package schema_manager
 import (
 	"context"
 	"fmt"
+	"io"
 	"strings"
 )
 
@@ -64,6 +65,12 @@ func (l *SimpleSchemaLoader) LoadColumnMetadataMap(ctx context.Context, conn pro
 	if err != nil {
 		return nil
 	}
+	if closer, ok := resultSet.(io.Closer); ok {
+		defer func() {
+			_ = closer.Close()
+		}()
+	}
+
 	result := make(map[string][]*proto.ColumnMetadata, 0)
 	if err != nil {
 		log.Errorf("Load ColumnMetadata error when call db: %v", err)
@@ -155,6 +162,13 @@ func (l *SimpleSchemaLoader) LoadIndexMetadata(ctx context.Context, conn proto.V
 	if err != nil {
 		return nil
 	}
+
+	if closer, ok := resultSet.(io.Closer); ok {
+		defer func() {
+			_ = closer.Close()
+		}()
+	}
+
 	result := make(map[string][]*proto.IndexMetadata, 0)
 
 	row := resultSet.GetRows()[0]

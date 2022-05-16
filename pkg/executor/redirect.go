@@ -309,7 +309,7 @@ func (executor *RedirectExecutor) ExecutorComStmtExecute(ctx *proto.Context) (pr
 	}
 
 	query := ctx.Stmt.StmtNode.Text()
-	log.Debugf(query)
+	log.Debugf("ComStmtExecute: %s", query)
 
 	executor.doPreFilter(ctx)
 	result, warn, err = executable.Execute(ctx)

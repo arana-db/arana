@@ -78,11 +78,19 @@ func (l *Listener) handleQuery(c *Conn, ctx *proto.Context) error {
 	result, warn, err := l.executor.ExecutorComQuery(ctx)
 	if err != nil {
 		if wErr := c.writeErrorPacketFromError(err); wErr != nil {
-			log.Error("Error writing query error to client %v: %v", l.connectionID, wErr)
+			log.Errorf("Error writing query error to client %v: %v", l.connectionID, wErr)
 			return wErr
 		}
 		return nil
 	}
+
+	if cr, ok := result.(*proto.CloseableResult); ok {
+		result = cr.Result
+		defer func() {
+			_ = cr.Close()
+		}()
+	}
+
 	if len(result.GetFields()) == 0 {
 		// A successful callback with no fields means that this was a
 		// DML or other write-only operation.
@@ -163,6 +171,14 @@ func (l *Listener) handleStmtExecute(c *Conn, ctx *proto.Context) error {
 		}
 		return nil
 	}
+
+	if cr, ok := result.(*proto.CloseableResult); ok {
+		result = cr.Result
+		defer func() {
+			_ = cr.Close()
+		}()
+	}
+
 	if len(result.GetFields()) == 0 {
 		// A successful callback with no fields means that this was a
 		// DML or other write-only operation.
