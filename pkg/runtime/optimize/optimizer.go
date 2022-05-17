@@ -334,11 +334,13 @@ func (o optimizer) optimizeJoin(ctx context.Context, conn proto.VConn, stmt *ras
 
 	join := stmt.From[0].Source().(*rast.JoinNode)
 
-	compute := func(tableSource *rast.TableSourceNode) (alias string, shardList []string, err error) {
+	compute := func(tableSource *rast.TableSourceNode) (database, alias string, shardList []string, err error) {
 		table := tableSource.TableName()
 		alias = tableSource.Alias()
+		database = table.Prefix()
+
 		if table == nil {
-			err = errors.New("must table，not statement or join node")
+			err = errors.New("must table, not statement or join node")
 			return
 		}
 		shards, err := o.computeShards(ru, table, nil, args)
@@ -356,7 +358,8 @@ func (o optimizer) optimizeJoin(ctx context.Context, conn proto.VConn, stmt *ras
 			return
 		}
 
-		for _, v := range shards {
+		for k, v := range shards {
+			database = k
 			shardList = v
 		}
 
@@ -367,14 +370,18 @@ func (o optimizer) optimizeJoin(ctx context.Context, conn proto.VConn, stmt *ras
 		return
 	}
 
-	aliasLeft, shardLeft, err := compute(join.Left)
+	dbLeft, aliasLeft, shardLeft, err := compute(join.Left)
 	if err != nil {
 		return nil, err
 	}
-	aliasRight, shardRight, err := compute(join.Right)
+	dbRight, aliasRight, shardRight, err := compute(join.Right)
 
 	if err != nil {
 		return nil, err
+	}
+
+	if dbLeft != "" && dbRight != "" && dbLeft != dbRight {
+		return nil, errors.New("not support more than one db")
 	}
 
 	joinPan := &plan.SimpleJoinPlan{
