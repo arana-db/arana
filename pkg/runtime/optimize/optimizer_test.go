@@ -19,21 +19,17 @@ package optimize
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
-)
 
-import (
-	"github.com/arana-db/parser"
-
-	"github.com/golang/mock/gomock"
-
-	"github.com/stretchr/testify/assert"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/proto/rule"
+	"github.com/arana-db/parser"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/testdata"
 )
@@ -165,4 +161,67 @@ func TestOptimizer_OptimizeInsert(t *testing.T) {
 		assert.Equal(t, fakeId, lastInsertId)
 	})
 
+}
+
+func TestOptimizer_OptimizeAlterTable(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	conn := testdata.NewMockVConn(ctrl)
+	loader := testdata.NewMockSchemaLoader(ctrl)
+
+	conn.EXPECT().Exec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, db string, sql string, args ...interface{}) (proto.Result, error) {
+			t.Logf("fake exec: db='%s', sql=\"%s\", args=%v\n", db, sql, args)
+			return &mysql.Result{}, nil
+		}).AnyTimes()
+
+	var (
+		ctx  = context.Background()
+		opt  = optimizer{schemaLoader: loader}
+		ru   rule.Rule
+		tab  rule.VTable
+		topo rule.Topology
+	)
+
+	topo.SetRender(func(_ int) string {
+		return "fake_db"
+	}, func(i int) string {
+		return fmt.Sprintf("student_%04d", i)
+	})
+	tables := make([]int, 0, 8)
+	for i := 0; i < 8; i++ {
+		tables = append(tables, i)
+	}
+	topo.SetTopology(0, tables...)
+	tab.SetTopology(&topo)
+	tab.SetAllowFullScan(true)
+	ru.SetVTable("student", &tab)
+
+	t.Run("sharding", func(t *testing.T) {
+		sql := "alter table student add dept_id int not null default 0 after uid"
+
+		p := parser.New()
+		stmt, _ := p.ParseOneStmt(sql, "", "")
+
+		plan, err := opt.Optimize(rcontext.WithRule(ctx, &ru), conn, stmt)
+		assert.NoError(t, err)
+
+		_, err = plan.ExecIn(ctx, conn)
+		assert.NoError(t, err)
+
+	})
+
+	t.Run("non-sharding", func(t *testing.T) {
+		sql := "alter table employees add index idx_name (first_name)"
+
+		p := parser.New()
+		stmt, _ := p.ParseOneStmt(sql, "", "")
+
+		plan, err := opt.Optimize(rcontext.WithRule(ctx, &ru), conn, stmt)
+		assert.NoError(t, err)
+
+		_, err = plan.ExecIn(ctx, conn)
+		assert.NoError(t, err)
+	})
 }

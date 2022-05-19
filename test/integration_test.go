@@ -21,17 +21,12 @@ import (
 	"fmt"
 	"testing"
 	"time"
-)
 
-import (
+	"github.com/arana-db/arana/pkg/util/rand2"
 	_ "github.com/go-sql-driver/mysql" // register mysql
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
-)
 
-import (
-	"github.com/arana-db/arana/pkg/util/rand2"
 	utils "github.com/arana-db/arana/pkg/util/tableprint"
 )
 
@@ -430,4 +425,18 @@ func (s *IntegrationSuite) TestShardingAgg() {
 	})
 
 	db.Exec("DELETE FROM student WHERE uid >= 9527")
+}
+
+func (s *IntegrationSuite) TestAlterTable() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	result, err := db.Exec(`alter table employees add dept_no char(4) not null default "" after emp_no`)
+	assert.NoErrorf(t, err, "alter table error: %v", err)
+	affected, err := result.RowsAffected()
+	assert.NoErrorf(t, err, "alter table error: %v", err)
+
+	assert.Equal(t, int64(1), affected)
 }

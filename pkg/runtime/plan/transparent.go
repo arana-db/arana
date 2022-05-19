@@ -20,14 +20,10 @@ package plan
 import (
 	"context"
 	"strings"
-)
 
-import (
-	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/pkg/errors"
+
 	rast "github.com/arana-db/arana/pkg/runtime/ast"
 )
 
@@ -45,7 +41,7 @@ type TransparentPlan struct {
 func Transparent(stmt rast.Statement, args []interface{}) *TransparentPlan {
 	var typ proto.PlanType
 	switch stmt.Mode() {
-	case rast.Sinsert, rast.Sdelete, rast.Sreplace, rast.Supdate, rast.Struncate, rast.SdropTable:
+	case rast.Sinsert, rast.Sdelete, rast.Sreplace, rast.Supdate, rast.Struncate, rast.SdropTable, rast.SalterTable:
 		typ = proto.PlanTypeExec
 	default:
 		typ = proto.PlanTypeQuery

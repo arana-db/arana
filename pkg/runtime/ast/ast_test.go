@@ -20,9 +20,7 @@ package ast
 import (
 	"strings"
 	"testing"
-)
 
-import (
 	"github.com/stretchr/testify/assert"
 )
 
@@ -364,4 +362,53 @@ func TestQuote(t *testing.T) {
 	_ = sel.Restore(RestoreDefault, &sb, nil)
 	t.Log(sb.String())
 	assert.Equal(t, "SELECT `a``bc`", sb.String())
+}
+
+func TestParse_AlterTableStmt(t *testing.T) {
+	type tt struct {
+		input  string
+		expect string
+	}
+
+	for _, it := range []tt{
+		{
+			"alter table student drop nickname",
+			"ALTER TABLE `student` DROP COLUMN `nickname`",
+		},
+		{
+			"alter table student add dept_id int not null default 0 after uid",
+			"ALTER TABLE `student` ADD COLUMN `dept_id` INT(11) NOT NULL DEFAULT 0 AFTER `uid`",
+		},
+		{
+			"alter table student add index idx_name (name)",
+			"ALTER TABLE `student` ADD INDEX idx_name(`name`)",
+		},
+		{
+			"alter table student change id uid bigint not null",
+			"ALTER TABLE `student` CHANGE COLUMN `id` `uid` BIGINT(20) NOT NULL",
+		},
+		{
+			"alter table student modify uid bigint not null default 0",
+			"ALTER TABLE `student` MODIFY COLUMN `uid` BIGINT(20) NOT NULL DEFAULT 0",
+		},
+		{
+			"alter table student rename to students",
+			"ALTER TABLE `student` RENAME AS `students`",
+		},
+		{
+			"alter table student rename column name to nickname, rename column nickname to name",
+			"ALTER TABLE `student` RENAME COLUMN `name` TO `nickname`, RENAME COLUMN `nickname` TO `name`",
+		},
+	} {
+		t.Run(it.input, func(t *testing.T) {
+			stmt, err := Parse(it.input)
+			assert.NoError(t, err)
+			assert.IsTypef(t, (*AlterTableStatement)(nil), stmt, "should be alter table statement")
+
+			actual, err := RestoreToString(RestoreDefault, stmt.(Restorer))
+			assert.NoError(t, err, "should restore ok")
+			assert.Equal(t, it.expect, actual)
+		})
+	}
+
 }

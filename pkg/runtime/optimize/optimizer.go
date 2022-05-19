@@ -21,20 +21,16 @@ import (
 	"context"
 	stdErrors "errors"
 	"strings"
-)
 
-import (
-	"github.com/arana-db/parser/ast"
-
-	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/proto/schema_manager"
+	"github.com/arana-db/parser/ast"
+	"github.com/pkg/errors"
+
 	rast "github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
+
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/runtime/plan"
 	"github.com/arana-db/arana/pkg/transformer"
@@ -120,6 +116,8 @@ func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.S
 		return o.optimizeShowVariables(ctx, t, args)
 	case *rast.DescribeStatement:
 		return o.optimizeDescribeStatement(ctx, t, args)
+	case *rast.AlterTableStatement:
+		return o.optimizeAlterTable(ctx, t, args)
 	}
 
 	//TODO implement all statements
@@ -130,6 +128,41 @@ const (
 	_bypass uint32 = 1 << iota
 	_supported
 )
+
+func (o optimizer) optimizeAlterTable(ctx context.Context, stmt *rast.AlterTableStatement, args []interface{}) (proto.Plan, error) {
+	var (
+		ret   = plan.NewAlterTablePlan(stmt)
+		ru    = rcontext.Rule(ctx)
+		table = stmt.Table
+		vt    *rule.VTable
+		ok    bool
+	)
+	ret.BindArgs(args)
+
+	// non-sharding update
+	if vt, ok = ru.VTable(table.Suffix()); !ok {
+		return ret, nil
+	}
+
+	//TODO alter table table or column to new name , should update sharding info
+
+	// exit if full-scan is disabled
+	if !vt.AllowFullScan() {
+		return nil, errDenyFullScan
+	}
+
+	// sharding
+	shards := rule.DatabaseTables{}
+	topology := vt.Topology()
+	topology.Each(func(dbIdx, tbIdx int) bool {
+		if d, t, ok := topology.Render(dbIdx, tbIdx); ok {
+			shards[d] = append(shards[d], t)
+		}
+		return true
+	})
+	ret.Shards = shards
+	return ret, nil
+}
 
 func (o optimizer) optimizeDropTable(ctx context.Context, stmt *rast.DropTableStatement, args []interface{}) (proto.Plan, error) {
 	ru := rcontext.Rule(ctx)
