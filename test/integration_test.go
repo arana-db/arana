@@ -438,5 +438,5 @@ func (s *IntegrationSuite) TestAlterTable() {
 	affected, err := result.RowsAffected()
 	assert.NoErrorf(t, err, "alter table error: %v", err)
 
-	assert.Equal(t, int64(1), affected)
+	assert.Equal(t, int64(0), affected)
 }
