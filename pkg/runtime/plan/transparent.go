@@ -20,10 +20,14 @@ package plan
 import (
 	"context"
 	"strings"
+)
 
-	"github.com/arana-db/arana/pkg/proto"
+import (
 	"github.com/pkg/errors"
+)
 
+import (
+	"github.com/arana-db/arana/pkg/proto"
 	rast "github.com/arana-db/arana/pkg/runtime/ast"
 )
 

@@ -20,15 +20,22 @@ package plan
 import (
 	"context"
 	"strings"
+)
 
+import (
+	"github.com/pkg/errors"
+
+	uatomic "go.uber.org/atomic"
+
+	"golang.org/x/sync/errgroup"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/util/log"
-	"github.com/pkg/errors"
-	uatomic "go.uber.org/atomic"
-	"golang.org/x/sync/errgroup"
 )
 
 var _ proto.Plan = (*AlterTablePlan)(nil)

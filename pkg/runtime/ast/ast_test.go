@@ -20,7 +20,9 @@ package ast
 import (
 	"strings"
 	"testing"
+)
 
+import (
 	"github.com/stretchr/testify/assert"
 )
 

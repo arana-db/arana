@@ -21,16 +21,20 @@ import (
 	"context"
 	stdErrors "errors"
 	"strings"
+)
 
+import (
+	"github.com/arana-db/parser/ast"
+
+	"github.com/pkg/errors"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/proto/schema_manager"
-	"github.com/arana-db/parser/ast"
-	"github.com/pkg/errors"
-
 	rast "github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
-
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/runtime/plan"
 	"github.com/arana-db/arana/pkg/transformer"

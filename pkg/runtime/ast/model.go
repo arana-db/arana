@@ -20,7 +20,9 @@ package ast
 import (
 	"fmt"
 	"strings"
+)
 
+import (
 	"github.com/pkg/errors"
 )
 

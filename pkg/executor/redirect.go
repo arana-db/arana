@@ -22,19 +22,22 @@ import (
 	stdErrors "errors"
 	"sync"
 	"time"
+)
 
+import (
 	"github.com/arana-db/parser"
 	"github.com/arana-db/parser/ast"
-	"github.com/pkg/errors"
 
+	"github.com/pkg/errors"
+)
+
+import (
 	mConstants "github.com/arana-db/arana/pkg/constants/mysql"
 	"github.com/arana-db/arana/pkg/metrics"
 	"github.com/arana-db/arana/pkg/mysql"
-
 	mysqlErrors "github.com/arana-db/arana/pkg/mysql/errors"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime"
-
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/security"
 	"github.com/arana-db/arana/pkg/util/log"

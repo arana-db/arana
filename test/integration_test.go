@@ -21,12 +21,17 @@ import (
 	"fmt"
 	"testing"
 	"time"
+)
 
-	"github.com/arana-db/arana/pkg/util/rand2"
+import (
 	_ "github.com/go-sql-driver/mysql" // register mysql
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+)
 
+import (
+	"github.com/arana-db/arana/pkg/util/rand2"
 	utils "github.com/arana-db/arana/pkg/util/tableprint"
 )
 

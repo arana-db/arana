@@ -22,14 +22,20 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+)
 
+import (
+	"github.com/arana-db/parser"
+
+	"github.com/golang/mock/gomock"
+
+	"github.com/stretchr/testify/assert"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
-	"github.com/arana-db/parser"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/testdata"
 )
