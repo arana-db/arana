@@ -60,17 +60,19 @@ func (value OrderByValue) Next() bool {
 }
 
 func (value OrderByValue) buildOrderValues() {
+	values := make([]interface{}, len(value.orderByItems))
 	for _, item := range value.orderByItems {
 		val, err := value.row.GetCurrentRow().GetColumnValue(item.Column)
 		if err != nil {
 			panic("get order by column value error:" + err.Error())
 		}
 		// TODO How to judgment the value is Comparable.
-		if val != nil && false {
-			panic("get order by column value error:" + err.Error())
-		}
-		value.orderValues = append(value.orderValues, val)
+		//if val != nil && false {
+		//	panic("get order by column value error:" + err.Error())
+		//}
+		values = append(values, val)
 	}
+	value.orderValues = values
 }
 
 func (value OrderByValue) Compare(compareVal *OrderByValue) int8 {
@@ -89,14 +91,18 @@ func compareTo(thisValue, otherValue interface{}, nullDesc, desc, caseSensitive 
 		return 0
 	}
 	if thisValue == nil && nullDesc {
-		return -1
-	} else {
-		return 1
+		if nullDesc {
+			return -1
+		} else {
+			return 1
+		}
 	}
-	if otherValue == nil && nullDesc {
-		return 1
-	} else {
-		return -1
+	if otherValue == nil {
+		if nullDesc {
+			return 1
+		} else {
+			return -1
+		}
 	}
 	// TODO Deal with case sensitive.
 	// TODO How to compare the interface{}
@@ -113,5 +119,4 @@ func compareTo(thisValue, otherValue interface{}, nullDesc, desc, caseSensitive 
 			return -1
 		}
 	}
-	return 0
 }
