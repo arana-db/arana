@@ -336,13 +336,13 @@ func (o optimizer) optimizeJoin(ctx context.Context, conn proto.VConn, stmt *ras
 
 	compute := func(tableSource *rast.TableSourceNode) (database, alias string, shardList []string, err error) {
 		table := tableSource.TableName()
-		alias = tableSource.Alias()
-		database = table.Prefix()
-
 		if table == nil {
 			err = errors.New("must table, not statement or join node")
 			return
 		}
+		alias = tableSource.Alias()
+		database = table.Prefix()
+
 		shards, err := o.computeShards(ru, table, nil, args)
 		if err != nil {
 			return
