@@ -29,7 +29,6 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/merge"
-	order "github.com/arana-db/arana/pkg/merge/impl/order_by"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/testdata"
@@ -47,7 +46,7 @@ type (
 func TestGroupByStreamMergeRows(t *testing.T) {
 
 	stmt := MergeRowStatement{
-		OrderBys: []order.OrderByItem{
+		OrderBys: []merge.OrderByItem{
 			{
 				Column: age,
 				Desc:   true,
