@@ -53,14 +53,13 @@ func buildOrderValuesCaseSensitive(orderByItems []OrderByItem) []bool {
 	return result
 }
 
-func (value OrderByValue) Next() bool {
+func (value *OrderByValue) Next() bool {
 	result := value.row.HasNext()
 	value.buildOrderValues()
 	return result
 }
 
-func (value OrderByValue) buildOrderValues() {
-	values := make([]interface{}, len(value.orderByItems))
+func (value *OrderByValue) buildOrderValues() {
 	for _, item := range value.orderByItems {
 		val, err := value.row.GetCurrentRow().GetColumnValue(item.Column)
 		if err != nil {
@@ -70,12 +69,11 @@ func (value OrderByValue) buildOrderValues() {
 		//if val != nil && false {
 		//	panic("get order by column value error:" + err.Error())
 		//}
-		values = append(values, val)
+		value.orderValues = append(value.orderValues, val)
 	}
-	value.orderValues = values
 }
 
-func (value OrderByValue) Compare(compareVal *OrderByValue) int8 {
+func (value *OrderByValue) Compare(compareVal *OrderByValue) int8 {
 	for i, item := range value.orderByItems {
 		compare := compareTo(value.orderValues[i], compareVal.orderValues[i], item.NullDesc, item.Desc, value.orderValuesCaseSensitive[i])
 		if compare == 0 {
