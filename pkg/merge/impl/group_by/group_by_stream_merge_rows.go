@@ -29,6 +29,7 @@ import (
 import (
 	"github.com/arana-db/arana/pkg/merge"
 	"github.com/arana-db/arana/pkg/merge/aggregator"
+	order "github.com/arana-db/arana/pkg/merge/impl/order_by"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/testdata"
@@ -36,7 +37,7 @@ import (
 
 // Design documents: https://dubbo-kylin.yuque.com/docs/share/ff2e78b8-df2c-4874-b26e-cb6b923033b8
 type MergeRowStatement struct {
-	OrderBys []merge.OrderByItem
+	OrderBys []order.OrderByItem
 	GroupBys []string
 	Selects  []SelectItem
 }
@@ -56,7 +57,7 @@ type GroupByStreamMergeRows struct {
 func NewGroupByStreamMergeRow(rows []*merge.MergeRows, stmt MergeRowStatement) *GroupByStreamMergeRows {
 	s := &GroupByStreamMergeRows{
 		stmt:         stmt,
-		queue:        merge.NewPriorityQueue(rows, stmt.OrderBys),
+		queue:        merge.NewPriorityQueue(),
 		isFirstMerge: true,
 	}
 	return s
