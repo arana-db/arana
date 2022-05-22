@@ -328,7 +328,7 @@ func (stmt *BackendStatement) writeExecutePacket(args []interface{}) error {
 				if v.IsZero() {
 					b = append(b, "0000-00-00"...)
 				} else {
-					b, err = appendDateTime(b, v.In(bc.conf.Loc))
+					b, err = AppendDateTime(b, v.In(bc.conf.Loc))
 					if err != nil {
 						return err
 					}
@@ -357,65 +357,40 @@ func (stmt *BackendStatement) writeExecutePacket(args []interface{}) error {
 	return bc.c.writePacket(data[4:])
 }
 
-func (stmt *BackendStatement) execArgs(args []interface{}) (*Result, uint16, error) {
+func (stmt *BackendStatement) execArgs(args []interface{}) (proto.Result, error) {
 	err := stmt.writeExecutePacket(args)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
-	affectedRows, lastInsertID, colNumber, _, warnings, err := stmt.conn.ReadComQueryResponse()
-	if err != nil {
-		return nil, 0, err
-	}
+	//if colNumber > 0 {
+	//	// columns
+	//	if err = stmt.conn.DrainResults(); err != nil {
+	//		return nil, 0, err
+	//	}
+	//	// rows
+	//	if err = stmt.conn.DrainResults(); err != nil {
+	//		return nil, 0, err
+	//	}
+	//}
 
-	if colNumber > 0 {
-		// columns
-		if err = stmt.conn.DrainResults(); err != nil {
-			return nil, 0, err
-		}
-		// rows
-		if err = stmt.conn.DrainResults(); err != nil {
-			return nil, 0, err
-		}
-	}
-
-	return &Result{
-		AffectedRows: affectedRows,
-		InsertId:     lastInsertID,
-	}, warnings, nil
+	return stmt.conn.ReadQueryRow(), nil
 }
 
-// queryArgsIterRow is iterator for binary protocol result set
-func (stmt *BackendStatement) queryArgsIterRow(args []interface{}) (*Result, uint16, error) {
+func (stmt *BackendStatement) queryArgs(args []interface{}) (proto.Result, error) {
 	err := stmt.writeExecutePacket(args)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
-	result, affectedRows, lastInsertID, _, warnings, err := stmt.conn.ReadQueryRow()
+	res := stmt.conn.ReadQueryRow()
+	res.setWantFields(true)
+	res.setBinaryProtocol()
 
-	iterRow := &BinaryIterRow{result}
-
-	return &Result{
-		AffectedRows: affectedRows,
-		InsertId:     lastInsertID,
-		Fields:       iterRow.Fields(),
-		Rows:         []proto.Row{iterRow},
-		DataChan:     make(chan proto.Row, 1),
-	}, warnings, err
+	return res, nil
 }
 
-func (stmt *BackendStatement) queryArgs(args []interface{}) (*Result, uint16, error) {
-	err := stmt.writeExecutePacket(args)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	result, _, warnings, err := stmt.conn.ReadQueryResult(true)
-	return result, warnings, err
-}
-
-func (stmt *BackendStatement) exec(args []byte) (*Result, uint16, error) {
+func (stmt *BackendStatement) exec(args []byte) (proto.Result, error) {
 	args[1] = byte(stmt.id)
 	args[2] = byte(stmt.id >> 8)
 	args[3] = byte(stmt.id >> 16)
@@ -426,33 +401,29 @@ func (stmt *BackendStatement) exec(args []byte) (*Result, uint16, error) {
 
 	err := stmt.conn.c.writePacket(args)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 	stmt.conn.c.recycleWritePacket()
 
-	affectedRows, lastInsertID, colNumber, _, warnings, err := stmt.conn.ReadComQueryResponse()
-	if err != nil {
-		return nil, 0, err
-	}
+	res := stmt.conn.ReadQueryRow()
 
-	if colNumber > 0 {
-		// columns
-		if err = stmt.conn.DrainResults(); err != nil {
-			return nil, 0, err
-		}
-		// rows
-		if err = stmt.conn.DrainResults(); err != nil {
-			return nil, 0, err
-		}
-	}
+	//if colNumber > 0 {
+	//	// columns
+	//	if err = stmt.conn.DrainResults(); err != nil {
+	//		return nil, 0, err
+	//	}
+	//	// rows
+	//	if err = stmt.conn.DrainResults(); err != nil {
+	//		return nil, 0, err
+	//	}
+	//}
 
-	return &Result{
-		AffectedRows: affectedRows,
-		InsertId:     lastInsertID,
-	}, warnings, nil
+	res.setBinaryProtocol()
+	res.setWantFields(true)
+	return res, nil
 }
 
-func (stmt *BackendStatement) query(args []byte) (*Result, uint16, error) {
+func (stmt *BackendStatement) query(args []byte) (proto.Result, error) {
 	args[1] = byte(stmt.id)
 	args[2] = byte(stmt.id >> 8)
 	args[3] = byte(stmt.id >> 16)
@@ -463,9 +434,8 @@ func (stmt *BackendStatement) query(args []byte) (*Result, uint16, error) {
 
 	err := stmt.conn.c.writePacket(args)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
-	result, _, warnings, err := stmt.conn.ReadQueryResult(true)
-	return result, warnings, err
+	return stmt.conn.ReadQueryResult(true), nil
 }

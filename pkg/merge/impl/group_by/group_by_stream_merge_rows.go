@@ -118,16 +118,16 @@ func (s *GroupByStreamMergeRows) merge() proto.Row {
 		}
 	}
 
-	row := testdata.NewMockRow(gomock.NewController(nil))
+	row := testdata.NewMockKeyedRow(gomock.NewController(nil))
 	for _, sel := range s.stmt.Selects {
 		if _, ok := aggrMap[sel.Column]; ok {
 			res, _ := aggrMap[sel.Column].GetResult()
 			// TODO use row encode() to build a new row result
 			val, _ := res.ToInt()
-			row.EXPECT().GetColumnValue(sel.Column).Return(val, nil).AnyTimes()
+			row.EXPECT().Get(sel.Column).Return(val, nil).AnyTimes()
 		} else {
-			res, _ := currentRow.GetColumnValue(sel.Column)
-			row.EXPECT().GetColumnValue(sel.Column).Return(res, nil).AnyTimes()
+			res, _ := currentRow.(proto.KeyedRow).Get(sel.Column)
+			row.EXPECT().Get(sel.Column).Return(res, nil).AnyTimes()
 		}
 	}
 	return row
@@ -136,7 +136,7 @@ func (s *GroupByStreamMergeRows) merge() proto.Row {
 // todo not support Avg method yet
 func (s *GroupByStreamMergeRows) aggregate(aggrMap map[string]merge.Aggregator, row proto.Row) {
 	for k, v := range aggrMap {
-		val, err := row.GetColumnValue(k)
+		val, err := row.(proto.KeyedRow).Get(k)
 		if err != nil {
 			panic(err.Error())
 		}

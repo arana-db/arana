@@ -75,8 +75,14 @@ func (l *Listener) handleQuery(c *Conn, ctx *proto.Context) error {
 	}()
 
 	c.recycleReadPacket()
-	result, warn, err := l.executor.ExecutorComQuery(ctx)
-	if err != nil {
+
+	var (
+		result proto.Result
+		err    error
+		warn   uint16
+	)
+
+	if result, warn, err = l.executor.ExecutorComQuery(ctx); err != nil {
 		if wErr := c.writeErrorPacketFromError(err); wErr != nil {
 			log.Errorf("Error writing query error to client %v: %v", l.connectionID, wErr)
 			return wErr
@@ -84,14 +90,16 @@ func (l *Listener) handleQuery(c *Conn, ctx *proto.Context) error {
 		return nil
 	}
 
-	if cr, ok := result.(*proto.CloseableResult); ok {
-		result = cr.Result
-		defer func() {
-			_ = cr.Close()
-		}()
+	var ds proto.Dataset
+	if ds, err = result.Dataset(); err != nil {
+		if wErr := c.writeErrorPacketFromError(err); wErr != nil {
+			log.Errorf("Error writing query error to client %v: %v", l.connectionID, wErr)
+			return wErr
+		}
+		return nil
 	}
 
-	if len(result.GetFields()) == 0 {
+	if ds == nil {
 		// A successful callback with no fields means that this was a
 		// DML or other write-only operation.
 		//
@@ -104,10 +112,13 @@ func (l *Listener) handleQuery(c *Conn, ctx *proto.Context) error {
 		)
 		return c.writeOKPacket(affected, insertId, c.StatusFlags, warn)
 	}
-	if err = c.writeFields(l.capabilities, result); err != nil {
+
+	fields, _ := ds.Fields()
+
+	if err = c.writeFields(l.capabilities, fields); err != nil {
 		return err
 	}
-	if err = c.writeRowChan(result); err != nil {
+	if err = c.writeDataset(ds); err != nil {
 		return err
 	}
 	if err = c.writeEndResult(l.capabilities, false, 0, 0, warn); err != nil {
@@ -128,7 +139,7 @@ func (l *Listener) handleFieldList(c *Conn, ctx *proto.Context) error {
 			return wErr
 		}
 	}
-	return c.writeFields(l.capabilities, &Result{Fields: fields})
+	return c.writeFields(l.capabilities, fields)
 }
 
 func (l *Listener) handleStmtExecute(c *Conn, ctx *proto.Context) error {
@@ -138,7 +149,13 @@ func (l *Listener) handleStmtExecute(c *Conn, ctx *proto.Context) error {
 			log.Errorf("conn %v: flush() failed: %v", c.ID(), err)
 		}
 	}()
-	stmtID, _, err := c.parseComStmtExecute(&l.stmts, ctx.Data)
+
+	var (
+		stmtID uint32
+		err    error
+	)
+
+	stmtID, _, err = c.parseComStmtExecute(&l.stmts, ctx.Data)
 	c.recycleReadPacket()
 
 	if stmtID != uint32(0) {
@@ -163,8 +180,12 @@ func (l *Listener) handleStmtExecute(c *Conn, ctx *proto.Context) error {
 	prepareStmt, _ := l.stmts.Load(stmtID)
 	ctx.Stmt = prepareStmt.(*proto.Stmt)
 
-	result, warn, err := l.executor.ExecutorComStmtExecute(ctx)
-	if err != nil {
+	var (
+		result proto.Result
+		warn   uint16
+	)
+
+	if result, warn, err = l.executor.ExecutorComStmtExecute(ctx); err != nil {
 		if wErr := c.writeErrorPacketFromError(err); wErr != nil {
 			log.Errorf("Error writing query error to client %v: %v, executor error: %v", l.connectionID, wErr, err)
 			return wErr
@@ -172,14 +193,16 @@ func (l *Listener) handleStmtExecute(c *Conn, ctx *proto.Context) error {
 		return nil
 	}
 
-	if cr, ok := result.(*proto.CloseableResult); ok {
-		result = cr.Result
-		defer func() {
-			_ = cr.Close()
-		}()
+	var ds proto.Dataset
+	if ds, err = result.Dataset(); err != nil {
+		if wErr := c.writeErrorPacketFromError(err); wErr != nil {
+			log.Errorf("Error writing query error to client %v: %v, executor error: %v", l.connectionID, wErr, err)
+			return wErr
+		}
+		return nil
 	}
 
-	if len(result.GetFields()) == 0 {
+	if ds == nil {
 		// A successful callback with no fields means that this was a
 		// DML or other write-only operation.
 		//
@@ -190,10 +213,17 @@ func (l *Listener) handleStmtExecute(c *Conn, ctx *proto.Context) error {
 		lastInsertId, _ := result.LastInsertId()
 		return c.writeOKPacket(affected, lastInsertId, c.StatusFlags, warn)
 	}
-	if err = c.writeFields(l.capabilities, result); err != nil {
+
+	defer func() {
+		_ = ds.Close()
+	}()
+
+	fields, _ := ds.Fields()
+
+	if err = c.writeFields(l.capabilities, fields); err != nil {
 		return err
 	}
-	if err = c.writeBinaryRowChan(result); err != nil {
+	if err = c.writeDatasetBinary(ds); err != nil {
 		return err
 	}
 	if err = c.writeEndResult(l.capabilities, false, 0, 0, warn); err != nil {

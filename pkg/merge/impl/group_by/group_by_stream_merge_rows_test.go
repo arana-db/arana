@@ -77,8 +77,8 @@ func TestGroupByStreamMergeRows(t *testing.T) {
 		if row == nil {
 			break
 		}
-		v1, _ := row.GetColumnValue(countScore)
-		v2, _ := row.GetColumnValue(age)
+		v1, _ := row.(proto.KeyedRow).Get(countScore)
+		v2, _ := row.(proto.KeyedRow).Get(age)
 		res = append(res, student{countScore: v1.(int64), age: v2.(int64)})
 	}
 	assert.Equal(t, []student{
@@ -98,9 +98,9 @@ func buildMergeRows(t *testing.T, vals [][]student) []*merge.MergeRows {
 func buildMergeRow(t *testing.T, vals []student) *merge.MergeRows {
 	rows := make([]proto.Row, 0)
 	for _, val := range vals {
-		row := testdata.NewMockRow(gomock.NewController(t))
+		row := testdata.NewMockKeyedRow(gomock.NewController(t))
 		for k, v := range val {
-			row.EXPECT().GetColumnValue(k).Return(v, nil).AnyTimes()
+			row.EXPECT().Get(k).Return(v, nil).AnyTimes()
 		}
 		rows = append(rows, row)
 	}
