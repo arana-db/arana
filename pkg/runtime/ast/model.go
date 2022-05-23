@@ -382,3 +382,206 @@ func (u *UpdateElement) CntParams() int {
 	}
 	return u.Value.CntParams()
 }
+
+type ColumnOptionType uint8
+
+const (
+	_ ColumnOptionType = iota
+	ColumnOptionPrimaryKey
+	ColumnOptionNotNull
+	ColumnOptionAutoIncrement
+	ColumnOptionDefaultValue
+	ColumnOptionUniqKey
+	ColumnOptionNull
+	ColumnOptionComment
+	ColumnOptionCollate
+	ColumnOptionColumnFormat
+	ColumnOptionStorage
+)
+
+type ColumnOption struct {
+	Tp     ColumnOptionType
+	Expr   ExpressionNode
+	StrVal string
+}
+
+func (c *ColumnOption) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	switch c.Tp {
+	case ColumnOptionPrimaryKey:
+		sb.WriteString("PRIMARY KEY")
+	case ColumnOptionNotNull:
+		sb.WriteString("NOT NULL")
+	case ColumnOptionAutoIncrement:
+		sb.WriteString("AUTO_INCREMENT")
+	case ColumnOptionDefaultValue:
+		sb.WriteString("DEFAULT ")
+		if err := c.Expr.Restore(flag, sb, args); err != nil {
+			return err
+		}
+	case ColumnOptionUniqKey:
+		sb.WriteString("UNIQUE KEY")
+	case ColumnOptionNull:
+		sb.WriteString("NULL")
+	case ColumnOptionComment:
+		sb.WriteString("COMMENT ")
+		if err := c.Expr.Restore(flag, sb, args); err != nil {
+			return err
+		}
+	case ColumnOptionCollate:
+		if len(c.StrVal) == 0 {
+			return errors.New("Empty ColumnOption COLLATE")
+		}
+		sb.WriteString("COLLATE ")
+		sb.WriteString(c.StrVal)
+	case ColumnOptionColumnFormat:
+		sb.WriteString("COLUMN_FORMAT ")
+		sb.WriteString(c.StrVal)
+	case ColumnOptionStorage:
+		sb.WriteString("STORAGE ")
+		sb.WriteString(c.StrVal)
+	}
+	return nil
+}
+
+func (c *ColumnOption) CntParams() int {
+	return 0
+}
+
+type ColumnDefine struct {
+	Column  ColumnNameExpressionAtom
+	Tp      string
+	Options []*ColumnOption
+}
+
+func (c *ColumnDefine) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	if err := c.Column.Restore(flag, sb, args); err != nil {
+		return err
+	}
+	if len(c.Tp) > 0 {
+		sb.WriteString(" " + c.Tp)
+	}
+	for _, o := range c.Options {
+		sb.WriteString(" ")
+		if err := o.Restore(flag, sb, args); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *ColumnDefine) CntParams() int {
+	return 0
+}
+
+type ColumnPositionType uint8
+
+const (
+	_ ColumnPositionType = iota
+	ColumnPositionFirst
+	ColumnPositionAfter
+)
+
+type ColumnPosition struct {
+	Tp     ColumnPositionType
+	Column ColumnNameExpressionAtom
+}
+
+func (c *ColumnPosition) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	switch c.Tp {
+	case ColumnPositionFirst:
+		sb.WriteString("FIRST")
+	case ColumnPositionAfter:
+		sb.WriteString("AFTER ")
+		if err := c.Column.Restore(flag, sb, args); err != nil {
+			return err
+		}
+	default:
+		return errors.New("invalid ColumnPositionType")
+	}
+	return nil
+}
+
+func (c *ColumnPosition) CntParams() int {
+	return 0
+}
+
+type IndexPartSpec struct {
+	Column ColumnNameExpressionAtom
+	Expr   ExpressionNode
+}
+
+func (i *IndexPartSpec) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	if i.Expr != nil {
+		sb.WriteString("(")
+		if err := i.Expr.Restore(flag, sb, args); err != nil {
+			return err
+		}
+		sb.WriteString(")")
+		return nil
+	}
+	if err := i.Column.Restore(flag, sb, args); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (i *IndexPartSpec) CntParams() int {
+	return 0
+}
+
+type ConstraintType uint8
+
+const (
+	ConstraintNoConstraint ConstraintType = iota
+	ConstraintPrimaryKey
+	ConstraintKey
+	ConstraintIndex
+	ConstraintUniq
+	ConstraintUniqKey
+	ConstraintUniqIndex
+	ConstraintFulltext
+)
+
+type Constraint struct {
+	Tp   ConstraintType
+	Name string
+	Keys []*IndexPartSpec
+}
+
+func (c *Constraint) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	switch c.Tp {
+	case ConstraintPrimaryKey:
+		sb.WriteString("PRIMARY KEY")
+	case ConstraintKey:
+		sb.WriteString("KEY")
+	case ConstraintIndex:
+		sb.WriteString("INDEX")
+	case ConstraintUniq:
+		sb.WriteString("UNIQUE")
+	case ConstraintUniqKey:
+		sb.WriteString("UNIQUE KEY")
+	case ConstraintUniqIndex:
+		sb.WriteString("UNIQUE INDEX")
+	case ConstraintFulltext:
+		sb.WriteString("FULLTEXT")
+	}
+	if len(c.Name) > 0 {
+		sb.WriteString(" ")
+		sb.WriteString(c.Name)
+	}
+	sb.WriteString("(")
+	for i, k := range c.Keys {
+		if i != 0 {
+			sb.WriteString(", ")
+		}
+		if err := k.Restore(flag, sb, args); err != nil {
+			return err
+		}
+	}
+	sb.WriteString(")")
+	return nil
+}
+
+func (c *Constraint) CntParams() int {
+	return 0
+}
