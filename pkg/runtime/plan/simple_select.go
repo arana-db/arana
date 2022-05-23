@@ -27,6 +27,7 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 )
@@ -52,6 +53,12 @@ func (s *SimpleQueryPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 		err     error
 	)
 
+	if s.filter() {
+		return &mysql.Result{
+			DataChan: make(chan proto.Row, 1),
+		}, nil
+	}
+
 	if err = s.generate(&sb, &indexes); err != nil {
 		return nil, errors.Wrap(err, "failed to generate sql")
 	}
@@ -65,6 +72,20 @@ func (s *SimpleQueryPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 		return nil, errors.WithStack(err)
 	}
 	return res, nil
+}
+
+func (s *SimpleQueryPlan) filter() bool {
+	if len(s.Stmt.From) <= 0 {
+		return false
+	}
+	source, ok := s.Stmt.From[0].Source().(ast.TableName)
+	if !ok {
+		return false
+	}
+	if source.String() == "`information_schema`.`columns`" {
+		return true
+	}
+	return false
 }
 
 func (s *SimpleQueryPlan) resetTable(tgt *ast.SelectStatement, table string) error {
