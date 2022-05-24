@@ -22,14 +22,47 @@ import (
 	"context"
 )
 
+var (
+	ContextVconnKey = struct{}{}
+)
+
+// SequenceSupplier 创建 Sequence 的创建器
+type SequenceSupplier func() EnchanceSequence
+
+var (
+	// 记录通过 init 自注册的 sequence 插件列表
+	suppliersRegistry map[string]SequenceSupplier = map[string]SequenceSupplier{}
+)
+
+// RegisterSequence 注册一个 sequence 插件
+func RegisterSequence(name string, supplier SequenceSupplier) {
+	suppliersRegistry[name] = supplier
+}
+
+type SequenceConfig struct {
+	Name   string
+	Type   string
+	Option map[string]interface{}
+}
+
 // Sequence represents a global unique id generator.
-type Sequence interface {
-	// Next generates a next value in int64.
-	Next(ctx context.Context) (int64, error)
+type EnchanceSequence interface {
+	Sequence
+	// Start
+	Start(ctx context.Context, option SequenceConfig) error
+	// Stop
+	Stop() error
 }
 
 // Sequencer represents the factory to create a Sequence by table name.
-type Sequencer interface {
-	// Sequence returns the Sequence of table.
-	Sequence(ctx context.Context, table string) (Sequence, error)
+type SequenceManager interface {
+	// CreateSequence
+	CreateSequence(ctx context.Context, conn VConn, opt SequenceConfig) error
+	// GetSequence returns the Sequence of table.
+	GetSequence(ctx context.Context, table string) (Sequence, error)
+}
+
+func GetSequenceSupplier(name string) (SequenceSupplier, bool) {
+	val, ok := suppliersRegistry[name]
+	return val, ok
 }

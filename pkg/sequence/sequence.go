@@ -17,4 +17,56 @@
 
 package sequence
 
-// TODO: implement proto.Sequencer, proto.Sequence, provide a register func.
+import (
+	"context"
+	"fmt"
+	"sync"
+
+	"github.com/arana-db/arana/pkg/proto"
+)
+
+// SequenceManager 统一管理 Seqneuce 的 Manager
+type sequenceManager struct {
+	lock             sync.RWMutex
+	sequenceOptions  map[string]proto.SequenceConfig
+	sequenceRegistry map[string]proto.EnchanceSequence
+}
+
+// CreateSequence
+func (sMgn *sequenceManager) CreateSequence(ctx context.Context, conn proto.VConn, conf proto.SequenceConfig) error {
+	seqType := conf.Type
+
+	builder, ok := proto.GetSequenceSupplier(seqType)
+	if !ok {
+		return fmt.Errorf("sequence=[%s] not exist", seqType)
+	}
+
+	ctx = context.WithValue(ctx, proto.ContextVconnKey, conn)
+
+	sequence := builder()
+	if err := sequence.Start(ctx, conf); err != nil {
+		return err
+	}
+
+	sMgn.lock.Lock()
+	defer sMgn.lock.Unlock()
+
+	sMgn.sequenceOptions[conf.Name] = conf
+	sMgn.sequenceRegistry[conf.Name] = sequence
+
+	return nil
+}
+
+// GetSequence
+func (sMgn *sequenceManager) GetSequence(ctx context.Context, table string) (proto.Sequence, error) {
+	sMgn.lock.RLock()
+	defer sMgn.lock.RUnlock()
+
+	seq, ok := sMgn.sequenceRegistry[table]
+
+	if !ok {
+		return nil, fmt.Errorf("sequence=[%s] not found", table)
+	}
+
+	return seq, nil
+}

@@ -74,8 +74,8 @@ func WithSchema(ctx context.Context, data string) context.Context {
 	return context.WithValue(ctx, keySchema{}, data)
 }
 
-// WithSequencer binds a sequencer.
-func WithSequencer(ctx context.Context, sequencer proto.Sequencer) context.Context {
+// WithSequenceManager binds a sequencer.
+func WithSequenceManager(ctx context.Context, sequencer proto.SequenceManager) context.Context {
 	return context.WithValue(ctx, keySequence{}, sequencer)
 }
 
@@ -90,8 +90,8 @@ func WithRead(ctx context.Context) context.Context {
 }
 
 // Sequencer extracts the sequencer.
-func Sequencer(ctx context.Context) proto.Sequencer {
-	s, ok := ctx.Value(keySequence{}).(proto.Sequencer)
+func Sequencer(ctx context.Context) proto.SequenceManager {
+	s, ok := ctx.Value(keySequence{}).(proto.SequenceManager)
 	if !ok {
 		return nil
 	}
