@@ -18,9 +18,9 @@
 package plan
 
 import (
-	"github.com/arana-db/arana/pkg/mysql"
-	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/runtime/ast"
+	"context"
+	"io"
+	"strings"
 )
 
 import (
@@ -28,9 +28,9 @@ import (
 )
 
 import (
-	"context"
-	"io"
-	"strings"
+	"github.com/arana-db/arana/pkg/mysql"
+	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
 var _ proto.Plan = (*ShowIndexPlan)(nil)
