@@ -112,6 +112,8 @@ func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.S
 		return o.optimizeUpdate(ctx, conn, t, args)
 	case *rast.ShowTables:
 		return o.optimizeShowTables(ctx, t, args)
+	case *rast.ShowIndex:
+		return o.optimizeShowIndex(ctx, t, args)
 	case *rast.TruncateStatement:
 		return o.optimizeTruncate(ctx, t, args)
 	case *rast.DropTableStatement:
@@ -661,6 +663,12 @@ func (o optimizer) optimizeShowTables(ctx context.Context, stmt *rast.ShowTables
 	ret := plan.NewShowTablesPlan(stmt)
 	ret.BindArgs(args)
 	ret.SetAllShards(tmpPlanData)
+	return ret, nil
+}
+
+func (o optimizer) optimizeShowIndex(_ context.Context, stmt *rast.ShowIndex, args []interface{}) (proto.Plan, error) {
+	ret := &plan.ShowIndexPlan{Stmt: stmt}
+	ret.BindArgs(args)
 	return ret, nil
 }
 
