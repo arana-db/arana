@@ -707,6 +707,7 @@ func (o optimizer) optimizeDescribeStatement(ctx context.Context, stmt *rast.Des
 		dbName, tblName := shards.Smallest()
 		ret.Database = dbName
 		ret.Table = tblName
+		ret.Column = stmt.Column
 	}
 
 	return ret, nil
