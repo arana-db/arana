@@ -67,6 +67,7 @@ type (
 		Tenants            []*Tenant            `validate:"required,dive" yaml:"tenants" json:"tenants"`
 		DataSourceClusters []*DataSourceCluster `validate:"required,dive" yaml:"clusters" json:"clusters"`
 		ShardingRule       *ShardingRule        `validate:"required,dive" yaml:"sharding_rule,omitempty" json:"sharding_rule,omitempty"`
+		ShadowRule         *ShadowRule          `yaml:"shadow_rule,omitempty" json:"shadow_rule,omitempty"`
 	}
 
 	Filter struct {
@@ -108,6 +109,36 @@ type (
 
 	ShardingRule struct {
 		Tables []*Table `yaml:"tables" json:"tables"`
+	}
+
+	ShadowRule struct {
+		ShadowTables []*ShadowTable `yaml:"tables" json:"tables"`
+	}
+
+	ShadowTable struct {
+		Name       string       `yaml:"name" json:"name"`
+		Enable     bool         `yaml:"enable" json:"enable"`
+		GroupNode  string       `yaml:"group_node" json:"group_node"`
+		MatchRules []*MatchRule `yaml:"match_rules" json:"match_rules"`
+	}
+
+	MatchRule struct {
+		Operation  []string         `yaml:"operation" json:"operation"`
+		MatchType  string           `yaml:"match_type" json:"match_type"`
+		Attributes []*RuleAttribute `yaml:"attributes" json:"attributes"`
+	}
+
+	RuleAttribute struct {
+		Column string `yaml:"column" json:"column"`
+		Value  string `yaml:"value,omitempty" json:"value,omitempty"`
+		Regex  string `yaml:"regex,omitempty" json:"regex,omitempty"`
+	}
+
+	Prop struct {
+		Operation string `yaml:"operation" json:"operation"`
+		Column    string `yaml:"column" json:"column"`
+		Value     string `yaml:"value" json:"value"`
+		Regex     string `yaml:"regex" json:"regex"`
 	}
 
 	Listener struct {
