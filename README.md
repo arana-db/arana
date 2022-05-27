@@ -16,7 +16,7 @@
 > `Arana` is a Cloud Native Database Proxy. It can be deployed as a DBMesh Sidecar. Arana provides transparent data access capabilities, 
 > when using database, user doesn't need to care about the `sharding` details of database, they can use `arana-db` just like a single `MySQL` database.
 > For other problems caused by sharding, such as `Distributed transaction`, `SQL Aduit`, `Multi Tenant`, `Arana` will provide a complete solution.
-> through simple config, user can use these capabilities provided by `arana` directly.
+> Through simple config, user can use these capabilities provided by `arana` directly.
 
 ## Architecture
 
