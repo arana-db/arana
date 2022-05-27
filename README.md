@@ -60,7 +60,7 @@ arana start -c ${configFilePath}
 
 ## Contact
 
-<img src="https://raw.githubusercontent.com/arana-db/arana/master/docs/pics/dingtalk-group.png" width="200px"/>
+<img src="https://raw.githubusercontent.com/arana-db/arana/master/docs/pics/dingtalk-group.jpeg" width="200px"/>
 
 ## Contributing
 
