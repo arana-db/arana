@@ -60,6 +60,7 @@ type (
 		Tenants            []*Tenant            `validate:"required,dive" yaml:"tenants" json:"tenants"`
 		DataSourceClusters []*DataSourceCluster `validate:"required,dive" yaml:"clusters" json:"clusters"`
 		ShardingRule       *ShardingRule        `validate:"required,dive" yaml:"sharding_rule,omitempty" json:"sharding_rule,omitempty"`
+		ShadowRule         *ShadowRule          `validate:"required,dive" yaml:"shadow_rule,omitempty" json:"shadow_rule,omitempty"`
 	}
 
 	Filter struct {
@@ -106,6 +107,37 @@ type (
 
 	ShardingRule struct {
 		Tables []*Table `yaml:"tables" json:"tables"`
+	}
+
+	ShadowRule struct {
+		ShadowSources    []*ShadowSource    `yaml:"shadow_sources" json:"shadow_sources"`
+		ShadowTables     []*ShadowTable     `yaml:"tables" json:"tables"`
+		ShadowAlgorithms []*ShadowAlgorithm `yaml:"shadow_algorithms" json:"shadow_algorithms"`
+	}
+
+	ShadowSource struct {
+		Name                 string `yaml:"name" json:"name"`
+		SourceDataSourceName string `yaml:"source_data_source_name" json:"source_data_source_name"`
+		ShadowDataSourceName string `yaml:"shadow_data_source_name" json:"shadow_data_source_name"`
+	}
+
+	ShadowTable struct {
+		Name                 string   `yaml:"name" json:"name"`
+		DataSourceName       string   `yaml:"datasource_name" json:"datasource_name"`
+		ShadowAlgorithmNames []string `yaml:"shadow_algorithm_names" json:"shadow_algorithm_names"`
+	}
+
+	ShadowAlgorithm struct {
+		Name  string `yaml:"name" json:"name"`
+		Type  string `yaml:"type" json:"type"`
+		Props Prop   `yaml:"props" json:"props"`
+	}
+
+	Prop struct {
+		Operation string `yaml:"operation" json:"operation"`
+		Column    string `yaml:"column" json:"column"`
+		Value     string `yaml:"value" json:"value"`
+		Regex     string `yaml:"regex" json:"regex"`
 	}
 
 	Listener struct {
