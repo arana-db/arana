@@ -20,6 +20,8 @@ package executor
 import (
 	"bytes"
 	stdErrors "errors"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 	"sync"
 	"time"
 )
@@ -44,6 +46,8 @@ import (
 )
 
 var (
+	tracer = otel.Tracer("executor")
+
 	errMissingTx          = stdErrors.New("no transaction found")
 	errNoDatabaseSelected = mysqlErrors.NewSQLError(mConstants.ERNoDb, mConstants.SSNoDatabaseSelected, "No database selected")
 )
@@ -130,6 +134,10 @@ func (executor *RedirectExecutor) ExecuteFieldList(ctx *proto.Context) ([]proto.
 }
 
 func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Result, uint16, error) {
+	var span trace.Span
+	ctx.Context, span = tracer.Start(ctx.Context, "ExecutorComQuery")
+	defer span.End()
+
 	var (
 		schemaless bool // true if schema is not specified
 		err        error
