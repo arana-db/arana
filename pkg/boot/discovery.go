@@ -538,7 +538,8 @@ func toSharder(input *config.Rule) (rule.ShardComputer, error) {
 	case string(rrule.HashCrc32Shard):
 		computer = rrule.NewHashCrc32Shard(mod)
 	default:
-		computer, err = rrule.NewJavascriptShardComputer(input.Expr)
+		//computer, err = rrule.NewJavascriptShardComputer(input.Expr)
+		computer, err = rrule.NewExprShardComputer(input.Expr)
 	}
 	return computer, err
 }

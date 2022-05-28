@@ -19,12 +19,22 @@ package rule
 
 import (
 	"fmt"
-	"github.com/arana-db/arana/pkg/proto/rule"
-	"github.com/pkg/errors"
 	"strconv"
 )
 
+import (
+	"github.com/pkg/errors"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/proto/rule"
+)
+
 var _ rule.ShardComputer = (*exprShardComputer)(nil)
+
+const (
+	exprPlaceholderName = "value" // expr placeholder name
+)
 
 type exprShardComputer struct {
 	expr string
@@ -38,15 +48,16 @@ func NewExprShardComputer(expr string) (rule.ShardComputer, error) {
 }
 
 func (compute *exprShardComputer) Compute(value interface{}) (int, error) {
-	_, vars, err := Parse(compute.expr)
+	expr, vars, err := Parse(compute.expr)
 	if err != nil {
 		return 0, err
 	}
-	if len(vars) != 1 || vars[0] != "value" {
+	if len(vars) != 1 || vars[0] != exprPlaceholderName {
 		return 0, errors.Errorf("Parse shard expr is error, expr is: %s", compute.expr)
 	}
-	s := fmt.Sprintf("%v", value)
-	result, err := strconv.ParseFloat(s, 64)
+	_value := fmt.Sprintf("%v", value)
+	eval, _ := expr.Eval(Env{exprPlaceholderName: Value(_value)})
+	result, err := strconv.ParseFloat(eval.String(), 64)
 	if err != nil {
 		return 0, err
 	}
