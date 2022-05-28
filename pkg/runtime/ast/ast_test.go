@@ -414,3 +414,14 @@ func TestParse_AlterTableStmt(t *testing.T) {
 	}
 
 }
+
+func TestParse_DescStmt(t *testing.T) {
+	stmt := MustParse("desc student id")
+	// In MySQL, the case of "desc student 'id'" will be parsed successfully,
+	// but in arana, it will get an error by tidb parser.
+	desc := stmt.(*DescribeStatement)
+	var sb strings.Builder
+	_ = desc.Restore(RestoreDefault, &sb, nil)
+	t.Logf(sb.String())
+	assert.Equal(t, "DESC `student` `id`", sb.String())
+}
