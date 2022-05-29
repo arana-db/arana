@@ -29,7 +29,7 @@ const (
 	defaultValue = ""
 )
 
-// An Expr is an arithmetic expression.
+// An Expr is an arithmetic/string expression.
 type Expr interface {
 	// Eval returns the value of this Expr in the environment env.
 	Eval(env Env) (Value, error)
@@ -39,8 +39,8 @@ type Expr interface {
 	String() string
 }
 
-// A Var identifies a variable, e.g., x.
 type (
+	// A Var identifies a variable, e.g., x.
 	Var string
 	Env map[Var]Value
 )
@@ -280,13 +280,25 @@ func (c function) Eval(env Env) (Value, error) {
 		if err != nil {
 			return defaultValue, err
 		}
-		startPos, err := strconv.Atoi(v1.String())
-		if err != nil || startPos < 1 {
+		strlen := len(str)
+		f, err := strconv.ParseFloat(v1.String(), 64)
+		if err != nil {
 			return defaultValue, fmt.Errorf("illegal args[1] %v of func substr", v1.String())
 		}
-		startPos--
+		startPos := int(f)
+		if startPos == 0 {
+			return defaultValue, nil
+		}
+		if startPos < 0 {
+			startPos += strlen
+		} else {
+			startPos--
+		}
+		if startPos < 0 || startPos >= strlen {
+			return defaultValue, fmt.Errorf("illegal args[1] %v of func substr", v1.String())
+		}
 
-		endPos := len(str)
+		endPos := strlen
 		if len(c.args) == 3 {
 			v2, err := c.args[2].Eval(env)
 			if err != nil {

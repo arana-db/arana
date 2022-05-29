@@ -30,9 +30,9 @@ func TestParse(t *testing.T) {
 		env  Env
 		want string
 	}{
-		{"__SHARD__.hash(__FUNC__.toint(__FUNC__.substr(#uid#, 1, 2)), 100)", Env{"uid": "87616"}, "87"},
-		{"__SHARD__.hash(__FUNC__.concat(#uid#, '1'), 100)", Env{"uid": "87616"}, "61"},
-		{"__FUNC__.div(__FUNC__.substr(#uid#, 2), 10)", Env{"uid": "87616"}, "761.6"},
+		{"hash(toint(substr(#uid#, 1, 2)), 100)", Env{"uid": "87616"}, "87"},
+		{"hash(concat(#uid#, '1'), 100)", Env{"uid": "87616"}, "61"},
+		{"div(substr(#uid#, 2), 10)", Env{"uid": "87616"}, "761.6"},
 	}
 	var prevExpr string
 	for _, test := range tests {
@@ -60,30 +60,3 @@ func TestParse(t *testing.T) {
 		}
 	}
 }
-
-//
-//func TestFormat(t *testing.T) {
-//	var str = "hash(toint(substr(var1, 1, 2)), 100)"
-//	exp, _ := parser.ParseExpr(str)
-//	ast.Inspect(exp, func(n ast.Node) bool {
-//		// Find Return Statements
-//		_, ok := n.(*ast.ReturnStmt)
-//		if ok {
-//			fmt.Printf("return statement found on line\n")
-//			return true
-//		}
-//
-//		// Find Functions
-//		fn, ok := n.(*ast.FuncDecl)
-//		if ok {
-//			var exported string
-//			if fn.Name.IsExported() {
-//				exported = "exported "
-//			}
-//			fmt.Printf("%s function declaration found on line", exported)
-//			return true
-//		}
-//
-//		return true
-//	})
-//}

@@ -25,6 +25,7 @@ import (
 )
 
 // ---- lexer ----
+
 // This lexer is similar to the one described in Chapter 13.
 type lexer struct {
 	scan  scanner.Scanner
@@ -64,11 +65,6 @@ func precedence(op rune) int {
 	return 0
 }
 
-func preParse(str string) string {
-	str = strings.ReplaceAll(str, "__FUNC__.", "")   // delete "__FUNC__"
-	return strings.ReplaceAll(str, "__SHARD__.", "") // delete "__SHARD__"
-}
-
 // ---- parser ----
 
 // Parse parses the input string as an arithmetic expression.
@@ -90,9 +86,6 @@ func Parse(input string) (_ Expr, vars []Var, rerr error) {
 			rerr = fmt.Errorf("unexpected panic: resume state of panic")
 		}
 	}()
-
-	input = preParse(input)
-	//fmt.Printf("after filter, input %s\n", input)
 
 	lex := new(lexer)
 	lex.scan.Init(strings.NewReader(input))
@@ -259,7 +252,7 @@ func parsePrimary(lex *lexer, s *stack) (*stack, Expr, error) {
 		return s, e, nil
 
 	case '\'':
-		// 此处之所以先存下原 mode，只分析 strings，是在分析 TestParse 的 case "__SHARD__.hash(__FUNC__.concat(#uid#, '1'), 100)"
+		// 此处之所以先存下原 mode，只分析 strings，是在分析 TestParse 的 case "hash(concat(#uid#, '1'), 100)"
 		// 这个例子时，不能正确分析 concat 的分隔符 '1'
 		mode := lex.scan.Mode
 		defer func() {
