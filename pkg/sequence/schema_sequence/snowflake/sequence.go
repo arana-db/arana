@@ -89,18 +89,20 @@ func (seq *snowflakeSequence) doInit(ctx context.Context, conf proto.SequenceCon
 		mu.Lock()
 		defer mu.Unlock()
 
-		vconn, ok := ctx.Value(proto.ContextVconnKey).(proto.VConn)
+		vconn, ok := ctx.Value(proto.ContextVconnKey).(proto.DB)
 		if !ok {
 			return errors.New("snowflake init need proto.VConn")
 		}
 		if !finishInitTable {
-			if _, err := vconn.Exec(ctx, "", _initTableSql); err != nil {
+			if _, _, err := vconn.Call(ctx, _initTableSql); err != nil {
 				return err
 			}
 		}
 		finishInitTable = true
 
-		vconn.Exec(ctx, "", _getWorkId, "", conf.Name)
+		if _, _, err := vconn.Call(ctx, _getWorkId, "", conf.Name); err != nil {
+			return err
+		}
 
 		return nil
 	}()

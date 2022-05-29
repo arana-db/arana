@@ -21,20 +21,17 @@ import (
 	"context"
 	stdErrors "errors"
 	"strings"
-)
 
-import (
-	"github.com/arana-db/parser/ast"
-
-	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/proto/schema_manager"
+	"github.com/arana-db/arana/pkg/sequence"
+	"github.com/arana-db/parser/ast"
+	"github.com/pkg/errors"
+
 	rast "github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
+
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/runtime/plan"
 	"github.com/arana-db/arana/pkg/transformer"
@@ -67,12 +64,14 @@ func IsDenyFullScanErr(err error) bool {
 
 func GetOptimizer() proto.Optimizer {
 	return optimizer{
-		schemaLoader: &schema_manager.SimpleSchemaLoader{},
+		schemaLoader:    &schema_manager.SimpleSchemaLoader{},
+		sequenceManager: proto.GetSequenceManager(),
 	}
 }
 
 type optimizer struct {
-	schemaLoader proto.SchemaLoader
+	sequenceManager proto.SequenceManager
+	schemaLoader    proto.SchemaLoader
 }
 
 func (o *optimizer) SetSchemaLoader(schemaLoader proto.SchemaLoader) {
@@ -105,6 +104,9 @@ func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.S
 	case *rast.SelectStatement:
 		return o.optimizeSelect(ctx, conn, t, args)
 	case *rast.InsertStatement:
+		if err := o.analyzeSequence(ctx, conn, t); err != nil {
+			return nil, err
+		}
 		return o.optimizeInsert(ctx, conn, t, args)
 	case *rast.DeleteStatement:
 		return o.optimizeDelete(ctx, t, args)
@@ -113,6 +115,7 @@ func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.S
 	case *rast.ShowTables:
 		return o.optimizeShowTables(ctx, t, args)
 	case *rast.TruncateStatement:
+		// 需要重置自增ID字段
 		return o.optimizeTruncate(ctx, t, args)
 	case *rast.DropTableStatement:
 		return o.optimizeDropTable(ctx, t, args)
@@ -130,6 +133,33 @@ const (
 	_bypass uint32 = 1 << iota
 	_supported
 )
+
+func (o optimizer) analyzeSequence(ctx context.Context, conn proto.VConn, stmt *rast.InsertStatement) error {
+	tableMetadata := o.schemaLoader.Load(ctx, conn, rcontext.Schema(ctx), stmt.Table())
+
+	for tableName, metadata := range tableMetadata {
+		columns := metadata.Columns
+		for i := range columns {
+			if columns[i].Generated {
+
+				// 先只为了测试，临时写死，后面走 type 以及 对应的 option 走 context.Context 获取吧
+				_, err := o.sequenceManager.CreateSequence(ctx, conn, proto.SequenceConfig{
+					Name:   sequence.BuildAutoIncrementName(tableName),
+					Type:   "snowflake",
+					Option: map[string]string{},
+				})
+
+				if err != nil {
+					return err
+				}
+
+				break
+			}
+		}
+	}
+
+	return nil
+}
 
 func (o optimizer) optimizeDropTable(ctx context.Context, stmt *rast.DropTableStatement, args []interface{}) (proto.Plan, error) {
 	ru := rcontext.Rule(ctx)
@@ -693,12 +723,28 @@ func (o optimizer) rewriteInsertStatement(ctx context.Context, conn proto.VConn,
 		return nil
 	}
 
+	sequenceName := sequence.BuildAutoIncrementName(tb)
+
+	seq, err := o.sequenceManager.GetSequence(ctx, sequenceName)
+	if err != nil {
+		return err
+	}
+
+	val, err := seq.Acquire(ctx)
+	if err != nil {
+		return err
+	}
+
 	// TODO rewrite columns and add distributed primary key
-	//stmt.SetColumns(append(stmt.Columns(), pkColName))
+	stmt.SetColumns(append(stmt.Columns(), pkColName))
 	// append value of distributed primary key
-	//newValues := stmt.Values()
-	//for _, newValue := range newValues {
-	//	newValue = append(newValue, )
-	//}
+	newValues := stmt.Values()
+	for i := range newValues {
+		newValues[i] = append(newValues[i], &rast.PredicateExpressionNode{
+			P: &rast.AtomPredicateNode{
+				A: &rast.ConstantExpressionAtom{Inner: val},
+			},
+		})
+	}
 	return nil
 }

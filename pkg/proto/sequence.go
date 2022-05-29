@@ -26,6 +26,14 @@ var (
 	ContextVconnKey = struct{}{}
 )
 
+var (
+	createSequenceManager func() SequenceManager
+)
+
+func SetSequenceManagerCreator(creator func() SequenceManager) {
+	createSequenceManager = creator
+}
+
 // SequenceSupplier 创建 Sequence 的创建器
 type SequenceSupplier func() EnchanceSequence
 
@@ -39,10 +47,14 @@ func RegisterSequence(name string, supplier SequenceSupplier) {
 	suppliersRegistry[name] = supplier
 }
 
+func GetSequenceManager() SequenceManager {
+	return createSequenceManager()
+}
+
 type SequenceConfig struct {
 	Name   string
 	Type   string
-	Option map[string]interface{}
+	Option map[string]string
 }
 
 // Sequence represents a global unique id generator.
@@ -57,7 +69,7 @@ type EnchanceSequence interface {
 // Sequencer represents the factory to create a Sequence by table name.
 type SequenceManager interface {
 	// CreateSequence
-	CreateSequence(ctx context.Context, conn VConn, opt SequenceConfig) error
+	CreateSequence(ctx context.Context, conn VConn, opt SequenceConfig) (Sequence, error)
 	// GetSequence returns the Sequence of table.
 	GetSequence(ctx context.Context, table string) (Sequence, error)
 }

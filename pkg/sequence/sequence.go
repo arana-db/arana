@@ -25,6 +25,15 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
+func init() {
+	proto.SetSequenceManagerCreator(func() proto.SequenceManager {
+		return &sequenceManager{
+			sequenceOptions:  make(map[string]proto.SequenceConfig),
+			sequenceRegistry: make(map[string]proto.EnchanceSequence),
+		}
+	})
+}
+
 // SequenceManager 统一管理 Seqneuce 的 Manager
 type sequenceManager struct {
 	lock             sync.RWMutex
@@ -33,19 +42,19 @@ type sequenceManager struct {
 }
 
 // CreateSequence
-func (sMgn *sequenceManager) CreateSequence(ctx context.Context, conn proto.VConn, conf proto.SequenceConfig) error {
+func (sMgn *sequenceManager) CreateSequence(ctx context.Context, conn proto.VConn, conf proto.SequenceConfig) (proto.Sequence, error) {
 	seqType := conf.Type
 
 	builder, ok := proto.GetSequenceSupplier(seqType)
 	if !ok {
-		return fmt.Errorf("sequence=[%s] not exist", seqType)
+		return nil, fmt.Errorf("sequence=[%s] not exist", seqType)
 	}
 
 	ctx = context.WithValue(ctx, proto.ContextVconnKey, conn)
 
 	sequence := builder()
 	if err := sequence.Start(ctx, conf); err != nil {
-		return err
+		return nil, err
 	}
 
 	sMgn.lock.Lock()
@@ -54,7 +63,7 @@ func (sMgn *sequenceManager) CreateSequence(ctx context.Context, conn proto.VCon
 	sMgn.sequenceOptions[conf.Name] = conf
 	sMgn.sequenceRegistry[conf.Name] = sequence
 
-	return nil
+	return sequence, nil
 }
 
 // GetSequence
@@ -69,4 +78,8 @@ func (sMgn *sequenceManager) GetSequence(ctx context.Context, table string) (pro
 	}
 
 	return seq, nil
+}
+
+func BuildAutoIncrementName(table string) string {
+	return fmt.Sprintf("__arana_incr_%s", table)
 }
