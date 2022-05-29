@@ -27,6 +27,7 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 )
@@ -52,6 +53,12 @@ func (s *SimpleQueryPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 		err     error
 	)
 
+	if s.filter() {
+		return &mysql.Result{
+			DataChan: make(chan proto.Row, 1),
+		}, nil
+	}
+
 	if err = s.generate(&sb, &indexes); err != nil {
 		return nil, errors.Wrap(err, "failed to generate sql")
 	}
@@ -65,6 +72,20 @@ func (s *SimpleQueryPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 		return nil, errors.WithStack(err)
 	}
 	return res, nil
+}
+
+func (s *SimpleQueryPlan) filter() bool {
+	if len(s.Stmt.From) <= 0 {
+		return false
+	}
+	source, ok := s.Stmt.From[0].Source().(ast.TableName)
+	if !ok {
+		return false
+	}
+	if source.String() == "`information_schema`.`columns`" {
+		return true
+	}
+	return false
 }
 
 func (s *SimpleQueryPlan) resetTable(tgt *ast.SelectStatement, table string) error {
@@ -140,7 +161,38 @@ func (s *SimpleQueryPlan) generate(sb *strings.Builder, args *[]int) error {
 				return errors.WithStack(err)
 			}
 		}
+
+		if len(stmt.OrderBy) > 0 {
+			s.resetOrderBy(s.Stmt, sb, args)
+		}
 	}
 
+	return nil
+}
+
+func (s *SimpleQueryPlan) resetOrderBy(tgt *ast.SelectStatement, sb *strings.Builder, args *[]int) error {
+	var (
+		builder strings.Builder
+	)
+	builder.WriteString("SELECT * FROM (")
+	builder.WriteString(sb.String())
+	builder.WriteString(") ")
+	if len(tgt.From[0].Alias()) > 0 {
+		builder.WriteString(tgt.From[0].Alias())
+	} else {
+		builder.WriteString(" T ")
+	}
+	builder.WriteString(" ORDER BY ")
+	if err := tgt.OrderBy[0].Restore(ast.RestoreDefault, &builder, args); err != nil {
+		return errors.WithStack(err)
+	}
+	for i := 1; i < len(tgt.OrderBy); i++ {
+		builder.WriteString(", ")
+		if err := tgt.OrderBy[i].Restore(ast.RestoreDefault, &builder, args); err != nil {
+			return errors.WithStack(err)
+		}
+	}
+	sb.Reset()
+	sb.WriteString(builder.String())
 	return nil
 }

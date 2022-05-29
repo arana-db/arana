@@ -19,6 +19,7 @@ package plan
 
 import (
 	"context"
+	"io"
 	"strings"
 )
 
@@ -27,27 +28,23 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
-type DescribePlan struct {
+var _ proto.Plan = (*ShowIndexPlan)(nil)
+
+type ShowIndexPlan struct {
 	basePlan
-	Stmt     *ast.DescribeStatement
-	Database string
-	Table    string
-	Column   string
+	Stmt *ast.ShowIndex
 }
 
-func NewDescribePlan(stmt *ast.DescribeStatement) *DescribePlan {
-	return &DescribePlan{Stmt: stmt}
-}
-
-func (d *DescribePlan) Type() proto.PlanType {
+func (s *ShowIndexPlan) Type() proto.PlanType {
 	return proto.PlanTypeQuery
 }
 
-func (d *DescribePlan) ExecIn(ctx context.Context, vConn proto.VConn) (proto.Result, error) {
+func (s *ShowIndexPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
 	var (
 		sb      strings.Builder
 		indexes []int
@@ -55,42 +52,28 @@ func (d *DescribePlan) ExecIn(ctx context.Context, vConn proto.VConn) (proto.Res
 		err     error
 	)
 
-	if err = d.generate(&sb, &indexes); err != nil {
-		return nil, errors.Wrap(err, "failed to generate desc/describe sql")
+	if err = s.Stmt.Restore(ast.RestoreDefault, &sb, &indexes); err != nil {
+		return nil, errors.WithStack(err)
 	}
 
 	var (
 		query = sb.String()
-		args  = d.toArgs(indexes)
+		args  = s.toArgs(indexes)
 	)
 
-	if res, err = vConn.Query(ctx, d.Database, query, args...); err != nil {
+	if res, err = conn.Query(ctx, "", query, args...); err != nil {
 		return nil, errors.WithStack(err)
 	}
 
-	return res, nil
-}
-
-func (d *DescribePlan) generate(sb *strings.Builder, args *[]int) error {
-	var (
-		stmt = *d.Stmt
-		err  error
-	)
-
-	if d.Table == "" {
-		if err = d.Stmt.Restore(ast.RestoreDefault, sb, args); err != nil {
-			return errors.WithStack(err)
-		}
-		return nil
+	if closer, ok := res.(io.Closer); ok {
+		defer func() {
+			_ = closer.Close()
+		}()
 	}
 
-	d.resetTable(&stmt, d.Table)
-	if err = stmt.Restore(ast.RestoreDefault, sb, args); err != nil {
-		return errors.WithStack(err)
-	}
-	return nil
-}
-
-func (d *DescribePlan) resetTable(dstmt *ast.DescribeStatement, table string) {
-	dstmt.Table = dstmt.Table.ResetSuffix(table)
+	return &mysql.Result{
+		Fields:   res.GetFields(),
+		Rows:     res.GetRows(),
+		DataChan: make(chan proto.Row, 1),
+	}, nil
 }

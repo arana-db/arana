@@ -41,14 +41,14 @@ type JoinType uint8
 
 type JoinNode struct {
 	natural bool
-	left    *TableSourceNode
-	right   *TableSourceNode
-	typ     JoinType
-	on      ExpressionNode
+	Left    *TableSourceNode
+	Right   *TableSourceNode
+	Typ     JoinType
+	On      ExpressionNode
 }
 
 func (jn *JoinNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
-	if err := jn.left.Restore(flag, sb, args); err != nil {
+	if err := jn.Left.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
 
@@ -58,7 +58,7 @@ func (jn *JoinNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) 
 
 	sb.WriteByte(' ')
 
-	switch jn.typ {
+	switch jn.Typ {
 	case LeftJoin:
 		sb.WriteString("LEFT")
 	case RightJoin:
@@ -69,13 +69,13 @@ func (jn *JoinNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) 
 
 	sb.WriteString(" JOIN ")
 
-	if err := jn.right.Restore(flag, sb, args); err != nil {
+	if err := jn.Right.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
 
 	sb.WriteString(" ON ")
 
-	if err := jn.on.Restore(flag, sb, args); err != nil {
+	if err := jn.On.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
 
@@ -83,12 +83,12 @@ func (jn *JoinNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) 
 }
 
 func (jn *JoinNode) CntParams() (n int) {
-	if pc, ok := jn.left.source.(paramsCounter); ok {
+	if pc, ok := jn.Left.source.(paramsCounter); ok {
 		n += pc.CntParams()
 	}
-	if pc, ok := jn.right.source.(paramsCounter); ok {
+	if pc, ok := jn.Right.source.(paramsCounter); ok {
 		n += pc.CntParams()
 	}
-	n += jn.on.CntParams()
+	n += jn.On.CntParams()
 	return
 }

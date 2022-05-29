@@ -218,7 +218,7 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 		} else {
 			err = errNoDatabaseSelected
 		}
-	case *ast.InsertStmt, *ast.UpdateStmt, *ast.DeleteStmt:
+	case *ast.InsertStmt, *ast.UpdateStmt, *ast.DeleteStmt, *ast.AlterTableStmt:
 		if schemaless {
 			err = errNoDatabaseSelected
 		} else {
@@ -303,7 +303,7 @@ func (executor *RedirectExecutor) ExecutorComStmtExecute(ctx *proto.Context) (pr
 	}
 
 	switch ctx.Stmt.StmtNode.(type) {
-	case *ast.SelectStmt, *ast.InsertStmt, *ast.UpdateStmt, *ast.DeleteStmt:
+	case *ast.SelectStmt, *ast.InsertStmt, *ast.UpdateStmt, *ast.DeleteStmt, *ast.AlterTableStmt:
 	default:
 		ctx.Context = rcontext.WithDirect(ctx.Context)
 	}

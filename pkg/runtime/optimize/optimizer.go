@@ -104,9 +104,6 @@ func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.S
 	case *rast.SelectStatement:
 		return o.optimizeSelect(ctx, conn, t, args)
 	case *rast.InsertStatement:
-		if err := o.analyzeSequence(ctx, conn, t); err != nil {
-			return nil, err
-		}
 		return o.optimizeInsert(ctx, conn, t, args)
 	case *rast.DeleteStatement:
 		return o.optimizeDelete(ctx, t, args)
@@ -114,6 +111,8 @@ func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.S
 		return o.optimizeUpdate(ctx, conn, t, args)
 	case *rast.ShowTables:
 		return o.optimizeShowTables(ctx, t, args)
+	case *rast.ShowIndex:
+		return o.optimizeShowIndex(ctx, t, args)
 	case *rast.TruncateStatement:
 		// 需要重置自增ID字段
 		return o.optimizeTruncate(ctx, t, args)
@@ -123,6 +122,8 @@ func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.S
 		return o.optimizeShowVariables(ctx, t, args)
 	case *rast.DescribeStatement:
 		return o.optimizeDescribeStatement(ctx, t, args)
+	case *rast.AlterTableStatement:
+		return o.optimizeAlterTable(ctx, t, args)
 	}
 
 	//TODO implement all statements
@@ -134,31 +135,39 @@ const (
 	_supported
 )
 
-func (o optimizer) analyzeSequence(ctx context.Context, conn proto.VConn, stmt *rast.InsertStatement) error {
-	tableMetadata := o.schemaLoader.Load(ctx, conn, rcontext.Schema(ctx), stmt.Table())
+func (o optimizer) optimizeAlterTable(ctx context.Context, stmt *rast.AlterTableStatement, args []interface{}) (proto.Plan, error) {
+	var (
+		ret   = plan.NewAlterTablePlan(stmt)
+		ru    = rcontext.Rule(ctx)
+		table = stmt.Table
+		vt    *rule.VTable
+		ok    bool
+	)
+	ret.BindArgs(args)
 
-	for tableName, metadata := range tableMetadata {
-		columns := metadata.Columns
-		for i := range columns {
-			if columns[i].Generated {
-
-				// 先只为了测试，临时写死，后面走 type 以及 对应的 option 走 context.Context 获取吧
-				_, err := o.sequenceManager.CreateSequence(ctx, conn, proto.SequenceConfig{
-					Name:   sequence.BuildAutoIncrementName(tableName),
-					Type:   "snowflake",
-					Option: map[string]string{},
-				})
-
-				if err != nil {
-					return err
-				}
-
-				break
-			}
-		}
+	// non-sharding update
+	if vt, ok = ru.VTable(table.Suffix()); !ok {
+		return ret, nil
 	}
 
-	return nil
+	//TODO alter table table or column to new name , should update sharding info
+
+	// exit if full-scan is disabled
+	if !vt.AllowFullScan() {
+		return nil, errDenyFullScan
+	}
+
+	// sharding
+	shards := rule.DatabaseTables{}
+	topology := vt.Topology()
+	topology.Each(func(dbIdx, tbIdx int) bool {
+		if d, t, ok := topology.Render(dbIdx, tbIdx); ok {
+			shards[d] = append(shards[d], t)
+		}
+		return true
+	})
+	ret.Shards = shards
+	return ret, nil
 }
 
 func (o optimizer) optimizeDropTable(ctx context.Context, stmt *rast.DropTableStatement, args []interface{}) (proto.Plan, error) {
@@ -236,7 +245,9 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 	if ru = rcontext.Rule(ctx); ru == nil {
 		return nil, errors.WithStack(errNoRuleFound)
 	}
-
+	if stmt.HasJoin() {
+		return o.optimizeJoin(ctx, conn, stmt, args)
+	}
 	flag := o.getSelectFlag(ctx, stmt)
 	if flag&_supported == 0 {
 		return nil, errors.Errorf("unsupported sql: %s", rcontext.SQL(ctx))
@@ -356,6 +367,83 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 	}
 
 	return aggregate, nil
+}
+
+//optimizeJoin ony support  a join b in one db
+func (o optimizer) optimizeJoin(ctx context.Context, conn proto.VConn, stmt *rast.SelectStatement, args []interface{}) (proto.Plan, error) {
+
+	var ru *rule.Rule
+	if ru = rcontext.Rule(ctx); ru == nil {
+		return nil, errors.WithStack(errNoRuleFound)
+	}
+
+	join := stmt.From[0].Source().(*rast.JoinNode)
+
+	compute := func(tableSource *rast.TableSourceNode) (database, alias string, shardList []string, err error) {
+		table := tableSource.TableName()
+		if table == nil {
+			err = errors.New("must table, not statement or join node")
+			return
+		}
+		alias = tableSource.Alias()
+		database = table.Prefix()
+
+		shards, err := o.computeShards(ru, table, nil, args)
+		if err != nil {
+			return
+		}
+		//table no shard
+		if shards == nil {
+			shardList = append(shardList, table.Suffix())
+			return
+		}
+		//table  shard more than one db
+		if len(shards) > 1 {
+			err = errors.New("not support more than one db")
+			return
+		}
+
+		for k, v := range shards {
+			database = k
+			shardList = v
+		}
+
+		if alias == "" {
+			alias = table.Suffix()
+		}
+
+		return
+	}
+
+	dbLeft, aliasLeft, shardLeft, err := compute(join.Left)
+	if err != nil {
+		return nil, err
+	}
+	dbRight, aliasRight, shardRight, err := compute(join.Right)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if dbLeft != "" && dbRight != "" && dbLeft != dbRight {
+		return nil, errors.New("not support more than one db")
+	}
+
+	joinPan := &plan.SimpleJoinPlan{
+		Left: &plan.JoinTable{
+			Tables: shardLeft,
+			Alias:  aliasLeft,
+		},
+		Join: join,
+		Right: &plan.JoinTable{
+			Tables: shardRight,
+			Alias:  aliasRight,
+		},
+		Stmt: stmt,
+	}
+	joinPan.BindArgs(args)
+
+	return joinPan, nil
 }
 
 func (o optimizer) optimizeUpdate(ctx context.Context, conn proto.VConn, stmt *rast.UpdateStatement, args []interface{}) (proto.Plan, error) {
@@ -516,7 +604,7 @@ func (o optimizer) optimizeInsert(ctx context.Context, conn proto.VConn, stmt *r
 			}
 			newborn.SetValues(values)
 
-			o.rewriteInsertStatement(ctx, conn, newborn, db, table)
+			o.rewriteInsertStatement(ctx, conn, newborn, db, stmt.Table().Suffix(), table)
 			ret.Put(db, newborn)
 		}
 	}
@@ -578,6 +666,12 @@ func (o optimizer) optimizeShowTables(ctx context.Context, stmt *rast.ShowTables
 	return ret, nil
 }
 
+func (o optimizer) optimizeShowIndex(_ context.Context, stmt *rast.ShowIndex, args []interface{}) (proto.Plan, error) {
+	ret := &plan.ShowIndexPlan{Stmt: stmt}
+	ret.BindArgs(args)
+	return ret, nil
+}
+
 func (o optimizer) optimizeTruncate(ctx context.Context, stmt *rast.TruncateStatement, args []interface{}) (proto.Plan, error) {
 	ru := rcontext.Rule(ctx)
 	shards, err := o.computeShards(ru, stmt.Table, nil, args)
@@ -621,6 +715,7 @@ func (o optimizer) optimizeDescribeStatement(ctx context.Context, stmt *rast.Des
 		dbName, tblName := shards.Smallest()
 		ret.Database = dbName
 		ret.Table = tblName
+		ret.Column = stmt.Column
 	}
 
 	return ret, nil
@@ -691,8 +786,32 @@ func (o optimizer) rewriteSelectStatement(ctx context.Context, conn proto.VConn,
 	return nil
 }
 
+func (o optimizer) createSequenceIfAbsent(ctx context.Context, conn proto.VConn, table string, tableMetadata *proto.TableMetadata) error {
+
+	columns := tableMetadata.Columns
+	for i := range columns {
+		if columns[i].Generated {
+
+			// 先只为了测试，临时写死，后面走 type 以及 对应的 option 走 context.Context 获取吧
+			_, err := o.sequenceManager.CreateSequence(ctx, conn, proto.SequenceConfig{
+				Name:   sequence.BuildAutoIncrementName(table),
+				Type:   "snowflake",
+				Option: map[string]string{},
+			})
+
+			if err != nil {
+				return err
+			}
+
+			break
+		}
+	}
+
+	return nil
+}
+
 func (o optimizer) rewriteInsertStatement(ctx context.Context, conn proto.VConn, stmt *rast.InsertStatement,
-	db, tb string) error {
+	db, vtable, tb string) error {
 	metaData := o.schemaLoader.Load(ctx, conn, db, []string{tb})[tb]
 	if metaData == nil || len(metaData.ColumnNames) == 0 {
 		return errors.Errorf("can not get metadata for db:%s and table:%s", db, tb)
@@ -702,6 +821,11 @@ func (o optimizer) rewriteInsertStatement(ctx context.Context, conn proto.VConn,
 		// User had explicitly specified every value
 		return nil
 	}
+
+	if err := o.createSequenceIfAbsent(ctx, conn, vtable, metaData); err != nil {
+		return err
+	}
+
 	columnsMetadata := metaData.Columns
 
 	for _, colName := range stmt.Columns() {
