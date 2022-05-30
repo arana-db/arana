@@ -518,17 +518,15 @@ func parseTopology(input string) (format string, begin, end int, err error) {
 func toSharder(input *config.Rule) (rule.ShardComputer, error) {
 	var (
 		computer rule.ShardComputer
-		method   string
 		mod      int
 		err      error
 	)
 
 	if mat := getRuleExprRegexp().FindStringSubmatch(input.Expr); len(mat) == 3 {
-		method = mat[1]
 		mod, _ = strconv.Atoi(mat[2])
 	}
 
-	switch method {
+	switch input.Type {
 	case string(rrule.ModShard):
 		computer = rrule.NewModShard(mod)
 	case string(rrule.HashMd5Shard):
@@ -537,9 +535,12 @@ func toSharder(input *config.Rule) (rule.ShardComputer, error) {
 		computer = rrule.NewHashBKDRShard(mod)
 	case string(rrule.HashCrc32Shard):
 		computer = rrule.NewHashCrc32Shard(mod)
-	default:
-		//computer, err = rrule.NewJavascriptShardComputer(input.Expr)
+	case string(rrule.FunctionExpr):
 		computer, err = rrule.NewExprShardComputer(input.Expr)
+	case string(rrule.ScriptExpr):
+		computer, err = rrule.NewJavascriptShardComputer(input.Expr)
+	default:
+		panic(fmt.Errorf("error config, unsupport shard type: %s", input.Type))
 	}
 	return computer, err
 }

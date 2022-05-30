@@ -69,6 +69,7 @@ data:
         db_rules:
         tbl_rules:
           - column: uid
+            type: scriptExpr
             expr: $value % 32
         topology:
           db_pattern: employees_0000
