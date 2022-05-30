@@ -19,6 +19,7 @@ package optimize
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -32,8 +33,9 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/proto/rule"
+	"github.com/arana-db/arana/pkg/resultx"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/testdata"
 )
@@ -47,7 +49,11 @@ func TestOptimizer_OptimizeSelect(t *testing.T) {
 	conn.EXPECT().Query(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, db string, sql string, args ...interface{}) (proto.Result, error) {
 			t.Logf("fake query: db=%s, sql=%s, args=%v\n", db, sql, args)
-			return &mysql.Result{}, nil
+
+			ds := testdata.NewMockDataset(ctrl)
+			ds.EXPECT().Fields().Return([]proto.Field{}, nil).AnyTimes()
+
+			return resultx.New(resultx.WithDataset(ds)), nil
 		}).
 		AnyTimes()
 
@@ -115,10 +121,10 @@ func TestOptimizer_OptimizeInsert(t *testing.T) {
 			t.Logf("fake exec: db='%s', sql=\"%s\", args=%v\n", db, sql, args)
 			fakeId++
 
-			return &mysql.Result{
-				AffectedRows: uint64(strings.Count(sql, "?")),
-				InsertId:     fakeId,
-			}, nil
+			return resultx.New(
+				resultx.WithRowsAffected(uint64(strings.Count(sql, "?"))),
+				resultx.WithLastInsertID(fakeId),
+			), nil
 		}).
 		AnyTimes()
 	loader.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fakeStudentMetadata).Times(2)
@@ -165,4 +171,67 @@ func TestOptimizer_OptimizeInsert(t *testing.T) {
 		assert.Equal(t, fakeId, lastInsertId)
 	})
 
+}
+
+func TestOptimizer_OptimizeAlterTable(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	conn := testdata.NewMockVConn(ctrl)
+	loader := testdata.NewMockSchemaLoader(ctrl)
+
+	conn.EXPECT().Exec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, db string, sql string, args ...interface{}) (proto.Result, error) {
+			t.Logf("fake exec: db='%s', sql=\"%s\", args=%v\n", db, sql, args)
+			return resultx.New(), nil
+		}).AnyTimes()
+
+	var (
+		ctx  = context.Background()
+		opt  = optimizer{schemaLoader: loader}
+		ru   rule.Rule
+		tab  rule.VTable
+		topo rule.Topology
+	)
+
+	topo.SetRender(func(_ int) string {
+		return "fake_db"
+	}, func(i int) string {
+		return fmt.Sprintf("student_%04d", i)
+	})
+	tables := make([]int, 0, 8)
+	for i := 0; i < 8; i++ {
+		tables = append(tables, i)
+	}
+	topo.SetTopology(0, tables...)
+	tab.SetTopology(&topo)
+	tab.SetAllowFullScan(true)
+	ru.SetVTable("student", &tab)
+
+	t.Run("sharding", func(t *testing.T) {
+		sql := "alter table student add dept_id int not null default 0 after uid"
+
+		p := parser.New()
+		stmt, _ := p.ParseOneStmt(sql, "", "")
+
+		plan, err := opt.Optimize(rcontext.WithRule(ctx, &ru), conn, stmt)
+		assert.NoError(t, err)
+
+		_, err = plan.ExecIn(ctx, conn)
+		assert.NoError(t, err)
+
+	})
+
+	t.Run("non-sharding", func(t *testing.T) {
+		sql := "alter table employees add index idx_name (first_name)"
+
+		p := parser.New()
+		stmt, _ := p.ParseOneStmt(sql, "", "")
+
+		plan, err := opt.Optimize(rcontext.WithRule(ctx, &ru), conn, stmt)
+		assert.NoError(t, err)
+
+		_, err = plan.ExecIn(ctx, conn)
+		assert.NoError(t, err)
+	})
 }

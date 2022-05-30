@@ -112,6 +112,8 @@ func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.S
 		return o.optimizeUpdate(ctx, conn, t, args)
 	case *rast.ShowTables:
 		return o.optimizeShowTables(ctx, t, args)
+	case *rast.ShowIndex:
+		return o.optimizeShowIndex(ctx, t, args)
 	case *rast.TruncateStatement:
 		return o.optimizeTruncate(ctx, t, args)
 	case *rast.DropTableStatement:
@@ -120,6 +122,8 @@ func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.S
 		return o.optimizeShowVariables(ctx, t, args)
 	case *rast.DescribeStatement:
 		return o.optimizeDescribeStatement(ctx, t, args)
+	case *rast.AlterTableStatement:
+		return o.optimizeAlterTable(ctx, t, args)
 	}
 
 	//TODO implement all statements
@@ -130,6 +134,41 @@ const (
 	_bypass uint32 = 1 << iota
 	_supported
 )
+
+func (o optimizer) optimizeAlterTable(ctx context.Context, stmt *rast.AlterTableStatement, args []interface{}) (proto.Plan, error) {
+	var (
+		ret   = plan.NewAlterTablePlan(stmt)
+		ru    = rcontext.Rule(ctx)
+		table = stmt.Table
+		vt    *rule.VTable
+		ok    bool
+	)
+	ret.BindArgs(args)
+
+	// non-sharding update
+	if vt, ok = ru.VTable(table.Suffix()); !ok {
+		return ret, nil
+	}
+
+	//TODO alter table table or column to new name , should update sharding info
+
+	// exit if full-scan is disabled
+	if !vt.AllowFullScan() {
+		return nil, errDenyFullScan
+	}
+
+	// sharding
+	shards := rule.DatabaseTables{}
+	topology := vt.Topology()
+	topology.Each(func(dbIdx, tbIdx int) bool {
+		if d, t, ok := topology.Render(dbIdx, tbIdx); ok {
+			shards[d] = append(shards[d], t)
+		}
+		return true
+	})
+	ret.Shards = shards
+	return ret, nil
+}
 
 func (o optimizer) optimizeDropTable(ctx context.Context, stmt *rast.DropTableStatement, args []interface{}) (proto.Plan, error) {
 	ru := rcontext.Rule(ctx)
@@ -206,7 +245,9 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 	if ru = rcontext.Rule(ctx); ru == nil {
 		return nil, errors.WithStack(errNoRuleFound)
 	}
-
+	if stmt.HasJoin() {
+		return o.optimizeJoin(ctx, conn, stmt, args)
+	}
 	flag := o.getSelectFlag(ctx, stmt)
 	if flag&_supported == 0 {
 		return nil, errors.Errorf("unsupported sql: %s", rcontext.SQL(ctx))
@@ -326,6 +367,83 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 	}
 
 	return aggregate, nil
+}
+
+//optimizeJoin ony support  a join b in one db
+func (o optimizer) optimizeJoin(ctx context.Context, conn proto.VConn, stmt *rast.SelectStatement, args []interface{}) (proto.Plan, error) {
+
+	var ru *rule.Rule
+	if ru = rcontext.Rule(ctx); ru == nil {
+		return nil, errors.WithStack(errNoRuleFound)
+	}
+
+	join := stmt.From[0].Source().(*rast.JoinNode)
+
+	compute := func(tableSource *rast.TableSourceNode) (database, alias string, shardList []string, err error) {
+		table := tableSource.TableName()
+		if table == nil {
+			err = errors.New("must table, not statement or join node")
+			return
+		}
+		alias = tableSource.Alias()
+		database = table.Prefix()
+
+		shards, err := o.computeShards(ru, table, nil, args)
+		if err != nil {
+			return
+		}
+		//table no shard
+		if shards == nil {
+			shardList = append(shardList, table.Suffix())
+			return
+		}
+		//table  shard more than one db
+		if len(shards) > 1 {
+			err = errors.New("not support more than one db")
+			return
+		}
+
+		for k, v := range shards {
+			database = k
+			shardList = v
+		}
+
+		if alias == "" {
+			alias = table.Suffix()
+		}
+
+		return
+	}
+
+	dbLeft, aliasLeft, shardLeft, err := compute(join.Left)
+	if err != nil {
+		return nil, err
+	}
+	dbRight, aliasRight, shardRight, err := compute(join.Right)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if dbLeft != "" && dbRight != "" && dbLeft != dbRight {
+		return nil, errors.New("not support more than one db")
+	}
+
+	joinPan := &plan.SimpleJoinPlan{
+		Left: &plan.JoinTable{
+			Tables: shardLeft,
+			Alias:  aliasLeft,
+		},
+		Join: join,
+		Right: &plan.JoinTable{
+			Tables: shardRight,
+			Alias:  aliasRight,
+		},
+		Stmt: stmt,
+	}
+	joinPan.BindArgs(args)
+
+	return joinPan, nil
 }
 
 func (o optimizer) optimizeUpdate(ctx context.Context, conn proto.VConn, stmt *rast.UpdateStatement, args []interface{}) (proto.Plan, error) {
@@ -515,36 +633,29 @@ func (o optimizer) optimizeDelete(ctx context.Context, stmt *rast.DeleteStatemen
 }
 
 func (o optimizer) optimizeShowTables(ctx context.Context, stmt *rast.ShowTables, args []interface{}) (proto.Plan, error) {
-	vts := rcontext.Rule(ctx).VTables()
-	databaseTablesMap := make(map[string]rule.DatabaseTables, len(vts))
-	for tableName, vt := range vts {
-		shards := rule.DatabaseTables{}
-		// compute all tables
-		topology := vt.Topology()
-		topology.Each(func(dbIdx, tbIdx int) bool {
-			if d, t, ok := topology.Render(dbIdx, tbIdx); ok {
-				shards[d] = append(shards[d], t)
+	var invertedIndex map[string]string
+	for logicalTable, v := range rcontext.Rule(ctx).VTables() {
+		t := v.Topology()
+		t.Each(func(x, y int) bool {
+			if _, phyTable, ok := t.Render(x, y); ok {
+				if invertedIndex == nil {
+					invertedIndex = make(map[string]string)
+				}
+				invertedIndex[phyTable] = logicalTable
 			}
 			return true
 		})
-		databaseTablesMap[tableName] = shards
-	}
-
-	tmpPlanData := make(map[string]plan.DatabaseTable)
-	for showTableName, databaseTables := range databaseTablesMap {
-		for databaseName, shardingTables := range databaseTables {
-			for _, shardingTable := range shardingTables {
-				tmpPlanData[shardingTable] = plan.DatabaseTable{
-					Database:  databaseName,
-					TableName: showTableName,
-				}
-			}
-		}
 	}
 
 	ret := plan.NewShowTablesPlan(stmt)
 	ret.BindArgs(args)
-	ret.SetAllShards(tmpPlanData)
+	ret.SetInvertedShards(invertedIndex)
+	return ret, nil
+}
+
+func (o optimizer) optimizeShowIndex(_ context.Context, stmt *rast.ShowIndex, args []interface{}) (proto.Plan, error) {
+	ret := &plan.ShowIndexPlan{Stmt: stmt}
+	ret.BindArgs(args)
 	return ret, nil
 }
 
@@ -591,6 +702,7 @@ func (o optimizer) optimizeDescribeStatement(ctx context.Context, stmt *rast.Des
 		dbName, tblName := shards.Smallest()
 		ret.Database = dbName
 		ret.Table = tblName
+		ret.Column = stmt.Column
 	}
 
 	return ret, nil
@@ -643,6 +755,7 @@ func (o optimizer) rewriteSelectStatement(ctx context.Context, conn proto.VConn,
 			starExpand = true
 		}
 	}
+
 	if starExpand {
 		if len(tb) < 1 {
 			tb = stmt.From[0].TableName().Suffix()

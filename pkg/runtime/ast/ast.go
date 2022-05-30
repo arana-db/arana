@@ -98,7 +98,7 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		}
 		switch tgt := result.(type) {
 		case *ShowColumns:
-			return &DescribeStatement{Table: tgt.tableName}, nil
+			return &DescribeStatement{Table: tgt.tableName, Column: tgt.Column}, nil
 		default:
 			return &ExplainStatement{tgt: tgt}, nil
 		}
@@ -106,8 +106,178 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		return cc.convTruncateTableStmt(stmt), nil
 	case *ast.DropTableStmt:
 		return cc.convDropTableStmt(stmt), nil
+	case *ast.AlterTableStmt:
+		return cc.convAlterTableStmt(stmt), nil
 	default:
 		return nil, errors.Errorf("unimplement: stmt type %T!", stmt)
+	}
+}
+
+func (cc *convCtx) convAlterTableStmt(stmt *ast.AlterTableStmt) *AlterTableStatement {
+	var tableName TableName
+	if db := stmt.Table.Schema.O; len(db) > 0 {
+		tableName = append(tableName, db)
+	}
+	tableName = append(tableName, stmt.Table.Name.O)
+
+	var specs []*AlterTableSpecStatement
+	for _, spec := range stmt.Specs {
+		switch spec.Tp {
+		case ast.AlterTableDropColumn:
+			specs = append(specs, &AlterTableSpecStatement{
+				Tp:            AlterTableDropColumn,
+				OldColumnName: cc.convColumn(spec.OldColumnName),
+			})
+		case ast.AlterTableAddColumns:
+			specs = append(specs, &AlterTableSpecStatement{
+				Tp:         AlterTableAddColumns,
+				NewColumns: cc.convColumnDef(spec.NewColumns),
+				Position:   cc.convColumnPostition(spec.Position),
+			})
+		case ast.AlterTableAddConstraint:
+			specs = append(specs, &AlterTableSpecStatement{
+				Tp:         AlterTableAddConstraint,
+				Constraint: cc.convConstraint(spec.Constraint),
+			})
+		case ast.AlterTableChangeColumn:
+			specs = append(specs, &AlterTableSpecStatement{
+				Tp:            AlterTableChangeColumn,
+				OldColumnName: cc.convColumn(spec.OldColumnName),
+				NewColumns:    cc.convColumnDef(spec.NewColumns),
+				Position:      cc.convColumnPostition(spec.Position),
+			})
+		case ast.AlterTableModifyColumn:
+			specs = append(specs, &AlterTableSpecStatement{
+				Tp:         AlterTableModifyColumn,
+				NewColumns: cc.convColumnDef(spec.NewColumns),
+				Position:   cc.convColumnPostition(spec.Position),
+			})
+		case ast.AlterTableRenameTable:
+			var newTable TableName
+			if db := spec.NewTable.Schema.O; len(db) > 0 {
+				newTable = append(newTable, db)
+			}
+			newTable = append(newTable, spec.NewTable.Name.O)
+			specs = append(specs, &AlterTableSpecStatement{
+				Tp:       AlterTableRenameTable,
+				NewTable: newTable,
+			})
+		case ast.AlterTableRenameColumn:
+			specs = append(specs, &AlterTableSpecStatement{
+				Tp:            AlterTableRenameColumn,
+				OldColumnName: cc.convColumn(spec.OldColumnName),
+				NewColumnName: cc.convColumn(spec.NewColumnName),
+			})
+		}
+	}
+	return &AlterTableStatement{
+		Table: tableName,
+		Specs: specs,
+	}
+}
+
+func (cc *convCtx) convColumnDef(cds []*ast.ColumnDef) []*ColumnDefine {
+	var cols []*ColumnDefine
+	for _, col := range cds {
+		var opts []*ColumnOption
+		for _, opt := range col.Options {
+			switch opt.Tp {
+			case ast.ColumnOptionPrimaryKey:
+				opts = append(opts, &ColumnOption{Tp: ColumnOptionPrimaryKey})
+			case ast.ColumnOptionNotNull:
+				opts = append(opts, &ColumnOption{Tp: ColumnOptionNotNull})
+			case ast.ColumnOptionAutoIncrement:
+				opts = append(opts, &ColumnOption{Tp: ColumnOptionAutoIncrement})
+			case ast.ColumnOptionDefaultValue:
+				opts = append(opts, &ColumnOption{
+					Tp:   ColumnOptionDefaultValue,
+					Expr: toExpressionNode(cc.convExpr(opt.Expr)),
+				})
+			case ast.ColumnOptionUniqKey:
+				opts = append(opts, &ColumnOption{Tp: ColumnOptionUniqKey})
+			case ast.ColumnOptionNull:
+				opts = append(opts, &ColumnOption{Tp: ColumnOptionNull})
+			case ast.ColumnOptionComment:
+				opts = append(opts, &ColumnOption{
+					Tp:   ColumnOptionComment,
+					Expr: toExpressionNode(cc.convExpr(opt.Expr)),
+				})
+			case ast.ColumnOptionCollate:
+				opts = append(opts, &ColumnOption{
+					Tp:     ColumnOptionComment,
+					StrVal: opt.StrValue,
+				})
+			case ast.ColumnOptionColumnFormat:
+				opts = append(opts, &ColumnOption{
+					Tp:     ColumnOptionColumnFormat,
+					StrVal: opt.StrValue,
+				})
+			case ast.ColumnOptionStorage:
+				opts = append(opts, &ColumnOption{
+					Tp:     ColumnOptionStorage,
+					StrVal: opt.StrValue,
+				})
+			}
+		}
+		cols = append(cols, &ColumnDefine{
+			Column:  cc.convColumn(col.Name),
+			Tp:      strings.ToUpper(col.Tp.String()),
+			Options: opts,
+		})
+	}
+	return cols
+}
+
+func (cc *convCtx) convColumnPostition(p *ast.ColumnPosition) *ColumnPosition {
+	var pos *ColumnPosition
+	if p != nil {
+		switch p.Tp {
+		case ast.ColumnPositionFirst:
+			pos = &ColumnPosition{
+				Tp: ColumnPositionFirst,
+			}
+		case ast.ColumnPositionAfter:
+			pos = &ColumnPosition{
+				Tp:     ColumnPositionAfter,
+				Column: cc.convColumn(p.RelativeColumn),
+			}
+		}
+	}
+	return pos
+}
+
+func (cc *convCtx) convConstraint(c *ast.Constraint) *Constraint {
+	if c == nil {
+		return nil
+	}
+	keys := make([]*IndexPartSpec, len(c.Keys))
+	for i, k := range c.Keys {
+		keys[i] = &IndexPartSpec{
+			Column: cc.convColumn(k.Column),
+			Expr:   toExpressionNode(cc.convExpr(k.Expr)),
+		}
+	}
+	tp := ConstraintNoConstraint
+	switch c.Tp {
+	case ast.ConstraintPrimaryKey:
+		tp = ConstraintPrimaryKey
+	case ast.ConstraintKey:
+		tp = ConstraintKey
+	case ast.ConstraintIndex:
+		tp = ConstraintIndex
+	case ast.ConstraintUniq:
+		tp = ConstraintUniq
+	case ast.ConstraintUniqKey:
+		tp = ConstraintUniqKey
+	case ast.ConstraintUniqIndex:
+		tp = ConstraintUniqIndex
+	case ast.ConstraintFulltext:
+		tp = ConstraintFulltext
+	}
+	return &Constraint{
+		Tp:   tp,
+		Name: c.Name,
+		Keys: keys,
 	}
 }
 
@@ -395,6 +565,9 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 		ret := &ShowColumns{
 			tableName: []string{node.Table.Name.O},
 		}
+		if node.Column != nil {
+			ret.Column = node.Column.Name.O
+		}
 		if node.Extended {
 			ret.flag |= scFlagExtended
 		}
@@ -509,17 +682,17 @@ func (cc *convCtx) convFrom(from *ast.TableRefsClause) (ret []*TableSourceNode) 
 
 	var jn JoinNode
 
-	jn.left = left
-	jn.right = right
-	jn.on = on
+	jn.Left = left
+	jn.Right = right
+	jn.On = on
 
 	switch from.TableRefs.Tp {
 	case ast.LeftJoin:
-		jn.typ = LeftJoin
+		jn.Typ = LeftJoin
 	case ast.RightJoin:
-		jn.typ = RightJoin
+		jn.Typ = RightJoin
 	case ast.CrossJoin:
-		jn.typ = InnerJoin
+		jn.Typ = InnerJoin
 	}
 
 	if from.TableRefs.NaturalJoin {

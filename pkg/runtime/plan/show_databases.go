@@ -26,15 +26,16 @@ import (
 )
 
 import (
-	fieldType "github.com/arana-db/arana/pkg/constants/mysql"
+	consts "github.com/arana-db/arana/pkg/constants/mysql"
+	"github.com/arana-db/arana/pkg/dataset"
 	"github.com/arana-db/arana/pkg/mysql"
+	"github.com/arana-db/arana/pkg/mysql/rows"
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/resultx"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/security"
 )
-
-var tenantErr = errors.New("current db tenant not fund")
 
 var _ proto.Plan = (*ShowDatabasesPlan)(nil)
 
@@ -47,32 +48,21 @@ func (s *ShowDatabasesPlan) Type() proto.PlanType {
 	return proto.PlanTypeQuery
 }
 
-func (s *ShowDatabasesPlan) ExecIn(ctx context.Context, _ proto.VConn) (proto.Result, error) {
+func (s *ShowDatabasesPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+	_ = conn
 	tenant, ok := security.DefaultTenantManager().GetTenantOfCluster(rcontext.Schema(ctx))
 	if !ok {
-		return nil, tenantErr
+		return nil, errors.New("no tenant found in current db")
 	}
 
-	clusters := security.DefaultTenantManager().GetClusters(tenant)
-	var rows = make([]proto.Row, 0, len(clusters))
-
-	for _, cluster := range clusters {
-		encoded := mysql.PutLengthEncodedString([]byte(cluster))
-		rows = append(rows, (&mysql.TextRow{}).Encode([]*proto.Value{
-			{
-				Typ:   fieldType.FieldTypeVarString,
-				Flags: fieldType.NotNullFlag,
-				Raw:   encoded,
-				Val:   cluster,
-				Len:   len(encoded),
-			},
-		},
-			[]proto.Field{&mysql.Field{}}, nil))
+	columns := []proto.Field{mysql.NewField("Database", consts.FieldTypeVarString)}
+	ds := &dataset.VirtualDataset{
+		Columns: columns,
 	}
 
-	return &mysql.Result{
-		Fields:   []proto.Field{mysql.NewField("Database", fieldType.FieldTypeVarString)},
-		Rows:     rows,
-		DataChan: make(chan proto.Row, 1),
-	}, nil
+	for _, cluster := range security.DefaultTenantManager().GetClusters(tenant) {
+		ds.Rows = append(ds.Rows, rows.NewTextVirtualRow(columns, []proto.Value{cluster}))
+	}
+
+	return resultx.New(resultx.WithDataset(ds)), nil
 }

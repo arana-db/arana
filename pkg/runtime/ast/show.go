@@ -226,6 +226,7 @@ type ShowColumns struct {
 	flag      showColumnsFlag
 	tableName TableName
 	like      sql.NullString
+	Column    string
 }
 
 func (sh *ShowColumns) IsFull() bool {

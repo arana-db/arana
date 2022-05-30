@@ -40,13 +40,15 @@ type IntegrationSuite struct {
 }
 
 func TestSuite(t *testing.T) {
-	su := NewMySuite(WithMySQLServerAuth("root", "123456"), WithMySQLDatabase("employees"))
+	su := NewMySuite(
+		WithMySQLServerAuth("root", "123456"),
+		WithMySQLDatabase("employees"),
+		//WithDevMode(), // NOTICE: UNCOMMENT IF YOU WANT TO DEBUG LOCAL ARANA SERVER!!!
+	)
 	suite.Run(t, &IntegrationSuite{su})
 }
 
 func (s *IntegrationSuite) TestBasicTx() {
-	// TODO: skip temporarily, need to implement ref-count-down
-	s.T().Skip()
 	var (
 		db = s.DB()
 		t  = s.T()
@@ -312,8 +314,33 @@ func (s *IntegrationSuite) TestDropTable() {
 	assert.Nil(t, result)
 }
 
+func (s *IntegrationSuite) TestJoinTable() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	sqls := []string{
+		//shard  & no shard
+		`select * from student  join titles on student.id=titles.emp_no`,
+		// shard  & no shard with alias
+		`select * from student  join titles as b on student.id=b.emp_no`,
+		// shard  with alias & no shard with alias
+		`select * from student as a join titles as b on a.id=b.emp_no`,
+		// no shard & no shard
+		`select * from departments join dept_emp as de on departments.dept_no = de.dept_no`,
+	}
+
+	for _, sql := range sqls {
+		_, err := db.Query(sql)
+		assert.NoErrorf(t, err, "join table error:%v", err)
+	}
+	//with where
+	_, err := db.Query(`select * from student  join titles on student.id=titles.emp_no where student.id=? and titles.emp_no=?`, 1, 2)
+	assert.NoErrorf(t, err, "join table error:%v", err)
+}
+
 func (s *IntegrationSuite) TestShardingAgg() {
-	s.T().Skip()
 	var (
 		db = s.DB()
 		t  = s.T()
@@ -430,4 +457,18 @@ func (s *IntegrationSuite) TestShardingAgg() {
 	})
 
 	db.Exec("DELETE FROM student WHERE uid >= 9527")
+}
+
+func (s *IntegrationSuite) TestAlterTable() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	result, err := db.Exec(`alter table employees add dept_no char(4) not null default "" after emp_no`)
+	assert.NoErrorf(t, err, "alter table error: %v", err)
+	affected, err := result.RowsAffected()
+	assert.NoErrorf(t, err, "alter table error: %v", err)
+
+	assert.Equal(t, int64(0), affected)
 }

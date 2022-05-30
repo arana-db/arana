@@ -36,6 +36,7 @@ type DescribePlan struct {
 	Stmt     *ast.DescribeStatement
 	Database string
 	Table    string
+	Column   string
 }
 
 func NewDescribePlan(stmt *ast.DescribeStatement) *DescribePlan {
