@@ -23,8 +23,11 @@ import (
 	"fmt"
 	"sync"
 	"time"
+)
 
+import (
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/util/identity"
 )
 
 func init() {
@@ -39,17 +42,16 @@ const (
 
 const (
 	_initTableSql = `
-	CREATE TABLE IF NOT EXISTS __arana_snowflake_sequence(
-	  work_id int auto_increment '主键',
-	  node_id varchar(255) not null '节点的唯一标识',
-	  table_name varchar(255) not null 'arana中的逻辑表名称',
-	  primary key (work_id)
+	CREATE TABLE IF NOT EXISTS __arana_snowflake_sequence (
+		work_id int AUTO_INCREMENT COMMENT '主键',
+		node_id varchar(255) NOT NULL COMMENT '节点的唯一标识',
+		table_name varchar(255) NOT NULL COMMENT 'arana中的逻辑表名称',
+		PRIMARY KEY (work_id),
+		UNIQUE KEY(node_id, table_name)
 	) ENGINE = InnoDB;
 	`
 
-	_getWorkId = `
-INSERT IGNORE INTO __arana_snowflake_sequence(node_id, table_name) VALUE (?, ?)
-	`
+	_getWorkId = `INSERT IGNORE INTO __arana_snowflake_sequence(node_id, table_name) VALUE (?, ?)`
 )
 
 var (
@@ -80,6 +82,10 @@ type snowflakeSequence struct {
 
 // Start 启动 Sequence，做一些初始化操作
 func (seq *snowflakeSequence) Start(ctx context.Context, conf proto.SequenceConfig) error {
+	if err := seq.doInit(ctx, conf); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -89,18 +95,18 @@ func (seq *snowflakeSequence) doInit(ctx context.Context, conf proto.SequenceCon
 		mu.Lock()
 		defer mu.Unlock()
 
-		vconn, ok := ctx.Value(proto.ContextVconnKey).(proto.DB)
+		vconn, ok := ctx.Value(proto.ContextVconnKey).(proto.VConn)
 		if !ok {
 			return errors.New("snowflake init need proto.VConn")
 		}
 		if !finishInitTable {
-			if _, _, err := vconn.Call(ctx, _initTableSql); err != nil {
+			if _, err := vconn.Exec(ctx, "", _initTableSql); err != nil {
 				return err
 			}
 		}
 		finishInitTable = true
 
-		if _, _, err := vconn.Call(ctx, _getWorkId, "", conf.Name); err != nil {
+		if _, err := vconn.Exec(ctx, "", _getWorkId, identity.GetNodeIdentity(), conf.Name); err != nil {
 			return err
 		}
 

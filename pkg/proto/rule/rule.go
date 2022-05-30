@@ -21,7 +21,9 @@ package rule
 import (
 	"fmt"
 	"sync"
+)
 
+import (
 	"github.com/pkg/errors"
 )
 

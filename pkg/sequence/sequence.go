@@ -19,10 +19,19 @@ package sequence
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
+)
 
+import (
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/util/log"
+)
+
+var (
+	ErrorNotSequenceType  error = errors.New("sequence type not found")
+	ErrorNotFoundSequence error = errors.New("sequence instance not found")
 )
 
 func init() {
@@ -43,11 +52,20 @@ type sequenceManager struct {
 
 // CreateSequence
 func (sMgn *sequenceManager) CreateSequence(ctx context.Context, conn proto.VConn, conf proto.SequenceConfig) (proto.Sequence, error) {
+	sMgn.lock.RLock()
+	if seq, exist := sMgn.sequenceRegistry[conf.Name]; exist {
+		sMgn.lock.RUnlock()
+		return seq, nil
+	}
+
+	sMgn.lock.RUnlock()
+
 	seqType := conf.Type
 
 	builder, ok := proto.GetSequenceSupplier(seqType)
 	if !ok {
-		return nil, fmt.Errorf("sequence=[%s] not exist", seqType)
+		log.Errorf("sequence=[%s] not exist", seqType)
+		return nil, ErrorNotSequenceType
 	}
 
 	ctx = context.WithValue(ctx, proto.ContextVconnKey, conn)
@@ -74,7 +92,8 @@ func (sMgn *sequenceManager) GetSequence(ctx context.Context, table string) (pro
 	seq, ok := sMgn.sequenceRegistry[table]
 
 	if !ok {
-		return nil, fmt.Errorf("sequence=[%s] not found", table)
+		log.Errorf("sequence=[%s] not found", table)
+		return nil, ErrorNotFoundSequence
 	}
 
 	return seq, nil

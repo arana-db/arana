@@ -21,19 +21,23 @@ import (
 	"context"
 	stdErrors "errors"
 	"strings"
+)
 
+import (
+	"github.com/arana-db/parser/ast"
+
+	"github.com/pkg/errors"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/proto/schema_manager"
-	"github.com/arana-db/arana/pkg/sequence"
-	"github.com/arana-db/parser/ast"
-	"github.com/pkg/errors"
-
 	rast "github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
-
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/runtime/plan"
+	"github.com/arana-db/arana/pkg/sequence"
 	"github.com/arana-db/arana/pkg/transformer"
 	"github.com/arana-db/arana/pkg/util/log"
 )
@@ -788,6 +792,15 @@ func (o optimizer) rewriteSelectStatement(ctx context.Context, conn proto.VConn,
 
 func (o optimizer) createSequenceIfAbsent(ctx context.Context, conn proto.VConn, table string, tableMetadata *proto.TableMetadata) error {
 
+	seq, err := o.sequenceManager.GetSequence(ctx, table)
+	if err != nil && !errors.Is(err, sequence.ErrorNotFoundSequence) {
+		return err
+	}
+
+	if seq != nil {
+		return nil
+	}
+
 	columns := tableMetadata.Columns
 	for i := range columns {
 		if columns[i].Generated {
@@ -847,7 +860,7 @@ func (o optimizer) rewriteInsertStatement(ctx context.Context, conn proto.VConn,
 		return nil
 	}
 
-	sequenceName := sequence.BuildAutoIncrementName(tb)
+	sequenceName := sequence.BuildAutoIncrementName(vtable)
 
 	seq, err := o.sequenceManager.GetSequence(ctx, sequenceName)
 	if err != nil {

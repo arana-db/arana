@@ -24,9 +24,13 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+)
 
+import (
 	"github.com/go-playground/validator/v10"
+
 	"github.com/pkg/errors"
+
 	"gopkg.in/yaml.v3"
 )
 
