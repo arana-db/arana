@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package buffpool
+package bufferpool
 
 import (
 	"bytes"

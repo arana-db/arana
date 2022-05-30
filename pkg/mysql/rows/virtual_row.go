@@ -23,6 +23,8 @@ import (
 	"io"
 	"sync"
 	"time"
+
+	"github.com/arana-db/arana/pkg/util/bufferpool"
 )
 
 import (
@@ -35,7 +37,6 @@ import (
 	consts "github.com/arana-db/arana/pkg/constants/mysql"
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/util/buffpool"
 	"github.com/arana-db/arana/pkg/util/bytesconv"
 )
 
@@ -119,8 +120,8 @@ func (vi *binaryVirtualRow) WriteTo(w io.Writer) (n int64, err error) {
 	const offset = 2
 	nullBitmapLen := (len(vi.cells) + 7 + offset) >> 3
 
-	b := buffpool.Get()
-	defer buffpool.Put(b)
+	b := bufferpool.Get()
+	defer bufferpool.Put(b)
 
 	b.Grow(1 + nullBitmapLen)
 
@@ -202,8 +203,8 @@ func (t *textVirtualRow) Fields() []proto.Field {
 }
 
 func (t *textVirtualRow) WriteTo(w io.Writer) (n int64, err error) {
-	bf := buffpool.Get()
-	defer buffpool.Put(bf)
+	bf := bufferpool.Get()
+	defer bufferpool.Put(bf)
 
 	for i := 0; i < len(t.fields); i++ {
 		var (

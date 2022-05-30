@@ -22,10 +22,10 @@ import (
 )
 
 var (
-	_ proto.Result = (*noopResult)(nil)
-	_ proto.Result = (*halfResult)(nil)
-	_ proto.Result = (*fullResult)(nil)
-	_ proto.Result = (*dsOnlyResult)(nil)
+	_ proto.Result = (*emptyResult)(nil) // contains nothing
+	_ proto.Result = (*slimResult)(nil)  // only contains rows-affected and last-insert-id, design for exec
+	_ proto.Result = (*dsResult)(nil)    // only contains dataset, design for query
+	_ proto.Result = (*fullResult)(nil)  // contains all
 )
 
 type option struct {
@@ -33,43 +33,51 @@ type option struct {
 	id, affected uint64
 }
 
+// Option represents the option to create a result.
 type Option func(*option)
 
+// WithLastInsertID specify the last-insert-id for the result to be created.
 func WithLastInsertID(id uint64) Option {
 	return func(o *option) {
 		o.id = id
 	}
 }
 
+// WithRowsAffected specify the rows-affected for the result to be created.
 func WithRowsAffected(n uint64) Option {
 	return func(o *option) {
 		o.affected = n
 	}
 }
 
+// WithDataset specify the dataset for the result to be created.
 func WithDataset(d proto.Dataset) Option {
 	return func(o *option) {
 		o.ds = d
 	}
 }
 
+// New creates a result from some options.
 func New(options ...Option) proto.Result {
 	var o option
 	for _, it := range options {
 		it(&o)
 	}
 
+	// When execute EXEC, no need to specify dataset.
 	if o.ds == nil {
 		if o.id == 0 && o.affected == 0 {
-			return noopResult{}
+			return emptyResult{}
 		}
-		return halfResult{o.id, o.affected}
+		return slimResult{o.id, o.affected}
 	}
 
+	// When execute QUERY, only dataset is required.
 	if o.id == 0 && o.affected == 0 {
-		return dsOnlyResult{ds: o.ds}
+		return dsResult{ds: o.ds}
 	}
 
+	// should never happen
 	return fullResult{
 		ds:       o.ds,
 		id:       o.id,
@@ -77,32 +85,32 @@ func New(options ...Option) proto.Result {
 	}
 }
 
-type noopResult struct {
+type emptyResult struct {
 }
 
-func (n noopResult) Dataset() (proto.Dataset, error) {
+func (n emptyResult) Dataset() (proto.Dataset, error) {
 	return nil, nil
 }
 
-func (n noopResult) LastInsertId() (uint64, error) {
+func (n emptyResult) LastInsertId() (uint64, error) {
 	return 0, nil
 }
 
-func (n noopResult) RowsAffected() (uint64, error) {
+func (n emptyResult) RowsAffected() (uint64, error) {
 	return 0, nil
 }
 
-type halfResult [2]uint64 // [lastInsertId,rowsAffected]
+type slimResult [2]uint64 // [lastInsertId,rowsAffected]
 
-func (h halfResult) Dataset() (proto.Dataset, error) {
+func (h slimResult) Dataset() (proto.Dataset, error) {
 	return nil, nil
 }
 
-func (h halfResult) LastInsertId() (uint64, error) {
+func (h slimResult) LastInsertId() (uint64, error) {
 	return h[0], nil
 }
 
-func (h halfResult) RowsAffected() (uint64, error) {
+func (h slimResult) RowsAffected() (uint64, error) {
 	return h[1], nil
 }
 
@@ -124,19 +132,19 @@ func (f fullResult) RowsAffected() (uint64, error) {
 	return f.affected, nil
 }
 
-type dsOnlyResult struct {
+type dsResult struct {
 	ds proto.Dataset
 }
 
-func (d dsOnlyResult) Dataset() (proto.Dataset, error) {
+func (d dsResult) Dataset() (proto.Dataset, error) {
 	return d.ds, nil
 }
 
-func (d dsOnlyResult) LastInsertId() (uint64, error) {
+func (d dsResult) LastInsertId() (uint64, error) {
 	return 0, nil
 }
 
-func (d dsOnlyResult) RowsAffected() (uint64, error) {
+func (d dsResult) RowsAffected() (uint64, error) {
 	return 0, nil
 }
 
