@@ -98,7 +98,7 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		}
 		switch tgt := result.(type) {
 		case *ShowColumns:
-			return &DescribeStatement{Table: tgt.tableName}, nil
+			return &DescribeStatement{Table: tgt.tableName, Column: tgt.Column}, nil
 		default:
 			return &ExplainStatement{tgt: tgt}, nil
 		}
@@ -564,6 +564,9 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 	case ast.ShowColumns:
 		ret := &ShowColumns{
 			tableName: []string{node.Table.Name.O},
+		}
+		if node.Column != nil {
+			ret.Column = node.Column.Name.O
 		}
 		if node.Extended {
 			ret.flag |= scFlagExtended

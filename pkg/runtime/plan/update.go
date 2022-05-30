@@ -31,9 +31,9 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
+	"github.com/arana-db/arana/pkg/resultx"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/util/log"
 )
@@ -84,8 +84,8 @@ func (up *UpdatePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Resul
 			var (
 				sb   strings.Builder
 				args []int
-				res  proto.Result
 				err  error
+				n    uint64
 			)
 
 			sb.Grow(256)
@@ -95,11 +95,10 @@ func (up *UpdatePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Resul
 					return errors.WithStack(err)
 				}
 
-				if res, err = conn.Exec(ctx, db, sb.String(), up.toArgs(args)...); err != nil {
+				if n, err = up.execOne(ctx, conn, db, sb.String(), up.toArgs(args)); err != nil {
 					return errors.WithStack(err)
 				}
 
-				n, _ := res.RowsAffected()
 				affects.Add(n)
 				cnt.Inc()
 
@@ -120,12 +119,25 @@ func (up *UpdatePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Resul
 
 	log.Debugf("sharding update success: batch=%d, affects=%d", cnt.Load(), affects.Load())
 
-	return &mysql.Result{
-		AffectedRows: affects.Load(),
-		DataChan:     make(chan proto.Row, 1),
-	}, nil
+	return resultx.New(resultx.WithRowsAffected(affects.Load())), nil
 }
 
 func (up *UpdatePlan) SetShards(shards rule.DatabaseTables) {
 	up.shards = shards
+}
+
+func (up *UpdatePlan) execOne(ctx context.Context, conn proto.VConn, db, query string, args []interface{}) (uint64, error) {
+	res, err := conn.Exec(ctx, db, query, args...)
+	if err != nil {
+		return 0, errors.WithStack(err)
+	}
+
+	defer resultx.Drain(res)
+
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, errors.WithStack(err)
+	}
+
+	return n, nil
 }

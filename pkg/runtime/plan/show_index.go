@@ -19,23 +19,44 @@ package plan
 
 import (
 	"context"
+	"strings"
+)
+
+import (
+	"github.com/pkg/errors"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/resultx"
+	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
-var _ proto.Plan = (*AlwaysEmptyExecPlan)(nil)
+var _ proto.Plan = (*ShowIndexPlan)(nil)
 
-// AlwaysEmptyExecPlan represents an exec plan which affects nothing.
-type AlwaysEmptyExecPlan struct {
+type ShowIndexPlan struct {
+	basePlan
+	Stmt *ast.ShowIndex
 }
 
-func (a AlwaysEmptyExecPlan) Type() proto.PlanType {
-	return proto.PlanTypeExec
+func (s *ShowIndexPlan) Type() proto.PlanType {
+	return proto.PlanTypeQuery
 }
 
-func (a AlwaysEmptyExecPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
-	return resultx.New(), nil
+func (s *ShowIndexPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+	var (
+		sb      strings.Builder
+		indexes []int
+		err     error
+	)
+
+	if err = s.Stmt.Restore(ast.RestoreDefault, &sb, &indexes); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	var (
+		query = sb.String()
+		args  = s.toArgs(indexes)
+	)
+
+	return conn.Query(ctx, "", query, args...)
 }

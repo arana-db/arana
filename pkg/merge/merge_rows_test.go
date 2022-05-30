@@ -51,8 +51,8 @@ func TestGetCurrentRow(t *testing.T) {
 		if row == nil {
 			break
 		}
-		v1, _ := rows.GetCurrentRow().GetColumnValue(score)
-		v2, _ := rows.GetCurrentRow().GetColumnValue(age)
+		v1, _ := rows.GetCurrentRow().(proto.KeyedRow).Get(score)
+		v2, _ := rows.GetCurrentRow().(proto.KeyedRow).Get(age)
 		res = append(res, student{score: v1.(int64), age: v2.(int64)})
 	}
 
@@ -62,9 +62,9 @@ func TestGetCurrentRow(t *testing.T) {
 func buildMergeRow(t *testing.T, vals []student) *MergeRows {
 	rows := make([]proto.Row, 0)
 	for _, val := range vals {
-		row := testdata.NewMockRow(gomock.NewController(t))
+		row := testdata.NewMockKeyedRow(gomock.NewController(t))
 		for k, v := range val {
-			row.EXPECT().GetColumnValue(k).Return(v, nil).AnyTimes()
+			row.EXPECT().Get(k).Return(v, nil).AnyTimes()
 		}
 		rows = append(rows, row)
 	}
