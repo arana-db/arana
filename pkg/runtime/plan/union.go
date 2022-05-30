@@ -54,6 +54,7 @@ func (u UnionPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, 
 func (u UnionPlan) query(ctx context.Context, conn proto.VConn) (proto.Result, error) {
 	var generators []dataset.GenerateFunc
 	for _, it := range u.Plans {
+		it := it
 		generators = append(generators, func() (proto.Dataset, error) {
 			res, err := it.ExecIn(ctx, conn)
 			if err != nil {
