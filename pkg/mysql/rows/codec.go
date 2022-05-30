@@ -59,7 +59,7 @@ func (bw *BinaryValueWriter) Reset() {
 }
 
 func (bw *BinaryValueWriter) WriteDuration(d time.Duration) (n int64, err error) {
-	b := bw.pp()
+	b := bw.buffer()
 	if d == 0 {
 		if err = b.WriteByte(0); err != nil {
 			return
@@ -229,7 +229,7 @@ func (bw *BinaryValueWriter) WriteFloat64(f float64) (int64, error) {
 }
 
 func (bw *BinaryValueWriter) WriteUint8(v uint8) (int64, error) {
-	if err := bw.pp().WriteByte(v); err != nil {
+	if err := bw.buffer().WriteByte(v); err != nil {
 		return 0, err
 	}
 	return 1, nil
@@ -240,11 +240,11 @@ func (bw *BinaryValueWriter) WriteString(s string) (int64, error) {
 }
 
 func (bw *BinaryValueWriter) WriteUint16(v uint16) (n int64, err error) {
-	if err = bw.pp().WriteByte(byte(v)); err != nil {
+	if err = bw.buffer().WriteByte(byte(v)); err != nil {
 		return
 	}
 	n++
-	if err = bw.pp().WriteByte(byte(v >> 8)); err != nil {
+	if err = bw.buffer().WriteByte(byte(v >> 8)); err != nil {
 		return
 	}
 	n++
@@ -252,7 +252,7 @@ func (bw *BinaryValueWriter) WriteUint16(v uint16) (n int64, err error) {
 }
 
 func (bw *BinaryValueWriter) WriteUint32(v uint32) (n int64, err error) {
-	b := bw.pp()
+	b := bw.buffer()
 	if err = b.WriteByte(byte(v)); err != nil {
 		return
 	}
@@ -270,7 +270,7 @@ func (bw *BinaryValueWriter) WriteUint32(v uint32) (n int64, err error) {
 }
 
 func (bw *BinaryValueWriter) WriteUint64(v uint64) (n int64, err error) {
-	b := bw.pp()
+	b := bw.buffer()
 	if err = b.WriteByte(byte(v)); err != nil {
 		return
 	}
@@ -317,7 +317,7 @@ func (bw *BinaryValueWriter) writeLenEncString(s string) (n int64, err error) {
 
 func (bw *BinaryValueWriter) writeEOFString(s string) (n int64, err error) {
 	var wrote int
-	if wrote, err = bw.pp().Write(bytesconv.StringToBytes(s)); err != nil {
+	if wrote, err = bw.buffer().Write(bytesconv.StringToBytes(s)); err != nil {
 		return
 	}
 	n += int64(wrote)
@@ -325,7 +325,7 @@ func (bw *BinaryValueWriter) writeEOFString(s string) (n int64, err error) {
 }
 
 func (bw *BinaryValueWriter) writeLenEncInt(i uint64) (n int64, err error) {
-	b := bw.pp()
+	b := bw.buffer()
 	switch {
 	case i < 251:
 		if err = b.WriteByte(byte(i)); err == nil {
@@ -390,6 +390,6 @@ func (bw *BinaryValueWriter) writeLenEncInt(i uint64) (n int64, err error) {
 	return
 }
 
-func (bw *BinaryValueWriter) pp() *bytes.Buffer {
+func (bw *BinaryValueWriter) buffer() *bytes.Buffer {
 	return (*bytes.Buffer)(bw)
 }

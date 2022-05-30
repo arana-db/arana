@@ -29,17 +29,17 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
-var _ proto.Dataset = (*fuseDataset)(nil)
+var _ proto.Dataset = (*fuseableDataset)(nil)
 
 type GenerateFunc func() (proto.Dataset, error)
 
-type fuseDataset struct {
+type fuseableDataset struct {
 	fields     []proto.Field
 	current    proto.Dataset
 	generators []GenerateFunc
 }
 
-func (fu *fuseDataset) Close() error {
+func (fu *fuseableDataset) Close() error {
 	if fu.current == nil {
 		return nil
 	}
@@ -49,11 +49,11 @@ func (fu *fuseDataset) Close() error {
 	return nil
 }
 
-func (fu *fuseDataset) Fields() ([]proto.Field, error) {
+func (fu *fuseableDataset) Fields() ([]proto.Field, error) {
 	return fu.fields, nil
 }
 
-func (fu *fuseDataset) Next() (proto.Row, error) {
+func (fu *fuseableDataset) Next() (proto.Row, error) {
 	if fu.current == nil {
 		return nil, io.EOF
 	}
@@ -77,7 +77,7 @@ func (fu *fuseDataset) Next() (proto.Row, error) {
 	return next, nil
 }
 
-func (fu *fuseDataset) nextDataset() error {
+func (fu *fuseableDataset) nextDataset() error {
 	var err error
 	if err = fu.current.Close(); err != nil {
 		return errors.Wrap(err, "failed to close previous fused dataset")
@@ -113,7 +113,7 @@ func Fuse(first GenerateFunc, others ...GenerateFunc) (proto.Dataset, error) {
 		return nil, errors.WithStack(err)
 	}
 
-	return &fuseDataset{
+	return &fuseableDataset{
 		fields:     fields,
 		current:    current,
 		generators: others,
