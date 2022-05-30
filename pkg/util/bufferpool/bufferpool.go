@@ -15,27 +15,33 @@
  * limitations under the License.
  */
 
-package plan
+package bufferpool
 
 import (
-	"context"
+	"bytes"
+	"sync"
 )
 
-import (
-	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/resultx"
-)
+var _bufferPool sync.Pool
 
-var _ proto.Plan = (*AlwaysEmptyExecPlan)(nil)
-
-// AlwaysEmptyExecPlan represents an exec plan which affects nothing.
-type AlwaysEmptyExecPlan struct {
+// Get borrows a Buffer from pool.
+func Get() *bytes.Buffer {
+	if exist, ok := _bufferPool.Get().(*bytes.Buffer); ok {
+		return exist
+	}
+	return new(bytes.Buffer)
 }
 
-func (a AlwaysEmptyExecPlan) Type() proto.PlanType {
-	return proto.PlanTypeExec
-}
-
-func (a AlwaysEmptyExecPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
-	return resultx.New(), nil
+// Put returns a Buffer to pool.
+func Put(b *bytes.Buffer) {
+	if b == nil {
+		return
+	}
+	const maxCap = 1024 * 1024
+	// drop huge buff directly, if cap is over 1MB
+	if b.Cap() > maxCap {
+		return
+	}
+	b.Reset()
+	_bufferPool.Put(b)
 }

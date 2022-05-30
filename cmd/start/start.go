@@ -49,7 +49,7 @@ const slogan = `
   / _ | / _ \/ _ | / |/ / _ |
  / __ |/ , _/ __ |/    / __ |
 /_/ |_/_/|_/_/ |_/_/|_/_/ |_|
-High performance, powerful DB Mesh.
+Arana, A High performance & Powerful DB Mesh sidecar.
 _____________________________________________
 
 `

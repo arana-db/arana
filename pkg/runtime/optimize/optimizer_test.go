@@ -33,9 +33,9 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
+	"github.com/arana-db/arana/pkg/resultx"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/testdata"
 )
@@ -49,7 +49,11 @@ func TestOptimizer_OptimizeSelect(t *testing.T) {
 	conn.EXPECT().Query(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, db string, sql string, args ...interface{}) (proto.Result, error) {
 			t.Logf("fake query: db=%s, sql=%s, args=%v\n", db, sql, args)
-			return &mysql.Result{}, nil
+
+			ds := testdata.NewMockDataset(ctrl)
+			ds.EXPECT().Fields().Return([]proto.Field{}, nil).AnyTimes()
+
+			return resultx.New(resultx.WithDataset(ds)), nil
 		}).
 		AnyTimes()
 
@@ -117,10 +121,10 @@ func TestOptimizer_OptimizeInsert(t *testing.T) {
 			t.Logf("fake exec: db='%s', sql=\"%s\", args=%v\n", db, sql, args)
 			fakeId++
 
-			return &mysql.Result{
-				AffectedRows: uint64(strings.Count(sql, "?")),
-				InsertId:     fakeId,
-			}, nil
+			return resultx.New(
+				resultx.WithRowsAffected(uint64(strings.Count(sql, "?"))),
+				resultx.WithLastInsertID(fakeId),
+			), nil
 		}).
 		AnyTimes()
 	loader.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fakeStudentMetadata).Times(2)
@@ -179,7 +183,7 @@ func TestOptimizer_OptimizeAlterTable(t *testing.T) {
 	conn.EXPECT().Exec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, db string, sql string, args ...interface{}) (proto.Result, error) {
 			t.Logf("fake exec: db='%s', sql=\"%s\", args=%v\n", db, sql, args)
-			return &mysql.Result{}, nil
+			return resultx.New(), nil
 		}).AnyTimes()
 
 	var (

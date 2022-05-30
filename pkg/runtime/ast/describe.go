@@ -33,7 +33,7 @@ var (
 // DescribeStatement represents mysql describe statement. see https://dev.mysql.com/doc/refman/8.0/en/describe.html
 type DescribeStatement struct {
 	Table  TableName
-	column string
+	Column string
 }
 
 // Restore implements Restorer.
@@ -42,9 +42,9 @@ func (d *DescribeStatement) Restore(flag RestoreFlag, sb *strings.Builder, args 
 	if err := d.Table.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
-	if len(d.column) > 0 {
+	if len(d.Column) > 0 {
 		sb.WriteByte(' ')
-		WriteID(sb, d.column)
+		WriteID(sb, d.Column)
 	}
 
 	return nil
@@ -60,13 +60,6 @@ func (d *DescribeStatement) CntParams() int {
 
 func (d *DescribeStatement) Mode() SQLType {
 	return Squery
-}
-
-func (d *DescribeStatement) Column() (string, bool) {
-	if len(d.column) > 0 {
-		return d.column, true
-	}
-	return "", false
 }
 
 // ExplainStatement represents mysql explain statement. see https://dev.mysql.com/doc/refman/8.0/en/explain.html

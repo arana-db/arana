@@ -15,47 +15,57 @@
  * limitations under the License.
  */
 
-package group_by
+package dataset
 
 import (
-	"fmt"
+	"github.com/pkg/errors"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
-type GroupByValue struct {
-	groupByColumns []string
-	groupByValues  []interface{}
+var _ proto.Dataset = (*TransformDataset)(nil)
+
+type (
+	FieldsFunc    func([]proto.Field) []proto.Field
+	TransformFunc func(proto.Row) (proto.Row, error)
+)
+
+type TransformDataset struct {
+	proto.Dataset
+	FieldsGetter FieldsFunc
+	Transform    TransformFunc
 }
 
-func NewGroupByValue(groupByColumns []string, row proto.Row) *GroupByValue {
-	return &GroupByValue{
-		groupByColumns: groupByColumns,
-		groupByValues:  buildGroupValues(groupByColumns, row),
+func (td TransformDataset) Fields() ([]proto.Field, error) {
+	origin, err := td.Dataset.Fields()
+	if err != nil {
+		return nil, err
 	}
+	if td.FieldsGetter == nil {
+		return origin, nil
+	}
+	return td.FieldsGetter(origin), nil
 }
 
-func buildGroupValues(groupByColumns []string, row proto.Row) []interface{} {
-	values := make([]interface{}, 0)
-
-	for _, column := range groupByColumns {
-		value, err := row.(proto.KeyedRow).Get(column)
-		if err != nil {
-			panic("get column value error:" + err.Error())
-		}
-		values = append(values, value)
+func (td *TransformDataset) Next() (proto.Row, error) {
+	if td.Transform == nil {
+		return td.Dataset.Next()
 	}
-	return values
-}
 
-func (g *GroupByValue) equals(row proto.Row) bool {
-	values := buildGroupValues(g.groupByColumns, row)
-	for k := range values {
-		if fmt.Sprintf("%v", values[k]) != fmt.Sprintf("%v", g.groupByValues[k]) {
-			return false
-		}
+	var (
+		row proto.Row
+		err error
+	)
+
+	if row, err = td.Dataset.Next(); err != nil {
+		return nil, errors.WithStack(err)
 	}
-	return true
+
+	if row, err = td.Transform(row); err != nil {
+		return nil, errors.Wrap(err, "failed to transform dataset")
+	}
+
+	return row, nil
 }
