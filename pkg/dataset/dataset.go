@@ -15,36 +15,19 @@
  * limitations under the License.
  */
 
-package mysql
+package dataset
 
 import (
-	"testing"
+	"errors"
 )
 
 import (
-	"github.com/stretchr/testify/assert"
+	perrors "github.com/pkg/errors"
 )
 
-func TestLastInsertId(t *testing.T) {
-	result := createResult()
-	insertId, err := result.LastInsertId()
-	assert.Equal(t, uint64(2000), insertId)
-	assert.Nil(t, err)
-}
+var errLengthNotMatched = errors.New("dataset: the length of dest values doesn't match")
 
-func TestRowsAffected(t *testing.T) {
-	result := createResult()
-	affectedRows, err := result.RowsAffected()
-	assert.Equal(t, uint64(10), affectedRows)
-	assert.Nil(t, err)
-}
-
-func createResult() *Result {
-	result := &Result{
-		Fields:       nil,
-		AffectedRows: uint64(10),
-		InsertId:     uint64(2000),
-		Rows:         nil,
-	}
-	return result
+// IsLengthNotMatchedError returns true if target error is length-not-matched error.
+func IsLengthNotMatchedError(err error) bool {
+	return perrors.Is(err, errLengthNotMatched)
 }

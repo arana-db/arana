@@ -27,9 +27,9 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
+	"github.com/arana-db/arana/pkg/resultx"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
@@ -53,7 +53,7 @@ func (s *SimpleDeletePlan) Type() proto.PlanType {
 
 func (s *SimpleDeletePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
 	if s.shards == nil || s.shards.IsEmpty() {
-		return &mysql.Result{AffectedRows: 0}, nil
+		return resultx.New(), nil
 	}
 
 	var (
@@ -77,12 +77,11 @@ func (s *SimpleDeletePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.
 				return nil, errors.Wrap(err, "failed to execute DELETE statement")
 			}
 
-			res, err := conn.Exec(ctx, db, sb.String(), s.toArgs(args)...)
+			n, err := s.execOne(ctx, conn, db, sb.String(), s.toArgs(args))
 			if err != nil {
 				return nil, errors.WithStack(err)
 			}
 
-			n, _ := res.RowsAffected()
 			affects += n
 
 			// cleanup
@@ -93,12 +92,23 @@ func (s *SimpleDeletePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.
 		}
 	}
 
-	return &mysql.Result{
-		AffectedRows: affects,
-		DataChan:     make(chan proto.Row, 1),
-	}, nil
+	return resultx.New(resultx.WithRowsAffected(affects)), nil
 }
 
 func (s *SimpleDeletePlan) SetShards(shards rule.DatabaseTables) {
 	s.shards = shards
+}
+
+func (s *SimpleDeletePlan) execOne(ctx context.Context, conn proto.VConn, db, query string, args []interface{}) (uint64, error) {
+	res, err := conn.Exec(ctx, db, query, args...)
+	if err != nil {
+		return 0, errors.WithStack(err)
+	}
+	defer resultx.Drain(res)
+
+	var n uint64
+	if n, err = res.RowsAffected(); err != nil {
+		return 0, errors.WithStack(err)
+	}
+	return n, nil
 }

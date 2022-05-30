@@ -15,82 +15,90 @@
  * limitations under the License.
  */
 
+//go:generate mockgen -destination=../../testdata/mock_data.go -package=testdata . Field,Row,KeyedRow,Dataset,Result
 package proto
 
 import (
-	"sync"
+	"io"
+	"reflect"
 )
-
-import (
-	"github.com/arana-db/parser/ast"
-)
-
-import (
-	"github.com/arana-db/arana/pkg/constants/mysql"
-)
-
-// CloseableResult is a temporary solution for chan-based result.
-// Deprecated: TODO, should be removed in the future
-type CloseableResult struct {
-	once sync.Once
-	Result
-	Closer func() error
-}
-
-func (c *CloseableResult) Close() error {
-	var err error
-	c.once.Do(func() {
-		if c.Closer != nil {
-			err = c.Closer()
-		}
-	})
-	return err
-}
 
 type (
-	Value struct {
-		Typ   mysql.FieldType
-		Flags uint
-		Len   int
-		Val   interface{}
-		Raw   []byte
-	}
-
+	// Field contains the name and type of column, it follows sql.ColumnType.
 	Field interface {
-		TableName() string
 
-		DataBaseName() string
+		// Name returns the name or alias of the column.
+		Name() string
 
-		TypeDatabaseName() string
+		// DecimalSize returns the scale and precision of a decimal type.
+		// If not applicable or if not supported ok is false.
+		DecimalSize() (precision, scale int64, ok bool)
+
+		// ScanType returns a Go type suitable for scanning into using Rows.Scan.
+		// If a driver does not support this property ScanType will return
+		// the type of empty interface.
+		ScanType() reflect.Type
+
+		// Length returns the column type length for variable length column types such
+		// as text and binary field types. If the type length is unbounded the value will
+		// be math.MaxInt64 (any database limits will still apply).
+		// If the column type is not variable length, such as an int, or if not supported
+		// by the driver ok is false.
+		Length() (length int64, ok bool)
+
+		// Nullable reports whether the column may be null.
+		// If a driver does not support this property ok will be false.
+		Nullable() (nullable, ok bool)
+
+		// DatabaseTypeName returns the database system name of the column type. If an empty
+		// string is returned, then the driver type name is not supported.
+		// Consult your driver documentation for a list of driver data types. Length specifiers
+		// are not included.
+		// Common type names include "VARCHAR", "TEXT", "NVARCHAR", "DECIMAL", "BOOL",
+		// "INT", and "BIGINT".
+		DatabaseTypeName() string
 	}
 
-	// Row is an iterator over an executed query's results.
+	// Value represents the cell value of Row.
+	Value interface{}
+
+	// Row represents a row data from a result set.
 	Row interface {
-		// Columns returns the names of the columns. The number of
-		// columns of the result is inferred from the length of the
-		// slice. If a particular column name isn't known, an empty
-		// string should be returned for that entry.
-		Columns() []string
+		io.WriterTo
 
+		IsBinary() bool
+
+		// Length returns the length of Row.
+		Length() int
+
+		// Scan scans the Row to values.
+		Scan(dest []Value) error
+	}
+
+	// KeyedRow represents row with fields.
+	KeyedRow interface {
+		Row
+		// Fields returns the fields of row.
 		Fields() []Field
+		// Get returns the value of column name.
+		Get(name string) (Value, error)
+	}
 
-		// Data returns the result in bytes.
-		Data() []byte
+	Dataset interface {
+		io.Closer
 
-		Decode() ([]*Value, error)
+		// Fields returns the fields of Dataset.
+		Fields() ([]Field, error)
 
-		GetColumnValue(column string) (interface{}, error)
-
-		Encode(values []*Value, columns []Field, columnNames []string) Row
+		// Next returns the next row.
+		Next() (Row, error)
 	}
 
 	// Result is the result of a query execution.
 	Result interface {
-		// GetFields returns the fields.
-		GetFields() []Field
 
-		// GetRows returns the rows.
-		GetRows() []Row
+		// Dataset returns the Dataset.
+		Dataset() (Dataset, error)
 
 		// LastInsertId returns the database's auto-generated ID
 		// after, for example, an INSERT into a table with primary
@@ -100,16 +108,5 @@ type (
 		// RowsAffected returns the number of rows affected by the
 		// query.
 		RowsAffected() (uint64, error)
-	}
-
-	// Stmt is a buffer used for store prepare statement meta data
-	Stmt struct {
-		StatementID uint32
-		PrepareStmt string
-		ParamsCount uint16
-		ParamsType  []int32
-		ColumnNames []string
-		BindVars    map[string]interface{}
-		StmtNode    ast.StmtNode
 	}
 )

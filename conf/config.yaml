@@ -40,10 +40,6 @@ data:
       type: mysql
       sql_max_limit: -1
       tenant: arana
-      conn_props:
-        capacity: 10
-        max_capacity: 20
-        idle_timeout: 60
       groups:
         - name: employees_0000
           nodes:
@@ -57,6 +53,9 @@ data:
               labels:
                 zone: shanghai
               conn_props:
+                capacity: 8
+                max_capacity: 64
+                idle_timeout: "30m"
                 readTimeout: "1s"
                 writeTimeout: "1s"
                 parseTime: true

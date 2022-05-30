@@ -15,27 +15,40 @@
  * limitations under the License.
  */
 
-package plan
+package dataset
 
 import (
-	"context"
+	"io"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/resultx"
 )
 
-var _ proto.Plan = (*AlwaysEmptyExecPlan)(nil)
+var _ proto.Dataset = (*VirtualDataset)(nil)
 
-// AlwaysEmptyExecPlan represents an exec plan which affects nothing.
-type AlwaysEmptyExecPlan struct {
+type VirtualDataset struct {
+	Columns []proto.Field
+	Rows    []proto.Row
 }
 
-func (a AlwaysEmptyExecPlan) Type() proto.PlanType {
-	return proto.PlanTypeExec
+func (cu *VirtualDataset) Close() error {
+	return nil
 }
 
-func (a AlwaysEmptyExecPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
-	return resultx.New(), nil
+func (cu *VirtualDataset) Fields() ([]proto.Field, error) {
+	return cu.Columns, nil
+}
+
+func (cu *VirtualDataset) Next() (proto.Row, error) {
+	if len(cu.Rows) < 1 {
+		return nil, io.EOF
+	}
+
+	next := cu.Rows[0]
+
+	cu.Rows[0] = nil
+	cu.Rows = cu.Rows[1:]
+
+	return next, nil
 }

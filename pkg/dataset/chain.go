@@ -15,27 +15,49 @@
  * limitations under the License.
  */
 
-package plan
-
-import (
-	"context"
-)
+package dataset
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/resultx"
 )
 
-var _ proto.Plan = (*AlwaysEmptyExecPlan)(nil)
+type pipeOption []func(proto.Dataset) proto.Dataset
 
-// AlwaysEmptyExecPlan represents an exec plan which affects nothing.
-type AlwaysEmptyExecPlan struct {
+func Filter(predicate PredicateFunc) Option {
+	return func(option *pipeOption) {
+		*option = append(*option, func(prev proto.Dataset) proto.Dataset {
+			return FilterDataset{
+				Dataset:   prev,
+				Predicate: predicate,
+			}
+		})
+	}
 }
 
-func (a AlwaysEmptyExecPlan) Type() proto.PlanType {
-	return proto.PlanTypeExec
+func Map(generateFields FieldsFunc, transform TransformFunc) Option {
+	return func(option *pipeOption) {
+		*option = append(*option, func(dataset proto.Dataset) proto.Dataset {
+			return &TransformDataset{
+				Dataset:      dataset,
+				FieldsGetter: generateFields,
+				Transform:    transform,
+			}
+		})
+	}
 }
 
-func (a AlwaysEmptyExecPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
-	return resultx.New(), nil
+type Option func(*pipeOption)
+
+func Pipe(root proto.Dataset, options ...Option) proto.Dataset {
+	var o pipeOption
+	for _, it := range options {
+		it(&o)
+	}
+
+	next := root
+	for _, it := range o {
+		next = it(next)
+	}
+
+	return next
 }
