@@ -15,12 +15,7 @@
  * limitations under the License.
  */
 
-package plan
-
-import (
-	"context"
-	"strings"
-)
+package dataset
 
 import (
 	"github.com/pkg/errors"
@@ -28,35 +23,49 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
-var _ proto.Plan = (*ShowIndexPlan)(nil)
+var _ proto.Dataset = (*TransformDataset)(nil)
 
-type ShowIndexPlan struct {
-	basePlan
-	Stmt *ast.ShowIndex
+type (
+	FieldsFunc    func([]proto.Field) []proto.Field
+	TransformFunc func(proto.Row) (proto.Row, error)
+)
+
+type TransformDataset struct {
+	proto.Dataset
+	FieldsGetter FieldsFunc
+	Transform    TransformFunc
 }
 
-func (s *ShowIndexPlan) Type() proto.PlanType {
-	return proto.PlanTypeQuery
+func (td TransformDataset) Fields() ([]proto.Field, error) {
+	origin, err := td.Dataset.Fields()
+	if err != nil {
+		return nil, err
+	}
+	if td.FieldsGetter == nil {
+		return origin, nil
+	}
+	return td.FieldsGetter(origin), nil
 }
 
-func (s *ShowIndexPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
-	var (
-		sb      strings.Builder
-		indexes []int
-		err     error
-	)
-
-	if err = s.Stmt.Restore(ast.RestoreDefault, &sb, &indexes); err != nil {
-		return nil, errors.WithStack(err)
+func (td *TransformDataset) Next() (proto.Row, error) {
+	if td.Transform == nil {
+		return td.Dataset.Next()
 	}
 
 	var (
-		query = sb.String()
-		args  = s.toArgs(indexes)
+		row proto.Row
+		err error
 	)
 
-	return conn.Query(ctx, "", query, args...)
+	if row, err = td.Dataset.Next(); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	if row, err = td.Transform(row); err != nil {
+		return nil, errors.Wrap(err, "failed to transform dataset")
+	}
+
+	return row, nil
 }

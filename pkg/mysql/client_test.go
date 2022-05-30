@@ -304,22 +304,22 @@ func TestPrepare(t *testing.T) {
 	assert.Equal(t, 0, stmt.paramCount)
 }
 
-func TestReadComQueryResponse(t *testing.T) {
-	dsn := "admin:123456@tcp(127.0.0.1:3306)/pass?allowAllFiles=true&allowCleartextPasswords=true"
-	cfg, _ := ParseDSN(dsn)
-	conn := &BackendConnection{conf: cfg}
-	conn.c = newConn(new(mockConn))
-	buf := make([]byte, 13)
-	buf[0] = 9
-	buf[4] = mysql.OKPacket
-	buf[5] = 1
-	buf[6] = 1
-	conn.c.conn.(*mockConn).data = buf
-	affectedRows, lastInsertID, _, _, _, err := conn.ReadComQueryResponse()
-	assert.NoError(t, err)
-	assert.Equal(t, uint64(0x1), affectedRows)
-	assert.Equal(t, uint64(0x1), lastInsertID)
-}
+//func TestReadComQueryResponse(t *testing.T) {
+//	dsn := "admin:123456@tcp(127.0.0.1:3306)/pass?allowAllFiles=true&allowCleartextPasswords=true"
+//	cfg, _ := ParseDSN(dsn)
+//	conn := &BackendConnection{conf: cfg}
+//	conn.c = newConn(new(mockConn))
+//	buf := make([]byte, 13)
+//	buf[0] = 9
+//	buf[4] = mysql.OKPacket
+//	buf[5] = 1
+//	buf[6] = 1
+//	conn.c.conn.(*mockConn).data = buf
+//	affectedRows, lastInsertID, _, _, _, err := conn.ReadComQueryResponse()
+//	assert.NoError(t, err)
+//	assert.Equal(t, uint64(0x1), affectedRows)
+//	assert.Equal(t, uint64(0x1), lastInsertID)
+//}
 
 func TestReadColumnDefinition(t *testing.T) {
 	dsn := "admin:123456@tcp(127.0.0.1:3306)/pass?allowAllFiles=true&allowCleartextPasswords=true"

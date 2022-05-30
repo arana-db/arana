@@ -18,8 +18,10 @@
 package transformer
 
 import (
+	"database/sql"
 	"io"
 	"math"
+	"sync"
 )
 
 import (
@@ -29,10 +31,11 @@ import (
 )
 
 import (
-	mysql2 "github.com/arana-db/arana/pkg/constants/mysql"
-	"github.com/arana-db/arana/pkg/mysql"
+	"github.com/arana-db/arana/pkg/dataset"
+	"github.com/arana-db/arana/pkg/mysql/rows"
 	"github.com/arana-db/arana/pkg/proto"
-	ast2 "github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/resultx"
+	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
 type combinerManager struct {
@@ -45,115 +48,108 @@ type (
 )
 
 func (c combinerManager) Merge(result proto.Result, loader *AggrLoader) (proto.Result, error) {
-	if closer, ok := result.(io.Closer); ok {
-		defer func() {
-			_ = closer.Close()
-		}()
-	}
-
-	result = &mysql.Result{
-		Fields:   result.GetFields(),
-		Rows:     result.GetRows(),
-		DataChan: make(chan proto.Row, 1),
-	}
-
 	if len(loader.Aggrs) < 1 {
 		return result, nil
 	}
 
-	rows := result.GetRows()
-	rowsLen := len(rows)
-	if rowsLen < 1 {
-		return result, nil
+	ds, err := result.Dataset()
+	if err != nil {
+		return nil, errors.WithStack(err)
 	}
 
-	mergeRows := make([]proto.Row, 0, 1)
-	mergeVals := make([]*proto.Value, 0, len(loader.Aggrs))
+	defer func() {
+		_ = ds.Close()
+	}()
+
+	mergeVals := make([]proto.Value, 0, len(loader.Aggrs))
 	for i := 0; i < len(loader.Aggrs); i++ {
 		switch loader.Aggrs[i][0] {
-		case ast2.AggrAvg:
-			mergeVals = append(mergeVals, &proto.Value{Typ: mysql2.FieldTypeDecimal, Val: gxbig.NewDecFromInt(0), Len: 8})
-		case ast2.AggrMin:
-			mergeVals = append(mergeVals, &proto.Value{Typ: mysql2.FieldTypeDecimal, Val: gxbig.NewDecFromInt(math.MaxInt64), Len: 8})
-		case ast2.AggrMax:
-			mergeVals = append(mergeVals, &proto.Value{Typ: mysql2.FieldTypeDecimal, Val: gxbig.NewDecFromInt(math.MinInt64), Len: 8})
+		case ast.AggrAvg:
+			mergeVals = append(mergeVals, gxbig.NewDecFromInt(0))
+		case ast.AggrMin:
+			mergeVals = append(mergeVals, gxbig.NewDecFromInt(math.MaxInt64))
+		case ast.AggrMax:
+			mergeVals = append(mergeVals, gxbig.NewDecFromInt(math.MinInt64))
 		default:
-			mergeVals = append(mergeVals, &proto.Value{Typ: mysql2.FieldTypeLongLong, Val: gxbig.NewDecFromInt(0), Len: 8})
+			mergeVals = append(mergeVals, gxbig.NewDecFromInt(0))
 		}
 	}
 
-	for _, row := range rows {
-		tRow := &mysql.TextRow{
-			Row: mysql.Row{
-				Content: row.Data(),
-				ResultSet: &mysql.ResultSet{
-					Columns:     row.Fields(),
-					ColumnNames: row.Columns(),
-				},
-			},
-		}
-		vals, err := tRow.Decode()
-		if err != nil {
-			return result, errors.WithStack(err)
+	var (
+		row       proto.Row
+		fields, _ = ds.Fields()
+		vals      = make([]proto.Value, len(fields))
+
+		isBinary     bool
+		isBinaryOnce sync.Once
+	)
+
+	for {
+		row, err = ds.Next()
+		if errors.Is(err, io.EOF) {
+			break
 		}
 
-		if vals == nil {
-			continue
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to aggregate values")
 		}
+
+		if err = row.Scan(vals); err != nil {
+			return nil, errors.Wrap(err, "failed to aggregate values")
+		}
+
+		isBinaryOnce.Do(func() {
+			isBinary = row.IsBinary()
+		})
 
 		for aggrIdx := range loader.Aggrs {
-			dummyVal := mergeVals[aggrIdx].Val.(*gxbig.Decimal)
-			switch loader.Aggrs[aggrIdx][0] {
-			case ast2.AggrMax:
-				if v, ok := vals[aggrIdx].Val.([]uint8); ok {
-					floatDecimal, err := gxbig.NewDecFromString(string(v))
-					if err != nil {
-						return nil, errors.WithStack(err)
-					}
-					if dummyVal.Compare(floatDecimal) < 0 {
-						dummyVal = floatDecimal
-					}
-				}
-			case ast2.AggrMin:
-				if v, ok := vals[aggrIdx].Val.([]uint8); ok {
-					floatDecimal, err := gxbig.NewDecFromString(string(v))
-					if err != nil {
-						return nil, errors.WithStack(err)
-					}
-					if dummyVal.Compare(floatDecimal) > 0 {
-						dummyVal = floatDecimal
-					}
-				}
-			case ast2.AggrSum, ast2.AggrCount:
-				if v, ok := vals[aggrIdx].Val.([]uint8); ok {
-					floatDecimal, err := gxbig.NewDecFromString(string(v))
-					if err != nil {
-						return nil, errors.WithStack(err)
-					}
-					gxbig.DecimalAdd(dummyVal, floatDecimal, dummyVal)
-				}
+			dummyVal := mergeVals[aggrIdx].(*gxbig.Decimal)
+			var (
+				s            sql.NullString
+				floatDecimal *gxbig.Decimal
+			)
+			_ = s.Scan(vals[aggrIdx])
+
+			if !s.Valid {
+				continue
 			}
-			mergeVals[aggrIdx].Val = dummyVal
+
+			if floatDecimal, err = gxbig.NewDecFromString(s.String); err != nil {
+				return nil, errors.WithStack(err)
+			}
+
+			switch loader.Aggrs[aggrIdx][0] {
+			case ast.AggrMax:
+				if dummyVal.Compare(floatDecimal) < 0 {
+					dummyVal = floatDecimal
+				}
+			case ast.AggrMin:
+				if dummyVal.Compare(floatDecimal) > 0 {
+					dummyVal = floatDecimal
+				}
+			case ast.AggrSum, ast.AggrCount:
+				_ = gxbig.DecimalAdd(dummyVal, floatDecimal, dummyVal)
+			}
+			mergeVals[aggrIdx] = dummyVal
 		}
 	}
 
 	for aggrIdx := range loader.Aggrs {
-		val := mergeVals[aggrIdx].Val.(*gxbig.Decimal)
-		mergeVals[aggrIdx].Val, _ = val.ToFloat64()
-		mergeVals[aggrIdx].Raw = []byte(val.String())
-		mergeVals[aggrIdx].Len = len(mergeVals[aggrIdx].Raw)
+		val := mergeVals[aggrIdx].(*gxbig.Decimal)
+		mergeVals[aggrIdx] = val
 	}
-	r := &mysql.TextRow{}
-	row := r.Encode(mergeVals, result.GetFields(), loader.Alias).(*mysql.TextRow)
-	mergeRows = append(mergeRows, &row.Row)
 
-	return &mysql.Result{
-		Fields:       result.GetFields(),
-		Rows:         mergeRows,
-		AffectedRows: 1,
-		InsertId:     0,
-		DataChan:     make(chan proto.Row, 1),
-	}, nil
+	ret := &dataset.VirtualDataset{
+		Columns: fields,
+	}
+
+	if isBinary {
+		ret.Rows = append(ret.Rows, rows.NewBinaryVirtualRow(fields, mergeVals))
+	} else {
+		ret.Rows = append(ret.Rows, rows.NewTextVirtualRow(fields, mergeVals))
+	}
+
+	return resultx.New(resultx.WithDataset(ret)), nil
 }
 
 func NewCombinerManager() Combiner {

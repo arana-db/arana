@@ -22,6 +22,10 @@ import (
 	"fmt"
 )
 
+import (
+	"github.com/arana-db/arana/pkg/proto"
+)
+
 type PriorityQueue struct {
 	results      []*MergeRows
 	orderByItems []OrderByItem
@@ -47,8 +51,11 @@ func (pq *PriorityQueue) Len() int {
 
 func (pq *PriorityQueue) Less(i, j int) bool {
 	for _, item := range pq.orderByItems {
-		val1, _ := pq.results[i].GetCurrentRow().GetColumnValue(item.Column)
-		val2, _ := pq.results[j].GetCurrentRow().GetColumnValue(item.Column)
+		rowi := pq.results[i].GetCurrentRow().(proto.KeyedRow)
+		rowj := pq.results[j].GetCurrentRow().(proto.KeyedRow)
+
+		val1, _ := rowi.Get(item.Column)
+		val2, _ := rowj.Get(item.Column)
 		if val1 != val2 {
 			if item.Desc {
 				return fmt.Sprintf("%v", val1) > fmt.Sprintf("%v", val2)

@@ -41,7 +41,7 @@ func buildGroupValues(groupByColumns []string, row proto.Row) []interface{} {
 	values := make([]interface{}, 0)
 
 	for _, column := range groupByColumns {
-		value, err := row.GetColumnValue(column)
+		value, err := row.(proto.KeyedRow).Get(column)
 		if err != nil {
 			panic("get column value error:" + err.Error())
 		}

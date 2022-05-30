@@ -43,6 +43,12 @@ import (
 
 type Option func(*MySuite)
 
+func WithDevMode() Option {
+	return func(mySuite *MySuite) {
+		mySuite.devMode = true
+	}
+}
+
 func WithMySQLServerAuth(username, password string) Option {
 	return func(mySuite *MySuite) {
 		mySuite.username = username
@@ -59,6 +65,8 @@ func WithMySQLDatabase(database string) Option {
 type MySuite struct {
 	suite.Suite
 
+	devMode bool
+
 	username, password, database string
 	port                         int
 
@@ -72,7 +80,7 @@ type MySuite struct {
 
 func NewMySuite(options ...Option) *MySuite {
 	ms := &MySuite{
-		port: 3306,
+		port: 13306,
 	}
 	for _, it := range options {
 		it(ms)
@@ -106,6 +114,10 @@ func (ms *MySuite) DB() *sql.DB {
 }
 
 func (ms *MySuite) SetupSuite() {
+	if ms.devMode {
+		return
+	}
+
 	var (
 		mt = MySQLContainerTester{
 			Username: ms.username,
@@ -138,6 +150,12 @@ func (ms *MySuite) SetupSuite() {
 }
 
 func (ms *MySuite) TearDownSuite() {
+	if ms.devMode {
+		if ms.db != nil {
+			_ = ms.db.Close()
+		}
+		return
+	}
 	if len(ms.tmpFile) > 0 {
 		ms.T().Logf("====== remove temp arana config file: %s ====== \n", ms.tmpFile)
 		_ = os.Remove(ms.tmpFile)

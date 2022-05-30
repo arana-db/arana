@@ -36,7 +36,7 @@ func TestTableName(t *testing.T) {
 
 func TestDataBaseName(t *testing.T) {
 	field := createDefaultField()
-	assert.Equal(t, "db_arana", field.DataBaseName())
+	assert.Equal(t, "db_arana", field.DatabaseName())
 }
 
 func TestTypeDatabaseName(t *testing.T) {
@@ -83,7 +83,7 @@ func TestTypeDatabaseName(t *testing.T) {
 	}
 	for _, unit := range unitTests {
 		field := createField(unit.field, mysql.Collations[unit.collation])
-		assert.Equal(t, unit.expected, field.TypeDatabaseName())
+		assert.Equal(t, unit.expected, field.DatabaseTypeName())
 	}
 }
 

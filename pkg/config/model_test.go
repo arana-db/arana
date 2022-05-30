@@ -64,10 +64,6 @@ func TestDataSourceClustersConf(t *testing.T) {
 	assert.Equal(t, DBMySQL, dataSourceCluster.Type)
 	assert.Equal(t, -1, dataSourceCluster.SqlMaxLimit)
 	assert.Equal(t, "arana", dataSourceCluster.Tenant)
-	assert.NotNil(t, dataSourceCluster.ConnProps)
-	assert.Equal(t, 10, dataSourceCluster.ConnProps.Capacity)
-	assert.Equal(t, 20, dataSourceCluster.ConnProps.MaxCapacity)
-	assert.Equal(t, 60, dataSourceCluster.ConnProps.IdleTimeout)
 
 	assert.Equal(t, 1, len(dataSourceCluster.Groups))
 	group := dataSourceCluster.Groups[0]
