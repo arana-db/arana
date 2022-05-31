@@ -19,10 +19,12 @@ package order_by
 
 import (
 	"fmt"
+	"time"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/merge"
+	"github.com/arana-db/arana/pkg/proto"
 )
 
 type OrderByItem struct {
@@ -61,7 +63,7 @@ func (value *OrderByValue) Next() bool {
 
 func (value *OrderByValue) buildOrderValues() {
 	for _, item := range value.orderByItems {
-		val, err := value.row.GetCurrentRow().GetColumnValue(item.Column)
+		val, err := value.row.GetCurrentRow().(proto.KeyedRow).Get(item.Column)
 		if err != nil {
 			panic("get order by column value error:" + err.Error())
 		}
@@ -88,7 +90,9 @@ func compareTo(thisValue, otherValue interface{}, nullDesc, desc, caseSensitive 
 	if thisValue == nil && otherValue == nil {
 		return 0
 	}
-	if thisValue == nil && nullDesc {
+	value := thisValue
+	if thisValue == nil {
+		value = otherValue
 		if nullDesc {
 			return -1
 		} else {
@@ -103,7 +107,38 @@ func compareTo(thisValue, otherValue interface{}, nullDesc, desc, caseSensitive 
 		}
 	}
 	// TODO Deal with case sensitive.
-	// TODO How to compare the interface{}
+	switch value.(type) {
+	case string:
+		return compareString(fmt.Sprintf("%v", thisValue), fmt.Sprintf("%v", otherValue), desc)
+	case int8, int16, int32, int64:
+		return compareInt64(thisValue.(int64), otherValue.(int64), desc)
+	case uint8, uint16, uint32, uint64:
+		return compareUint64(thisValue.(uint64), otherValue.(uint64), desc)
+	case float32, float64:
+		return compareFloat64(thisValue.(float64), otherValue.(float64), desc)
+	case time.Time:
+		return compareTime(thisValue.(time.Time), otherValue.(time.Time), desc)
+	}
+	return 0
+}
+
+func compareTime(thisValue, otherValue time.Time, desc bool) int8 {
+	if desc {
+		if thisValue.After(otherValue) {
+			return -1
+		} else {
+			return 1
+		}
+	} else {
+		if thisValue.After(otherValue) {
+			return 1
+		} else {
+			return -1
+		}
+	}
+}
+
+func compareString(thisValue, otherValue string, desc bool) int8 {
 	if desc {
 		if fmt.Sprintf("%v", thisValue) > fmt.Sprintf("%v", otherValue) {
 			return -1
@@ -112,6 +147,54 @@ func compareTo(thisValue, otherValue interface{}, nullDesc, desc, caseSensitive 
 		}
 	} else {
 		if fmt.Sprintf("%v", thisValue) > fmt.Sprintf("%v", otherValue) {
+			return 1
+		} else {
+			return -1
+		}
+	}
+}
+
+func compareInt64(thisValue, otherValue int64, desc bool) int8 {
+	if desc {
+		if thisValue > otherValue {
+			return -1
+		} else {
+			return 1
+		}
+	} else {
+		if thisValue > otherValue {
+			return 1
+		} else {
+			return -1
+		}
+	}
+}
+
+func compareUint64(thisValue, otherValue uint64, desc bool) int8 {
+	if desc {
+		if thisValue > otherValue {
+			return -1
+		} else {
+			return 1
+		}
+	} else {
+		if thisValue > otherValue {
+			return 1
+		} else {
+			return -1
+		}
+	}
+}
+
+func compareFloat64(thisValue, otherValue float64, desc bool) int8 {
+	if desc {
+		if thisValue > otherValue {
+			return -1
+		} else {
+			return 1
+		}
+	} else {
+		if thisValue > otherValue {
 			return 1
 		} else {
 			return -1
