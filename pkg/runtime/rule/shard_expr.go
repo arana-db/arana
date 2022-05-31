@@ -32,17 +32,15 @@ import (
 
 var _ rule.ShardComputer = (*exprShardComputer)(nil)
 
-const (
-	exprPlaceholderName = "value" // expr placeholder name
-)
-
 type exprShardComputer struct {
-	expr string
+	expr   string
+	column string
 }
 
-func NewExprShardComputer(expr string) (rule.ShardComputer, error) {
+func NewExprShardComputer(expr, column string) (rule.ShardComputer, error) {
 	result := &exprShardComputer{
-		expr: expr,
+		expr:   expr,
+		column: column,
 	}
 	return result, nil
 }
@@ -52,14 +50,17 @@ func (compute *exprShardComputer) Compute(value interface{}) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	if len(vars) != 1 || vars[0] != exprPlaceholderName {
+	if len(vars) != 1 || vars[0] != Var(compute.column) {
 		return 0, errors.Errorf("Parse shard expr is error, expr is: %s", compute.expr)
 	}
-	_value := fmt.Sprintf("%v", value)
-	eval, _ := expr.Eval(Env{exprPlaceholderName: Value(_value)})
+
+	shardValue := fmt.Sprintf("%v", value)
+	eval, _ := expr.Eval(Env{Var(compute.column): Value(shardValue)})
+
 	result, err := strconv.ParseFloat(eval.String(), 64)
 	if err != nil {
 		return 0, err
 	}
+
 	return int(result), nil
 }
