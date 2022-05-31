@@ -526,18 +526,18 @@ func toSharder(input *config.Rule) (rule.ShardComputer, error) {
 		mod, _ = strconv.Atoi(mat[2])
 	}
 
-	switch input.Type {
-	case string(rrule.ModShard):
+	switch rrule.ShardType(input.Type) {
+	case rrule.ModShard:
 		computer = rrule.NewModShard(mod)
-	case string(rrule.HashMd5Shard):
+	case rrule.HashMd5Shard:
 		computer = rrule.NewHashMd5Shard(mod)
-	case string(rrule.HashBKDRShard):
+	case rrule.HashBKDRShard:
 		computer = rrule.NewHashBKDRShard(mod)
-	case string(rrule.HashCrc32Shard):
+	case rrule.HashCrc32Shard:
 		computer = rrule.NewHashCrc32Shard(mod)
-	case string(rrule.FunctionExpr):
+	case rrule.FunctionExpr:
 		computer, err = rrule.NewExprShardComputer(input.Expr)
-	case string(rrule.ScriptExpr):
+	case rrule.ScriptExpr:
 		computer, err = rrule.NewJavascriptShardComputer(input.Expr)
 	default:
 		panic(fmt.Errorf("error config, unsupport shard type: %s", input.Type))
