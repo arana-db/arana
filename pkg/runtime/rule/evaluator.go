@@ -18,7 +18,7 @@
 package rule
 
 import (
-	encode "encoding/binary"
+	"encoding/binary"
 	stdErrors "errors"
 	"fmt"
 	"math"
@@ -245,11 +245,11 @@ func (t *KeyedEvaluator) ToLogical() logical.Logical {
 		suffix = fmt.Sprintf("%016X", v)
 	case uint:
 		var b [8]byte
-		encode.BigEndian.PutUint64(b[:], uint64(v))
+		binary.BigEndian.PutUint64(b[:], uint64(v))
 		suffix = fmt.Sprintf("%016X", b)
 	case uint64:
 		var b [8]byte
-		encode.BigEndian.PutUint64(b[:], v)
+		binary.BigEndian.PutUint64(b[:], v)
 		suffix = fmt.Sprintf("%016X", b)
 	case time.Time:
 		suffix = fmt.Sprintf("%016X", v.Unix())

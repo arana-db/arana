@@ -214,7 +214,7 @@ func TestString(t *testing.T) {
 	}
 	t.Logf("%v string %s", e, e)
 
-	e = binary{
+	e = binaryExpr{
 		op: '+',
 		x:  stringConstant("1"),
 		y:  stringConstant("1"),

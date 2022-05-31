@@ -139,12 +139,12 @@ func (u unary) String() string {
 }
 
 // A binary represents a binary operator expression, e.g., x+y.
-type binary struct {
+type binaryExpr struct {
 	op   rune // one of '+', '-', '*', '/', '%'
 	x, y Expr
 }
 
-func (b binary) Eval(env Env) (Value, error) {
+func (b binaryExpr) Eval(env Env) (Value, error) {
 	xv, err := b.x.Eval(env)
 	if err != nil {
 		return xv, err
@@ -194,13 +194,13 @@ func (b binary) Eval(env Env) (Value, error) {
 	return Value(fmt.Sprintf("%f", f)), nil
 }
 
-func (b binary) String() string {
+func (b binaryExpr) String() string {
 	var buf bytes.Buffer
 	write(&buf, b)
 	return buf.String()
 }
 
-func (b binary) Check(vars map[Var]bool) error {
+func (b binaryExpr) Check(vars map[Var]bool) error {
 	if !strings.ContainsRune("+-*/%", b.op) {
 		return fmt.Errorf("unexpected binary op %q", b.op)
 	}
@@ -227,7 +227,7 @@ func (c function) Eval(env Env) (Value, error) {
 		return c.args[0].Eval(env)
 
 	case "hash":
-		b := binary{
+		b := binaryExpr{
 			op: '%',
 			x:  c.args[0],
 			y:  constant(2),
@@ -238,7 +238,7 @@ func (c function) Eval(env Env) (Value, error) {
 		return b.Eval(env)
 
 	case "add":
-		b := binary{
+		b := binaryExpr{
 			op: '+',
 			x:  c.args[0],
 			y:  c.args[1],
@@ -246,7 +246,7 @@ func (c function) Eval(env Env) (Value, error) {
 		return b.Eval(env)
 
 	case "sub":
-		b := binary{
+		b := binaryExpr{
 			op: '-',
 			x:  c.args[0],
 			y:  c.args[1],
@@ -254,7 +254,7 @@ func (c function) Eval(env Env) (Value, error) {
 		return b.Eval(env)
 
 	case "mul":
-		b := binary{
+		b := binaryExpr{
 			op: '*',
 			x:  c.args[0],
 			y:  c.args[1],
@@ -262,7 +262,7 @@ func (c function) Eval(env Env) (Value, error) {
 		return b.Eval(env)
 
 	case "div":
-		b := binary{
+		b := binaryExpr{
 			op: '/',
 			x:  c.args[0],
 			y:  c.args[1],
@@ -523,10 +523,10 @@ func write(buf *bytes.Buffer, e Expr) {
 		write(buf, u.x)
 		buf.WriteByte(')')
 
-	case binary, *binary:
-		b, ok := e.(binary)
+	case binaryExpr, *binaryExpr:
+		b, ok := e.(binaryExpr)
 		if !ok {
-			b = *(e.(*binary))
+			b = *(e.(*binaryExpr))
 		}
 
 		buf.WriteByte('(')

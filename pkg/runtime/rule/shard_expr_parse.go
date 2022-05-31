@@ -146,7 +146,7 @@ func parseBinary(lex *lexer, prec1 int, s *stack) (*stack, Expr, error) {
 				return s1, nil, err
 			}
 			s = s1
-			lhs = binary{op: op, x: lhs, y: rhs}
+			lhs = binaryExpr{op: op, x: lhs, y: rhs}
 		}
 	}
 	return s, lhs, nil
