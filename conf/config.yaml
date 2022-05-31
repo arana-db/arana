@@ -72,7 +72,7 @@ data:
             type: scriptExpr
             expr: $value % 32
             #type: functionExpr
-            #expr: hash(toint(substr(#value#, 1, 2)), 32)
+            #expr: hash(toint(substr(#uid#, 1, 2)), 32)
         topology:
           db_pattern: employees_0000
           tbl_pattern: student_${0000...0031}
