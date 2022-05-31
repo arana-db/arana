@@ -56,6 +56,7 @@ func (pq *OrderPriorityQueue) Pop() interface{} {
 	n := len(old.orderByValues)
 	item := old.orderByValues[n-1]
 	pq.orderByValues = old.orderByValues[0 : n-1]
+	old.orderByValues[n-1] = nil
 	pq.update()
 	return item
 }
