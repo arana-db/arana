@@ -90,9 +90,7 @@ func compareTo(thisValue, otherValue interface{}, nullDesc, desc, caseSensitive 
 	if thisValue == nil && otherValue == nil {
 		return 0
 	}
-	value := thisValue
 	if thisValue == nil {
-		value = otherValue
 		if nullDesc {
 			return -1
 		} else {
@@ -107,7 +105,7 @@ func compareTo(thisValue, otherValue interface{}, nullDesc, desc, caseSensitive 
 		}
 	}
 	// TODO Deal with case sensitive.
-	switch value.(type) {
+	switch thisValue.(type) {
 	case string:
 		return compareString(fmt.Sprintf("%v", thisValue), fmt.Sprintf("%v", otherValue), desc)
 	case int8, int16, int32, int64:
