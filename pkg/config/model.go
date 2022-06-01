@@ -126,6 +126,7 @@ type (
 
 	Rule struct {
 		Column string `validate:"required" yaml:"column" json:"column"`
+		Type   string `validate:"required" yaml:"type" json:"type"`
 		Expr   string `validate:"required" yaml:"expr" json:"expr"`
 	}
 
