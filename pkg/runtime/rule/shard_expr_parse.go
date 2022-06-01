@@ -40,8 +40,6 @@ func (lex *lexer) move() {
 func (lex *lexer) text() string { return lex.scan.TokenText() }
 func (lex *lexer) peek() rune   { return lex.scan.Peek() }
 
-type lexPanic string
-
 // describe returns a string describing the current token, for use in errors.
 func (lex *lexer) describe() string {
 	switch lex.token {
@@ -80,7 +78,7 @@ func Parse(input string) (_ Expr, vars []Var, rerr error) {
 		switch x := recover().(type) {
 		case nil:
 			// no panic
-		case lexPanic:
+		case string:
 			rerr = fmt.Errorf("%s", x)
 		default:
 			rerr = fmt.Errorf("unexpected panic: resume state of panic")
