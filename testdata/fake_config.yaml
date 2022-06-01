@@ -50,9 +50,11 @@ data:
         allow_full_scan: true
         db_rules:
           - column: student_id
+            type: modShard
             expr: modShard(3)
         tbl_rules:
           - column: student_id
+            type: modShard
             expr: modShard(8)
         topology:
           db_pattern: employee_0000
