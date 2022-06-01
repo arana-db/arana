@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package order_by
+package order
 
 import (
 	"reflect"
