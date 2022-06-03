@@ -42,6 +42,7 @@ func (u UnionPlan) Type() proto.PlanType {
 }
 
 func (u UnionPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+	// TODO: ADD trace in all plan ExecIn
 	var results []proto.Result
 	for _, it := range u.Plans {
 		res, err := it.ExecIn(ctx, conn)

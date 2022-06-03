@@ -46,6 +46,7 @@ func (d DropTablePlan) Type() proto.PlanType {
 }
 
 func (d DropTablePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+	// TODO: ADD trace in all plan ExecIn
 	var sb strings.Builder
 	var args []int
 

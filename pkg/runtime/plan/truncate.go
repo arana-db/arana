@@ -51,6 +51,7 @@ func (s *TruncatePlan) Type() proto.PlanType {
 }
 
 func (s *TruncatePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+	// TODO: ADD trace in all plan ExecIn
 	if s.shards == nil || s.shards.IsEmpty() {
 		return &mysql.Result{AffectedRows: 0}, nil
 	}

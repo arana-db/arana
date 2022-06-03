@@ -55,6 +55,7 @@ func (d *AlterTablePlan) Type() proto.PlanType {
 }
 
 func (at *AlterTablePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+	// TODO: ADD trace in all plan ExecIn
 	if at.Shards == nil {
 		// non-sharding alter table
 		var sb strings.Builder

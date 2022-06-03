@@ -57,6 +57,7 @@ func (up *UpdatePlan) Type() proto.PlanType {
 }
 
 func (up *UpdatePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+	// TODO: ADD trace in all plan ExecIn
 	if up.shards == nil {
 		var sb strings.Builder
 		if err := up.stmt.Restore(ast.RestoreDefault, &sb, nil); err != nil {

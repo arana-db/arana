@@ -20,6 +20,7 @@ package optimize
 import (
 	"context"
 	stdErrors "errors"
+	"github.com/arana-db/arana/pkg/runtime"
 	"strings"
 )
 
@@ -84,7 +85,9 @@ func (o *optimizer) SchemaLoader() proto.SchemaLoader {
 }
 
 func (o optimizer) Optimize(ctx context.Context, conn proto.VConn, stmt ast.StmtNode, args ...interface{}) (plan proto.Plan, err error) {
+	ctx, span := runtime.Tracer.Start(ctx, "Optimize")
 	defer func() {
+		span.End()
 		if rec := recover(); rec != nil {
 			err = errors.Errorf("cannot analyze sql %s", rcontext.SQL(ctx))
 			log.Errorf("optimize panic: sql=%s, rec=%v", rcontext.SQL(ctx), rec)

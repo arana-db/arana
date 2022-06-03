@@ -22,6 +22,8 @@ import (
 	"encoding/json"
 	stdErrors "errors"
 	"fmt"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 	"io"
 	"sort"
 	"sync"
@@ -54,6 +56,8 @@ var (
 	_ Runtime     = (*defaultRuntime)(nil)
 	_ proto.VConn = (*defaultRuntime)(nil)
 	_ proto.VConn = (*compositeTx)(nil)
+
+	Tracer = otel.Tracer("runtime")
 )
 
 var (
@@ -168,8 +172,11 @@ func (tx *compositeTx) String() string {
 }
 
 func (tx *compositeTx) Execute(ctx *proto.Context) (res proto.Result, warn uint16, err error) {
+	var span trace.Span
+	ctx.Context, span = Tracer.Start(ctx.Context, "compositeTx.Execute")
 	execStart := time.Now()
 	defer func() {
+		span.End()
 		metrics.ExecuteDuration.Observe(time.Since(execStart).Seconds())
 	}()
 	if tx.closed.Load() {
@@ -227,10 +234,11 @@ func (tx *compositeTx) Commit(ctx context.Context) (proto.Result, uint16, error)
 	if !tx.closed.CAS(false, true) {
 		return nil, 0, errTxClosed
 	}
-
+	ctx, span := Tracer.Start(ctx, "compositeTx.Commit")
 	defer func() { // cleanup
 		tx.rt = nil
 		tx.txs = nil
+		span.End()
 	}()
 
 	var g errgroup.Group
@@ -257,6 +265,8 @@ func (tx *compositeTx) Commit(ctx context.Context) (proto.Result, uint16, error)
 }
 
 func (tx *compositeTx) Rollback(ctx context.Context) (proto.Result, uint16, error) {
+	ctx, span := Tracer.Start(ctx, "compositeTx.Rollback")
+	defer span.End()
 	if !tx.closed.CAS(false, true) {
 		return nil, 0, errTxClosed
 	}
@@ -534,6 +544,9 @@ type defaultRuntime struct {
 }
 
 func (pi *defaultRuntime) Begin(ctx *proto.Context) (proto.Tx, error) {
+	var span trace.Span
+	ctx.Context, span = Tracer.Start(ctx, "defaultRuntime.Begin")
+	defer span.End()
 	tx := &compositeTx{
 		id:  nextTxID(),
 		rt:  pi,
@@ -568,8 +581,11 @@ func (pi *defaultRuntime) Exec(ctx context.Context, db string, query string, arg
 }
 
 func (pi *defaultRuntime) Execute(ctx *proto.Context) (res proto.Result, warn uint16, err error) {
+	var span trace.Span
+	ctx.Context, span = Tracer.Start(ctx.Context, "defaultRuntime.Execute")
 	execStart := time.Now()
 	defer func() {
+		span.End()
 		metrics.ExecuteDuration.Observe(time.Since(execStart).Seconds())
 	}()
 	args := pi.extractArgs(ctx)

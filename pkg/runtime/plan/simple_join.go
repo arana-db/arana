@@ -50,6 +50,7 @@ func (s *SimpleJoinPlan) Type() proto.PlanType {
 }
 
 func (s *SimpleJoinPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+	// TODO: ADD trace in all plan ExecIn
 	var (
 		sb      strings.Builder
 		indexes []int

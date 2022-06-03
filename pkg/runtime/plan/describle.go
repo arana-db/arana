@@ -53,6 +53,7 @@ func (d *DescribePlan) ExecIn(ctx context.Context, vConn proto.VConn) (proto.Res
 		res     proto.Result
 		err     error
 	)
+	// TODO: ADD trace in all plan ExecIn
 
 	if err = d.generate(&sb, &indexes); err != nil {
 		return nil, errors.Wrap(err, "failed to generate desc/describe sql")

@@ -41,6 +41,7 @@ func (a *AggregatePlan) Type() proto.PlanType {
 }
 
 func (a *AggregatePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+	// TODO: ADD trace in all plan ExecIn
 	res, err := a.UnionPlan.ExecIn(ctx, conn)
 	if err != nil {
 		return nil, errors.WithStack(err)
