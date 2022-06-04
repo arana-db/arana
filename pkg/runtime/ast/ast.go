@@ -108,8 +108,23 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		return cc.convDropTableStmt(stmt), nil
 	case *ast.AlterTableStmt:
 		return cc.convAlterTableStmt(stmt), nil
+	case *ast.DropIndexStmt:
+		return cc.convDropIndexStmt(stmt), nil
 	default:
 		return nil, errors.Errorf("unimplement: stmt type %T!", stmt)
+	}
+}
+
+func (cc *convCtx) convDropIndexStmt(stmt *ast.DropIndexStmt) *DropIndexStatement {
+	var tableName TableName
+	if db := stmt.Table.Schema.O; len(db) > 0 {
+		tableName = append(tableName, db)
+	}
+	tableName = append(tableName, stmt.Table.Name.O)
+	return &DropIndexStatement{
+		IfExists:  stmt.IfExists,
+		IndexName: stmt.IndexName,
+		Table:     tableName,
 	}
 }
 
