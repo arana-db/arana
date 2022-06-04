@@ -39,6 +39,10 @@ import (
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
+var (
+	configFilenameList = []string{"config.yaml", "config.yml"}
+)
+
 func init() {
 	config.Register(&storeOperate{})
 }
@@ -164,13 +168,11 @@ func (s *storeOperate) readFromFile(path string, cfg *config.Configuration) erro
 func (s *storeOperate) searchDefaultConfigFile() (string, bool) {
 	var p string
 	for _, it := range constants.GetConfigSearchPathList() {
-		p = filepath.Join(it, "config.yaml")
-		if _, err := os.Stat(p); err == nil {
-			return p, true
-		}
-		p = filepath.Join(it, "config.yml")
-		if _, err := os.Stat(p); err == nil {
-			return p, true
+		for _, filename := range configFilenameList {
+			p = filepath.Join(it, filename)
+			if _, err := os.Stat(p); err == nil {
+				return p, true
+			}
 		}
 	}
 	return "", false
