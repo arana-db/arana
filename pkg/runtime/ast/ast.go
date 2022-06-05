@@ -506,6 +506,23 @@ func (cc *convCtx) convInsertStmt(stmt *ast.InsertStmt) Statement {
 		}
 	}
 
+	if stmt.Select != nil {
+		switch v := stmt.Select.(type) {
+		case *ast.SelectStmt:
+			return &InsertSelectStatement{
+				baseInsertStatement: &bi,
+				sel:                 cc.convSelectStmt(v),
+				duplicatedUpdates:   updates,
+			}
+		case *ast.SetOprStmt:
+			return &InsertSelectStatement{
+				baseInsertStatement: &bi,
+				unionSel:            cc.convUnionStmt(v),
+				duplicatedUpdates:   updates,
+			}
+		}
+	}
+
 	return &InsertStatement{
 		baseInsertStatement: &bi,
 		values:              values,

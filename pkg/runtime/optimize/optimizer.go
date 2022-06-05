@@ -106,6 +106,8 @@ func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.S
 		return o.optimizeSelect(ctx, conn, t, args)
 	case *rast.InsertStatement:
 		return o.optimizeInsert(ctx, conn, t, args)
+	case *rast.InsertSelectStatement:
+		return o.optimizeInsertSelect(ctx, conn, t, args)
 	case *rast.DeleteStatement:
 		return o.optimizeDelete(ctx, t, args)
 	case *rast.UpdateStatement:
@@ -610,6 +612,24 @@ func (o optimizer) optimizeInsert(ctx context.Context, conn proto.VConn, stmt *r
 	}
 
 	return ret, nil
+}
+
+func (o optimizer) optimizeInsertSelect(ctx context.Context, conn proto.VConn, stmt *rast.InsertSelectStatement, args []interface{}) (proto.Plan, error) {
+	var (
+		ru  = rcontext.Rule(ctx)
+		ret = plan.NewInsertSelectPlan()
+	)
+
+	ret.BindArgs(args)
+
+	if _, ok := ru.VTable(stmt.Table().Suffix()); !ok { // insert into non-sharding table
+		ret.Batch[""] = stmt
+		return ret, nil
+	}
+
+	// TODO: handle shard keys.
+
+	return nil, errors.New("not support insert-select into sharding table")
 }
 
 func (o optimizer) optimizeDelete(ctx context.Context, stmt *rast.DeleteStatement, args []interface{}) (proto.Plan, error) {
