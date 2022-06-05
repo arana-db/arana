@@ -633,36 +633,23 @@ func (o optimizer) optimizeDelete(ctx context.Context, stmt *rast.DeleteStatemen
 }
 
 func (o optimizer) optimizeShowTables(ctx context.Context, stmt *rast.ShowTables, args []interface{}) (proto.Plan, error) {
-	vts := rcontext.Rule(ctx).VTables()
-	databaseTablesMap := make(map[string]rule.DatabaseTables, len(vts))
-	for tableName, vt := range vts {
-		shards := rule.DatabaseTables{}
-		// compute all tables
-		topology := vt.Topology()
-		topology.Each(func(dbIdx, tbIdx int) bool {
-			if d, t, ok := topology.Render(dbIdx, tbIdx); ok {
-				shards[d] = append(shards[d], t)
+	var invertedIndex map[string]string
+	for logicalTable, v := range rcontext.Rule(ctx).VTables() {
+		t := v.Topology()
+		t.Each(func(x, y int) bool {
+			if _, phyTable, ok := t.Render(x, y); ok {
+				if invertedIndex == nil {
+					invertedIndex = make(map[string]string)
+				}
+				invertedIndex[phyTable] = logicalTable
 			}
 			return true
 		})
-		databaseTablesMap[tableName] = shards
-	}
-
-	tmpPlanData := make(map[string]plan.DatabaseTable)
-	for showTableName, databaseTables := range databaseTablesMap {
-		for databaseName, shardingTables := range databaseTables {
-			for _, shardingTable := range shardingTables {
-				tmpPlanData[shardingTable] = plan.DatabaseTable{
-					Database:  databaseName,
-					TableName: showTableName,
-				}
-			}
-		}
 	}
 
 	ret := plan.NewShowTablesPlan(stmt)
 	ret.BindArgs(args)
-	ret.SetAllShards(tmpPlanData)
+	ret.SetInvertedShards(invertedIndex)
 	return ret, nil
 }
 
@@ -768,6 +755,7 @@ func (o optimizer) rewriteSelectStatement(ctx context.Context, conn proto.VConn,
 			starExpand = true
 		}
 	}
+
 	if starExpand {
 		if len(tb) < 1 {
 			tb = stmt.From[0].TableName().Suffix()

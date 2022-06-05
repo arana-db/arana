@@ -15,27 +15,19 @@
  * limitations under the License.
  */
 
-package plan
+package proto
 
 import (
-	"context"
+	"github.com/arana-db/parser/ast"
 )
 
-import (
-	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/resultx"
-)
-
-var _ proto.Plan = (*AlwaysEmptyExecPlan)(nil)
-
-// AlwaysEmptyExecPlan represents an exec plan which affects nothing.
-type AlwaysEmptyExecPlan struct {
-}
-
-func (a AlwaysEmptyExecPlan) Type() proto.PlanType {
-	return proto.PlanTypeExec
-}
-
-func (a AlwaysEmptyExecPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
-	return resultx.New(), nil
+// Stmt is a buffer used for store prepare statement metadata.
+type Stmt struct {
+	StatementID uint32
+	PrepareStmt string
+	ParamsCount uint16
+	ParamsType  []int32
+	ColumnNames []string
+	BindVars    map[string]interface{}
+	StmtNode    ast.StmtNode
 }

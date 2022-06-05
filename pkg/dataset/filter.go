@@ -15,27 +15,38 @@
  * limitations under the License.
  */
 
-package plan
+package dataset
 
 import (
-	"context"
+	"github.com/pkg/errors"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/resultx"
 )
 
-var _ proto.Plan = (*AlwaysEmptyExecPlan)(nil)
+var _ proto.Dataset = (*FilterDataset)(nil)
 
-// AlwaysEmptyExecPlan represents an exec plan which affects nothing.
-type AlwaysEmptyExecPlan struct {
+type PredicateFunc func(proto.Row) bool
+
+type FilterDataset struct {
+	proto.Dataset
+	Predicate PredicateFunc
 }
 
-func (a AlwaysEmptyExecPlan) Type() proto.PlanType {
-	return proto.PlanTypeExec
-}
+func (f FilterDataset) Next() (proto.Row, error) {
+	if f.Predicate == nil {
+		return f.Dataset.Next()
+	}
 
-func (a AlwaysEmptyExecPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
-	return resultx.New(), nil
+	row, err := f.Dataset.Next()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	if !f.Predicate(row) {
+		return f.Next()
+	}
+
+	return row, nil
 }

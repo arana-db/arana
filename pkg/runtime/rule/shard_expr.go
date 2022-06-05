@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package plan
+package rule
 
 import (
-	"context"
-	"strings"
+	"fmt"
+	"strconv"
 )
 
 import (
@@ -27,36 +27,40 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/proto/rule"
 )
 
-var _ proto.Plan = (*ShowIndexPlan)(nil)
+var _ rule.ShardComputer = (*exprShardComputer)(nil)
 
-type ShowIndexPlan struct {
-	basePlan
-	Stmt *ast.ShowIndex
+type exprShardComputer struct {
+	expr   string
+	column string
 }
 
-func (s *ShowIndexPlan) Type() proto.PlanType {
-	return proto.PlanTypeQuery
+func NewExprShardComputer(expr, column string) (rule.ShardComputer, error) {
+	result := &exprShardComputer{
+		expr:   expr,
+		column: column,
+	}
+	return result, nil
 }
 
-func (s *ShowIndexPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
-	var (
-		sb      strings.Builder
-		indexes []int
-		err     error
-	)
-
-	if err = s.Stmt.Restore(ast.RestoreDefault, &sb, &indexes); err != nil {
-		return nil, errors.WithStack(err)
+func (compute *exprShardComputer) Compute(value interface{}) (int, error) {
+	expr, vars, err := Parse(compute.expr)
+	if err != nil {
+		return 0, err
+	}
+	if len(vars) != 1 || vars[0] != Var(compute.column) {
+		return 0, errors.Errorf("Parse shard expr is error, expr is: %s", compute.expr)
 	}
 
-	var (
-		query = sb.String()
-		args  = s.toArgs(indexes)
-	)
+	shardValue := fmt.Sprintf("%v", value)
+	eval, _ := expr.Eval(Env{Var(compute.column): Value(shardValue)})
 
-	return conn.Query(ctx, "", query, args...)
+	result, err := strconv.ParseFloat(eval.String(), 64)
+	if err != nil {
+		return 0, err
+	}
+
+	return int(result), nil
 }

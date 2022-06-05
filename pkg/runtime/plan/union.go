@@ -19,17 +19,16 @@ package plan
 
 import (
 	"context"
-	"io"
 )
 
 import (
 	"github.com/pkg/errors"
-
-	"go.uber.org/multierr"
 )
 
 import (
+	"github.com/arana-db/arana/pkg/dataset"
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/resultx"
 )
 
 // UnionPlan merges multiple query plan.
@@ -42,53 +41,67 @@ func (u UnionPlan) Type() proto.PlanType {
 }
 
 func (u UnionPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
-	var results []proto.Result
+	switch u.Plans[0].Type() {
+	case proto.PlanTypeQuery:
+		return u.query(ctx, conn)
+	case proto.PlanTypeExec:
+		return u.exec(ctx, conn)
+	default:
+		panic("unreachable")
+	}
+}
+
+func (u UnionPlan) query(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+	var generators []dataset.GenerateFunc
 	for _, it := range u.Plans {
-		res, err := it.ExecIn(ctx, conn)
+		it := it
+		generators = append(generators, func() (proto.Dataset, error) {
+			res, err := it.ExecIn(ctx, conn)
+			if err != nil {
+				return nil, errors.WithStack(err)
+			}
+			return res.Dataset()
+		})
+	}
+	ds, err := dataset.Fuse(generators[0], generators[1:]...)
+	if err != nil {
+		return nil, err
+	}
+	return resultx.New(resultx.WithDataset(ds)), nil
+}
+
+func (u UnionPlan) exec(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+	var id, affects uint64
+	for _, it := range u.Plans {
+		i, n, err := u.execOne(ctx, conn, it)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
-		results = append(results, res)
+		affects += n
+		id += i
 	}
 
-	return compositeResult(results), nil
+	return resultx.New(resultx.WithLastInsertID(id), resultx.WithRowsAffected(affects)), nil
 }
 
-type compositeResult []proto.Result
-
-func (c compositeResult) Close() error {
-	var errs []error
-	for _, it := range c {
-		if closer, ok := it.(io.Closer); ok {
-			if err := closer.Close(); err != nil {
-				errs = append(errs, err)
-			}
-		}
+func (u UnionPlan) execOne(ctx context.Context, conn proto.VConn, p proto.Plan) (uint64, uint64, error) {
+	res, err := p.ExecIn(ctx, conn)
+	if err != nil {
+		return 0, 0, errors.WithStack(err)
 	}
-	return multierr.Combine(errs...)
-}
 
-func (c compositeResult) GetFields() []proto.Field {
-	for _, it := range c {
-		if ret := it.GetFields(); ret != nil {
-			return ret
-		}
+	defer resultx.Drain(res)
+
+	id, err := res.LastInsertId()
+
+	if err != nil {
+		return 0, 0, errors.WithStack(err)
 	}
-	return nil
-}
 
-func (c compositeResult) GetRows() []proto.Row {
-	var rows []proto.Row
-	for _, it := range c {
-		rows = append(rows, it.GetRows()...)
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return 0, 0, errors.WithStack(err)
 	}
-	return rows
-}
 
-func (c compositeResult) LastInsertId() (uint64, error) {
-	return 0, nil
-}
-
-func (c compositeResult) RowsAffected() (uint64, error) {
-	return 0, nil
+	return id, affected, nil
 }
