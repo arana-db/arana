@@ -22,22 +22,21 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
-)
 
-import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/util/identity"
 )
 
 func init() {
-	proto.RegisterSequence(_sequencePluginName, func() proto.EnchanceSequence {
+	proto.RegisterSequence(SequencePluginName, func() proto.EnchanceSequence {
 		return &snowflakeSequence{}
 	})
 }
 
 const (
-	_sequencePluginName = "snowflake"
+	SequencePluginName = "snowflake"
 )
 
 const (
@@ -80,7 +79,7 @@ type snowflakeSequence struct {
 	curentVal int64
 }
 
-// Start 启动 Sequence，做一些初始化操作
+// Start Start sequence and do some initialization operations
 func (seq *snowflakeSequence) Start(ctx context.Context, conf proto.SequenceConfig) error {
 	if err := seq.doInit(ctx, conf); err != nil {
 		return err
@@ -91,7 +90,7 @@ func (seq *snowflakeSequence) Start(ctx context.Context, conf proto.SequenceConf
 
 func (seq *snowflakeSequence) doInit(ctx context.Context, conf proto.SequenceConfig) error {
 	// get work-id
-	err := func() error {
+	if err := func() error {
 		mu.Lock()
 		defer mu.Unlock()
 
@@ -111,9 +110,7 @@ func (seq *snowflakeSequence) doInit(ctx context.Context, conf proto.SequenceCon
 		}
 
 		return nil
-	}()
-
-	if err != nil {
+	}(); err != nil {
 		return err
 	}
 
@@ -127,7 +124,7 @@ func (seq *snowflakeSequence) doInit(ctx context.Context, conf proto.SequenceCon
 	return nil
 }
 
-// Acquire 申请一个自增ID
+// Acquire Apply for a self-increase ID
 func (seq *snowflakeSequence) Acquire(ctx context.Context) (int64, error) {
 
 	seq.mu.Lock()
@@ -153,7 +150,19 @@ func (seq *snowflakeSequence) Acquire(ctx context.Context) (int64, error) {
 	return seq.curentVal, nil
 }
 
+func (seq *snowflakeSequence) Reset() error {
+	return nil
+}
+
+func (seq *snowflakeSequence) Update() error {
+	return nil
+}
+
 // Stop 停止该 Sequence 的工作
 func (seq *snowflakeSequence) Stop() error {
 	return nil
+}
+
+func (seq *snowflakeSequence) CurrentVal() int64 {
+	return atomic.LoadInt64(&seq.curentVal)
 }

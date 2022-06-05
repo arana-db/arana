@@ -19,20 +19,19 @@ package group
 
 import (
 	"context"
-)
+	"sync/atomic"
 
-import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
 func init() {
-	proto.RegisterSequence(_sequencePluginName, func() proto.EnchanceSequence {
+	proto.RegisterSequence(SequencePluginName, func() proto.EnchanceSequence {
 		return &groupSequence{}
 	})
 }
 
 const (
-	_sequencePluginName = "group"
+	SequencePluginName = "group"
 )
 
 type groupSequence struct {
@@ -51,7 +50,19 @@ func (seq *groupSequence) Acquire(ctx context.Context) (int64, error) {
 	return 0, nil
 }
 
+func (seq *groupSequence) Reset() error {
+	return nil
+}
+
+func (seq *groupSequence) Update() error {
+	return nil
+}
+
 // Stop 停止该 Sequence 的工作
 func (seq *groupSequence) Stop() error {
 	return nil
+}
+
+func (seq *groupSequence) CurrentVal() int64 {
+	return atomic.LoadInt64(&seq.curentVal)
 }

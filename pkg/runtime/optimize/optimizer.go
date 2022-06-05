@@ -20,21 +20,18 @@ package optimize
 import (
 	"context"
 	stdErrors "errors"
+	"fmt"
 	"strings"
-)
 
-import (
-	"github.com/arana-db/parser/ast"
-
-	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/proto/schema_manager"
+	"github.com/arana-db/parser/ast"
+	"github.com/pkg/errors"
+
 	rast "github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
+
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/runtime/plan"
 	"github.com/arana-db/arana/pkg/sequence"
@@ -118,7 +115,6 @@ func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.S
 	case *rast.ShowIndex:
 		return o.optimizeShowIndex(ctx, t, args)
 	case *rast.TruncateStatement:
-		// 需要重置自增ID字段
 		return o.optimizeTruncate(ctx, t, args)
 	case *rast.DropTableStatement:
 		return o.optimizeDropTable(ctx, t, args)
@@ -792,6 +788,10 @@ func (o optimizer) rewriteSelectStatement(ctx context.Context, conn proto.VConn,
 
 func (o optimizer) createSequenceIfAbsent(ctx context.Context, conn proto.VConn, table string, tableMetadata *proto.TableMetadata) error {
 
+	var (
+		ru = rcontext.Rule(ctx)
+	)
+
 	seq, err := o.sequenceManager.GetSequence(ctx, table)
 	if err != nil && !errors.Is(err, sequence.ErrorNotFoundSequence) {
 		return err
@@ -805,11 +805,17 @@ func (o optimizer) createSequenceIfAbsent(ctx context.Context, conn proto.VConn,
 	for i := range columns {
 		if columns[i].Generated {
 
-			// 先只为了测试，临时写死，后面走 type 以及 对应的 option 走 context.Context 获取吧
+			vTable, ok := ru.VTable(table)
+			if !ok {
+				return fmt.Errorf("vtable=[%s] not found", table)
+			}
+
+			autoIncr := vTable.GetAutoIncrement()
+
 			_, err := o.sequenceManager.CreateSequence(ctx, conn, proto.SequenceConfig{
 				Name:   sequence.BuildAutoIncrementName(table),
-				Type:   "snowflake",
-				Option: map[string]string{},
+				Type:   autoIncr.Type,
+				Option: autoIncr.Option,
 			})
 
 			if err != nil {

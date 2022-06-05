@@ -60,6 +60,15 @@ type VTable struct {
 	shards        map[string][2]*ShardMetadata // column -> [db shard metadata,table shard metadata]
 }
 
+func (vt *VTable) SetDefaultAutoIncrement() {
+	vt.autoIncrement = AutoIncrement{
+		Type: "snowflake",
+		Option: map[string]string{
+			"": "",
+		},
+	}
+}
+
 func (vt *VTable) GetAutoIncrement() AutoIncrement {
 	return vt.autoIncrement
 }

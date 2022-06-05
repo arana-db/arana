@@ -21,17 +21,14 @@ import (
 	"fmt"
 	"testing"
 	"time"
-)
 
-import (
-	_ "github.com/go-sql-driver/mysql" // register mysql
-
+	"github.com/arana-db/arana/pkg/util/rand2"
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
-)
 
-import (
-	"github.com/arana-db/arana/pkg/util/rand2"
+	// register mysql
+
 	utils "github.com/arana-db/arana/pkg/util/tableprint"
 )
 
@@ -470,4 +467,30 @@ func (s *IntegrationSuite) TestAlterTable() {
 	assert.NoErrorf(t, err, "alter table error: %v", err)
 
 	assert.Equal(t, int64(0), affected)
+}
+
+func (s *IntegrationSuite) TestInsertAuthIncrement(t *testing.T) {
+
+	db := s.DB()
+
+	result, err := db.Exec(
+		`INSERT IGNORE INTO student(uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?)`,
+		time.Now().Unix(),
+		100,
+		"jason",
+		"jason",
+		1,
+		2022,
+	)
+	assert.NoErrorf(t, err, "insert row error: %v", err)
+	affected, err := result.RowsAffected()
+	assert.NoErrorf(t, err, "insert row error: %v", err)
+	assert.True(t, affected <= 1)
+
+	lastId, err := result.LastInsertId()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.True(t, lastId != 0, fmt.Sprintf("LastInsertId : %d", lastId))
 }

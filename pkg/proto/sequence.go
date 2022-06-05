@@ -62,6 +62,9 @@ type EnchanceSequence interface {
 	Sequence
 	// Start
 	Start(ctx context.Context, option SequenceConfig) error
+	//
+	CurrentVal() int64
+
 	// Stop
 	Stop() error
 }

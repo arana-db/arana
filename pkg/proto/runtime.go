@@ -22,9 +22,7 @@ import (
 	"context"
 	"io"
 	"time"
-)
 
-import (
 	"github.com/arana-db/parser/ast"
 )
 
@@ -122,5 +120,7 @@ type (
 	Sequence interface {
 		// Acquire generates a next value in int64.
 		Acquire(ctx context.Context) (int64, error)
+		Reset() error
+		Update() error
 	}
 )

@@ -301,6 +301,8 @@ func (fp *discovery) GetTable(ctx context.Context, cluster, tableName string) (*
 	}
 	var vt rule.VTable
 
+	vt.SetDefaultAutoIncrement()
+
 	var (
 		topology           rule.Topology
 		dbFormat, tbFormat string
