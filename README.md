@@ -1,10 +1,18 @@
-# arana
+# Arana
+
+<p style="text-align: center;">
+    <img src="https://raw.githubusercontent.com/arana-db/arana/master/docs/pics/arana-logo.png"/>
+</p>
+
+`Arana` is a Cloud Native Database Proxy. It can be deployed as a Database mesh sidecar. It provides transparent data access capabilities,
+when using `arana`, user doesn't need to care about the `sharding` details of database, they can use it just like a single `MySQL` database.
+
+## Overview
+
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/arana-db/arana/blob/master/LICENSE)
 [![codecov](https://codecov.io/gh/arana-db/arana/branch/master/graph/badge.svg)](https://codecov.io/gh/arana-db/arana)
 [![Release](https://img.shields.io/github/v/release/arana-db/arana)](https://img.shields.io/github/v/release/arana-db/arana)
 [![Docker Pulls](https://img.shields.io/docker/pulls/aranadb/arana)](https://img.shields.io/docker/pulls/aranadb/arana)
-
-![](./docs/pics/arana-logo.png)
 
 |                                             **Stargazers Over Time**                                              | **Contributors Over Time**                                                                                                                                                                                                                       |
 |:-----------------------------------------------------------------------------------------------------------------:|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
@@ -13,29 +21,35 @@
 
 ## Introduction | [中文](https://github.com/arana-db/arana/blob/master/README_CN.md)
 
-> `Arana` is a Cloud Native Database Proxy. It can be deployed as a DBMesh Sidecar. Arana provides transparent data access capabilities, 
-> when using database, user doesn't need to care about the `sharding` details of database, they can use `arana-db` just like a single `MySQL` database.
-> For other problems caused by sharding, such as `Distributed transaction`, `SQL Aduit`, `Multi Tenant`, `Arana` will provide a complete solution.
-> Through simple config, user can use these capabilities provided by `arana` directly.
+First, `Arana` is a Cloud Native Database Proxy. It provides transparent data access capabilities, when using `arana`, 
+user doesn't need to care about the `sharding` details of database, they can use it just like a single `MySQL` database.
+`Arana` also provide abilities of `Multi Tenant`, `Distributed transaction`, `Shadow database`, `SQL Audit`, `Data encrypt / decrypt` 
+and so on. Through simple config, user can use these abilities provided by `arana` directly.
+
+Second, `Arana` can also be deployed as a Database mesh sidecar. As a Database mesh sidecar, arana switches data access from 
+client mode to proxy mode, which greatly optimizes the startup speed of applications. It provides the ability to manage database 
+traffic, it takes up very little container resources, doesn't affect the performance of application services in the container， but 
+provides all the capabilities of proxy.
 
 ## Architecture
 
+<img src="https://raw.githubusercontent.com/arana-db/arana/master/docs/pics/arana-architecture.png"/>
+
 ## Features
 
-| Feature | Complete |
-| -- | -- |
-| Single DB Proxy | √ |
-| Read Write Splitting | √ |
-| Sharding | √ |
-| Multi Tenant | √ |
-| Distributed Primary Key | √ |
-| Distributed Transaction | WIP |
-| Shadow Table | WIP |
-| DB Mesh | WIP |
-| Tracing | WIP |
-| Metrics | WIP |
-| SQL Audit | Roadmap |
-| Data encrypt / decrypt | Roadmap |
+|       **Feature**       | **Complete** |
+|:-----------------------:|:------------:|
+|     Single DB Proxy     |      √       |
+|  Read Write Splitting   |      √       |
+|        Sharding         |      √       |
+|      Multi Tenant       |      √       |
+| Distributed Primary Key |     WIP      |
+| Distributed Transaction |     WIP      |
+|      Shadow Table       |     WIP      |
+|      Database Mesh      |     WIP      |
+|    Tracing / Metrics    |     WIP      |
+|        SQL Audit        |   Roadmap    |
+| Data encrypt / decrypt  |   Roadmap    |
 
 ## Getting started
 
@@ -60,9 +74,13 @@ arana start -c ${configFilePath}
 
 ## Contact
 
-<img src="https://raw.githubusercontent.com/arana-db/arana/master/docs/pics/dingtalk-group.jpeg" width="200px"/>
+Arana Chinese Community Meeting Time: **Every Saturday At 9:00PM GMT+8** 
+
+<img src="https://raw.githubusercontent.com/arana-db/arana/master/docs/pics/dingtalk-group.jpeg" width="300px"/>
 
 ## Contributing
+
+Thanks for your help improving the project! We are so happy to have you! We have a contributing guide to help you get involved in the Arana project.
 
 ## License
 Arana software is licenced under the Apache License Version 2.0. See the [LICENSE](https://github.com/arana-db/arana/blob/master/LICENSE) file for details.
