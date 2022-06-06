@@ -320,6 +320,8 @@ func (s *IntegrationSuite) TestJoinTable() {
 		t  = s.T()
 	)
 
+	t.Skip()
+
 	sqls := []string{
 		//shard  & no shard
 		`select * from student  join titles on student.id=titles.emp_no`,
