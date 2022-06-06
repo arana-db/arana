@@ -20,7 +20,9 @@ package group
 import (
 	"context"
 	"sync/atomic"
+)
 
+import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 

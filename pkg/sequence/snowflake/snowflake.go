@@ -24,7 +24,9 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+)
 
+import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/util/identity"
 )

@@ -22,16 +22,20 @@ import (
 	stdErrors "errors"
 	"fmt"
 	"strings"
+)
 
+import (
+	"github.com/arana-db/parser/ast"
+
+	"github.com/pkg/errors"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/proto/schema_manager"
-	"github.com/arana-db/parser/ast"
-	"github.com/pkg/errors"
-
 	rast "github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
-
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/runtime/plan"
 	"github.com/arana-db/arana/pkg/sequence"
@@ -774,15 +778,19 @@ func (o optimizer) rewriteSelectStatement(ctx context.Context, conn proto.VConn,
 	return nil
 }
 
-func (o optimizer) createSequenceIfAbsent(ctx context.Context, conn proto.VConn, table string, tableMetadata *proto.TableMetadata) error {
+func (o optimizer) createSequenceIfAbsent(ctx context.Context, conn proto.VConn, vTable string, tableMetadata *proto.TableMetadata) error {
 
 	var (
 		ru = rcontext.Rule(ctx)
 	)
 
-	seq, err := o.sequenceManager.GetSequence(ctx, table)
-	if err != nil && !errors.Is(err, sequence.ErrorNotFoundSequence) {
-		return err
+	seqName := sequence.BuildAutoIncrementName(vTable)
+
+	seq, err := o.sequenceManager.GetSequence(ctx, seqName)
+	if err != nil {
+		if !errors.Is(err, sequence.ErrorNotFoundSequence) {
+			return err
+		}
 	}
 
 	if seq != nil {
@@ -793,15 +801,15 @@ func (o optimizer) createSequenceIfAbsent(ctx context.Context, conn proto.VConn,
 	for i := range columns {
 		if columns[i].Generated {
 
-			vTable, ok := ru.VTable(table)
+			vTable, ok := ru.VTable(vTable)
 			if !ok {
-				return fmt.Errorf("vtable=[%s] not found", table)
+				return fmt.Errorf("vtable=[%s] not found", vTable)
 			}
 
 			autoIncr := vTable.GetAutoIncrement()
 
 			_, err := o.sequenceManager.CreateSequence(ctx, conn, proto.SequenceConfig{
-				Name:   sequence.BuildAutoIncrementName(table),
+				Name:   seqName,
 				Type:   autoIncr.Type,
 				Option: autoIncr.Option,
 			})
@@ -829,10 +837,6 @@ func (o optimizer) rewriteInsertStatement(ctx context.Context, conn proto.VConn,
 		return nil
 	}
 
-	if err := o.createSequenceIfAbsent(ctx, conn, vtable, metaData); err != nil {
-		return err
-	}
-
 	columnsMetadata := metaData.Columns
 
 	for _, colName := range stmt.Columns() {
@@ -840,6 +844,10 @@ func (o optimizer) rewriteInsertStatement(ctx context.Context, conn proto.VConn,
 			// User had explicitly specified auto-generated primary key column
 			return nil
 		}
+	}
+
+	if err := o.createSequenceIfAbsent(ctx, conn, vtable, metaData); err != nil {
+		return err
 	}
 
 	pkColName := ""
@@ -854,9 +862,9 @@ func (o optimizer) rewriteInsertStatement(ctx context.Context, conn proto.VConn,
 		return nil
 	}
 
-	sequenceName := sequence.BuildAutoIncrementName(vtable)
+	seqName := sequence.BuildAutoIncrementName(vtable)
 
-	seq, err := o.sequenceManager.GetSequence(ctx, sequenceName)
+	seq, err := o.sequenceManager.GetSequence(ctx, seqName)
 	if err != nil {
 		return err
 	}

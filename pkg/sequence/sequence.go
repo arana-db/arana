@@ -25,6 +25,10 @@ import (
 )
 
 import (
+	"go.uber.org/zap"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/util/log"
 )
@@ -92,7 +96,7 @@ func (sMgn *sequenceManager) GetSequence(ctx context.Context, table string) (pro
 	seq, ok := sMgn.sequenceRegistry[table]
 
 	if !ok {
-		log.Errorf("sequence=[%s] not found", table)
+		log.Warn("sequence not found", zap.String("table", table))
 		return nil, ErrorNotFoundSequence
 	}
 

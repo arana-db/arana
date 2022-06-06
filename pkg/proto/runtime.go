@@ -22,7 +22,9 @@ import (
 	"context"
 	"io"
 	"time"
+)
 
+import (
 	"github.com/arana-db/parser/ast"
 )
 
