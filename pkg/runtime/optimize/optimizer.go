@@ -778,13 +778,13 @@ func (o optimizer) rewriteSelectStatement(ctx context.Context, conn proto.VConn,
 	return nil
 }
 
-func (o optimizer) createSequenceIfAbsent(ctx context.Context, conn proto.VConn, vTable string, tableMetadata *proto.TableMetadata) error {
+func (o optimizer) createSequenceIfAbsent(ctx context.Context, conn proto.VConn, vTableName string, tableMetadata *proto.TableMetadata) error {
 
 	var (
 		ru = rcontext.Rule(ctx)
 	)
 
-	seqName := sequence.BuildAutoIncrementName(vTable)
+	seqName := sequence.BuildAutoIncrementName(vTableName)
 
 	seq, err := o.sequenceManager.GetSequence(ctx, seqName)
 	if err != nil {
@@ -801,9 +801,9 @@ func (o optimizer) createSequenceIfAbsent(ctx context.Context, conn proto.VConn,
 	for i := range columns {
 		if columns[i].Generated {
 
-			vTable, ok := ru.VTable(vTable)
+			vTable, ok := ru.VTable(vTableName)
 			if !ok {
-				return fmt.Errorf("vtable=[%s] not found", vTable)
+				return fmt.Errorf("vtable=[%s] not found", vTableName)
 			}
 
 			autoIncr := vTable.GetAutoIncrement()
