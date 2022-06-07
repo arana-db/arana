@@ -31,6 +31,7 @@ import (
 )
 
 import (
+	_ "github.com/arana-db/arana/pkg/sequence"
 	"github.com/arana-db/arana/pkg/proto"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/testdata"

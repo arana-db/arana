@@ -19,16 +19,11 @@ package test
 
 import (
 	"context"
-)
 
-import (
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/util/log"
 	"github.com/arana-db/arana/testdata"
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 type MySQLContainer struct {

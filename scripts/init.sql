@@ -37,11 +37,10 @@
 --  it does not correspond to real people.
 --  Any similarity to existing people is purely coincidental.
 --
-DROP DATABASE IF EXISTS employees;
 
-CREATE DATABASE IF NOT EXISTS employees;
+CREATE DATABASE IF NOT EXISTS employees_0000 CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
-USE employees;
+USE employees_0000;
 
 SELECT
     'CREATING DATABASE STRUCTURE' as 'INFO';
@@ -112,6 +111,7 @@ CREATE TABLE salaries (
     to_date DATE NOT NULL,
     FOREIGN KEY (emp_no) REFERENCES employees (emp_no) ON DELETE CASCADE,
     PRIMARY KEY (emp_no, from_date)
+<<<<<<< HEAD
 );
 
 CREATE
@@ -138,3 +138,7 @@ FROM
     INNER JOIN dept_emp_latest_date l ON d.emp_no = l.emp_no
     AND d.from_date = l.from_date
     AND l.to_date = d.to_date;
+=======
+)
+;
+>>>>>>> 1e45dd40c868e3bf1ec58c6f1d67c0e5de6a248c

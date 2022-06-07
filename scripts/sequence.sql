@@ -15,18 +15,17 @@
 -- limitations under the License.
 --
 
-CREATE DATABASE IF NOT EXISTS employees;
-USE employees;
+CREATE DATABASE IF NOT EXISTS employees_0000 CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS `sequence`
+CREATE TABLE IF NOT EXISTS `employees_0000`.`sequence`
 (
     `id`           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     `name`         VARCHAR(64)     NOT NULL,
     `value`        BIGINT          NOT NULL,
     `step`         INT             NOT NULL DEFAULT 10000,
-    `created_at`   TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `modified_at`  TIMESTAMP       NOT NULL,
+    `created_at`   DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at`  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_name` (`name`)
 ) ENGINE = InnoDB
-  DEFAULT CHARSET = utf8;
+  DEFAULT CHARSET = utf8mb4;

@@ -474,7 +474,7 @@ var (
 
 func getTopologyRegexp() *regexp.Regexp {
 	_regexpTopologyOnce.Do(func() {
-		_regexpTopology = regexp.MustCompile(`\${(?P<begin>[0-9]+)\.\.\.(?P<end>[0-9]+)}`)
+		_regexpTopology = regexp.MustCompile(`\${(?P<begin>\d+)\.{2,}(?P<end>\d+)}`)
 	})
 	return _regexpTopology
 }

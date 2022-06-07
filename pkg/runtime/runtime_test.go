@@ -29,6 +29,7 @@ import (
 )
 
 import (
+	_ "github.com/arana-db/arana/pkg/sequence"
 	"github.com/arana-db/arana/pkg/runtime/namespace"
 	"github.com/arana-db/arana/testdata"
 )
