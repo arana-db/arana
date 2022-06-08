@@ -461,6 +461,13 @@ func (o optimizer) optimizeUpdate(ctx context.Context, conn proto.VConn, stmt *r
 		return ret, nil
 	}
 
+	//check update sharding key
+	for _, element := range stmt.Updated {
+		if _, _, ok := vt.GetShardMetadata(element.Column.Suffix()); ok {
+			return nil, errors.New("do not support update sharding key")
+		}
+	}
+
 	var (
 		shards   rule.DatabaseTables
 		fullScan = true
@@ -537,6 +544,13 @@ func (o optimizer) optimizeInsert(ctx context.Context, conn proto.VConn, stmt *r
 
 	if bingo < 0 {
 		return nil, errors.Wrap(errNoShardKeyFound, "failed to insert")
+	}
+
+	//check on duplicated key update
+	for _, upd := range stmt.DuplicatedUpdates() {
+		if upd.Column.Suffix() == stmt.Columns()[bingo] {
+			return nil, errors.New("do not support update sharding key")
+		}
 	}
 
 	var (
