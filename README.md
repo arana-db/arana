@@ -1,6 +1,6 @@
 # Arana
 
-<div style="align: center">
+<div align=center>
     <img src="https://raw.githubusercontent.com/arana-db/arana/master/docs/pics/arana-logo.png"/>
 </div>
 
