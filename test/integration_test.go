@@ -22,17 +22,12 @@ import (
 	"fmt"
 	"testing"
 	"time"
-)
 
-import (
+	"github.com/arana-db/arana/pkg/util/rand2"
 	_ "github.com/go-sql-driver/mysql"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
-)
 
-import (
-	"github.com/arana-db/arana/pkg/util/rand2"
 	utils "github.com/arana-db/arana/pkg/util/tableprint"
 )
 
@@ -44,7 +39,7 @@ func TestSuite(t *testing.T) {
 	su := NewMySuite(
 		WithMySQLServerAuth("root", "123456"),
 		WithMySQLDatabase("employees"),
-		//WithDevMode(), // NOTICE: UNCOMMENT IF YOU WANT TO DEBUG LOCAL ARANA SERVER!!!
+		// WithDevMode(), // NOTICE: UNCOMMENT IF YOU WANT TO DEBUG LOCAL ARANA SERVER!!!
 	)
 	suite.Run(t, &IntegrationSuite{su})
 }

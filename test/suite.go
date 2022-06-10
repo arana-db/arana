@@ -27,16 +27,13 @@ import (
 	"strings"
 	"sync"
 	"time"
-)
 
-import (
-	"github.com/stretchr/testify/require"
-	"github.com/stretchr/testify/suite"
-)
-
-import (
+	"github.com/arana-db/arana/cmd/start"
+	"github.com/arana-db/arana/pkg/constants"
 	"github.com/arana-db/arana/pkg/util/rand2"
 	"github.com/arana-db/arana/testdata"
+	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 )
 
 type Option func(*MySuite)
@@ -137,6 +134,11 @@ func (ms *MySuite) SetupSuite() {
 
 	err = ms.createConfigFile(cfgPath, ms.container.Host, ms.container.Port)
 	require.NoError(ms.T(), err)
+
+	go func() {
+		_ = os.Setenv(constants.EnvConfigPath, ms.tmpFile)
+		start.Run(testdata.Path("../conf/bootstrap.yaml"))
+	}()
 
 	// waiting for arana server started
 	time.Sleep(10 * time.Second)
