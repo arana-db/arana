@@ -27,13 +27,18 @@ import (
 	"strings"
 	"sync"
 	"time"
+)
 
+import (
+	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
+)
+
+import (
 	"github.com/arana-db/arana/cmd/start"
 	"github.com/arana-db/arana/pkg/constants"
 	"github.com/arana-db/arana/pkg/util/rand2"
 	"github.com/arana-db/arana/testdata"
-	"github.com/stretchr/testify/require"
-	"github.com/stretchr/testify/suite"
 )
 
 type Option func(*MySuite)
