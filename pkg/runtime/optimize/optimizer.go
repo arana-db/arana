@@ -67,7 +67,7 @@ func IsDenyFullScanErr(err error) bool {
 
 func GetOptimizer() proto.Optimizer {
 	return optimizer{
-		schemaLoader: &schema_manager.SimpleSchemaLoader{},
+		schemaLoader: schema_manager.NewSimpleSchemaLoader(),
 	}
 }
 
@@ -106,6 +106,8 @@ func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.S
 		return o.optimizeSelect(ctx, conn, t, args)
 	case *rast.InsertStatement:
 		return o.optimizeInsert(ctx, conn, t, args)
+	case *rast.InsertSelectStatement:
+		return o.optimizeInsertSelect(ctx, conn, t, args)
 	case *rast.DeleteStatement:
 		return o.optimizeDelete(ctx, t, args)
 	case *rast.UpdateStatement:
@@ -470,6 +472,13 @@ func (o optimizer) optimizeUpdate(ctx context.Context, conn proto.VConn, stmt *r
 		return ret, nil
 	}
 
+	//check update sharding key
+	for _, element := range stmt.Updated {
+		if _, _, ok := vt.GetShardMetadata(element.Column.Suffix()); ok {
+			return nil, errors.New("do not support update sharding key")
+		}
+	}
+
 	var (
 		shards   rule.DatabaseTables
 		fullScan = true
@@ -548,6 +557,13 @@ func (o optimizer) optimizeInsert(ctx context.Context, conn proto.VConn, stmt *r
 		return nil, errors.Wrap(errNoShardKeyFound, "failed to insert")
 	}
 
+	//check on duplicated key update
+	for _, upd := range stmt.DuplicatedUpdates() {
+		if upd.Column.Suffix() == stmt.Columns()[bingo] {
+			return nil, errors.New("do not support update sharding key")
+		}
+	}
+
 	var (
 		sharder = (*Sharder)(ru)
 		left    = rast.ColumnNameExpressionAtom(make([]string, 1))
@@ -619,6 +635,24 @@ func (o optimizer) optimizeInsert(ctx context.Context, conn proto.VConn, stmt *r
 	}
 
 	return ret, nil
+}
+
+func (o optimizer) optimizeInsertSelect(ctx context.Context, conn proto.VConn, stmt *rast.InsertSelectStatement, args []interface{}) (proto.Plan, error) {
+	var (
+		ru  = rcontext.Rule(ctx)
+		ret = plan.NewInsertSelectPlan()
+	)
+
+	ret.BindArgs(args)
+
+	if _, ok := ru.VTable(stmt.Table().Suffix()); !ok { // insert into non-sharding table
+		ret.Batch[""] = stmt
+		return ret, nil
+	}
+
+	// TODO: handle shard keys.
+
+	return nil, errors.New("not support insert-select into sharding table")
 }
 
 func (o optimizer) optimizeDelete(ctx context.Context, stmt *rast.DeleteStatement, args []interface{}) (proto.Plan, error) {
