@@ -19,7 +19,6 @@ package group
 
 import (
 	"context"
-	"sync/atomic"
 )
 
 import (
@@ -38,7 +37,7 @@ const (
 
 type groupSequence struct {
 	workdId      int32
-	curentVal    int64
+	currentVal   int64
 	preTimestamp int64
 }
 
@@ -69,5 +68,5 @@ func (seq *groupSequence) Stop() error {
 
 // CurrentVal get this sequence current val
 func (seq *groupSequence) CurrentVal() int64 {
-	return atomic.LoadInt64(&seq.curentVal)
+	return seq.currentVal
 }

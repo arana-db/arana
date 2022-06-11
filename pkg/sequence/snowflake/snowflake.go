@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -56,6 +55,7 @@ const (
 )
 
 var (
+	// mu Solving the competition of the initialization of Sequence related library tables
 	mu sync.Mutex
 
 	finishInitTable bool = false
@@ -74,11 +74,11 @@ var (
 type snowflakeSequence struct {
 	mu sync.Mutex
 
-	epoch     time.Time
-	lastTime  int64
-	step      int64
-	workdId   int64
-	curentVal int64
+	epoch      time.Time
+	lastTime   int64
+	step       int64
+	workdId    int64
+	currentVal int64
 }
 
 // Start Start sequence and do some initialization operations
@@ -91,28 +91,29 @@ func (seq *snowflakeSequence) Start(ctx context.Context, conf proto.SequenceConf
 }
 
 func (seq *snowflakeSequence) doInit(ctx context.Context, conf proto.SequenceConfig) error {
+
+	vconn, ok := ctx.Value(proto.VConnCtxKey{}).(proto.VConn)
+	if !ok {
+		return errors.New("snowflake init need proto.VConn")
+	}
+
 	// get work-id
 	if err := func() error {
 		mu.Lock()
 		defer mu.Unlock()
 
-		vconn, ok := ctx.Value(proto.ContextVconnKey).(proto.VConn)
-		if !ok {
-			return errors.New("snowflake init need proto.VConn")
-		}
 		if !finishInitTable {
 			if _, err := vconn.Exec(ctx, "", _initTableSql); err != nil {
 				return err
 			}
 		}
 		finishInitTable = true
-
-		if _, err := vconn.Exec(ctx, "", _getWorkId, identity.GetNodeIdentity(), conf.Name); err != nil {
-			return err
-		}
-
 		return nil
 	}(); err != nil {
+		return err
+	}
+
+	if _, err := vconn.Exec(ctx, "", _getWorkId, identity.GetNodeIdentity(), conf.Name); err != nil {
 		return err
 	}
 
@@ -147,9 +148,9 @@ func (seq *snowflakeSequence) Acquire(ctx context.Context) (int64, error) {
 	}
 
 	seq.lastTime = timestamp
-	seq.curentVal = int64((timestamp)<<timeShift | (seq.workdId << workIdShift) | (seq.step))
+	seq.currentVal = int64((timestamp)<<timeShift | (seq.workdId << workIdShift) | (seq.step))
 
-	return seq.curentVal, nil
+	return seq.currentVal, nil
 }
 
 func (seq *snowflakeSequence) Reset() error {
@@ -167,5 +168,5 @@ func (seq *snowflakeSequence) Stop() error {
 
 // CurrentVal get this sequence current val
 func (seq *snowflakeSequence) CurrentVal() int64 {
-	return atomic.LoadInt64(&seq.curentVal)
+	return seq.currentVal
 }

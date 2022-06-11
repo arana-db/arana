@@ -72,7 +72,7 @@ func (m *sequenceManager) CreateSequence(ctx context.Context, conn proto.VConn, 
 		return nil, ErrorNotSequenceType
 	}
 
-	ctx = context.WithValue(ctx, proto.ContextVconnKey, conn)
+	ctx = context.WithValue(ctx, proto.VConnCtxKey{}, conn)
 
 	sequence := builder()
 	if err := sequence.Start(ctx, conf); err != nil {

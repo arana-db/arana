@@ -21,7 +21,9 @@ package rule
 import (
 	"fmt"
 	"sync"
+)
 
+import (
 	"github.com/pkg/errors"
 )
 
@@ -53,20 +55,23 @@ const (
 // VTable represents a virtual/logical table.
 type VTable struct {
 	attributes
-	autoIncrement AutoIncrement
+	autoIncrement *AutoIncrement
 	topology      *Topology
 	shards        map[string][2]*ShardMetadata // column -> [db shard metadata,table shard metadata]
 }
 
 func (vt *VTable) SetDefaultAutoIncrement() {
-	vt.autoIncrement = AutoIncrement{
+	if vt == nil {
+		return
+	}
+	vt.autoIncrement = &AutoIncrement{
 		Type:   "snowflake",
 		Option: make(map[string]string),
 	}
 }
 
 func (vt *VTable) GetAutoIncrement() AutoIncrement {
-	return vt.autoIncrement
+	return *vt.autoIncrement
 }
 
 func (vt *VTable) SetAllowFullScan(allow bool) {

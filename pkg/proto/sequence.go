@@ -22,8 +22,8 @@ import (
 	"context"
 )
 
-var (
-	ContextVconnKey = struct{}{}
+type (
+	VConnCtxKey = struct{}
 )
 
 var (
@@ -76,7 +76,7 @@ type SequenceManager interface {
 	GetSequence(ctx context.Context, name string) (Sequence, error)
 }
 
-// GetSequenceSupplier 
+// GetSequenceSupplier
 func GetSequenceSupplier(name string) (SequenceSupplier, bool) {
 	val, ok := suppliersRegistry[name]
 	return val, ok
