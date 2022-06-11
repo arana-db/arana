@@ -120,6 +120,8 @@ func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.S
 		return o.optimizeShowTables(ctx, t, args)
 	case *rast.ShowIndex:
 		return o.optimizeShowIndex(ctx, t, args)
+	case *rast.ShowColumns:
+		return o.optimizeShowColumns(ctx, t, args)
 	case *rast.TruncateStatement:
 		return o.optimizeTruncate(ctx, t, args)
 	case *rast.DropTableStatement:
@@ -827,6 +829,29 @@ func (o optimizer) optimizeShowTables(ctx context.Context, stmt *rast.ShowTables
 func (o optimizer) optimizeShowIndex(_ context.Context, stmt *rast.ShowIndex, args []interface{}) (proto.Plan, error) {
 	ret := &plan.ShowIndexPlan{Stmt: stmt}
 	ret.BindArgs(args)
+	return ret, nil
+}
+
+func (o optimizer) optimizeShowColumns(ctx context.Context, stmt *rast.ShowColumns, args []interface{}) (proto.Plan, error) {
+	vts := rcontext.Rule(ctx).VTables()
+	vtName := []string(stmt.TableName)[0]
+	ret := &plan.ShowColumnsPlan{Stmt: stmt}
+	ret.BindArgs(args)
+
+	if vTable, ok := vts[vtName]; ok {
+		shards := rule.DatabaseTables{}
+		// compute all tables
+		topology := vTable.Topology()
+		topology.Each(func(dbIdx, tbIdx int) bool {
+			if d, t, ok := topology.Render(dbIdx, tbIdx); ok {
+				shards[d] = append(shards[d], t)
+			}
+			return true
+		})
+		_, tblName := shards.Smallest()
+		ret.Table = tblName
+	}
+
 	return ret, nil
 }
 

@@ -242,7 +242,7 @@ const (
 
 type ShowColumns struct {
 	flag      showColumnsFlag
-	tableName TableName
+	TableName TableName
 	like      sql.NullString
 	Column    string
 }
@@ -266,7 +266,7 @@ func (sh *ShowColumns) Restore(flag RestoreFlag, sb *strings.Builder, args *[]in
 	}
 
 	sb.WriteString("COLUMNS FROM ")
-	if err := sh.tableName.Restore(flag, sb, args); err != nil {
+	if err := sh.TableName.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
 
@@ -293,7 +293,7 @@ func (sh *ShowColumns) Validate() error {
 }
 
 func (sh *ShowColumns) Table() TableName {
-	return sh.tableName
+	return sh.TableName
 }
 
 func (sh *ShowColumns) CntParams() int {

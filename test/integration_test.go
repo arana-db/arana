@@ -583,3 +583,19 @@ func convertRowsToMapSlice(rows *sql.Rows) ([]map[string]interface{}, error) {
 
 	return ret, nil
 }
+
+func (s *IntegrationSuite) TestShowColumns() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	result, err := db.Query("show columns from student")
+	assert.NoErrorf(t, err, "show databases error: %v", err)
+
+	defer result.Close()
+
+	affected, err := result.ColumnTypes()
+	assert.NoErrorf(t, err, "show databases: %v", err)
+	assert.Equal(t, affected[0].DatabaseTypeName(), "VARCHAR")
+}
