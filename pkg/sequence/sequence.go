@@ -47,22 +47,22 @@ func init() {
 	})
 }
 
-// SequenceManager 统一管理 Seqneuce 的 Manager
+// SequenceManager Uniform management of seqneuce manager
 type sequenceManager struct {
 	lock             sync.RWMutex
 	sequenceOptions  map[string]proto.SequenceConfig
 	sequenceRegistry map[string]proto.EnchanceSequence
 }
 
-// CreateSequence
-func (sMgn *sequenceManager) CreateSequence(ctx context.Context, conn proto.VConn, conf proto.SequenceConfig) (proto.Sequence, error) {
-	sMgn.lock.RLock()
-	if seq, exist := sMgn.sequenceRegistry[conf.Name]; exist {
-		sMgn.lock.RUnlock()
+// CreateSequence create one sequence instance
+func (m *sequenceManager) CreateSequence(ctx context.Context, conn proto.VConn, conf proto.SequenceConfig) (proto.Sequence, error) {
+	m.lock.RLock()
+	if seq, exist := m.sequenceRegistry[conf.Name]; exist {
+		m.lock.RUnlock()
 		return seq, nil
 	}
 
-	sMgn.lock.RUnlock()
+	m.lock.RUnlock()
 
 	seqType := conf.Type
 
@@ -79,24 +79,24 @@ func (sMgn *sequenceManager) CreateSequence(ctx context.Context, conn proto.VCon
 		return nil, err
 	}
 
-	sMgn.lock.Lock()
-	defer sMgn.lock.Unlock()
+	m.lock.Lock()
+	defer m.lock.Unlock()
 
-	sMgn.sequenceOptions[conf.Name] = conf
-	sMgn.sequenceRegistry[conf.Name] = sequence
+	m.sequenceOptions[conf.Name] = conf
+	m.sequenceRegistry[conf.Name] = sequence
 
 	return sequence, nil
 }
 
-// GetSequence
-func (sMgn *sequenceManager) GetSequence(ctx context.Context, table string) (proto.Sequence, error) {
-	sMgn.lock.RLock()
-	defer sMgn.lock.RUnlock()
+// GetSequence get sequence instance by name
+func (m *sequenceManager) GetSequence(ctx context.Context, name string) (proto.Sequence, error) {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
 
-	seq, ok := sMgn.sequenceRegistry[table]
+	seq, ok := m.sequenceRegistry[name]
 
 	if !ok {
-		log.Warn("sequence not found", zap.String("table", table))
+		log.Warn("sequence not found", zap.String("name", name))
 		return nil, ErrorNotFoundSequence
 	}
 

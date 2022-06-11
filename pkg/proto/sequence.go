@@ -34,15 +34,15 @@ func SetSequenceManagerCreator(creator func() SequenceManager) {
 	createSequenceManager = creator
 }
 
-// SequenceSupplier 创建 Sequence 的创建器
+// SequenceSupplier Create the creator of Sequence
 type SequenceSupplier func() EnchanceSequence
 
 var (
-	// 记录通过 init 自注册的 sequence 插件列表
+	// Record the list of Sequence plug -in through the registered self -registered
 	suppliersRegistry map[string]SequenceSupplier = map[string]SequenceSupplier{}
 )
 
-// RegisterSequence 注册一个 sequence 插件
+// RegisterSequence Register a Sequence plugin
 func RegisterSequence(name string, supplier SequenceSupplier) {
 	suppliersRegistry[name] = supplier
 }
@@ -60,23 +60,23 @@ type SequenceConfig struct {
 // Sequence represents a global unique id generator.
 type EnchanceSequence interface {
 	Sequence
-	// Start
+	// Start start sequence instance
 	Start(ctx context.Context, option SequenceConfig) error
-	//
+	// CurrentVal get sequence current id
 	CurrentVal() int64
-
-	// Stop
+	// Stop stop sequence
 	Stop() error
 }
 
 // Sequencer represents the factory to create a Sequence by table name.
 type SequenceManager interface {
-	// CreateSequence
+	// CreateSequence create sequence instance
 	CreateSequence(ctx context.Context, conn VConn, opt SequenceConfig) (Sequence, error)
-	// GetSequence returns the Sequence of table.
-	GetSequence(ctx context.Context, table string) (Sequence, error)
+	// GetSequence returns the Sequence of name.
+	GetSequence(ctx context.Context, name string) (Sequence, error)
 }
 
+// GetSequenceSupplier 
 func GetSequenceSupplier(name string) (SequenceSupplier, bool) {
 	val, ok := suppliersRegistry[name]
 	return val, ok

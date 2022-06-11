@@ -160,11 +160,12 @@ func (seq *snowflakeSequence) Update() error {
 	return nil
 }
 
-// Stop 停止该 Sequence 的工作
+// Stop stop sequence
 func (seq *snowflakeSequence) Stop() error {
 	return nil
 }
 
+// CurrentVal get this sequence current val
 func (seq *snowflakeSequence) CurrentVal() int64 {
 	return atomic.LoadInt64(&seq.curentVal)
 }

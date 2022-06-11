@@ -22,17 +22,12 @@ import (
 	"io"
 	"sort"
 	"sync"
-)
 
-import (
-	"github.com/pkg/errors"
-
-	"go.uber.org/atomic"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
+	"github.com/pkg/errors"
+	"go.uber.org/atomic"
+
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/selector"
 	"github.com/arana-db/arana/pkg/util/log"
@@ -76,7 +71,7 @@ type (
 
 		name string // the name of Namespace
 
-		sequenceMgn proto.SequenceManager
+		sequenceManager proto.SequenceManager
 
 		rule      atomic.Value // *rule.Rule
 		optimizer proto.Optimizer
@@ -95,11 +90,11 @@ type (
 // New creates a Namespace.
 func New(name string, optimizer proto.Optimizer, commands ...Command) *Namespace {
 	ns := &Namespace{
-		name:        name,
-		optimizer:   optimizer,
-		sequenceMgn: proto.GetSequenceManager(),
-		cmds:        make(chan Command, 1),
-		done:        make(chan struct{}),
+		name:            name,
+		optimizer:       optimizer,
+		sequenceManager: proto.GetSequenceManager(),
+		cmds:            make(chan Command, 1),
+		done:            make(chan struct{}),
 	}
 	ns.dss.Store(make(map[string][]proto.DB)) // init empty map
 	ns.rule.Store(&rule.Rule{})               // init empty rule

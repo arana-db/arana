@@ -42,29 +42,32 @@ type groupSequence struct {
 	preTimestamp int64
 }
 
-// Start 启动 Sequence，做一些初始化操作
+// Start Start sequence and do some initialization operations
 func (seq *groupSequence) Start(ctx context.Context, option proto.SequenceConfig) error {
 	return nil
 }
 
-// Acquire 申请一个自增ID
+// Acquire Apply for a increase ID
 func (seq *groupSequence) Acquire(ctx context.Context) (int64, error) {
 	return 0, nil
 }
 
+// Reset reset sequence info
 func (seq *groupSequence) Reset() error {
 	return nil
 }
 
+// Update update sequence info
 func (seq *groupSequence) Update() error {
 	return nil
 }
 
-// Stop 停止该 Sequence 的工作
+// Stop stop sequence
 func (seq *groupSequence) Stop() error {
 	return nil
 }
 
+// CurrentVal get this sequence current val
 func (seq *groupSequence) CurrentVal() int64 {
 	return atomic.LoadInt64(&seq.curentVal)
 }

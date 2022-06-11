@@ -21,9 +21,7 @@ package rule
 import (
 	"fmt"
 	"sync"
-)
 
-import (
 	"github.com/pkg/errors"
 )
 
@@ -62,10 +60,8 @@ type VTable struct {
 
 func (vt *VTable) SetDefaultAutoIncrement() {
 	vt.autoIncrement = AutoIncrement{
-		Type: "snowflake",
-		Option: map[string]string{
-			"": "",
-		},
+		Type:   "snowflake",
+		Option: make(map[string]string),
 	}
 }
 
