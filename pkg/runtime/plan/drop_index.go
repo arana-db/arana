@@ -28,7 +28,6 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/resultx"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
@@ -57,9 +56,5 @@ func (d *DropIndexPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Res
 		return nil, errors.WithStack(err)
 	}
 
-	if _, err := conn.Exec(ctx, "", sb.String(), &args); err != nil {
-		return nil, errors.WithStack(err)
-	}
-
-	return resultx.New(), nil
+	return conn.Exec(ctx, "", sb.String(), &args)
 }
