@@ -47,7 +47,7 @@ data:
               host: arana-mysql
               port: 3306
               username: root
-              password: "hhf521fhn"
+              password: "123456"
               database: employees_0000
               weight: r10w10
         - name: employees_0001
@@ -56,7 +56,7 @@ data:
               host: arana-mysql
               port: 3306
               username: root
-              password: "hhf521fhn"
+              password: "123456"
               database: employees_0001
               weight: r10w10
         - name: employees_0002
@@ -65,7 +65,7 @@ data:
               host: arana-mysql
               port: 3306
               username: root
-              password: "hhf521fhn"
+              password: "123456"
               database: employees_0002
               weight: r10w10
         - name: employees_0003
@@ -74,7 +74,7 @@ data:
               host: arana-mysql
               port: 3306
               username: root
-              password: "hhf521fhn"
+              password: "123456"
               database: employees_0003
               weight: r10w10
 

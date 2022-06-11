@@ -247,9 +247,17 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 	if ru = rcontext.Rule(ctx); ru == nil {
 		return nil, errors.WithStack(errNoRuleFound)
 	}
-	if stmt.Limit != nil && stmt.Limit.HasOffset() {
+
+	var originLimit = new(rast.LimitNode)
+	if stmt.Limit != nil && stmt.Limit.Limit() != 0 {
 		offset := stmt.Limit.Offset()
 		limit := stmt.Limit.Limit()
+		originLimit.SetOffset(offset)
+		originLimit.SetLimit(limit)
+		if stmt.Limit.HasOffset() {
+			originLimit.SetHasOffset()
+		}
+
 		stmt.Limit.SetOffset(0)
 		stmt.Limit.SetLimit(offset + limit)
 	}
@@ -296,9 +304,10 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 			return nil, err
 		}
 		ret := &plan.SimpleQueryPlan{
-			Stmt:     stmt,
-			Database: db,
-			Tables:   []string{tbl},
+			Stmt:        stmt,
+			Database:    db,
+			Tables:      []string{tbl},
+			OriginLimit: originLimit,
 		}
 		ret.BindArgs(args)
 
@@ -348,9 +357,10 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 	plans := make([]proto.Plan, 0, len(shards))
 	for k, v := range shards {
 		next := &plan.SimpleQueryPlan{
-			Database: k,
-			Tables:   v,
-			Stmt:     stmt,
+			Database:    k,
+			Tables:      v,
+			Stmt:        stmt,
+			OriginLimit: originLimit,
 		}
 		next.BindArgs(args)
 		plans = append(plans, next)
