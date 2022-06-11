@@ -126,6 +126,9 @@ func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.S
 		return o.optimizeDescribeStatement(ctx, t, args)
 	case *rast.AlterTableStatement:
 		return o.optimizeAlterTable(ctx, t, args)
+	case *rast.DropIndexStatement:
+		return o.DropIndexStatement(ctx, t, args)
+
 	}
 
 	//TODO implement all statements
@@ -136,6 +139,12 @@ const (
 	_bypass uint32 = 1 << iota
 	_supported
 )
+
+func (o optimizer) DropIndexStatement(ctx context.Context, stmt *rast.DropIndexStatement, args []interface{}) (proto.Plan, error) {
+	ret := plan.NewDropIndexPlan(stmt)
+	ret.BindArgs(args)
+	return ret, nil
+}
 
 func (o optimizer) optimizeAlterTable(ctx context.Context, stmt *rast.AlterTableStatement, args []interface{}) (proto.Plan, error) {
 	var (
