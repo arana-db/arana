@@ -247,6 +247,12 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 	if ru = rcontext.Rule(ctx); ru == nil {
 		return nil, errors.WithStack(errNoRuleFound)
 	}
+	if stmt.Limit != nil && stmt.Limit.HasOffset() {
+		offset := stmt.Limit.Offset()
+		limit := stmt.Limit.Limit()
+		stmt.Limit.SetOffset(0)
+		stmt.Limit.SetLimit(offset + limit)
+	}
 	if stmt.HasJoin() {
 		return o.optimizeJoin(ctx, conn, stmt, args)
 	}

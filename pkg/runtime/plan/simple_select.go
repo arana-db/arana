@@ -70,8 +70,27 @@ func (s *SimpleQueryPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 		return nil, errors.WithStack(err)
 	}
 
+	var count int
 	if !discard {
-		return res, nil
+		ds, err := res.Dataset()
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+		ds = dataset.Pipe(ds, dataset.Filter(func(next proto.Row) bool {
+			count++
+			if count
+			//var vr mysql.TextRow
+			//switch val := next.(type) {
+			//case mysql.TextRow:
+			//	//vr = val
+			//case rows.VirtualRow, mysql.BinaryRow:
+			//	return true
+			//default:
+			//	return true
+			//}
+			return true
+		}))
+		return resultx.New(resultx.WithDataset(ds)), nil
 	}
 
 	var (
