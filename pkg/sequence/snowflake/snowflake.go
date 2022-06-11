@@ -113,9 +113,17 @@ func (seq *snowflakeSequence) doInit(ctx context.Context, conf proto.SequenceCon
 		return err
 	}
 
-	if _, err := vconn.Exec(ctx, "", _getWorkId, identity.GetNodeIdentity(), conf.Name); err != nil {
+	ret, err := vconn.Exec(ctx, "", _getWorkId, identity.GetNodeIdentity(), conf.Name)
+	if err != nil {
 		return err
 	}
+
+	lastInsertId, err := ret.LastInsertId()
+	if err != nil {
+		return err
+	}
+
+	seq.workdId = int64(lastInsertId)
 
 	if seq.workdId < 0 || seq.workdId > workIdMax {
 		return fmt.Errorf("node worker-id must in [0, %d]", workIdMax)
