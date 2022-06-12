@@ -43,9 +43,9 @@ const (
 const (
 	_initTableSql = `
 	CREATE TABLE IF NOT EXISTS __arana_snowflake_sequence (
-		work_id int AUTO_INCREMENT COMMENT '主键',
-		node_id varchar(255) NOT NULL COMMENT '节点的唯一标识',
-		table_name varchar(255) NOT NULL COMMENT 'arana中的逻辑表名称',
+		work_id int AUTO_INCREMENT COMMENT 'snowflake work id',
+		node_id varchar(255) NOT NULL COMMENT 'unique id of the node, eg. ip/name/uuid',
+		table_name varchar(255) NOT NULL COMMENT 'arana's logic table name',
 		PRIMARY KEY (work_id),
 		UNIQUE KEY(node_id, table_name)
 	) ENGINE = InnoDB;
