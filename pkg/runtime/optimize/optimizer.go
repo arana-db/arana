@@ -304,10 +304,9 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 			return nil, err
 		}
 		ret := &plan.SimpleQueryPlan{
-			Stmt:        stmt,
-			Database:    db,
-			Tables:      []string{tbl},
-			OriginLimit: originLimit,
+			Stmt:     stmt,
+			Database: db,
+			Tables:   []string{tbl},
 		}
 		ret.BindArgs(args)
 
@@ -357,10 +356,9 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 	plans := make([]proto.Plan, 0, len(shards))
 	for k, v := range shards {
 		next := &plan.SimpleQueryPlan{
-			Database:    k,
-			Tables:      v,
-			Stmt:        stmt,
-			OriginLimit: originLimit,
+			Database: k,
+			Tables:   v,
+			Stmt:     stmt,
 		}
 		next.BindArgs(args)
 		plans = append(plans, next)
@@ -377,9 +375,15 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 		Plans: plans,
 	}
 
+	limitPlan := &plan.LimitPlan{
+		UnionPlan:      unionPlan,
+		OriginLimit:    originLimit,
+		OverwriteLimit: stmt.Limit,
+	}
+
 	// TODO: order/groupBy/aggregate
 	aggregate := &plan.AggregatePlan{
-		UnionPlan:  unionPlan,
+		LimitPlan:  limitPlan,
 		Combiner:   transformer.NewCombinerManager(),
 		AggrLoader: transformer.LoadAggrs(stmt.Select),
 	}

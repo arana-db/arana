@@ -38,10 +38,9 @@ var _ proto.Plan = (*SimpleQueryPlan)(nil)
 
 type SimpleQueryPlan struct {
 	basePlan
-	Database    string
-	Tables      []string
-	OriginLimit *ast.LimitNode
-	Stmt        *ast.SelectStatement
+	Database string
+	Tables   []string
+	Stmt     *ast.SelectStatement
 }
 
 func (s *SimpleQueryPlan) Type() proto.PlanType {

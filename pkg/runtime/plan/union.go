@@ -53,12 +53,8 @@ func (u UnionPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, 
 
 func (u UnionPlan) query(ctx context.Context, conn proto.VConn) (proto.Result, error) {
 	var generators []dataset.GenerateFunc
-	var simpleQueryPlan *SimpleQueryPlan
 	for _, it := range u.Plans {
 		it := it
-		if _, ok := it.(*SimpleQueryPlan); ok {
-			simpleQueryPlan = it.(*SimpleQueryPlan)
-		}
 		generators = append(generators, func() (proto.Dataset, error) {
 			res, err := it.ExecIn(ctx, conn)
 			if err != nil {
@@ -71,22 +67,6 @@ func (u UnionPlan) query(ctx context.Context, conn proto.VConn) (proto.Result, e
 	if err != nil {
 		return nil, err
 	}
-
-	var count int64
-	ds = dataset.Pipe(ds, dataset.Filter(func(next proto.Row) bool {
-		if simpleQueryPlan == nil || simpleQueryPlan.OriginLimit == nil || simpleQueryPlan.OriginLimit.Limit() == 0 {
-			return true
-		}
-
-		count++
-		if count < simpleQueryPlan.OriginLimit.Offset() {
-			return false
-		}
-		if count > simpleQueryPlan.OriginLimit.Offset() && count <= simpleQueryPlan.Stmt.Limit.Limit() {
-			return true
-		}
-		return false
-	}))
 	return resultx.New(resultx.WithDataset(ds)), nil
 }
 
