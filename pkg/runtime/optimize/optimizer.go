@@ -242,25 +242,45 @@ func (o optimizer) optimizeShowDatabases(ctx context.Context, stmt *rast.ShowDat
 	return ret, nil
 }
 
+func (o optimizer) overwriteLimit(stmt *rast.SelectStatement, args []interface{}) (originLimit *rast.LimitNode) {
+	originLimit = new(rast.LimitNode)
+	if stmt == nil || stmt.Limit == nil {
+		return nil
+	}
+
+	offset := stmt.Limit.Offset()
+	limit := stmt.Limit.Limit()
+
+	// SELECT * FROM student where uid = ? limit ? offset ?
+	if stmt.Limit.IsLimitVar() {
+		limit = args[limit].(int64)
+	}
+
+	if stmt.Limit.IsOffsetVar() {
+		offset = args[offset].(int64)
+	}
+
+	originLimit.SetOffset(offset)
+	originLimit.SetLimit(limit)
+	if stmt.Limit.HasOffset() {
+		originLimit.SetHasOffset()
+	}
+
+	stmt.Limit.SetOffset(0)
+	stmt.Limit.SetLimit(offset + limit)
+	return
+}
+
 func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *rast.SelectStatement, args []interface{}) (proto.Plan, error) {
 	var ru *rule.Rule
 	if ru = rcontext.Rule(ctx); ru == nil {
 		return nil, errors.WithStack(errNoRuleFound)
 	}
 
-	var originLimit = new(rast.LimitNode)
-	if stmt.Limit != nil && stmt.Limit.Limit() != 0 {
-		offset := stmt.Limit.Offset()
-		limit := stmt.Limit.Limit()
-		originLimit.SetOffset(offset)
-		originLimit.SetLimit(limit)
-		if stmt.Limit.HasOffset() {
-			originLimit.SetHasOffset()
-		}
+	// overwrite stmt limit x offset y. eg `select * from student offset 100 limit 5` will be
+	// `select * from student offset 0 limit 100+5`
+	originLimit := o.overwriteLimit(stmt, args)
 
-		stmt.Limit.SetOffset(0)
-		stmt.Limit.SetLimit(offset + limit)
-	}
 	if stmt.HasJoin() {
 		return o.optimizeJoin(ctx, conn, stmt, args)
 	}
