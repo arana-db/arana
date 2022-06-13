@@ -82,7 +82,7 @@ data:
     tables:
       - name: employees.student
         allow_full_scan: true
-        auto_increment:
+        sequence:
           type: snowflake
           option:
         db_rules:
