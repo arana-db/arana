@@ -310,8 +310,20 @@ func (ln *LimitNode) SetLimitVar() {
 	ln.flag |= flagLimitLimitVar
 }
 
+func (ln *LimitNode) UnsetOffsetVar() {
+	ln.flag &= ^flagLimitOffsetVar
+}
+
+func (ln *LimitNode) UnsetLimitVar() {
+	ln.flag &= ^flagLimitLimitVar
+}
+
 func (ln *LimitNode) SetHasOffset() {
 	ln.flag |= flagLimitHasOffset
+}
+
+func (ln *LimitNode) UnsetHasOffset() {
+	ln.flag &= ^flagLimitHasOffset
 }
 
 func (ln *LimitNode) HasOffset() bool {
