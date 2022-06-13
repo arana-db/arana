@@ -242,10 +242,11 @@ func (o optimizer) optimizeShowDatabases(ctx context.Context, stmt *rast.ShowDat
 	return ret, nil
 }
 
-func (o optimizer) overwriteLimit(stmt *rast.SelectStatement, args []interface{}) (originLimit *rast.LimitNode) {
+func (o optimizer) overwriteLimit(stmt *rast.SelectStatement, args []interface{}) (originLimit, overwriteLimit *rast.LimitNode) {
 	originLimit = new(rast.LimitNode)
+	overwriteLimit = new(rast.LimitNode)
 	if stmt == nil || stmt.Limit == nil {
-		return nil
+		return nil, nil
 	}
 
 	offset := stmt.Limit.Offset()
@@ -258,13 +259,15 @@ func (o optimizer) overwriteLimit(stmt *rast.SelectStatement, args []interface{}
 		if stmt.Limit.IsOffsetVar() {
 			offsetVar = args[offset].(int64)
 		}
+		originLimit.SetOffset(offsetVar)
+		originLimit.SetLimit(limitVar)
+
 		newLimitVar := limitVar + offsetVar
 		newOffsetVar := int64(0)
 		args[limit] = newLimitVar
 		args[offset] = newOffsetVar
-
-		originLimit.SetOffset(offsetVar)
-		originLimit.SetLimit(limitVar)
+		overwriteLimit.SetOffset(newOffsetVar)
+		overwriteLimit.SetLimit(newLimitVar)
 		return
 	}
 
@@ -272,6 +275,8 @@ func (o optimizer) overwriteLimit(stmt *rast.SelectStatement, args []interface{}
 	originLimit.SetLimit(limit)
 	stmt.Limit.SetOffset(0)
 	stmt.Limit.SetLimit(offset + limit)
+	overwriteLimit.SetOffset(0)
+	overwriteLimit.SetLimit(offset + limit)
 	return
 }
 
@@ -283,7 +288,7 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 
 	// overwrite stmt limit x offset y. eg `select * from student offset 100 limit 5` will be
 	// `select * from student offset 0 limit 100+5`
-	originLimit := o.overwriteLimit(stmt, args)
+	originLimit, overwriteLimit := o.overwriteLimit(stmt, args)
 
 	if stmt.HasJoin() {
 		return o.optimizeJoin(ctx, conn, stmt, args)
@@ -402,7 +407,7 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 	limitPlan := &plan.LimitPlan{
 		UnionPlan:      unionPlan,
 		OriginLimit:    originLimit,
-		OverwriteLimit: stmt.Limit,
+		OverwriteLimit: overwriteLimit,
 	}
 
 	// TODO: order/groupBy/aggregate
