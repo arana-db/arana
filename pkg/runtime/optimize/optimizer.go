@@ -253,19 +253,23 @@ func (o optimizer) overwriteLimit(stmt *rast.SelectStatement, args []interface{}
 
 	// SELECT * FROM student where uid = ? limit ? offset ?
 	if stmt.Limit.IsLimitVar() {
-		limit = args[limit].(int64)
-	}
+		limitVar := args[limit].(int64)
+		var offsetVar int64
+		if stmt.Limit.IsOffsetVar() {
+			offsetVar = args[offset].(int64)
+		}
+		newLimitVar := limitVar + offsetVar
+		newOffsetVar := int64(0)
+		args[limit] = newLimitVar
+		args[offset] = newOffsetVar
 
-	if stmt.Limit.IsOffsetVar() {
-		offset = args[offset].(int64)
+		originLimit.SetOffset(offsetVar)
+		originLimit.SetLimit(limitVar)
+		return
 	}
 
 	originLimit.SetOffset(offset)
 	originLimit.SetLimit(limit)
-	if stmt.Limit.HasOffset() {
-		originLimit.SetHasOffset()
-	}
-
 	stmt.Limit.SetOffset(0)
 	stmt.Limit.SetLimit(offset + limit)
 	return
