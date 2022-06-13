@@ -243,14 +243,15 @@ func (o optimizer) optimizeShowDatabases(ctx context.Context, stmt *rast.ShowDat
 }
 
 func (o optimizer) overwriteLimit(stmt *rast.SelectStatement, args []interface{}) (originLimit, overwriteLimit *rast.LimitNode) {
-	originLimit = new(rast.LimitNode)
-	overwriteLimit = new(rast.LimitNode)
 	if stmt == nil || stmt.Limit == nil {
 		return nil, nil
 	}
 
 	offset := stmt.Limit.Offset()
 	limit := stmt.Limit.Limit()
+
+	originLimit = new(rast.LimitNode)
+	overwriteLimit = new(rast.LimitNode)
 
 	// SELECT * FROM student where uid = ? limit ? offset ?
 	if stmt.Limit.IsLimitVar() {
