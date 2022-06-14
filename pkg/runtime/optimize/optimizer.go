@@ -251,7 +251,7 @@ func (o optimizer) optimizeShowDatabases(ctx context.Context, stmt *rast.ShowDat
 	return ret, nil
 }
 
-func (o optimizer) overwriteLimit(stmt *rast.SelectStatement, args []interface{}) (originOffset, overwriteLimit int64) {
+func (o optimizer) overwriteLimit(stmt *rast.SelectStatement, args *[]interface{}) (originOffset, overwriteLimit int64) {
 	if stmt == nil || stmt.Limit == nil {
 		return 0, 0
 	}
@@ -261,22 +261,44 @@ func (o optimizer) overwriteLimit(stmt *rast.SelectStatement, args []interface{}
 
 	// SELECT * FROM student where uid = ? limit ? offset ?
 	var offsetIndex int64
+	var limitIndex int64
+
 	if stmt.Limit.IsOffsetVar() {
 		offsetIndex = offset
-		offset = args[offset].(int64)
+		offset = (*args)[offsetIndex].(int64)
+
+		if !stmt.Limit.IsLimitVar() {
+			limit = stmt.Limit.Limit()
+			*args = append(*args, limit)
+			limitIndex = int64(len(*args) - 1)
+		}
 	}
 	originOffset = offset
 
 	if stmt.Limit.IsLimitVar() {
-		limitIndex := limit
-		limitVar := args[limit].(int64)
-		newLimitVar := limitVar + offset
-		newOffsetVar := int64(0)
+		limitIndex = limit
+		limit = (*args)[limitIndex].(int64)
 
+		if !stmt.Limit.IsOffsetVar() {
+			*args = append(*args, int64(0))
+			offsetIndex = int64(len(*args) - 1)
+		}
+	}
+
+	if stmt.Limit.IsLimitVar() || stmt.Limit.IsOffsetVar() {
+		if !stmt.Limit.IsLimitVar() {
+			stmt.Limit.SetLimitVar()
+			stmt.Limit.SetLimit(limitIndex)
+		}
+		if !stmt.Limit.IsOffsetVar() {
+			stmt.Limit.SetOffsetVar()
+			stmt.Limit.SetOffset(offsetIndex)
+		}
+
+		newLimitVar := limit + offset
 		overwriteLimit = newLimitVar
-
-		args[limitIndex] = newLimitVar
-		args[offsetIndex] = newOffsetVar
+		(*args)[limitIndex] = newLimitVar
+		(*args)[offsetIndex] = int64(0)
 		return
 	}
 
@@ -294,8 +316,7 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 
 	// overwrite stmt limit x offset y. eg `select * from student offset 100 limit 5` will be
 	// `select * from student offset 0 limit 100+5`
-	originOffset, overwriteLimit := o.overwriteLimit(stmt, args)
-
+	originOffset, overwriteLimit := o.overwriteLimit(stmt, &args)
 	if stmt.HasJoin() {
 		return o.optimizeJoin(ctx, conn, stmt, args)
 	}
