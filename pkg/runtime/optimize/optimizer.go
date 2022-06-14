@@ -242,42 +242,38 @@ func (o optimizer) optimizeShowDatabases(ctx context.Context, stmt *rast.ShowDat
 	return ret, nil
 }
 
-func (o optimizer) overwriteLimit(stmt *rast.SelectStatement, args []interface{}) (originLimit, overwriteLimit *rast.LimitNode) {
+func (o optimizer) overwriteLimit(stmt *rast.SelectStatement, args []interface{}) (originOffset, overwriteLimit int64) {
 	if stmt == nil || stmt.Limit == nil {
-		return nil, nil
+		return 0, 0
 	}
 
 	offset := stmt.Limit.Offset()
 	limit := stmt.Limit.Limit()
 
-	originLimit = new(rast.LimitNode)
-	overwriteLimit = new(rast.LimitNode)
-
 	// SELECT * FROM student where uid = ? limit ? offset ?
-	if stmt.Limit.IsLimitVar() {
-		limitVar := args[limit].(int64)
-		var offsetVar int64
-		if stmt.Limit.IsOffsetVar() {
-			offsetVar = args[offset].(int64)
-		}
-		originLimit.SetOffset(offsetVar)
-		originLimit.SetLimit(limitVar)
+	var offsetIndex int64
+	if stmt.Limit.IsOffsetVar() {
+		offsetIndex = offset
+		offset = args[offset].(int64)
+	}
+	originOffset = offset
 
-		newLimitVar := limitVar + offsetVar
+	if stmt.Limit.IsLimitVar() {
+		limitIndex := limit
+		limitVar := args[limit].(int64)
+		newLimitVar := limitVar + offset
 		newOffsetVar := int64(0)
-		args[limit] = newLimitVar
-		args[offset] = newOffsetVar
-		overwriteLimit.SetOffset(newOffsetVar)
-		overwriteLimit.SetLimit(newLimitVar)
+
+		overwriteLimit = newLimitVar
+
+		args[limitIndex] = newLimitVar
+		args[offsetIndex] = newOffsetVar
 		return
 	}
 
-	originLimit.SetOffset(offset)
-	originLimit.SetLimit(limit)
 	stmt.Limit.SetOffset(0)
 	stmt.Limit.SetLimit(offset + limit)
-	overwriteLimit.SetOffset(0)
-	overwriteLimit.SetLimit(offset + limit)
+	overwriteLimit = offset + limit
 	return
 }
 
@@ -289,7 +285,7 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 
 	// overwrite stmt limit x offset y. eg `select * from student offset 100 limit 5` will be
 	// `select * from student offset 0 limit 100+5`
-	originLimit, overwriteLimit := o.overwriteLimit(stmt, args)
+	originOffset, overwriteLimit := o.overwriteLimit(stmt, args)
 
 	if stmt.HasJoin() {
 		return o.optimizeJoin(ctx, conn, stmt, args)
@@ -401,19 +397,22 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 		}
 	}
 
-	unionPlan := &plan.UnionPlan{
+	var tmpPlan proto.Plan
+	tmpPlan = &plan.UnionPlan{
 		Plans: plans,
 	}
 
-	limitPlan := &plan.LimitPlan{
-		UnionPlan:      unionPlan,
-		OriginLimit:    originLimit,
-		OverwriteLimit: overwriteLimit,
+	if stmt.Limit != nil {
+		tmpPlan = &plan.LimitPlan{
+			ParentPlan:     tmpPlan,
+			OriginOffset:   originOffset,
+			OverwriteLimit: overwriteLimit,
+		}
 	}
 
 	// TODO: order/groupBy/aggregate
 	aggregate := &plan.AggregatePlan{
-		LimitPlan:  limitPlan,
+		Plan:       tmpPlan,
 		Combiner:   transformer.NewCombinerManager(),
 		AggrLoader: transformer.LoadAggrs(stmt.Select),
 	}

@@ -33,7 +33,7 @@ import (
 type AggregatePlan struct {
 	transformer.Combiner
 	AggrLoader *transformer.AggrLoader
-	LimitPlan  *LimitPlan
+	Plan       proto.Plan
 }
 
 func (a *AggregatePlan) Type() proto.PlanType {
@@ -41,7 +41,7 @@ func (a *AggregatePlan) Type() proto.PlanType {
 }
 
 func (a *AggregatePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
-	res, err := a.LimitPlan.ExecIn(ctx, conn)
+	res, err := a.Plan.ExecIn(ctx, conn)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}

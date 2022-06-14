@@ -29,15 +29,14 @@ import (
 	"github.com/arana-db/arana/pkg/dataset"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/resultx"
-	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
 var _ proto.Plan = (*LimitPlan)(nil)
 
 type LimitPlan struct {
-	UnionPlan      *UnionPlan
-	OriginLimit    *ast.LimitNode
-	OverwriteLimit *ast.LimitNode
+	ParentPlan     proto.Plan
+	OriginOffset   int64
+	OverwriteLimit int64
 }
 
 func (limitPlan *LimitPlan) Type() proto.PlanType {
@@ -45,11 +44,11 @@ func (limitPlan *LimitPlan) Type() proto.PlanType {
 }
 
 func (limitPlan *LimitPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
-	if limitPlan.UnionPlan == nil {
-		return nil, errors.New("limitPlan: UnionPlan is nil")
+	if limitPlan.ParentPlan == nil {
+		return nil, errors.New("limitPlan: ParentPlan is nil")
 	}
 
-	res, err := limitPlan.UnionPlan.ExecIn(ctx, conn)
+	res, err := limitPlan.ParentPlan.ExecIn(ctx, conn)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -61,19 +60,11 @@ func (limitPlan *LimitPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto
 
 	var count int64
 	ds = dataset.Pipe(ds, dataset.Filter(func(next proto.Row) bool {
-		if limitPlan.OriginLimit == nil || limitPlan.OriginLimit.Limit() == 0 {
-			return true
-		}
-
-		if limitPlan.OverwriteLimit == nil {
-			return true
-		}
-
 		count++
-		if count < limitPlan.OriginLimit.Offset() {
+		if count < limitPlan.OriginOffset {
 			return false
 		}
-		if count > limitPlan.OriginLimit.Offset() && count <= limitPlan.OverwriteLimit.Limit() {
+		if count > limitPlan.OriginOffset && count <= limitPlan.OverwriteLimit {
 			return true
 		}
 		return false
