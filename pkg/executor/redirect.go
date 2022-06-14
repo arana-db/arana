@@ -121,6 +121,12 @@ func (executor *RedirectExecutor) ExecuteFieldList(ctx *proto.Context) ([]proto.
 		return nil, errors.WithStack(err)
 	}
 
+	if vt, ok := rt.Namespace().Rule().VTable(table); ok {
+		if _, atomTable, exist := vt.Topology().Render(0, 0); exist {
+			table = atomTable
+		}
+	}
+
 	db := rt.Namespace().DB0(ctx.Context)
 	if db == nil {
 		return nil, errors.New("cannot get physical backend connection")
