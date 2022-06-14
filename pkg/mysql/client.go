@@ -858,6 +858,7 @@ func (conn *BackendConnection) WriteComSetOption(operation uint16) error {
 	return nil
 }
 
+// WriteComFieldList https://dev.mysql.com/doc/internals/en/com-field-list.html
 func (conn *BackendConnection) WriteComFieldList(table string, wildcard string) error {
 	conn.c.sequence = 0
 	length := lenNullString(table) + lenNullString(wildcard)
@@ -871,10 +872,9 @@ func (conn *BackendConnection) WriteComFieldList(table string, wildcard string) 
 	pos = writeByte(data, 0, mysql.ComFieldList)
 	if len(wildcard) > 0 {
 		pos = writeNullString(data, pos, table)
-		writeNullString(data, pos, wildcard)
-	} else {
-		pos = writeEOFString(data, pos, table)
 		writeEOFString(data, pos, wildcard)
+	} else {
+		writeNullString(data, pos, table)
 	}
 
 	if err := conn.c.writeEphemeralPacket(); err != nil {
@@ -951,7 +951,7 @@ func (conn *BackendConnection) readComQueryResponse() (affectedRows uint64, last
 }
 
 // ReadColumnDefinition reads the next Column Definition packet.
-// Returns a SQLError.
+// Returns a SQLError. https://dev.mysql.com/doc/internals/en/com-query-response.html#column-definition
 func (conn *BackendConnection) ReadColumnDefinition(field *Field, index int) error {
 	colDef, err := conn.c.readEphemeralPacket()
 	if err != nil {
@@ -1032,13 +1032,13 @@ func (conn *BackendConnection) ReadColumnDefinition(field *Field, index int) err
 	}
 	field.decimals = decimals
 
+	//filter [0x00][0x00]
+	pos += 2
+
 	//if more Content, command was field list
 	if len(colDef) > pos+8 {
 		//length of default value lenenc-int
-		field.defaultValueLength, pos, ok = readUint64(colDef, pos)
-		if !ok {
-			return err2.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "extracting col %v default value failed", index)
-		}
+		field.defaultValueLength, pos = readComFieldListDefaultValueLength(colDef, pos)
 
 		if pos+int(field.defaultValueLength) > len(colDef) {
 			return err2.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "extracting col %v default value failed", index)

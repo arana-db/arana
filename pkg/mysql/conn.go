@@ -512,7 +512,7 @@ func (c *Conn) writeEphemeralPacket() error {
 	switch c.currentEphemeralPolicy {
 	case ephemeralWrite:
 		if err := c.writePacket(*c.currentEphemeralBuffer); err != nil {
-			return errors.Wrapf(err, "conn %v", c.ID())
+			return errors.WithStack(errors.Wrapf(err, "conn %v", c.ID()))
 		}
 	case ephemeralUnused, ephemeralRead:
 		// Programming error.
