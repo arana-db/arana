@@ -967,6 +967,57 @@ func (c *Conn) parseStmtArgs(data []byte, typ mysql.FieldType, pos int) (interfa
 	}
 }
 
+func (c *Conn) DefColumnDefinition(field *Field) []byte {
+	length := 4 +
+		lenEncStringSize("def") +
+		lenEncStringSize(field.database) +
+		lenEncStringSize(field.table) +
+		lenEncStringSize(field.orgTable) +
+		lenEncStringSize(field.name) +
+		lenEncStringSize(field.orgName) +
+		1 + // length of fixed length fields
+		2 + // character set
+		4 + // column length
+		1 + // type
+		2 + // flags
+		1 + // decimals
+		2 + // filler
+		lenEncStringSize(string(field.defaultValue)) // default value
+
+	// Get the type and the flags back. If the Field contains
+	// non-zero flags, we use them. Otherwise, use the flags we
+	// derive from the type.
+	typ, flags := mysql.TypeToMySQL(field.fieldType)
+	if field.flags != 0 {
+		flags = int64(field.flags)
+	}
+
+	data := make([]byte, length)
+	writeLenEncInt(data, 0, uint64(length-4))
+	writeLenEncInt(data, 3, uint64(c.sequence))
+	c.sequence++
+	pos := 4
+
+	pos = writeLenEncString(data, pos, "def") // Always same.
+	pos = writeLenEncString(data, pos, field.database)
+	pos = writeLenEncString(data, pos, field.table)
+	pos = writeLenEncString(data, pos, field.orgTable)
+	pos = writeLenEncString(data, pos, field.name)
+	pos = writeLenEncString(data, pos, field.orgName)
+	pos = writeByte(data, pos, 0x0c)
+	pos = writeUint16(data, pos, field.charSet)
+	pos = writeUint32(data, pos, field.columnLength)
+	pos = writeByte(data, pos, byte(typ))
+	pos = writeUint16(data, pos, uint16(flags))
+	pos = writeByte(data, pos, byte(field.decimals))
+	pos = writeUint16(data, pos, uint16(0x0000))
+	if len(field.defaultValue) > 0 {
+		writeLenEncString(data, pos, string(field.defaultValue))
+	}
+
+	return data
+}
+
 func (c *Conn) writeColumnDefinition(field *Field) error {
 	length := 4 + // lenEncStringSize("def")
 		lenEncStringSize(field.database) +
