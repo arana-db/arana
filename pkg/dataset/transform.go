@@ -18,6 +18,10 @@
 package dataset
 
 import (
+	"sync"
+)
+
+import (
 	"github.com/pkg/errors"
 )
 
@@ -36,17 +40,28 @@ type TransformDataset struct {
 	proto.Dataset
 	FieldsGetter FieldsFunc
 	Transform    TransformFunc
+
+	actualFieldsOnce    sync.Once
+	actualFields        []proto.Field
+	actualFieldsFailure error
 }
 
-func (td TransformDataset) Fields() ([]proto.Field, error) {
-	origin, err := td.Dataset.Fields()
-	if err != nil {
-		return nil, err
-	}
-	if td.FieldsGetter == nil {
-		return origin, nil
-	}
-	return td.FieldsGetter(origin), nil
+func (td *TransformDataset) Fields() ([]proto.Field, error) {
+	td.actualFieldsOnce.Do(func() {
+		origin, err := td.Dataset.Fields()
+		if err != nil {
+			td.actualFieldsFailure = err
+			return
+		}
+		if td.FieldsGetter == nil {
+			td.actualFields = origin
+			return
+		}
+
+		td.actualFields = td.FieldsGetter(origin)
+	})
+
+	return td.actualFields, td.actualFieldsFailure
 }
 
 func (td *TransformDataset) Next() (proto.Row, error) {
@@ -60,7 +75,7 @@ func (td *TransformDataset) Next() (proto.Row, error) {
 	)
 
 	if row, err = td.Dataset.Next(); err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 
 	if row, err = td.Transform(row); err != nil {
