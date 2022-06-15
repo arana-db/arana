@@ -31,9 +31,9 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
+	"github.com/arana-db/arana/pkg/resultx"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/util/log"
 )
@@ -119,8 +119,5 @@ func (at *AlterTablePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 
 	log.Debugf("sharding alter table success: batch=%d, affects=%d", cnt.Load(), affects.Load())
 
-	return &mysql.Result{
-		AffectedRows: affects.Load(),
-		DataChan:     make(chan proto.Row, 1),
-	}, nil
+	return resultx.New(resultx.WithRowsAffected(affects.Load())), nil
 }

@@ -40,13 +40,15 @@ type IntegrationSuite struct {
 }
 
 func TestSuite(t *testing.T) {
-	su := NewMySuite(WithMySQLServerAuth("root", "123456"), WithMySQLDatabase("employees"))
+	su := NewMySuite(
+		WithMySQLServerAuth("root", "123456"),
+		WithMySQLDatabase("employees"),
+		//WithDevMode(), // NOTICE: UNCOMMENT IF YOU WANT TO DEBUG LOCAL ARANA SERVER!!!
+	)
 	suite.Run(t, &IntegrationSuite{su})
 }
 
 func (s *IntegrationSuite) TestBasicTx() {
-	// TODO: skip temporarily, need to implement ref-count-down
-	s.T().Skip()
 	var (
 		db = s.DB()
 		t  = s.T()
@@ -183,13 +185,31 @@ func (s *IntegrationSuite) TestInsert() {
 		t  = s.T()
 	)
 	result, err := db.Exec(`INSERT INTO employees ( emp_no, birth_date, first_name, last_name, gender, hire_date )
-		VALUES (?, ?, ?, ?, ?, ?)`, 100001, "1992-01-07", "scott", "lewis", "M", "2014-09-01")
+		VALUES (?, ?, ?, ?, ?, ?)  `, 100001, "1992-01-07", "scott", "lewis", "M", "2014-09-01")
 	assert.NoErrorf(t, err, "insert row error: %v", err)
 	affected, err := result.RowsAffected()
 	assert.NoErrorf(t, err, "insert row error: %v", err)
 	assert.Equal(t, int64(1), affected)
 }
 
+func (s *IntegrationSuite) TestInsertOnDuplicateKey() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	i := 32
+	result, err := db.Exec(`INSERT IGNORE INTO student(id,uid,score,name,nickname,gender,birth_year) 
+     values (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE nickname='dump' `, 1654008174496657000, i, 3.14, fmt.Sprintf("fake_name_%d", i), fmt.Sprintf("fake_nickname_%d", i), 1, 2022)
+	assert.NoErrorf(t, err, "insert row error: %v", err)
+	_, err = result.RowsAffected()
+	assert.NoErrorf(t, err, "insert row error: %v", err)
+
+	_, err = db.Exec(`INSERT IGNORE INTO student(id,uid,score,name,nickname,gender,birth_year) 
+     values (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE uid=32 `, 1654008174496657000, i, 3.14, fmt.Sprintf("fake_name_%d", i), fmt.Sprintf("fake_nickname_%d", i), 1, 2022)
+	assert.Error(t, err, "insert row error: %v", err)
+
+}
 func (s *IntegrationSuite) TestSelect() {
 	var (
 		db = s.DB()
@@ -255,6 +275,9 @@ func (s *IntegrationSuite) TestUpdate() {
 	assert.NoErrorf(t, err, "update row error: %v", err)
 
 	assert.Equal(t, int64(1), affected)
+
+	result, err = db.Exec("update student set score=100.0,uid=11 where uid = ?", 32)
+	assert.Error(t, err)
 }
 
 func (s *IntegrationSuite) TestDelete() {
@@ -318,6 +341,8 @@ func (s *IntegrationSuite) TestJoinTable() {
 		t  = s.T()
 	)
 
+	t.Skip()
+
 	sqls := []string{
 		//shard  & no shard
 		`select * from student  join titles on student.id=titles.emp_no`,
@@ -339,7 +364,6 @@ func (s *IntegrationSuite) TestJoinTable() {
 }
 
 func (s *IntegrationSuite) TestShardingAgg() {
-	s.T().Skip()
 	var (
 		db = s.DB()
 		t  = s.T()

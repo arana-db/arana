@@ -27,9 +27,9 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
+	"github.com/arana-db/arana/pkg/resultx"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
@@ -54,7 +54,7 @@ func (s *TruncatePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Resu
 	ctx, span := Tracer.Start(ctx, "TruncatePlan.ExecIn")
 	defer span.End()
 	if s.shards == nil || s.shards.IsEmpty() {
-		return &mysql.Result{AffectedRows: 0}, nil
+		return resultx.New(), nil
 	}
 
 	var (
@@ -72,19 +72,28 @@ func (s *TruncatePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Resu
 				return nil, errors.Wrap(err, "failed to execute TRUNCATE statement")
 			}
 
-			_, err := conn.Exec(ctx, db, sb.String(), s.toArgs(args)...)
-			if err != nil {
+			if err := s.execOne(ctx, conn, db, sb.String(), s.toArgs(args)); err != nil {
 				return nil, errors.WithStack(err)
 			}
+
 			sb.Reset()
 		}
 	}
 
-	return &mysql.Result{
-		DataChan: make(chan proto.Row, 1),
-	}, nil
+	return resultx.New(), nil
 }
 
 func (s *TruncatePlan) SetShards(shards rule.DatabaseTables) {
 	s.shards = shards
+}
+
+func (s *TruncatePlan) execOne(ctx context.Context, conn proto.VConn, db, query string, args []interface{}) error {
+	res, err := conn.Exec(ctx, db, query, args...)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	defer resultx.Drain(res)
+
+	return nil
 }

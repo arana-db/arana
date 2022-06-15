@@ -27,8 +27,8 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/resultx"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
@@ -57,41 +57,52 @@ func (sp *SimpleInsertPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto
 	ctx, span := Tracer.Start(ctx, "SimpleInsertPlan.ExecIn")
 	defer span.End()
 	var (
-		effected     uint64
+		affects      uint64
 		lastInsertId uint64
 	)
 	// TODO: consider wrap a transaction if insert into multiple databases
 	// TODO: insert in parallel
 	for db, inserts := range sp.batch {
 		for _, insert := range inserts {
-			res, err := sp.doInsert(ctx, conn, db, insert)
+			id, affected, err := sp.doInsert(ctx, conn, db, insert)
 			if err != nil {
 				return nil, err
 			}
-			if n, _ := res.RowsAffected(); n > 0 {
-				effected += n
-			}
-			if id, _ := res.LastInsertId(); id > lastInsertId {
+			affects += affected
+			if id > lastInsertId {
 				lastInsertId = id
 			}
 		}
 	}
 
-	return &mysql.Result{
-		AffectedRows: effected,
-		InsertId:     lastInsertId,
-		DataChan:     make(chan proto.Row, 1),
-	}, nil
+	return resultx.New(resultx.WithLastInsertID(lastInsertId), resultx.WithRowsAffected(affects)), nil
 }
 
-func (sp *SimpleInsertPlan) doInsert(ctx context.Context, conn proto.VConn, db string, stmt *ast.InsertStatement) (proto.Result, error) {
+func (sp *SimpleInsertPlan) doInsert(ctx context.Context, conn proto.VConn, db string, stmt *ast.InsertStatement) (uint64, uint64, error) {
 	var (
 		sb   strings.Builder
 		args []int
 	)
 
 	if err := stmt.Restore(ast.RestoreDefault, &sb, &args); err != nil {
-		return nil, errors.Wrap(err, "cannot restore insert statement")
+		return 0, 0, errors.Wrap(err, "cannot restore insert statement")
 	}
-	return conn.Exec(ctx, db, sb.String(), sp.toArgs(args)...)
+	res, err := conn.Exec(ctx, db, sb.String(), sp.toArgs(args)...)
+	if err != nil {
+		return 0, 0, errors.WithStack(err)
+	}
+
+	defer resultx.Drain(res)
+
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, 0, errors.WithStack(err)
+	}
+
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return 0, 0, errors.WithStack(err)
+	}
+
+	return id, affected, nil
 }

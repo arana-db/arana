@@ -98,7 +98,7 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		}
 		switch tgt := result.(type) {
 		case *ShowColumns:
-			return &DescribeStatement{Table: tgt.tableName}, nil
+			return &DescribeStatement{Table: tgt.tableName, Column: tgt.Column}, nil
 		default:
 			return &ExplainStatement{tgt: tgt}, nil
 		}
@@ -108,8 +108,23 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		return cc.convDropTableStmt(stmt), nil
 	case *ast.AlterTableStmt:
 		return cc.convAlterTableStmt(stmt), nil
+	case *ast.DropIndexStmt:
+		return cc.convDropIndexStmt(stmt), nil
 	default:
 		return nil, errors.Errorf("unimplement: stmt type %T!", stmt)
+	}
+}
+
+func (cc *convCtx) convDropIndexStmt(stmt *ast.DropIndexStmt) *DropIndexStatement {
+	var tableName TableName
+	if db := stmt.Table.Schema.O; len(db) > 0 {
+		tableName = append(tableName, db)
+	}
+	tableName = append(tableName, stmt.Table.Name.O)
+	return &DropIndexStatement{
+		IfExists:  stmt.IfExists,
+		IndexName: stmt.IndexName,
+		Table:     tableName,
 	}
 }
 
@@ -506,6 +521,23 @@ func (cc *convCtx) convInsertStmt(stmt *ast.InsertStmt) Statement {
 		}
 	}
 
+	if stmt.Select != nil {
+		switch v := stmt.Select.(type) {
+		case *ast.SelectStmt:
+			return &InsertSelectStatement{
+				baseInsertStatement: &bi,
+				sel:                 cc.convSelectStmt(v),
+				duplicatedUpdates:   updates,
+			}
+		case *ast.SetOprStmt:
+			return &InsertSelectStatement{
+				baseInsertStatement: &bi,
+				unionSel:            cc.convUnionStmt(v),
+				duplicatedUpdates:   updates,
+			}
+		}
+	}
+
 	return &InsertStatement{
 		baseInsertStatement: &bi,
 		values:              values,
@@ -564,6 +596,9 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 	case ast.ShowColumns:
 		ret := &ShowColumns{
 			tableName: []string{node.Table.Name.O},
+		}
+		if node.Column != nil {
+			ret.Column = node.Column.Name.O
 		}
 		if node.Extended {
 			ret.flag |= scFlagExtended

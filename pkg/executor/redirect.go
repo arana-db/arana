@@ -34,9 +34,9 @@ import (
 import (
 	mConstants "github.com/arana-db/arana/pkg/constants/mysql"
 	"github.com/arana-db/arana/pkg/metrics"
-	"github.com/arana-db/arana/pkg/mysql"
 	mysqlErrors "github.com/arana-db/arana/pkg/mysql/errors"
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/resultx"
 	"github.com/arana-db/arana/pkg/runtime"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/security"
@@ -128,6 +128,12 @@ func (executor *RedirectExecutor) ExecuteFieldList(ctx *proto.Context) ([]proto.
 		return nil, errors.WithStack(err)
 	}
 
+	if vt, ok := rt.Namespace().Rule().VTable(table); ok {
+		if _, atomTable, exist := vt.Topology().Render(0, 0); exist {
+			table = atomTable
+		}
+	}
+
 	db := rt.Namespace().DB0(ctx.Context)
 	if db == nil {
 		return nil, errors.New("cannot get physical backend connection")
@@ -192,7 +198,7 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 			var tx proto.Tx
 			if tx, err = rt.Begin(ctx); err == nil {
 				executor.putTx(ctx, tx)
-				res = &mysql.Result{}
+				res = resultx.New()
 			}
 		}
 	case *ast.CommitStmt:

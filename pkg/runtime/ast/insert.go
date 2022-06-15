@@ -374,16 +374,79 @@ func (r *ReplaceSelectStatement) Mode() SQLType {
 
 type InsertSelectStatement struct {
 	*baseInsertStatement
-	sel *SelectStatement
+	duplicatedUpdates []*UpdateElement
+	sel               *SelectStatement
+	unionSel          *UnionSelectStatement
 }
 
 func (is *InsertSelectStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
-	//TODO implement me
-	panic("implement me")
+	sb.WriteString("INSERT ")
+
+	// write priority
+	if is.IsLowPriority() {
+		sb.WriteString("LOW_PRIORITY ")
+	} else if is.IsHighPriority() {
+		sb.WriteString("HIGH_PRIORITY ")
+	} else if is.IsDelayed() {
+		sb.WriteString("DELAYED ")
+	}
+
+	if is.IsIgnore() {
+		sb.WriteString("IGNORE ")
+	}
+
+	sb.WriteString("INTO ")
+
+	if err := is.Table().Restore(flag, sb, args); err != nil {
+		return errors.WithStack(err)
+	}
+
+	if len(is.columns) > 0 {
+		sb.WriteByte('(')
+		WriteID(sb, is.columns[0])
+		for i := 1; i < len(is.columns); i++ {
+			sb.WriteString(", ")
+			WriteID(sb, is.columns[i])
+		}
+		sb.WriteString(") ")
+	} else {
+		sb.WriteByte(' ')
+	}
+
+	if is.sel != nil {
+		if err := is.sel.Restore(flag, sb, args); err != nil {
+			return errors.WithStack(err)
+		}
+	}
+
+	if is.unionSel != nil {
+		if err := is.unionSel.Restore(flag, sb, args); err != nil {
+			return errors.WithStack(err)
+		}
+	}
+
+	if len(is.duplicatedUpdates) > 0 {
+		sb.WriteString(" ON DUPLICATE KEY UPDATE ")
+
+		if err := is.duplicatedUpdates[0].Restore(flag, sb, args); err != nil {
+			return errors.WithStack(err)
+		}
+		for i := 1; i < len(is.duplicatedUpdates); i++ {
+			sb.WriteString(", ")
+			if err := is.duplicatedUpdates[i].Restore(flag, sb, args); err != nil {
+				return errors.WithStack(err)
+			}
+		}
+	}
+
+	return nil
 }
 
 func (is *InsertSelectStatement) Validate() error {
-	return nil
+	if is.unionSel != nil {
+		return is.unionSel.Validate()
+	}
+	return is.sel.Validate()
 }
 
 func (is *InsertSelectStatement) Select() *SelectStatement {
@@ -391,6 +454,9 @@ func (is *InsertSelectStatement) Select() *SelectStatement {
 }
 
 func (is *InsertSelectStatement) CntParams() int {
+	if is.unionSel != nil {
+		return is.unionSel.CntParams()
+	}
 	return is.sel.CntParams()
 }
 

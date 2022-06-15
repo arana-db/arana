@@ -20,10 +20,12 @@ package config
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"regexp"
 	"strconv"
+	"time"
 )
 
 import (
@@ -77,14 +79,7 @@ type (
 		Type        DataSourceType `yaml:"type" json:"type"`
 		SqlMaxLimit int            `default:"-1" yaml:"sql_max_limit" json:"sql_max_limit,omitempty"`
 		Tenant      string         `yaml:"tenant" json:"tenant"`
-		ConnProps   *ConnProp      `yaml:"conn_props" json:"conn_props,omitempty"`
 		Groups      []*Group       `yaml:"groups" json:"groups"`
-	}
-
-	ConnProp struct {
-		Capacity    int `yaml:"capacity" json:"capacity,omitempty"`         // connection pool capacity
-		MaxCapacity int `yaml:"max_capacity" json:"max_capacity,omitempty"` // max connection pool capacity
-		IdleTimeout int `yaml:"idle_timeout" json:"idle_timeout,omitempty"` // close backend direct connection after idle_timeout
 	}
 
 	Group struct {
@@ -93,15 +88,15 @@ type (
 	}
 
 	Node struct {
-		Name      string            `validate:"required" yaml:"name" json:"name"`
-		Host      string            `validate:"required" yaml:"host" json:"host"`
-		Port      int               `validate:"required" yaml:"port" json:"port"`
-		Username  string            `validate:"required" yaml:"username" json:"username"`
-		Password  string            `validate:"required" yaml:"password" json:"password"`
-		Database  string            `validate:"required" yaml:"database" json:"database"`
-		ConnProps map[string]string `yaml:"conn_props" json:"conn_props,omitempty"`
-		Weight    string            `default:"r10w10" yaml:"weight" json:"weight"`
-		Labels    map[string]string `yaml:"labels" json:"labels,omitempty"`
+		Name      string                 `validate:"required" yaml:"name" json:"name"`
+		Host      string                 `validate:"required" yaml:"host" json:"host"`
+		Port      int                    `validate:"required" yaml:"port" json:"port"`
+		Username  string                 `validate:"required" yaml:"username" json:"username"`
+		Password  string                 `validate:"required" yaml:"password" json:"password"`
+		Database  string                 `validate:"required" yaml:"database" json:"database"`
+		ConnProps map[string]interface{} `yaml:"conn_props" json:"conn_props,omitempty"`
+		Weight    string                 `default:"r10w10" yaml:"weight" json:"weight"`
+		Labels    map[string]string      `yaml:"labels" json:"labels,omitempty"`
 	}
 
 	ShardingRule struct {
@@ -131,6 +126,7 @@ type (
 
 	Rule struct {
 		Column string `validate:"required" yaml:"column" json:"column"`
+		Type   string `validate:"required" yaml:"type" json:"type"`
 		Expr   string `validate:"required" yaml:"expr" json:"expr"`
 	}
 
@@ -229,4 +225,63 @@ func (t *ProtocolType) unmarshalText(text []byte) bool {
 func Validate(cfg *Configuration) error {
 	v := validator.New()
 	return v.Struct(cfg)
+}
+
+// GetConnPropCapacity parses the capacity of backend connection pool, return default value if failed.
+func GetConnPropCapacity(connProps map[string]interface{}, defaultValue int) int {
+	capacity, ok := connProps["capacity"]
+	if !ok {
+		return defaultValue
+	}
+	n, _ := strconv.Atoi(fmt.Sprint(capacity))
+	if n < 1 {
+		return defaultValue
+	}
+	return n
+}
+
+// GetConnPropMaxCapacity parses the max capacity of backend connection pool, return default value if failed.
+func GetConnPropMaxCapacity(connProps map[string]interface{}, defaultValue int) int {
+	var (
+		maxCapacity interface{}
+		ok          bool
+	)
+
+	if maxCapacity, ok = connProps["max_capacity"]; !ok {
+		if maxCapacity, ok = connProps["maxCapacity"]; !ok {
+			return defaultValue
+		}
+	}
+	n, _ := strconv.Atoi(fmt.Sprint(maxCapacity))
+	if n < 1 {
+		return defaultValue
+	}
+	return n
+}
+
+// GetConnPropIdleTime parses the idle time of backend connection pool, return default value if failed.
+func GetConnPropIdleTime(connProps map[string]interface{}, defaultValue time.Duration) time.Duration {
+	var (
+		idleTime interface{}
+		ok       bool
+	)
+
+	if idleTime, ok = connProps["idle_time"]; !ok {
+		if idleTime, ok = connProps["idleTime"]; !ok {
+			return defaultValue
+		}
+	}
+
+	s := fmt.Sprint(idleTime)
+	d, _ := time.ParseDuration(s)
+	if d > 0 {
+		return d
+	}
+
+	n, _ := strconv.Atoi(s)
+	if n < 1 {
+		return defaultValue
+	}
+
+	return time.Duration(n) * time.Second
 }

@@ -22,13 +22,11 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/resultx"
 )
 
 var _ proto.Plan = (*AlwaysEmptyExecPlan)(nil)
-
-var _emptyResult mysql.Result
 
 // AlwaysEmptyExecPlan represents an exec plan which affects nothing.
 type AlwaysEmptyExecPlan struct {
@@ -39,6 +37,5 @@ func (a AlwaysEmptyExecPlan) Type() proto.PlanType {
 }
 
 func (a AlwaysEmptyExecPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
-	// TODO: ADD trace in all plan ExecIn
-	return &_emptyResult, nil
+	return resultx.New(), nil
 }

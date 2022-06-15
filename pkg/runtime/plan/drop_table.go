@@ -23,9 +23,13 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/mysql"
+	"github.com/pkg/errors"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
+	"github.com/arana-db/arana/pkg/resultx"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
@@ -41,15 +45,17 @@ func NewDropTablePlan(stmt *ast.DropTableStatement) *DropTablePlan {
 	}
 }
 
-func (d DropTablePlan) Type() proto.PlanType {
+func (d *DropTablePlan) Type() proto.PlanType {
 	return proto.PlanTypeExec
 }
 
-func (d DropTablePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+func (d *DropTablePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
 	ctx, span := Tracer.Start(ctx, "DropTablePlan.ExecIn")
 	defer span.End()
-	var sb strings.Builder
-	var args []int
+  var (
+		sb   strings.Builder
+		args []int
+	)
 
 	for _, shards := range d.shardsMap {
 		var stmt = new(ast.DropTableStatement)
@@ -65,17 +71,27 @@ func (d DropTablePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Resu
 			if err != nil {
 				return nil, err
 			}
-			_, err = conn.Exec(ctx, db, sb.String(), d.toArgs(args)...)
-			if err != nil {
-				return nil, err
+
+			if err = d.execOne(ctx, conn, db, sb.String(), d.toArgs(args)); err != nil {
+				return nil, errors.WithStack(err)
 			}
+
 			sb.Reset()
 		}
 	}
 
-	return &mysql.Result{DataChan: make(chan proto.Row, 1)}, nil
+	return resultx.New(), nil
 }
 
-func (s *DropTablePlan) SetShards(shardsMap []rule.DatabaseTables) {
-	s.shardsMap = shardsMap
+func (d *DropTablePlan) SetShards(shardsMap []rule.DatabaseTables) {
+	d.shardsMap = shardsMap
+}
+
+func (d *DropTablePlan) execOne(ctx context.Context, conn proto.VConn, db, query string, args []interface{}) error {
+	res, err := conn.Exec(ctx, db, query, args...)
+	if err != nil {
+		return err
+	}
+	_, _ = res.Dataset()
+	return nil
 }

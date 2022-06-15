@@ -45,6 +45,7 @@ import (
 	"github.com/arana-db/arana/pkg/metrics"
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/resultx"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/runtime/namespace"
 	"github.com/arana-db/arana/pkg/util/log"
@@ -84,7 +85,14 @@ func NewAtomDB(node *config.Node) *AtomDB {
 	if err != nil {
 		panic(err)
 	}
-	db.pool = pools.NewResourcePool(connector.NewBackendConnection, 8, 16, 30*time.Minute, 1, nil)
+
+	var (
+		capacity    = config.GetConnPropCapacity(node.ConnProps, 8)
+		maxCapacity = config.GetConnPropMaxCapacity(node.ConnProps, 64)
+		idleTime    = config.GetConnPropIdleTime(node.ConnProps, 30*time.Minute)
+	)
+
+	db.pool = pools.NewResourcePool(connector.NewBackendConnection, capacity, maxCapacity, idleTime, 1, nil)
 
 	return db
 }
@@ -197,7 +205,9 @@ func (tx *compositeTx) Execute(ctx *proto.Context) (res proto.Result, warn uint1
 			return
 		}
 		res, warn, err = atx.Call(cctx, ctx.GetQuery(), args...)
-		go writeRow(res)
+		if err != nil {
+			err = errors.WithStack(err)
+		}
 		return
 	}
 
@@ -221,8 +231,6 @@ func (tx *compositeTx) Execute(ctx *proto.Context) (res proto.Result, warn uint1
 		return
 	}
 
-	go writeRow(res)
-
 	return
 }
 
@@ -243,8 +251,7 @@ func (tx *compositeTx) Commit(ctx context.Context) (proto.Result, uint16, error)
 
 	var g errgroup.Group
 	for k, v := range tx.txs {
-		k := k
-		v := v
+		k, v := k, v
 		g.Go(func() error {
 			_, _, err := v.Commit(ctx)
 			if err != nil {
@@ -261,7 +268,7 @@ func (tx *compositeTx) Commit(ctx context.Context) (proto.Result, uint16, error)
 
 	log.Debugf("commit %s success: total=%d", tx, len(tx.txs))
 
-	return &mysql.Result{}, 0, nil
+	return resultx.New(), 0, nil
 }
 
 func (tx *compositeTx) Rollback(ctx context.Context) (proto.Result, uint16, error) {
@@ -278,8 +285,7 @@ func (tx *compositeTx) Rollback(ctx context.Context) (proto.Result, uint16, erro
 
 	var g errgroup.Group
 	for k, v := range tx.txs {
-		k := k
-		v := v
+		k, v := k, v
 		g.Go(func() error {
 			_, _, err := v.Rollback(ctx)
 			if err != nil {
@@ -296,7 +302,7 @@ func (tx *compositeTx) Rollback(ctx context.Context) (proto.Result, uint16, erro
 
 	log.Debugf("rollback %s success: total=%d", tx, len(tx.txs))
 
-	return &mysql.Result{}, 0, nil
+	return resultx.New(), 0, nil
 }
 
 type atomTx struct {
@@ -306,12 +312,28 @@ type atomTx struct {
 }
 
 func (tx *atomTx) Commit(ctx context.Context) (res proto.Result, warn uint16, err error) {
+	_ = ctx
 	if !tx.closed.CAS(false, true) {
 		err = errTxClosed
 		return
 	}
 	defer tx.dispose()
-	res, warn, err = tx.bc.ExecuteWithWarningCount("commit", true)
+	if res, err = tx.bc.ExecuteWithWarningCount("commit", true); err != nil {
+		return
+	}
+
+	var (
+		affected, lastInsertId uint64
+	)
+
+	if affected, err = res.RowsAffected(); err != nil {
+		return
+	}
+	if lastInsertId, err = res.LastInsertId(); err != nil {
+		return
+	}
+
+	res = resultx.New(resultx.WithRowsAffected(affected), resultx.WithLastInsertID(lastInsertId))
 	return
 }
 
@@ -321,15 +343,15 @@ func (tx *atomTx) Rollback(ctx context.Context) (res proto.Result, warn uint16, 
 		return
 	}
 	defer tx.dispose()
-	res, warn, err = tx.bc.ExecuteWithWarningCount("rollback", true)
+	res, err = tx.bc.ExecuteWithWarningCount("rollback", true)
 	return
 }
 
 func (tx *atomTx) Call(ctx context.Context, sql string, args ...interface{}) (res proto.Result, warn uint16, err error) {
 	if len(args) > 0 {
-		res, warn, err = tx.bc.PrepareQueryArgsIterRow(sql, args)
+		res, err = tx.bc.PrepareQueryArgs(sql, args)
 	} else {
-		res, warn, err = tx.bc.ExecuteWithWarningCountIterRow(sql)
+		res, err = tx.bc.ExecuteWithWarningCountIterRow(sql)
 	}
 	return
 }
@@ -383,14 +405,25 @@ func (db *AtomDB) begin(ctx context.Context) (*atomTx, error) {
 
 	db.pendingRequests.Inc()
 
-	if _, _, err = bc.ExecuteWithWarningCount("begin", true); err != nil {
+	dispose := func() {
 		// cleanup if failed to begin tx
 		cnt := db.pendingRequests.Dec()
 		db.returnConnection(bc)
 		if cnt == 0 && db.closed.Load() {
 			db.pool.Close()
 		}
-		return nil, err
+	}
+
+	var res proto.Result
+	if res, err = bc.ExecuteWithWarningCount("begin", true); err != nil {
+		defer dispose()
+		return nil, errors.WithStack(err)
+	}
+
+	// NOTICE: must consume the result
+	if _, err = res.RowsAffected(); err != nil {
+		defer dispose()
+		return nil, errors.WithStack(err)
 	}
 
 	return &atomTx{parent: db, bc: bc}, nil
@@ -436,9 +469,9 @@ func (db *AtomDB) Call(ctx context.Context, sql string, args ...interface{}) (re
 	undoPending := db.pending()
 
 	if len(args) > 0 {
-		res, warn, err = bc.PrepareQueryArgsIterRow(sql, args)
+		res, err = bc.PrepareQueryArgs(sql, args)
 	} else {
-		res, warn, err = bc.ExecuteWithWarningCountIterRow(sql)
+		res, err = bc.ExecuteWithWarningCountIterRow(sql)
 	}
 
 	if err != nil {
@@ -447,20 +480,11 @@ func (db *AtomDB) Call(ctx context.Context, sql string, args ...interface{}) (re
 		return
 	}
 
-	if len(res.GetFields()) < 1 {
+	res.(*mysql.RawResult).SetCloser(func() error {
 		undoPending()
 		db.returnConnection(bc)
-		return
-	}
-
-	res = &proto.CloseableResult{
-		Result: res,
-		Closer: func() error {
-			undoPending()
-			db.returnConnection(bc)
-			return nil
-		},
-	}
+		return nil
+	})
 
 	return
 }
@@ -525,9 +549,11 @@ func (db *AtomDB) SetWeight(weight proto.Weight) error {
 
 func (db *AtomDB) borrowConnection(ctx context.Context) (*mysql.BackendConnection, error) {
 	bcp := (*BackendResourcePool)(db.pool)
-	//log.Infof("^^^^^ begin borrow conn: active=%d, available=%d", db.pool.Active(), db.pool.Available())
+	//var (
+	//	active0, available0 = db.pool.Active(), db.pool.Available()
+	//)
 	res, err := bcp.Get(ctx)
-	//log.Infof("^^^^^ end borrow conn: active=%d, available=%d", db.pool.Active(), db.pool.Available())
+	//log.Infof("^^^^^ borrow conn: %d/%d => %d/%d", available0, active0, db.pool.Active(), db.pool.Available())
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -618,17 +644,15 @@ func (pi *defaultRuntime) Execute(ctx *proto.Context) (res proto.Result, warn ui
 		return
 	}
 
-	go writeRow(res)
-
 	return
 }
 
 func (pi *defaultRuntime) callDirect(ctx *proto.Context, args []interface{}) (res proto.Result, warn uint16, err error) {
 	res, warn, err = pi.ns.DB0(ctx.Context).Call(rcontext.WithWrite(ctx.Context), ctx.GetQuery(), args...)
 	if err != nil {
+		err = errors.WithStack(err)
 		return
 	}
-	go writeRow(res)
 	return
 }
 
@@ -681,60 +705,4 @@ func nextTxID() int64 {
 		_txIds, _ = snowflake.NewNode(rand2.Int63n(1024))
 	})
 	return _txIds.Generate().Int64()
-}
-
-// writeRow write data to the chan
-func writeRow(result proto.Result) {
-	var res *mysql.Result
-	switch val := result.(type) {
-	case *proto.CloseableResult:
-		res = val.Result.(*mysql.Result)
-	case *mysql.Result:
-		res = val
-	default:
-		panic("unreachable")
-	}
-
-	defer func() {
-		close(res.DataChan)
-	}()
-
-	if len(res.GetFields()) <= 0 {
-		return
-	}
-	var (
-		err     error
-		has     bool
-		rowIter mysql.Iter
-		row     = res.GetRows()[0]
-	)
-
-	switch row.(type) {
-	case *mysql.BinaryRow:
-		for i := 0; i < len(res.GetRows()); i++ {
-			data := &mysql.BinaryIterRow{IterRow: &mysql.IterRow{
-				Row: &res.GetRows()[i].(*mysql.BinaryRow).Row,
-			}}
-			res.DataChan <- data
-		}
-		return
-	case *mysql.TextRow:
-		for i := 0; i < len(res.GetRows()); i++ {
-			data := &mysql.TextIterRow{IterRow: &mysql.IterRow{
-				Row: &res.GetRows()[i].(*mysql.TextRow).Row,
-			}}
-			res.DataChan <- data
-		}
-		return
-	}
-
-	switch r := row.(type) {
-	case *mysql.BinaryIterRow:
-		rowIter = r
-	case *mysql.TextIterRow:
-		rowIter = r
-	}
-	for has, err = rowIter.Next(); has && err == nil; has, err = rowIter.Next() {
-		res.DataChan <- row
-	}
 }
