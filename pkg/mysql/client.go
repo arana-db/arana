@@ -1036,7 +1036,7 @@ func (conn *BackendConnection) ReadColumnDefinition(field *Field, index int) err
 	pos += 2
 
 	//if more Content, command was field list
-	if len(colDef) > pos+8 {
+	if len(colDef) > pos {
 		//length of default value lenenc-int
 		field.defaultValueLength, pos = readComFieldListDefaultValueLength(colDef, pos)
 
@@ -1045,7 +1045,7 @@ func (conn *BackendConnection) ReadColumnDefinition(field *Field, index int) err
 		}
 
 		//default value string[$len]
-		field.defaultValue = colDef[pos:(pos + int(field.defaultValueLength))]
+		field.defaultValue = append(field.defaultValue, colDef[pos:(pos+int(field.defaultValueLength))]...)
 	}
 	return nil
 }

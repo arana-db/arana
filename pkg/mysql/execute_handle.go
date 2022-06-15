@@ -139,7 +139,21 @@ func (l *Listener) handleFieldList(c *Conn, ctx *proto.Context) error {
 			return wErr
 		}
 	}
-	return c.writeFields(l.capabilities, fields)
+
+	// Combine the fields into a package to send
+	var des []byte
+	for _, field := range fields {
+		fld := field.(*Field)
+		des = append(des, c.DefColumnDefinition(fld)...)
+	}
+
+	des = append(des, c.buildEOFPacket(0, 2)...)
+
+	if err = c.writePacketForFieldList(des); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (l *Listener) handleStmtExecute(c *Conn, ctx *proto.Context) error {
