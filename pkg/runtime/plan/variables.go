@@ -47,7 +47,8 @@ func (s *ShowVariablesPlan) Type() proto.PlanType {
 }
 
 func (s *ShowVariablesPlan) ExecIn(ctx context.Context, vConn proto.VConn) (proto.Result, error) {
-	// TODO: ADD trace in all plan ExecIn
+	ctx, span := Tracer.Start(ctx, "ShowVariablesPlan.ExecIn")
+	defer span.End()
 	var (
 		sb   strings.Builder
 		args []int

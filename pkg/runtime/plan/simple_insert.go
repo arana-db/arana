@@ -54,7 +54,8 @@ func (sp *SimpleInsertPlan) Put(db string, stmt *ast.InsertStatement) {
 }
 
 func (sp *SimpleInsertPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
-	// TODO: ADD trace in all plan ExecIn
+	ctx, span := Tracer.Start(ctx, "SimpleInsertPlan.ExecIn")
+	defer span.End()
 	var (
 		effected     uint64
 		lastInsertId uint64

@@ -19,6 +19,7 @@ package plan
 
 import (
 	"context"
+	"go.opentelemetry.io/otel"
 	"io"
 )
 
@@ -32,6 +33,8 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
+var Tracer = otel.Tracer("ExecPlan")
+
 // UnionPlan merges multiple query plan.
 type UnionPlan struct {
 	Plans []proto.Plan
@@ -42,7 +45,8 @@ func (u UnionPlan) Type() proto.PlanType {
 }
 
 func (u UnionPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
-	// TODO: ADD trace in all plan ExecIn
+	ctx, span := Tracer.Start(ctx, "UnionPlan.ExecIn")
+	defer span.End()
 	var results []proto.Result
 	for _, it := range u.Plans {
 		res, err := it.ExecIn(ctx, conn)

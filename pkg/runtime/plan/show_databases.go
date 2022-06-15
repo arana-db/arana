@@ -48,7 +48,8 @@ func (s *ShowDatabasesPlan) Type() proto.PlanType {
 }
 
 func (s *ShowDatabasesPlan) ExecIn(ctx context.Context, _ proto.VConn) (proto.Result, error) {
-	// TODO: ADD trace in all plan ExecIn
+	ctx, span := Tracer.Start(ctx, "ShowDatabasesPlan.ExecIn")
+	defer span.End()
 	tenant, ok := security.DefaultTenantManager().GetTenantOfCluster(rcontext.Schema(ctx))
 	if !ok {
 		return nil, tenantErr

@@ -71,7 +71,8 @@ func (tp *TransparentPlan) Type() proto.PlanType {
 }
 
 func (tp *TransparentPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
-	// TODO: ADD trace in all plan ExecIn
+	ctx, span := Tracer.Start(ctx, "TransparentPlan.ExecIn")
+	defer span.End()
 	var (
 		sb   strings.Builder
 		args []int
