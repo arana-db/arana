@@ -814,10 +814,6 @@ func (o optimizer) rewriteSelectStatement(ctx context.Context, conn proto.VConn,
 
 func (o optimizer) createSequenceIfAbsent(ctx context.Context, conn proto.VConn, vTableName string, tableMetadata *proto.TableMetadata) error {
 
-	var (
-		ru = rcontext.Rule(ctx)
-	)
-
 	seqName := sequence.BuildAutoIncrementName(vTableName)
 
 	seq, err := o.sequenceManager.GetSequence(ctx, seqName)
@@ -830,6 +826,8 @@ func (o optimizer) createSequenceIfAbsent(ctx context.Context, conn proto.VConn,
 	if seq != nil {
 		return nil
 	}
+
+    ru := rcontext.Rule(ctx)
 
 	columns := tableMetadata.Columns
 	for i := range columns {

@@ -56,13 +56,11 @@ type sequenceManager struct {
 
 // CreateSequence create one sequence instance
 func (m *sequenceManager) CreateSequence(ctx context.Context, conn proto.VConn, conf proto.SequenceConfig) (proto.Sequence, error) {
-	m.lock.RLock()
+	m.lock.Lock()
+	defer m.lock.Unlock()
 	if seq, exist := m.sequenceRegistry[conf.Name]; exist {
-		m.lock.RUnlock()
 		return seq, nil
 	}
-
-	m.lock.RUnlock()
 
 	seqType := conf.Type
 
@@ -78,9 +76,6 @@ func (m *sequenceManager) CreateSequence(ctx context.Context, conn proto.VConn, 
 	if err := sequence.Start(ctx, conf); err != nil {
 		return nil, err
 	}
-
-	m.lock.Lock()
-	defer m.lock.Unlock()
 
 	m.sequenceOptions[conf.Name] = conf
 	m.sequenceRegistry[conf.Name] = sequence
