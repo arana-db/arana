@@ -18,10 +18,6 @@
 package dataset
 
 import (
-	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
@@ -41,7 +37,7 @@ func (f FilterDataset) Next() (proto.Row, error) {
 
 	row, err := f.Dataset.Next()
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 
 	if !f.Predicate(row) {

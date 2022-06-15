@@ -276,7 +276,7 @@ func (s *IntegrationSuite) TestUpdate() {
 
 	assert.Equal(t, int64(1), affected)
 
-	result, err = db.Exec("update student set score=100.0,uid=11 where uid = ?", 32)
+	_, err = db.Exec("update student set score=100.0,uid=11 where uid = ?", 32)
 	assert.Error(t, err)
 }
 
