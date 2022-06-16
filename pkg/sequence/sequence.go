@@ -38,13 +38,11 @@ var (
 	ErrorNotFoundSequence error = errors.New("sequence instance not found")
 )
 
-func init() {
-	proto.SetSequenceManagerCreator(func() proto.SequenceManager {
-		return &sequenceManager{
-			sequenceOptions:  make(map[string]proto.SequenceConfig),
-			sequenceRegistry: make(map[string]proto.EnchanceSequence),
-		}
-	})
+func NewSequenceManager() proto.SequenceManager {
+	return &sequenceManager{
+		sequenceOptions:  make(map[string]proto.SequenceConfig),
+		sequenceRegistry: make(map[string]proto.EnchanceSequence),
+	}
 }
 
 // SequenceManager Uniform management of seqneuce manager

@@ -26,14 +26,6 @@ type (
 	VConnCtxKey = struct{}
 )
 
-var (
-	createSequenceManager func() SequenceManager
-)
-
-func SetSequenceManagerCreator(creator func() SequenceManager) {
-	createSequenceManager = creator
-}
-
 // SequenceSupplier Create the creator of Sequence
 type SequenceSupplier func() EnchanceSequence
 
@@ -45,10 +37,6 @@ var (
 // RegisterSequence Register a Sequence plugin
 func RegisterSequence(name string, supplier SequenceSupplier) {
 	suppliersRegistry[name] = supplier
-}
-
-func GetSequenceManager() SequenceManager {
-	return createSequenceManager()
 }
 
 type SequenceConfig struct {

@@ -70,7 +70,7 @@ func IsDenyFullScanErr(err error) bool {
 func GetOptimizer() proto.Optimizer {
 	return optimizer{
 		schemaLoader:    schema_manager.NewSimpleSchemaLoader(),
-		sequenceManager: proto.GetSequenceManager(),
+		sequenceManager: sequence.NewSequenceManager(),
 	}
 }
 

@@ -47,7 +47,7 @@ func Test_sequenceManager(t *testing.T) {
 
 	conn.EXPECT().Exec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(ret, nil)
 
-	manager := proto.GetSequenceManager()
+	manager := NewSequenceManager()
 
 	name := BuildAutoIncrementName("student")
 
