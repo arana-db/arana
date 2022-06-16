@@ -827,7 +827,7 @@ func (o optimizer) createSequenceIfAbsent(ctx context.Context, conn proto.VConn,
 		return nil
 	}
 
-    ru := rcontext.Rule(ctx)
+	ru := rcontext.Rule(ctx)
 
 	columns := tableMetadata.Columns
 	for i := range columns {
