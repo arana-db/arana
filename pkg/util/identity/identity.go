@@ -30,15 +30,15 @@ const (
 	PodName     = "POD_NAME"
 )
 
-func GetNodeIdentity() string {
+func GetNodeIdentity() (string, error) {
 	nodeId := os.Getenv(AranaNodeId)
 	if len(nodeId) != 0 {
-		return nodeId
+		return nodeId, nil
 	}
 
 	podName := os.Getenv(PodName)
 	if len(podName) != 0 {
-		return podName
+		return podName, nil
 	}
 
 	return net.FindSelfIP()

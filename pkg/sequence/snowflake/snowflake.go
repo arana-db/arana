@@ -113,7 +113,12 @@ func (seq *snowflakeSequence) doInit(ctx context.Context, conf proto.SequenceCon
 		return err
 	}
 
-	ret, err := vconn.Exec(ctx, "", _getWorkId, identity.GetNodeIdentity(), conf.Name)
+	nodeId, err := identity.GetNodeIdentity()
+	if err != nil {
+		return err
+	}
+
+	ret, err := vconn.Exec(ctx, "", _getWorkId, nodeId, conf.Name)
 	if err != nil {
 		return err
 	}

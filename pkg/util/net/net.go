@@ -23,13 +23,14 @@ import (
 	"strings"
 )
 
-func FindSelfIP() string {
-	openIPV6 := os.Getenv("arana.net.ipv6")
+func FindSelfIP() (string, error) {
 
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
-		panic(err)
+		return "", err
 	}
+
+	openIPV6 := os.Getenv("arana.net.ipv6")
 
 	var localhost net.IP
 	var expectIP net.IP
@@ -63,6 +64,6 @@ func FindSelfIP() string {
 		expectIP = localhost
 	}
 
-	return expectIP.String()
+	return expectIP.String(), nil
 
 }
