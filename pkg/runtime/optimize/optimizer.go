@@ -251,11 +251,72 @@ func (o optimizer) optimizeShowDatabases(ctx context.Context, stmt *rast.ShowDat
 	return ret, nil
 }
 
+func (o optimizer) overwriteLimit(stmt *rast.SelectStatement, args *[]interface{}) (originOffset, overwriteLimit int64) {
+	if stmt == nil || stmt.Limit == nil {
+		return 0, 0
+	}
+
+	offset := stmt.Limit.Offset()
+	limit := stmt.Limit.Limit()
+
+	// SELECT * FROM student where uid = ? limit ? offset ?
+	var offsetIndex int64
+	var limitIndex int64
+
+	if stmt.Limit.IsOffsetVar() {
+		offsetIndex = offset
+		offset = (*args)[offsetIndex].(int64)
+
+		if !stmt.Limit.IsLimitVar() {
+			limit = stmt.Limit.Limit()
+			*args = append(*args, limit)
+			limitIndex = int64(len(*args) - 1)
+		}
+	}
+	originOffset = offset
+
+	if stmt.Limit.IsLimitVar() {
+		limitIndex = limit
+		limit = (*args)[limitIndex].(int64)
+
+		if !stmt.Limit.IsOffsetVar() {
+			*args = append(*args, int64(0))
+			offsetIndex = int64(len(*args) - 1)
+		}
+	}
+
+	if stmt.Limit.IsLimitVar() || stmt.Limit.IsOffsetVar() {
+		if !stmt.Limit.IsLimitVar() {
+			stmt.Limit.SetLimitVar()
+			stmt.Limit.SetLimit(limitIndex)
+		}
+		if !stmt.Limit.IsOffsetVar() {
+			stmt.Limit.SetOffsetVar()
+			stmt.Limit.SetOffset(offsetIndex)
+		}
+
+		newLimitVar := limit + offset
+		overwriteLimit = newLimitVar
+		(*args)[limitIndex] = newLimitVar
+		(*args)[offsetIndex] = int64(0)
+		return
+	}
+
+	stmt.Limit.SetOffset(0)
+	stmt.Limit.SetLimit(offset + limit)
+	overwriteLimit = offset + limit
+	return
+}
+
 func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *rast.SelectStatement, args []interface{}) (proto.Plan, error) {
 	var ru *rule.Rule
 	if ru = rcontext.Rule(ctx); ru == nil {
 		return nil, errors.WithStack(errNoRuleFound)
 	}
+
+	// overwrite stmt limit x offset y. eg `select * from student offset 100 limit 5` will be
+	// `select * from student offset 0 limit 100+5`
+	originOffset, overwriteLimit := o.overwriteLimit(stmt, &args)
 	if stmt.HasJoin() {
 		return o.optimizeJoin(ctx, conn, stmt, args)
 	}
@@ -366,13 +427,22 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 		}
 	}
 
-	unionPlan := &plan.UnionPlan{
+	var tmpPlan proto.Plan
+	tmpPlan = &plan.UnionPlan{
 		Plans: plans,
+	}
+
+	if stmt.Limit != nil {
+		tmpPlan = &plan.LimitPlan{
+			ParentPlan:     tmpPlan,
+			OriginOffset:   originOffset,
+			OverwriteLimit: overwriteLimit,
+		}
 	}
 
 	// TODO: order/groupBy/aggregate
 	aggregate := &plan.AggregatePlan{
-		UnionPlan:  unionPlan,
+		Plan:       tmpPlan,
 		Combiner:   transformer.NewCombinerManager(),
 		AggrLoader: transformer.LoadAggrs(stmt.Select),
 	}
