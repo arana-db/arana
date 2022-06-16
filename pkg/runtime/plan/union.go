@@ -29,6 +29,7 @@ import (
 	"github.com/arana-db/arana/pkg/dataset"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/resultx"
+	"github.com/arana-db/arana/pkg/util/log"
 )
 
 // UnionPlan merges multiple query plan.
@@ -63,8 +64,10 @@ func (u UnionPlan) query(ctx context.Context, conn proto.VConn) (proto.Result, e
 			return res.Dataset()
 		})
 	}
+
 	ds, err := dataset.Fuse(generators[0], generators[1:]...)
 	if err != nil {
+		log.Errorf("UnionPlan Fuse error:%v", err)
 		return nil, err
 	}
 	return resultx.New(resultx.WithDataset(ds)), nil
