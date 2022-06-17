@@ -15,57 +15,36 @@
  * limitations under the License.
  */
 
-package runtime
+package snowflake
 
 import (
+	"context"
+	"fmt"
 	"sync"
 	"testing"
+	"time"
 )
 
 import (
-	"github.com/golang/mock/gomock"
-
 	"github.com/stretchr/testify/assert"
 )
 
-import (
-	"github.com/arana-db/arana/pkg/runtime/namespace"
-	_ "github.com/arana-db/arana/pkg/sequence"
-)
+func Test_snowflakeSequence_Acquire(t *testing.T) {
 
-func TestLoad(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	const schemaName = "FakeSchema"
-
-	rt, err := Load(schemaName)
-	assert.Error(t, err)
-	assert.Nil(t, rt)
-	_ = namespace.Register(namespace.New(schemaName))
-	defer func() {
-		_ = namespace.Unregister(schemaName)
-	}()
-
-	rt, err = Load(schemaName)
-	assert.NoError(t, err)
-	assert.NotNil(t, rt)
-}
-
-func TestNextTxID(t *testing.T) {
-	const total = 1000
-	var (
-		m  sync.Map
-		wg sync.WaitGroup
-	)
-	wg.Add(total)
-	for range [total]struct{}{} {
-		go func() {
-			defer wg.Done()
-			_, loaded := m.LoadOrStore(nextTxID(), struct{}{})
-			assert.False(t, loaded)
-		}()
+	seq := &snowflakeSequence{
+		mu:         sync.Mutex{},
+		epoch:      time.Time{},
+		lastTime:   0,
+		step:       0,
+		workdId:    1,
+		currentVal: 0,
 	}
 
-	wg.Wait()
+	val, err := seq.Acquire(context.Background())
+
+	assert.NoError(t, err, fmt.Sprintf("acquire err : %v", err))
+
+	curVal := seq.CurrentVal()
+
+	assert.Equal(t, val, curVal, fmt.Sprintf("acquire val: %d, cur val: %d", val, curVal))
 }
