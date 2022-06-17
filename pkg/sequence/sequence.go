@@ -52,7 +52,7 @@ type sequenceManager struct {
 	sequenceRegistry map[string]proto.EnchanceSequence
 }
 
-// CreateSequence create one sequence instance
+// CreateSequence creates one sequence instance
 func (m *sequenceManager) CreateSequence(ctx context.Context, conn proto.VConn, conf proto.SequenceConfig) (proto.Sequence, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
@@ -81,7 +81,7 @@ func (m *sequenceManager) CreateSequence(ctx context.Context, conn proto.VConn, 
 	return sequence, nil
 }
 
-// GetSequence get sequence instance by name
+// GetSequence gets sequence instance by name
 func (m *sequenceManager) GetSequence(ctx context.Context, name string) (proto.Sequence, error) {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
