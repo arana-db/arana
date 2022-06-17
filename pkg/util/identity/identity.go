@@ -15,13 +15,31 @@
  * limitations under the License.
  */
 
-package boot
+package identity
 
 import (
-	_ "github.com/arana-db/arana/pkg/config/etcd"
-	_ "github.com/arana-db/arana/pkg/config/file"
-	_ "github.com/arana-db/arana/pkg/config/nacos"
-	_ "github.com/arana-db/arana/pkg/sequence"
-	_ "github.com/arana-db/arana/pkg/sequence/group"
-	_ "github.com/arana-db/arana/pkg/sequence/snowflake"
+	"os"
 )
+
+import (
+	"github.com/arana-db/arana/pkg/util/net"
+)
+
+const (
+	AranaNodeId = "ARANA_NODE_ID"
+	PodName     = "POD_NAME"
+)
+
+func GetNodeIdentity() (string, error) {
+	nodeId := os.Getenv(AranaNodeId)
+	if len(nodeId) != 0 {
+		return nodeId, nil
+	}
+
+	podName := os.Getenv(PodName)
+	if len(podName) != 0 {
+		return podName, nil
+	}
+
+	return net.FindSelfIP()
+}
