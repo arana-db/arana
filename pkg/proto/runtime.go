@@ -117,4 +117,12 @@ type (
 	SchemaLoader interface {
 		Load(ctx context.Context, conn VConn, schema string, tables []string) map[string]*TableMetadata
 	}
+
+	// Sequence represents a global unique id generator.
+	Sequence interface {
+		// Acquire generates a next value in int64.
+		Acquire(ctx context.Context) (int64, error)
+		Reset() error
+		Update() error
+	}
 )

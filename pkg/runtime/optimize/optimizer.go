@@ -20,6 +20,7 @@ package optimize
 import (
 	"context"
 	stdErrors "errors"
+	"fmt"
 	"strings"
 )
 
@@ -37,6 +38,7 @@ import (
 	"github.com/arana-db/arana/pkg/runtime/cmp"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/runtime/plan"
+	"github.com/arana-db/arana/pkg/sequence"
 	"github.com/arana-db/arana/pkg/transformer"
 	"github.com/arana-db/arana/pkg/util/log"
 )
@@ -67,12 +69,14 @@ func IsDenyFullScanErr(err error) bool {
 
 func GetOptimizer() proto.Optimizer {
 	return optimizer{
-		schemaLoader: schema_manager.NewSimpleSchemaLoader(),
+		schemaLoader:    schema_manager.NewSimpleSchemaLoader(),
+		sequenceManager: sequence.NewSequenceManager(),
 	}
 }
 
 type optimizer struct {
-	schemaLoader proto.SchemaLoader
+	sequenceManager proto.SequenceManager
+	schemaLoader    proto.SchemaLoader
 }
 
 func (o *optimizer) SetSchemaLoader(schemaLoader proto.SchemaLoader) {
@@ -629,7 +633,7 @@ func (o optimizer) optimizeInsert(ctx context.Context, conn proto.VConn, stmt *r
 			}
 			newborn.SetValues(values)
 
-			o.rewriteInsertStatement(ctx, conn, newborn, db, table)
+			o.rewriteInsertStatement(ctx, conn, newborn, db, stmt.Table().Suffix(), table)
 			ret.Put(db, newborn)
 		}
 	}
@@ -817,8 +821,53 @@ func (o optimizer) rewriteSelectStatement(ctx context.Context, conn proto.VConn,
 	return nil
 }
 
+func (o optimizer) createSequenceIfAbsent(ctx context.Context, conn proto.VConn, vTableName string, tableMetadata *proto.TableMetadata) error {
+
+	seqName := sequence.BuildAutoIncrementName(vTableName)
+
+	seq, err := o.sequenceManager.GetSequence(ctx, seqName)
+	if err != nil {
+		if !errors.Is(err, sequence.ErrorNotFoundSequence) {
+			return err
+		}
+	}
+
+	if seq != nil {
+		return nil
+	}
+
+	ru := rcontext.Rule(ctx)
+
+	columns := tableMetadata.Columns
+	for i := range columns {
+		if columns[i].Generated {
+
+			vTable, ok := ru.VTable(vTableName)
+			if !ok {
+				return fmt.Errorf("vtable=[%s] not found", vTableName)
+			}
+
+			autoIncr := vTable.GetAutoIncrement()
+
+			_, err := o.sequenceManager.CreateSequence(ctx, conn, proto.SequenceConfig{
+				Name:   seqName,
+				Type:   autoIncr.Type,
+				Option: autoIncr.Option,
+			})
+
+			if err != nil {
+				return err
+			}
+
+			break
+		}
+	}
+
+	return nil
+}
+
 func (o optimizer) rewriteInsertStatement(ctx context.Context, conn proto.VConn, stmt *rast.InsertStatement,
-	db, tb string) error {
+	db, vtable, tb string) error {
 	metaData := o.schemaLoader.Load(ctx, conn, db, []string{tb})[tb]
 	if metaData == nil || len(metaData.ColumnNames) == 0 {
 		return errors.Errorf("can not get metadata for db:%s and table:%s", db, tb)
@@ -828,6 +877,7 @@ func (o optimizer) rewriteInsertStatement(ctx context.Context, conn proto.VConn,
 		// User had explicitly specified every value
 		return nil
 	}
+
 	columnsMetadata := metaData.Columns
 
 	for _, colName := range stmt.Columns() {
@@ -835,6 +885,10 @@ func (o optimizer) rewriteInsertStatement(ctx context.Context, conn proto.VConn,
 			// User had explicitly specified auto-generated primary key column
 			return nil
 		}
+	}
+
+	if err := o.createSequenceIfAbsent(ctx, conn, vtable, metaData); err != nil {
+		return err
 	}
 
 	pkColName := ""
@@ -849,12 +903,28 @@ func (o optimizer) rewriteInsertStatement(ctx context.Context, conn proto.VConn,
 		return nil
 	}
 
+	seqName := sequence.BuildAutoIncrementName(vtable)
+
+	seq, err := o.sequenceManager.GetSequence(ctx, seqName)
+	if err != nil {
+		return err
+	}
+
+	val, err := seq.Acquire(ctx)
+	if err != nil {
+		return err
+	}
+
 	// TODO rewrite columns and add distributed primary key
-	//stmt.SetColumns(append(stmt.Columns(), pkColName))
+	stmt.SetColumns(append(stmt.Columns(), pkColName))
 	// append value of distributed primary key
-	//newValues := stmt.Values()
-	//for _, newValue := range newValues {
-	//	newValue = append(newValue, )
-	//}
+	newValues := stmt.Values()
+	for i := range newValues {
+		newValues[i] = append(newValues[i], &rast.PredicateExpressionNode{
+			P: &rast.AtomPredicateNode{
+				A: &rast.ConstantExpressionAtom{Inner: val},
+			},
+		})
+	}
 	return nil
 }

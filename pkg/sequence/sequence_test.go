@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 
-package runtime
+package sequence
 
 import (
-	"sync"
+	"context"
+	"fmt"
 	"testing"
 )
 
@@ -29,45 +30,44 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/runtime/namespace"
-	_ "github.com/arana-db/arana/pkg/sequence"
+	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/resultx"
+	_ "github.com/arana-db/arana/pkg/sequence/snowflake"
 	"github.com/arana-db/arana/testdata"
 )
 
-func TestLoad(t *testing.T) {
+func Test_sequenceManager(t *testing.T) {
+
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	opt := testdata.NewMockOptimizer(ctrl)
 
-	const schemaName = "FakeSchema"
+	conn := testdata.NewMockVConn(ctrl)
 
-	rt, err := Load(schemaName)
-	assert.Error(t, err)
-	assert.Nil(t, rt)
-	_ = namespace.Register(namespace.New(schemaName, opt))
-	defer func() {
-		_ = namespace.Unregister(schemaName)
-	}()
+	ret := resultx.New(resultx.WithLastInsertID(1))
 
-	rt, err = Load(schemaName)
-	assert.NoError(t, err)
-	assert.NotNil(t, rt)
-}
+	conn.EXPECT().Exec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(ret, nil)
 
-func TestNextTxID(t *testing.T) {
-	const total = 1000
-	var (
-		m  sync.Map
-		wg sync.WaitGroup
-	)
-	wg.Add(total)
-	for range [total]struct{}{} {
-		go func() {
-			defer wg.Done()
-			_, loaded := m.LoadOrStore(nextTxID(), struct{}{})
-			assert.False(t, loaded)
-		}()
-	}
+	manager := NewSequenceManager()
 
-	wg.Wait()
+	name := BuildAutoIncrementName("student")
+
+	seq, err := manager.CreateSequence(context.Background(), conn, proto.SequenceConfig{
+		Name: name,
+		Type: "snowflake",
+		Option: map[string]string{
+			"": "",
+		},
+	})
+
+	assert.NoError(t, err, fmt.Sprintf("create sequence err: %v", err))
+
+	assert.NotNil(t, seq)
+
+	s, err := manager.GetSequence(context.Background(), name)
+
+	assert.NoError(t, err, fmt.Sprintf("create sequence err: %v", err))
+
+	assert.NotNil(t, s)
+
+	assert.Equal(t, seq, s)
 }

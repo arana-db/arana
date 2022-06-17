@@ -55,8 +55,23 @@ const (
 // VTable represents a virtual/logical table.
 type VTable struct {
 	attributes
-	topology *Topology
-	shards   map[string][2]*ShardMetadata // column -> [db shard metadata,table shard metadata]
+	autoIncrement *AutoIncrement
+	topology      *Topology
+	shards        map[string][2]*ShardMetadata // column -> [db shard metadata,table shard metadata]
+}
+
+func (vt *VTable) SetDefaultAutoIncrement() {
+	if vt == nil {
+		return
+	}
+	vt.autoIncrement = &AutoIncrement{
+		Type:   "snowflake",
+		Option: make(map[string]string),
+	}
+}
+
+func (vt *VTable) GetAutoIncrement() AutoIncrement {
+	return *vt.autoIncrement
 }
 
 func (vt *VTable) SetAllowFullScan(allow bool) {
