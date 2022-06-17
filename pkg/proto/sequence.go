@@ -58,9 +58,9 @@ type EnchanceSequence interface {
 
 // Sequencer represents the factory to create a Sequence by table name.
 type SequenceManager interface {
-	// CreateSequence create sequence instance
+	// CreateSequence create one sequence instance
 	CreateSequence(ctx context.Context, conn VConn, opt SequenceConfig) (Sequence, error)
-	// GetSequence returns the Sequence of name.
+	// GetSequence get sequence instance by name
 	GetSequence(ctx context.Context, name string) (Sequence, error)
 }
 
