@@ -526,6 +526,7 @@ func (s *IntegrationSuite) TestDropIndex() {
 			defer rows.Close()
 
 			ret, err := convertRowsToMapSlice(rows)
+			assert.NoErrorf(t, err, "connect mysql error: %v", err)
 
 			newRet := make([]map[string]string, len(ret), len(ret))
 			for i := range ret {
