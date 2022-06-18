@@ -32,7 +32,8 @@ CREATE TABLE IF NOT EXISTS `employees_0000`.`student_0000`
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_uid` (`uid`)
+    UNIQUE KEY `uk_uid` (`uid`),
+     KEY `nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0000`.`student_0001`
@@ -47,7 +48,8 @@ CREATE TABLE IF NOT EXISTS `employees_0000`.`student_0001`
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_uid` (`uid`)
+    UNIQUE KEY `uk_uid` (`uid`),
+     KEY `nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0000`.`student_0002`
@@ -62,7 +64,8 @@ CREATE TABLE IF NOT EXISTS `employees_0000`.`student_0002`
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_uid` (`uid`)
+    UNIQUE KEY `uk_uid` (`uid`),
+     KEY `nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0000`.`student_0003`
@@ -77,7 +80,8 @@ CREATE TABLE IF NOT EXISTS `employees_0000`.`student_0003`
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_uid` (`uid`)
+    UNIQUE KEY `uk_uid` (`uid`),
+     KEY `nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0000`.`student_0004`
@@ -92,7 +96,8 @@ CREATE TABLE IF NOT EXISTS `employees_0000`.`student_0004`
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_uid` (`uid`)
+    UNIQUE KEY `uk_uid` (`uid`),
+     KEY `nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0000`.`student_0005`
@@ -107,7 +112,8 @@ CREATE TABLE IF NOT EXISTS `employees_0000`.`student_0005`
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_uid` (`uid`)
+    UNIQUE KEY `uk_uid` (`uid`),
+     KEY `nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0000`.`student_0006`
@@ -122,7 +128,8 @@ CREATE TABLE IF NOT EXISTS `employees_0000`.`student_0006`
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_uid` (`uid`)
+    UNIQUE KEY `uk_uid` (`uid`),
+     KEY `nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0000`.`student_0007`
@@ -137,7 +144,8 @@ CREATE TABLE IF NOT EXISTS `employees_0000`.`student_0007`
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_uid` (`uid`)
+    UNIQUE KEY `uk_uid` (`uid`),
+     KEY `nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0001`.`student_0008`
@@ -152,7 +160,8 @@ CREATE TABLE IF NOT EXISTS `employees_0001`.`student_0008`
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_uid` (`uid`)
+    UNIQUE KEY `uk_uid` (`uid`),
+     KEY `nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0001`.`student_0009`
@@ -167,7 +176,8 @@ CREATE TABLE IF NOT EXISTS `employees_0001`.`student_0009`
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_uid` (`uid`)
+    UNIQUE KEY `uk_uid` (`uid`),
+     KEY `nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0001`.`student_0010`
@@ -182,7 +192,8 @@ CREATE TABLE IF NOT EXISTS `employees_0001`.`student_0010`
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_uid` (`uid`)
+    UNIQUE KEY `uk_uid` (`uid`),
+     KEY `nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0001`.`student_0011`
@@ -197,7 +208,8 @@ CREATE TABLE IF NOT EXISTS `employees_0001`.`student_0011`
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_uid` (`uid`)
+    UNIQUE KEY `uk_uid` (`uid`),
+     KEY `nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0001`.`student_0012`
@@ -212,7 +224,8 @@ CREATE TABLE IF NOT EXISTS `employees_0001`.`student_0012`
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_uid` (`uid`)
+    UNIQUE KEY `uk_uid` (`uid`),
+     KEY `nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0001`.`student_0013`
@@ -227,7 +240,8 @@ CREATE TABLE IF NOT EXISTS `employees_0001`.`student_0013`
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_uid` (`uid`)
+    UNIQUE KEY `uk_uid` (`uid`),
+     KEY `nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0001`.`student_0014`
@@ -242,7 +256,8 @@ CREATE TABLE IF NOT EXISTS `employees_0001`.`student_0014`
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_uid` (`uid`)
+    UNIQUE KEY `uk_uid` (`uid`),
+     KEY `nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0001`.`student_0015`
@@ -257,7 +272,8 @@ CREATE TABLE IF NOT EXISTS `employees_0001`.`student_0015`
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_uid` (`uid`)
+    UNIQUE KEY `uk_uid` (`uid`),
+     KEY `nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0002`.`student_0016`
@@ -272,7 +288,8 @@ CREATE TABLE IF NOT EXISTS `employees_0002`.`student_0016`
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_uid` (`uid`)
+    UNIQUE KEY `uk_uid` (`uid`),
+     KEY `nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0002`.`student_0017`
@@ -287,7 +304,8 @@ CREATE TABLE IF NOT EXISTS `employees_0002`.`student_0017`
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_uid` (`uid`)
+    UNIQUE KEY `uk_uid` (`uid`),
+     KEY `nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0002`.`student_0018`
@@ -302,7 +320,8 @@ CREATE TABLE IF NOT EXISTS `employees_0002`.`student_0018`
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_uid` (`uid`)
+    UNIQUE KEY `uk_uid` (`uid`),
+     KEY `nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0002`.`student_0019`
@@ -317,7 +336,8 @@ CREATE TABLE IF NOT EXISTS `employees_0002`.`student_0019`
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_uid` (`uid`)
+    UNIQUE KEY `uk_uid` (`uid`),
+     KEY `nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0002`.`student_0020`
@@ -332,7 +352,8 @@ CREATE TABLE IF NOT EXISTS `employees_0002`.`student_0020`
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_uid` (`uid`)
+    UNIQUE KEY `uk_uid` (`uid`),
+     KEY `nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0002`.`student_0021`
@@ -347,7 +368,8 @@ CREATE TABLE IF NOT EXISTS `employees_0002`.`student_0021`
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_uid` (`uid`)
+    UNIQUE KEY `uk_uid` (`uid`),
+     KEY `nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0002`.`student_0022`
@@ -362,7 +384,8 @@ CREATE TABLE IF NOT EXISTS `employees_0002`.`student_0022`
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_uid` (`uid`)
+    UNIQUE KEY `uk_uid` (`uid`),
+     KEY `nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0002`.`student_0023`
@@ -377,7 +400,8 @@ CREATE TABLE IF NOT EXISTS `employees_0002`.`student_0023`
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_uid` (`uid`)
+    UNIQUE KEY `uk_uid` (`uid`),
+     KEY `nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0003`.`student_0024`
@@ -392,7 +416,8 @@ CREATE TABLE IF NOT EXISTS `employees_0003`.`student_0024`
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_uid` (`uid`)
+    UNIQUE KEY `uk_uid` (`uid`),
+     KEY `nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0003`.`student_0025`
@@ -407,7 +432,8 @@ CREATE TABLE IF NOT EXISTS `employees_0003`.`student_0025`
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_uid` (`uid`)
+    UNIQUE KEY `uk_uid` (`uid`),
+     KEY `nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0003`.`student_0026`
@@ -422,7 +448,8 @@ CREATE TABLE IF NOT EXISTS `employees_0003`.`student_0026`
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_uid` (`uid`)
+    UNIQUE KEY `uk_uid` (`uid`),
+     KEY `nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0003`.`student_0027`
@@ -437,7 +464,8 @@ CREATE TABLE IF NOT EXISTS `employees_0003`.`student_0027`
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_uid` (`uid`)
+    UNIQUE KEY `uk_uid` (`uid`),
+     KEY `nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0003`.`student_0028`
@@ -452,7 +480,8 @@ CREATE TABLE IF NOT EXISTS `employees_0003`.`student_0028`
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_uid` (`uid`)
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0003`.`student_0029`
@@ -467,7 +496,8 @@ CREATE TABLE IF NOT EXISTS `employees_0003`.`student_0029`
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_uid` (`uid`)
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0003`.`student_0030`
@@ -482,7 +512,8 @@ CREATE TABLE IF NOT EXISTS `employees_0003`.`student_0030`
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_uid` (`uid`)
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0003`.`student_0031`
@@ -497,7 +528,8 @@ CREATE TABLE IF NOT EXISTS `employees_0003`.`student_0031`
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_uid` (`uid`)
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 INSERT INTO employees_0000.student_0001 VALUES (1, 1, 'scott', 95, 'nc_scott', 0, 16, NOW(), NOW());

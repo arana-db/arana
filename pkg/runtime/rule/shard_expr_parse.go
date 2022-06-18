@@ -25,7 +25,6 @@ import (
 )
 
 // ---- lexer ----
-
 // This lexer is similar to the one described in Chapter 13.
 type lexer struct {
 	scan  scanner.Scanner
