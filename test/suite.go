@@ -117,7 +117,7 @@ func (ms *MySuite) DB() *sql.DB {
 
 func (ms *MySuite) MySQLDB(schema string) (*sql.DB, error) {
 	var (
-		mysqlDsn = fmt.Sprintf("root:123456@tcp(127.0.0.1:3306)/%s?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8", schema)
+		mysqlDsn = fmt.Sprintf("root:123456@tcp(127.0.0.1:%d)/%s?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8", ms.container.Port, schema)
 		err      error
 	)
 	ms.T().Logf("====== connecting %s ======\n", mysqlDsn)
