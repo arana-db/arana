@@ -71,7 +71,7 @@ func (d *DropIndexPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Res
 				return nil, errors.WithStack(err)
 			}
 
- 		    sb.Reset()
+			sb.Reset()
 		}
 	}
 
