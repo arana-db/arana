@@ -141,9 +141,21 @@ const (
 )
 
 func (o optimizer) DropIndexStatement(ctx context.Context, stmt *rast.DropIndexStatement, args []interface{}) (proto.Plan, error) {
-	ret := plan.NewDropIndexPlan(stmt)
-	ret.BindArgs(args)
-	return ret, nil
+	ru := rcontext.Rule(ctx)
+	//table shard
+
+	shard, err := o.computeShards(ru, stmt.Table, nil, args)
+	if err != nil {
+		return nil, err
+	}
+	if len(shard) == 0 {
+		return plan.Transparent(stmt, args), nil
+	}
+
+	shardPlan := plan.NewDropIndexPlan(stmt)
+	shardPlan.SetShard(shard)
+	shardPlan.BindArgs(args)
+	return shardPlan, nil
 }
 
 func (o optimizer) optimizeAlterTable(ctx context.Context, stmt *rast.AlterTableStatement, args []interface{}) (proto.Plan, error) {
