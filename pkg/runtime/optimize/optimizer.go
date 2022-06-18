@@ -127,8 +127,7 @@ func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.S
 	case *rast.AlterTableStatement:
 		return o.optimizeAlterTable(ctx, t, args)
 	case *rast.DropIndexStatement:
-		return o.DropIndexStatement(ctx, t, args)
-
+		return o.optimizeDropIndex(ctx, t, args)
 	}
 
 	//TODO implement all statements
@@ -140,7 +139,7 @@ const (
 	_supported
 )
 
-func (o optimizer) DropIndexStatement(ctx context.Context, stmt *rast.DropIndexStatement, args []interface{}) (proto.Plan, error) {
+func (o optimizer) optimizeDropIndex(ctx context.Context, stmt *rast.DropIndexStatement, args []interface{}) (proto.Plan, error) {
 	ru := rcontext.Rule(ctx)
 	//table shard
 

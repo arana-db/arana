@@ -18,20 +18,16 @@
 package test
 
 import (
+	"database/sql"
 	"fmt"
 	"testing"
 	"time"
-)
 
-import (
-	_ "github.com/go-sql-driver/mysql" // register mysql
-
+	"github.com/arana-db/arana/pkg/util/rand2"
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
-)
 
-import (
-	"github.com/arana-db/arana/pkg/util/rand2"
 	utils "github.com/arana-db/arana/pkg/util/tableprint"
 )
 
@@ -494,4 +490,88 @@ func (s *IntegrationSuite) TestAlterTable() {
 	assert.NoErrorf(t, err, "alter table error: %v", err)
 
 	assert.Equal(t, int64(0), affected)
+}
+
+func (s *IntegrationSuite) TestDropIndex() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	result, err := db.Exec("drop index `nickname` on student")
+	assert.NoErrorf(t, err, "drop index error: %v", err)
+	affected, err := result.RowsAffected()
+	assert.NoErrorf(t, err, "drop index error: %v", err)
+
+	assert.Equal(t, int64(0), affected)
+
+	schemas := map[string]string{"employees_0000": "student_0000", "employees_0001": "student_0012", "employees_0002": "student_0020", "employees_0003": "student_0024"}
+
+	for schema := range schemas {
+		table := schemas[schema]
+
+		func(schema string) {
+			mysqlDb, err := s.MySQLDB(schema)
+			assert.NoErrorf(t, err, "connect mysql error: %v", err)
+
+			defer mysqlDb.Close()
+			rows, err := mysqlDb.Query(fmt.Sprintf("show index from %s", table))
+			assert.NoErrorf(t, err, "show create error: %v", err)
+
+			defer rows.Close()
+
+			ret, err := convertRowsToMapSlice(rows)
+
+			newRet := make([]map[string]string, len(ret), len(ret))
+			for i := range ret {
+				newRet[i] = make(map[string]string)
+				for k, v := range ret[i] {
+					if (*v.(*interface{})) == nil {
+						newRet[i][k] = ""
+						continue
+					}
+					newRet[i][k] = string((*v.(*interface{})).([]uint8))
+				}
+			}
+			t.Logf("ret : %#v", newRet)
+
+			for i := range ret {
+				keyName := string((*ret[i]["Key_name"].(*interface{})).([]uint8))
+				t.Logf("Key_name : %s", keyName)
+				if keyName == "nickname" {
+					t.Fatal("drop index `nickname` fail")
+				}
+			}
+
+		}(schema)
+
+	}
+
+}
+
+func convertRowsToMapSlice(rows *sql.Rows) ([]map[string]interface{}, error) {
+	ret := make([]map[string]interface{}, 0, 4)
+
+	columns, _ := rows.Columns()
+
+	cache := make([]interface{}, len(columns))
+	for index := range cache {
+		var placeholder interface{}
+		cache[index] = &placeholder
+	}
+
+	for rows.Next() {
+		if err := rows.Scan(cache...); err != nil {
+			return nil, err
+		}
+
+		record := make(map[string]interface{})
+		for i, d := range cache {
+			record[columns[i]] = d
+		}
+
+		ret = append(ret, record)
+	}
+
+	return ret, nil
 }

@@ -70,8 +70,9 @@ func (d *DropIndexPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Res
 			if err := d.execOne(ctx, conn, db, sb.String(), d.toArgs(args)); err != nil {
 				return nil, errors.WithStack(err)
 			}
+
+ 		    sb.Reset()
 		}
-		sb.Reset()
 	}
 
 	return resultx.New(), nil
