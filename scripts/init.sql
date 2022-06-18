@@ -108,6 +108,7 @@ CREATE TABLE salaries (
     from_date   DATE            NOT NULL,
     to_date     DATE            NOT NULL,
     FOREIGN KEY (emp_no) REFERENCES employees (emp_no) ON DELETE CASCADE,
-    PRIMARY KEY (emp_no, from_date)
+    PRIMARY KEY (emp_no, from_date),
+    KEY `from_date` (`from_date`)
 )
 ;

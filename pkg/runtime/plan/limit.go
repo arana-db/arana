@@ -26,27 +26,48 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/dataset"
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/transformer"
+	"github.com/arana-db/arana/pkg/resultx"
 )
 
-type AggregatePlan struct {
-	transformer.Combiner
-	AggrLoader *transformer.AggrLoader
-	Plan       proto.Plan
+var _ proto.Plan = (*LimitPlan)(nil)
+
+type LimitPlan struct {
+	ParentPlan     proto.Plan
+	OriginOffset   int64
+	OverwriteLimit int64
 }
 
-func (a *AggregatePlan) Type() proto.PlanType {
+func (limitPlan *LimitPlan) Type() proto.PlanType {
 	return proto.PlanTypeQuery
 }
 
-func (a *AggregatePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
-	ctx, span := Tracer.Start(ctx, "AggregatePlan.ExecIn")
-	defer span.End()
-	res, err := a.Plan.ExecIn(ctx, conn)
+func (limitPlan *LimitPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+	if limitPlan.ParentPlan == nil {
+		return nil, errors.New("limitPlan: ParentPlan is nil")
+	}
+
+	res, err := limitPlan.ParentPlan.ExecIn(ctx, conn)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
 
-	return a.Combiner.Merge(res, a.AggrLoader)
+	ds, err := res.Dataset()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	var count int64
+	ds = dataset.Pipe(ds, dataset.Filter(func(next proto.Row) bool {
+		count++
+		if count < limitPlan.OriginOffset {
+			return false
+		}
+		if count > limitPlan.OriginOffset && count <= limitPlan.OverwriteLimit {
+			return true
+		}
+		return false
+	}))
+	return resultx.New(resultx.WithDataset(ds)), nil
 }

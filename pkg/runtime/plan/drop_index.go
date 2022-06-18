@@ -28,17 +28,20 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/proto/rule"
+	"github.com/arana-db/arana/pkg/resultx"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
 type DropIndexPlan struct {
 	basePlan
-	Stmt *ast.DropIndexStatement
+	stmt  *ast.DropIndexStatement
+	shard rule.DatabaseTables
 }
 
 func NewDropIndexPlan(stmt *ast.DropIndexStatement) *DropIndexPlan {
 	return &DropIndexPlan{
-		Stmt: stmt,
+		stmt: stmt,
 	}
 }
 
@@ -52,9 +55,38 @@ func (d *DropIndexPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Res
 		args []int
 	)
 
-	if err := d.Stmt.Restore(ast.RestoreDefault, &sb, &args); err != nil {
-		return nil, errors.WithStack(err)
+	for db, tables := range d.shard {
+		for i := range tables {
+			table := tables[i]
+
+			stmt := new(ast.DropIndexStatement)
+			stmt.Table = ast.TableName{table}
+			stmt.IndexName = d.stmt.IndexName
+
+			if err := stmt.Restore(ast.RestoreDefault, &sb, &args); err != nil {
+				return nil, err
+			}
+
+			if err := d.execOne(ctx, conn, db, sb.String(), d.toArgs(args)); err != nil {
+				return nil, errors.WithStack(err)
+			}
+
+			sb.Reset()
+		}
 	}
 
-	return conn.Exec(ctx, "", sb.String(), &args)
+	return resultx.New(), nil
+}
+
+func (d *DropIndexPlan) SetShard(shard rule.DatabaseTables) {
+	d.shard = shard
+}
+
+func (d *DropIndexPlan) execOne(ctx context.Context, conn proto.VConn, db, query string, args []interface{}) error {
+	res, err := conn.Exec(ctx, db, query, args...)
+	if err != nil {
+		return err
+	}
+	_, _ = res.Dataset()
+	return nil
 }

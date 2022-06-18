@@ -23,8 +23,6 @@ import (
 	"io"
 	"sync"
 	"time"
-
-	"github.com/arana-db/arana/pkg/util/bufferpool"
 )
 
 import (
@@ -37,6 +35,7 @@ import (
 	consts "github.com/arana-db/arana/pkg/constants/mysql"
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/util/bufferpool"
 	"github.com/arana-db/arana/pkg/util/bytesconv"
 )
 
