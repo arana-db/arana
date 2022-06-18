@@ -33,7 +33,6 @@ import (
 	"github.com/arana-db/arana/pkg/constants/mysql"
 	mysqlErrors "github.com/arana-db/arana/pkg/mysql/errors"
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/util/bytesconv"
 )
 
 var (
@@ -350,15 +349,24 @@ func (te TextRow) Scan(dest []proto.Value) error {
 		}
 
 		switch te.fields[i].(*Field).fieldType {
-		case mysql.FieldTypeString, mysql.FieldTypeVarString:
-			dest[i] = bytesconv.BytesToString(b)
-		case mysql.FieldTypeUint16, mysql.FieldTypeUint8, mysql.FieldTypeInt24, mysql.FieldTypeShort, mysql.FieldTypeTiny, mysql.FieldTypeLong:
-			if dest[i], err = strconv.ParseInt(bytesconv.BytesToString(b), 10, 64); err != nil {
+		case mysql.FieldTypeString, mysql.FieldTypeVarString, mysql.FieldTypeVarChar:
+			dest[i] = string(b)
+		case mysql.FieldTypeTiny, mysql.FieldTypeShort, mysql.FieldTypeLong, mysql.FieldTypeInt24,
+			mysql.FieldTypeLongLong, mysql.FieldTypeYear:
+			if te.fields[i].(*Field).flags&mysql.UnsignedFlag > 0 {
+				dest[i], err = strconv.ParseUint(string(b), 10, 64)
+			} else {
+				dest[i], err = strconv.ParseInt(string(b), 10, 64)
+			}
+			if err != nil {
+				return errors.WithStack(err)
+			}
+		case mysql.FieldTypeFloat, mysql.FieldTypeDouble, mysql.FieldTypeNewDecimal, mysql.FieldTypeDecimal:
+			if dest[i], err = strconv.ParseFloat(string(b), 64); err != nil {
 				return errors.WithStack(err)
 			}
 		case mysql.FieldTypeTimestamp, mysql.FieldTypeDateTime, mysql.FieldTypeDate, mysql.FieldTypeNewDate:
-			dest[i], err = parseDateTime(b, loc)
-			if err != nil {
+			if dest[i], err = parseDateTime(b, loc); err != nil {
 				return errors.WithStack(err)
 			}
 		default:

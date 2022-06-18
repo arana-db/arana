@@ -36,7 +36,9 @@ import (
 	rast "github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
+	"github.com/arana-db/arana/pkg/runtime/namespace"
 	"github.com/arana-db/arana/pkg/runtime/plan"
+	"github.com/arana-db/arana/pkg/security"
 	"github.com/arana-db/arana/pkg/transformer"
 	"github.com/arana-db/arana/pkg/util/log"
 )
@@ -112,6 +114,8 @@ func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.S
 		return o.optimizeDelete(ctx, t, args)
 	case *rast.UpdateStatement:
 		return o.optimizeUpdate(ctx, conn, t, args)
+	case *rast.ShowOpenTables:
+		return o.optimizeShowOpenTables(ctx, t, args)
 	case *rast.ShowTables:
 		return o.optimizeShowTables(ctx, t, args)
 	case *rast.ShowIndex:
@@ -754,6 +758,49 @@ func (o optimizer) optimizeDelete(ctx context.Context, stmt *rast.DeleteStatemen
 	ret.SetShards(shards)
 
 	return ret, nil
+}
+
+func (o optimizer) optimizeShowOpenTables(ctx context.Context, stmt *rast.ShowOpenTables, args []interface{}) (proto.Plan, error) {
+	var invertedIndex map[string]string
+	for logicalTable, v := range rcontext.Rule(ctx).VTables() {
+		t := v.Topology()
+		t.Each(func(x, y int) bool {
+			if _, phyTable, ok := t.Render(x, y); ok {
+				if invertedIndex == nil {
+					invertedIndex = make(map[string]string)
+				}
+				invertedIndex[phyTable] = logicalTable
+			}
+			return true
+		})
+	}
+
+	clusters := security.DefaultTenantManager().GetClusters(rcontext.Tenant(ctx))
+	plans := make([]proto.Plan, 0, len(clusters))
+	for _, cluster := range clusters {
+		ns := namespace.Load(cluster)
+		// 配置里原子库 都需要执行一次
+		groups := ns.DBGroups()
+		for i := 0; i < len(groups); i++ {
+			ret := plan.NewShowOpenTablesPlan(stmt)
+			ret.BindArgs(args)
+			ret.SetInvertedShards(invertedIndex)
+			ret.SetDatabase(groups[i])
+			plans = append(plans, ret)
+		}
+	}
+
+	unionPlan := &plan.UnionPlan{
+		Plans: plans,
+	}
+
+	aggregate := &plan.AggregatePlan{
+		Plan:       unionPlan,
+		Combiner:   transformer.NewCombinerManager(),
+		AggrLoader: transformer.LoadAggrs(nil),
+	}
+
+	return aggregate, nil
 }
 
 func (o optimizer) optimizeShowTables(ctx context.Context, stmt *rast.ShowTables, args []interface{}) (proto.Plan, error) {
