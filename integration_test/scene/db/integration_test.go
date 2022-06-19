@@ -18,7 +18,6 @@
 package test
 
 import (
-	"database/sql"
 	"fmt"
 	"testing"
 	"time"
@@ -34,18 +33,19 @@ import (
 import (
 	"github.com/arana-db/arana/pkg/util/rand2"
 	utils "github.com/arana-db/arana/pkg/util/tableprint"
+	"github.com/arana-db/arana/test"
 )
 
 type IntegrationSuite struct {
-	*MySuite
+	*test.MySuite
 }
 
 func TestSuite(t *testing.T) {
-	su := NewMySuite(
-		WithMySQLServerAuth("root", "123456"),
-		WithMySQLDatabase("employees"),
-		WithConfig("../integration_test/config/db_tbl/config.yaml"),
-		WithScriptPath("../scripts"),
+	su := test.NewMySuite(
+		test.WithMySQLServerAuth("root", "123456"),
+		test.WithMySQLDatabase("employees"),
+		test.WithConfig("../integration_test/config/db/config.yaml"),
+		test.WithScriptPath("../integration_test/scripts/db"),
 		//WithDevMode(), // NOTICE: UNCOMMENT IF YOU WANT TO DEBUG LOCAL ARANA SERVER!!!
 	)
 	suite.Run(t, &IntegrationSuite{su})
@@ -144,7 +144,7 @@ func (s *IntegrationSuite) TestSimpleSharding() {
 		{"SELECT * FROM student WHERE uid = 42 AND 1=2", nil, 0},
 		{"SELECT * FROM student WHERE uid = ?", []interface{}{42}, 1},
 		{"SELECT * FROM student WHERE uid in (?,?,?)", []interface{}{1, 2, 33}, 3},
-		{"SELECT * FROM student where uid between 1 and 10", nil, 10},
+		{"SELECT * FROM student where uid between 1 and 10", nil, 7},
 		//{"SELECT * FROM student", nil, total}, // TODO: fix -> packet got EOF
 	} {
 		t.Run(it.sql, func(t *testing.T) {
@@ -366,124 +366,124 @@ func (s *IntegrationSuite) TestJoinTable() {
 	assert.NoErrorf(t, err, "join table error:%v", err)
 }
 
-func (s *IntegrationSuite) TestShardingAgg() {
-	var (
-		db = s.DB()
-		t  = s.T()
-	)
-
-	const total = 100
-
-	// insert into logical table
-	for i := 1; i <= total; i++ {
-		result, err := db.Exec(
-			`INSERT IGNORE INTO student(id,uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?,?)`,
-			time.Now().UnixNano(),
-			i,
-			3.14,
-			fmt.Sprintf("fake_name_%d", i),
-			fmt.Sprintf("fake_nickname_%d", i),
-			1,
-			2022,
-		)
-		assert.NoErrorf(t, err, "insert row error: %v", err)
-		affected, err := result.RowsAffected()
-		assert.NoErrorf(t, err, "insert row error: %v", err)
-		assert.True(t, affected <= 1)
-	}
-
-	t.Run("Count", func(t *testing.T) {
-		row := db.QueryRow("select count(*) as ttt from student")
-		var cnt int64
-		assert.NoError(t, row.Scan(&cnt))
-		assert.Equal(t, int64(100), cnt)
-	})
-
-	t.Run("MAX", func(t *testing.T) {
-		row := db.QueryRow("select max(score) as ttt from student")
-		var cnt float64
-		assert.NoError(t, row.Scan(&cnt))
-		assert.Equal(t, 95, int(cnt))
-	})
-
-	t.Run("MIN", func(t *testing.T) {
-		row := db.QueryRow("select min(score) as ttt from student")
-		var cnt float64
-		assert.NoError(t, row.Scan(&cnt))
-		assert.Equal(t, 3.14, cnt)
-	})
-
-	t.Run("SUM", func(t *testing.T) {
-		row := db.QueryRow("select sum(score) as ttt from student")
-		var cnt float64
-		assert.NoError(t, row.Scan(&cnt))
-		assert.Equal(t, int64(405), int64(cnt))
-	})
-
-	result, err := db.Exec(
-		`INSERT IGNORE INTO student(id,uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?,?)`,
-		time.Now().UnixNano(),
-		9527,
-		100,
-		"jason",
-		"jason",
-		1,
-		2022,
-	)
-	assert.NoErrorf(t, err, "insert row error: %v", err)
-	affected, err := result.RowsAffected()
-	assert.NoErrorf(t, err, "insert row error: %v", err)
-	assert.True(t, affected <= 1)
-	result, err = db.Exec(
-		`INSERT IGNORE INTO student(id,uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?,?)`,
-		time.Now().UnixNano(),
-		9559,
-		100,
-		"jason",
-		"jason",
-		1,
-		2022,
-	)
-	assert.NoErrorf(t, err, "insert row error: %v", err)
-	affected, err = result.RowsAffected()
-	assert.NoErrorf(t, err, "insert row error: %v", err)
-	assert.True(t, affected <= 1)
-
-	type tt struct {
-		sql       string
-		args      []interface{}
-		expectLen int
-	}
-
-	for _, it := range []tt{
-		{"SELECT * FROM student WHERE uid >= 9527", nil, 2},
-	} {
-		t.Run(it.sql, func(t *testing.T) {
-			// select from logical table
-			rows, err := db.Query(it.sql, it.args...)
-			assert.NoError(t, err, "should query from sharding table successfully")
-			defer rows.Close()
-			data, _ := utils.PrintTable(rows)
-			assert.Equal(t, it.expectLen, len(data))
-		})
-	}
-
-	t.Run("SUM_Jason", func(t *testing.T) {
-		row := db.QueryRow("select sum(score) as ttt from student where uid >= 9527")
-		var cnt float64
-		assert.NoError(t, row.Scan(&cnt))
-		assert.Equal(t, 200, int(cnt))
-	})
-
-	t.Run("COUNT_Jason", func(t *testing.T) {
-		row := db.QueryRow("select count(score) as ttt from student where uid >= 9527")
-		var cnt int
-		assert.NoError(t, row.Scan(&cnt))
-		assert.Equal(t, 2, cnt)
-	})
-
-	db.Exec("DELETE FROM student WHERE uid >= 9527")
-}
+//func (s *IntegrationSuite) TestShardingAgg() {
+//	var (
+//		db = s.DB()
+//		t  = s.T()
+//	)
+//
+//	const total = 100
+//
+//	// insert into logical table
+//	for i := 1; i <= total; i++ {
+//		result, err := db.Exec(
+//			`INSERT IGNORE INTO student(id,uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?,?)`,
+//			time.Now().UnixNano(),
+//			i,
+//			3.14,
+//			fmt.Sprintf("fake_name_%d", i),
+//			fmt.Sprintf("fake_nickname_%d", i),
+//			1,
+//			2022,
+//		)
+//		assert.NoErrorf(t, err, "insert row error: %v", err)
+//		affected, err := result.RowsAffected()
+//		assert.NoErrorf(t, err, "insert row error: %v", err)
+//		assert.True(t, affected <= 1)
+//	}
+//
+//	t.Run("Count", func(t *testing.T) {
+//		row := db.QueryRow("select count(*) as ttt from student")
+//		var cnt int64
+//		assert.NoError(t, row.Scan(&cnt))
+//		assert.Equal(t, int64(100), cnt)
+//	})
+//
+//	t.Run("MAX", func(t *testing.T) {
+//		row := db.QueryRow("select max(score) as ttt from student")
+//		var cnt float64
+//		assert.NoError(t, row.Scan(&cnt))
+//		assert.Equal(t, 95, int(cnt))
+//	})
+//
+//	t.Run("MIN", func(t *testing.T) {
+//		row := db.QueryRow("select min(score) as ttt from student")
+//		var cnt float64
+//		assert.NoError(t, row.Scan(&cnt))
+//		assert.Equal(t, 3.14, cnt)
+//	})
+//
+//	t.Run("SUM", func(t *testing.T) {
+//		row := db.QueryRow("select sum(score) as ttt from student")
+//		var cnt float64
+//		assert.NoError(t, row.Scan(&cnt))
+//		assert.Equal(t, int64(405), int64(cnt))
+//	})
+//
+//	result, err := db.Exec(
+//		`INSERT IGNORE INTO student(id,uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?,?)`,
+//		time.Now().UnixNano(),
+//		9527,
+//		100,
+//		"jason",
+//		"jason",
+//		1,
+//		2022,
+//	)
+//	assert.NoErrorf(t, err, "insert row error: %v", err)
+//	affected, err := result.RowsAffected()
+//	assert.NoErrorf(t, err, "insert row error: %v", err)
+//	assert.True(t, affected <= 1)
+//	result, err = db.Exec(
+//		`INSERT IGNORE INTO student(id,uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?,?)`,
+//		time.Now().UnixNano(),
+//		9559,
+//		100,
+//		"jason",
+//		"jason",
+//		1,
+//		2022,
+//	)
+//	assert.NoErrorf(t, err, "insert row error: %v", err)
+//	affected, err = result.RowsAffected()
+//	assert.NoErrorf(t, err, "insert row error: %v", err)
+//	assert.True(t, affected <= 1)
+//
+//	type tt struct {
+//		sql       string
+//		args      []interface{}
+//		expectLen int
+//	}
+//
+//	for _, it := range []tt{
+//		{"SELECT * FROM student WHERE uid >= 9527", nil, 2},
+//	} {
+//		t.Run(it.sql, func(t *testing.T) {
+//			// select from logical table
+//			rows, err := db.Query(it.sql, it.args...)
+//			assert.NoError(t, err, "should query from sharding table successfully")
+//			defer rows.Close()
+//			data, _ := utils.PrintTable(rows)
+//			assert.Equal(t, it.expectLen, len(data))
+//		})
+//	}
+//
+//	t.Run("SUM_Jason", func(t *testing.T) {
+//		row := db.QueryRow("select sum(score) as ttt from student where uid >= 9527")
+//		var cnt float64
+//		assert.NoError(t, row.Scan(&cnt))
+//		assert.Equal(t, 200, int(cnt))
+//	})
+//
+//	t.Run("COUNT_Jason", func(t *testing.T) {
+//		row := db.QueryRow("select count(score) as ttt from student where uid >= 9527")
+//		var cnt int
+//		assert.NoError(t, row.Scan(&cnt))
+//		assert.Equal(t, 2, cnt)
+//	})
+//
+//	db.Exec("DELETE FROM student WHERE uid >= 9527")
+//}
 
 func (s *IntegrationSuite) TestAlterTable() {
 	var (
@@ -497,89 +497,4 @@ func (s *IntegrationSuite) TestAlterTable() {
 	assert.NoErrorf(t, err, "alter table error: %v", err)
 
 	assert.Equal(t, int64(0), affected)
-}
-
-func (s *IntegrationSuite) TestDropIndex() {
-	var (
-		db = s.DB()
-		t  = s.T()
-	)
-
-	result, err := db.Exec("drop index `nickname` on student")
-	assert.NoErrorf(t, err, "drop index error: %v", err)
-	affected, err := result.RowsAffected()
-	assert.NoErrorf(t, err, "drop index error: %v", err)
-
-	assert.Equal(t, int64(0), affected)
-
-	schemas := map[string]string{"employees_0000": "student_0000", "employees_0001": "student_0012", "employees_0002": "student_0020", "employees_0003": "student_0024"}
-
-	for schema := range schemas {
-		table := schemas[schema]
-
-		func(schema string) {
-			mysqlDb, err := s.MySQLDB(schema)
-			assert.NoErrorf(t, err, "connect mysql error: %v", err)
-
-			defer mysqlDb.Close()
-			rows, err := mysqlDb.Query(fmt.Sprintf("show index from %s", table))
-			assert.NoErrorf(t, err, "show create error: %v", err)
-
-			defer rows.Close()
-
-			ret, err := convertRowsToMapSlice(rows)
-			assert.NoErrorf(t, err, "connect mysql error: %v", err)
-
-			newRet := make([]map[string]string, len(ret), len(ret))
-			for i := range ret {
-				newRet[i] = make(map[string]string)
-				for k, v := range ret[i] {
-					if (*v.(*interface{})) == nil {
-						newRet[i][k] = ""
-						continue
-					}
-					newRet[i][k] = string((*v.(*interface{})).([]uint8))
-				}
-			}
-			t.Logf("ret : %#v", newRet)
-
-			for i := range ret {
-				keyName := string((*ret[i]["Key_name"].(*interface{})).([]uint8))
-				t.Logf("Key_name : %s", keyName)
-				if keyName == "nickname" {
-					t.Fatal("drop index `nickname` fail")
-				}
-			}
-
-		}(schema)
-
-	}
-
-}
-
-func convertRowsToMapSlice(rows *sql.Rows) ([]map[string]interface{}, error) {
-	ret := make([]map[string]interface{}, 0, 4)
-
-	columns, _ := rows.Columns()
-
-	cache := make([]interface{}, len(columns))
-	for index := range cache {
-		var placeholder interface{}
-		cache[index] = &placeholder
-	}
-
-	for rows.Next() {
-		if err := rows.Scan(cache...); err != nil {
-			return nil, err
-		}
-
-		record := make(map[string]interface{})
-		for i, d := range cache {
-			record[columns[i]] = d
-		}
-
-		ret = append(ret, record)
-	}
-
-	return ret, nil
 }

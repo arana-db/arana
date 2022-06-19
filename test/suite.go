@@ -63,6 +63,24 @@ func WithMySQLDatabase(database string) Option {
 	}
 }
 
+func WithConfig(path string) Option {
+	return func(mySuite *MySuite) {
+		mySuite.configPath = path
+	}
+}
+
+func WithBootstrap(path string) Option {
+	return func(mySuite *MySuite) {
+		mySuite.bootstrapConfig = path
+	}
+}
+
+func WithScriptPath(path string) Option {
+	return func(mySuite *MySuite) {
+		mySuite.scriptPath = path
+	}
+}
+
 type MySuite struct {
 	suite.Suite
 
@@ -77,7 +95,7 @@ type MySuite struct {
 	db      *sql.DB
 	dbSync  sync.Once
 
-	tmpFile string
+	tmpFile, bootstrapConfig, configPath, scriptPath string
 }
 
 func NewMySuite(options ...Option) *MySuite {
@@ -144,6 +162,8 @@ func (ms *MySuite) SetupSuite() {
 			Username: ms.username,
 			Password: ms.password,
 			Database: ms.database,
+
+			ScriptPath: ms.scriptPath,
 		}
 		err error
 	)
@@ -156,11 +176,17 @@ func (ms *MySuite) SetupSuite() {
 	ms.T().Logf("====== mysql is listening on %s ======\n", mysqlAddr)
 	ms.T().Logf("====== arana will listen on 127.0.0.1:%d ======\n", ms.port)
 
-	cfgPath := testdata.Path("../conf/config.yaml")
+	if ms.configPath == "" {
+		ms.configPath = "../conf/config.yaml"
+	}
+	cfgPath := testdata.Path(ms.configPath)
 
 	err = ms.createConfigFile(cfgPath, ms.container.Host, ms.container.Port)
 	require.NoError(ms.T(), err)
 
+	if ms.bootstrapConfig == "" {
+		ms.bootstrapConfig = "../conf/bootstrap.yaml"
+	}
 	go func() {
 		_ = os.Setenv(constants.EnvConfigPath, ms.tmpFile)
 		start.Run(testdata.Path("../conf/bootstrap.yaml"))
