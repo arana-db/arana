@@ -19,6 +19,7 @@ package test
 
 import (
 	"context"
+	"path"
 )
 
 import (
@@ -41,6 +42,8 @@ type MySQLContainerTester struct {
 	Username string `validate:"required" yaml:"username" json:"username"`
 	Password string `validate:"required" yaml:"password" json:"password"`
 	Database string `validate:"required" yaml:"database" json:"database"`
+
+	ScriptPath string
 }
 
 func (tester MySQLContainerTester) SetupMySQLContainer(ctx context.Context) (*MySQLContainer, error) {
@@ -53,9 +56,9 @@ func (tester MySQLContainerTester) SetupMySQLContainer(ctx context.Context) (*My
 			"MYSQL_DATABASE":      tester.Database,
 		},
 		BindMounts: map[string]string{
-			"/docker-entrypoint-initdb.d/0.sql": testdata.Path("../scripts/init.sql"),
-			"/docker-entrypoint-initdb.d/1.sql": testdata.Path("../scripts/sharding.sql"),
-			"/docker-entrypoint-initdb.d/2.sql": testdata.Path("../scripts/sequence.sql"),
+			"/docker-entrypoint-initdb.d/0.sql": testdata.Path(path.Join(tester.ScriptPath, "init.sql")),
+			"/docker-entrypoint-initdb.d/1.sql": testdata.Path(path.Join(tester.ScriptPath, "sharding.sql")),
+			"/docker-entrypoint-initdb.d/2.sql": testdata.Path(path.Join(tester.ScriptPath, "sequence.sql")),
 		},
 		WaitingFor: wait.ForLog("port: 3306  MySQL Community Server - GPL"),
 	}
