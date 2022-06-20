@@ -591,11 +591,11 @@ func (s *IntegrationSuite) TestShowColumns() {
 	)
 
 	result, err := db.Query("show columns from student")
-	assert.NoErrorf(t, err, "show databases error: %v", err)
+	assert.NoErrorf(t, err, "show columns error: %v", err)
 
 	defer result.Close()
 
 	affected, err := result.ColumnTypes()
-	assert.NoErrorf(t, err, "show databases: %v", err)
+	assert.NoErrorf(t, err, "show columns: %v", err)
 	assert.Equal(t, affected[0].DatabaseTypeName(), "VARCHAR")
 }
