@@ -45,38 +45,38 @@ type peekableDataset struct {
 	err  error
 }
 
-func (at *peekableDataset) Next() (proto.Row, error) {
-	at.mu.Lock()
-	defer at.mu.Unlock()
-
+func (pe *peekableDataset) Next() (proto.Row, error) {
 	var (
 		next proto.Row
 		err  error
 	)
 
-	if next, err, at.next, at.err = at.next, at.err, nil, nil; next != nil || err != nil {
+	pe.mu.Lock()
+	defer pe.mu.Unlock()
+
+	if next, err, pe.next, pe.err = pe.next, pe.err, nil, nil; next != nil || err != nil {
 		return next, err
 	}
 
-	return at.Dataset.Next()
+	return pe.Dataset.Next()
 }
 
-func (at *peekableDataset) Peek() (proto.Row, error) {
-	at.mu.Lock()
-	defer at.mu.Unlock()
-
+func (pe *peekableDataset) Peek() (proto.Row, error) {
 	var (
 		next proto.Row
 		err  error
 	)
 
-	if next, err = at.next, at.err; next != nil || err != nil {
+	pe.mu.Lock()
+	defer pe.mu.Unlock()
+
+	if next, err = pe.next, pe.err; next != nil || err != nil {
 		return next, err
 	}
 
-	at.next, at.err = at.Dataset.Next()
+	pe.next, pe.err = pe.Dataset.Next()
 
-	return at.next, at.err
+	return pe.next, pe.err
 }
 
 type parallelDataset struct {
