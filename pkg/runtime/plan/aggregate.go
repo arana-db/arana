@@ -33,7 +33,7 @@ import (
 type AggregatePlan struct {
 	transformer.Combiner
 	AggrLoader *transformer.AggrLoader
-	UnionPlan  *UnionPlan
+	Plan       proto.Plan
 }
 
 func (a *AggregatePlan) Type() proto.PlanType {
@@ -43,7 +43,7 @@ func (a *AggregatePlan) Type() proto.PlanType {
 func (a *AggregatePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
 	ctx, span := Tracer.Start(ctx, "AggregatePlan.ExecIn")
 	defer span.End()
-	res, err := a.UnionPlan.ExecIn(ctx, conn)
+	res, err := a.Plan.ExecIn(ctx, conn)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}

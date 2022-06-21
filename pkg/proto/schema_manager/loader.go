@@ -25,7 +25,10 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/mysql"
+	"github.com/pkg/errors"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/proto"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/util/log"
@@ -39,72 +42,105 @@ const (
 	indexMetadataSQL         = "SELECT TABLE_NAME, INDEX_NAME FROM information_schema.statistics WHERE TABLE_SCHEMA=database() AND TABLE_NAME IN (%s)"
 )
 
-type SimpleSchemaLoader struct{}
+type SimpleSchemaLoader struct {
+	// key format is schema.table
+	metadataCache map[string]*proto.TableMetadata
+}
+
+func NewSimpleSchemaLoader() *SimpleSchemaLoader {
+	return &SimpleSchemaLoader{metadataCache: make(map[string]*proto.TableMetadata)}
+}
 
 func (l *SimpleSchemaLoader) Load(ctx context.Context, conn proto.VConn, schema string, tables []string) map[string]*proto.TableMetadata {
-	ctx = rcontext.WithRead(rcontext.WithDirect(ctx))
 	var (
 		tableMetadataMap  = make(map[string]*proto.TableMetadata, len(tables))
 		indexMetadataMap  map[string][]*proto.IndexMetadata
 		columnMetadataMap map[string][]*proto.ColumnMetadata
+		queryTables       = make([]string, 0, len(tables))
 	)
-	columnMetadataMap = l.LoadColumnMetadataMap(ctx, conn, schema, tables)
+
+	if len(schema) > 0 {
+		for _, table := range tables {
+			qualifiedTblName := schema + "." + table
+			if l.metadataCache[qualifiedTblName] != nil {
+				tableMetadataMap[table] = l.metadataCache[qualifiedTblName]
+			} else {
+				queryTables = append(queryTables, table)
+			}
+		}
+	} else {
+		copy(queryTables, tables)
+	}
+
+	if len(queryTables) == 0 {
+		return tableMetadataMap
+	}
+
+	ctx = rcontext.WithRead(rcontext.WithDirect(ctx))
+	columnMetadataMap = l.LoadColumnMetadataMap(ctx, conn, schema, queryTables)
 	if columnMetadataMap != nil {
-		indexMetadataMap = l.LoadIndexMetadata(ctx, conn, schema, tables)
+		indexMetadataMap = l.LoadIndexMetadata(ctx, conn, schema, queryTables)
 	}
 
 	for tableName, columns := range columnMetadataMap {
 		tableMetadataMap[tableName] = proto.NewTableMetadata(tableName, columns, indexMetadataMap[tableName])
+		if len(schema) > 0 {
+			l.metadataCache[schema+"."+tableName] = tableMetadataMap[tableName]
+		}
 	}
 
 	return tableMetadataMap
 }
 
 func (l *SimpleSchemaLoader) LoadColumnMetadataMap(ctx context.Context, conn proto.VConn, schema string, tables []string) map[string][]*proto.ColumnMetadata {
-	resultSet, err := conn.Query(ctx, schema, getColumnMetadataSQL(tables))
-	if err != nil {
-		return nil
-	}
-	if closer, ok := resultSet.(io.Closer); ok {
-		defer func() {
-			_ = closer.Close()
-		}()
-	}
+	var (
+		resultSet proto.Result
+		ds        proto.Dataset
+		err       error
+	)
 
-	result := make(map[string][]*proto.ColumnMetadata, 0)
-	if err != nil {
+	if resultSet, err = conn.Query(ctx, schema, getColumnMetadataSQL(tables)); err != nil {
 		log.Errorf("Load ColumnMetadata error when call db: %v", err)
 		return nil
 	}
-	if resultSet == nil {
+
+	if ds, err = resultSet.Dataset(); err != nil {
+		log.Errorf("Load ColumnMetadata error when call db: %v", err)
+		return nil
+	}
+
+	result := make(map[string][]*proto.ColumnMetadata, 0)
+	if ds == nil {
 		log.Error("Load ColumnMetadata error because the result is nil")
 		return nil
 	}
 
-	row := resultSet.GetRows()[0]
-	var rowIter mysql.Iter
-	switch r := row.(type) {
-	case *mysql.BinaryIterRow:
-		rowIter = r
-	case *mysql.TextIterRow:
-		rowIter = r
-	}
-
 	var (
-		has       bool
-		rowValues []*proto.Value
+		fields, _ = ds.Fields()
+		row       proto.Row
+		cells     = make([]proto.Value, len(fields))
 	)
-	for has, err = rowIter.Next(); has && err == nil; has, err = rowIter.Next() {
-		if rowValues, err = row.Decode(); err != nil {
+
+	for {
+		row, err = ds.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
 			return nil
 		}
-		tableName := convertInterfaceToStrNullable(rowValues[0].Val)
-		columnName := convertInterfaceToStrNullable(rowValues[1].Val)
-		dataType := convertInterfaceToStrNullable(rowValues[2].Val)
-		columnKey := convertInterfaceToStrNullable(rowValues[3].Val)
-		extra := convertInterfaceToStrNullable(rowValues[4].Val)
-		collationName := convertInterfaceToStrNullable(rowValues[5].Val)
-		ordinalPosition := convertInterfaceToStrNullable(rowValues[6].Val)
+
+		if err = row.Scan(cells); err != nil {
+			return nil
+		}
+
+		tableName := convertInterfaceToStrNullable(cells[0])
+		columnName := convertInterfaceToStrNullable(cells[1])
+		dataType := convertInterfaceToStrNullable(cells[2])
+		columnKey := convertInterfaceToStrNullable(cells[3])
+		extra := convertInterfaceToStrNullable(cells[4])
+		collationName := convertInterfaceToStrNullable(cells[5])
+		ordinalPosition := convertInterfaceToStrNullable(cells[6])
 		result[tableName] = append(result[tableName], &proto.ColumnMetadata{
 			Name:          columnName,
 			DataType:      dataType,
@@ -115,104 +151,62 @@ func (l *SimpleSchemaLoader) LoadColumnMetadataMap(ctx context.Context, conn pro
 		})
 	}
 
-	//for _, row := range resultSet.GetRows() {
-	//	var innerRow mysql.Row
-	//	switch r := row.(type) {
-	//	case *mysql.BinaryRow:
-	//		innerRow = r.Row
-	//	case *mysql.Row:
-	//		innerRow = *r
-	//	case *mysql.TextRow:
-	//		innerRow = r.Row
-	//	}
-	//	textRow := mysql.TextRow{Row: innerRow}
-	//	rowValues, err := textRow.Decode()
-	//	if err != nil {
-	//		//logger.Errorf("Load ColumnMetadata error when decode text row: %v", err)
-	//		return nil
-	//	}
-	//	tableName := convertInterfaceToStrNullable(rowValues[0].Val)
-	//	columnName := convertInterfaceToStrNullable(rowValues[1].Val)
-	//	dataType := convertInterfaceToStrNullable(rowValues[2].Val)
-	//	columnKey := convertInterfaceToStrNullable(rowValues[3].Val)
-	//	extra := convertInterfaceToStrNullable(rowValues[4].Val)
-	//	collationName := convertInterfaceToStrNullable(rowValues[5].Val)
-	//	ordinalPosition := convertInterfaceToStrNullable(rowValues[6].Val)
-	//	result[tableName] = append(result[tableName], &proto.ColumnMetadata{
-	//		Name:          columnName,
-	//		DataType:      dataType,
-	//		Ordinal:       ordinalPosition,
-	//		PrimaryKey:    strings.EqualFold("PRI", columnKey),
-	//		Generated:     strings.EqualFold("auto_increment", extra),
-	//		CaseSensitive: columnKey != "" && !strings.HasSuffix(collationName, "_ci"),
-	//	})
-	//}
 	return result
 }
 
-func convertInterfaceToStrNullable(value interface{}) string {
-	if value != nil {
-		return string(value.([]byte))
+func convertInterfaceToStrNullable(value proto.Value) string {
+	if value == nil {
+		return ""
 	}
-	return ""
+
+	switch val := value.(type) {
+	case string:
+		return val
+	default:
+		return fmt.Sprint(val)
+	}
 }
 
 func (l *SimpleSchemaLoader) LoadIndexMetadata(ctx context.Context, conn proto.VConn, schema string, tables []string) map[string][]*proto.IndexMetadata {
-	resultSet, err := conn.Query(ctx, schema, getIndexMetadataSQL(tables))
-	if err != nil {
+	var (
+		resultSet proto.Result
+		err       error
+		ds        proto.Dataset
+	)
+
+	if resultSet, err = conn.Query(ctx, schema, getIndexMetadataSQL(tables)); err != nil {
 		return nil
 	}
 
-	if closer, ok := resultSet.(io.Closer); ok {
-		defer func() {
-			_ = closer.Close()
-		}()
-	}
-
-	result := make(map[string][]*proto.IndexMetadata, 0)
-
-	row := resultSet.GetRows()[0]
-	var rowIter mysql.Iter
-	switch r := row.(type) {
-	case *mysql.BinaryIterRow:
-		rowIter = r
-	case *mysql.TextIterRow:
-		rowIter = r
+	if ds, err = resultSet.Dataset(); err != nil {
+		return nil
 	}
 
 	var (
-		has       bool
-		rowValues []*proto.Value
+		fields, _ = ds.Fields()
+		row       proto.Row
+		values    = make([]proto.Value, len(fields))
+		result    = make(map[string][]*proto.IndexMetadata, 0)
 	)
-	for has, err = rowIter.Next(); has && err == nil; has, err = rowIter.Next() {
-		if rowValues, err = row.Decode(); err != nil {
+
+	for {
+		row, err = ds.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+
+		if err != nil {
 			return nil
 		}
-		tableName := convertInterfaceToStrNullable(rowValues[0].Val)
-		indexName := convertInterfaceToStrNullable(rowValues[1].Val)
+
+		if err = row.Scan(values); err != nil {
+			return nil
+		}
+
+		tableName := convertInterfaceToStrNullable(values[0])
+		indexName := convertInterfaceToStrNullable(values[1])
 		result[tableName] = append(result[tableName], &proto.IndexMetadata{Name: indexName})
 	}
-
-	//for _, row := range resultSet.GetRows() {
-	//	var innerRow mysql.Row
-	//	switch r := row.(type) {
-	//	case *mysql.BinaryRow:
-	//		innerRow = r.Row
-	//	case *mysql.Row:
-	//		innerRow = *r
-	//	case *mysql.TextRow:
-	//		innerRow = r.Row
-	//	}
-	//	textRow := mysql.TextRow{Row: innerRow}
-	//	rowValues, err := textRow.Decode()
-	//	if err != nil {
-	//		log.Errorf("Load ColumnMetadata error when decode text row: %v", err)
-	//		return nil
-	//	}
-	//	tableName := convertInterfaceToStrNullable(rowValues[0].Val)
-	//	indexName := convertInterfaceToStrNullable(rowValues[1].Val)
-	//	result[tableName] = append(result[tableName], &proto.IndexMetadata{Name: indexName})
-	//}
 
 	return result
 }

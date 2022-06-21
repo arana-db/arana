@@ -26,6 +26,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+import (
+	"github.com/arana-db/arana/pkg/proto"
+)
+
 func TestPriorityQueue(t *testing.T) {
 	rows := buildMergeRows(t, [][]student{
 		{{score: 85, age: 72}, {score: 75, age: 70}, {score: 65, age: 50}},
@@ -43,8 +47,8 @@ func TestPriorityQueue(t *testing.T) {
 			break
 		}
 		row := heap.Pop(&queue).(*MergeRows)
-		v1, _ := row.GetCurrentRow().GetColumnValue(score)
-		v2, _ := row.GetCurrentRow().GetColumnValue(age)
+		v1, _ := row.GetCurrentRow().(proto.KeyedRow).Get(score)
+		v2, _ := row.GetCurrentRow().(proto.KeyedRow).Get(age)
 		res = append(res, student{score: v1.(int64), age: v2.(int64)})
 		if row.Next() != nil {
 			queue.Push(row)
@@ -75,8 +79,9 @@ func TestPriorityQueue2(t *testing.T) {
 			break
 		}
 		row := heap.Pop(&queue).(*MergeRows)
-		v1, _ := row.GetCurrentRow().GetColumnValue(score)
-		v2, _ := row.GetCurrentRow().GetColumnValue(age)
+
+		v1, _ := row.GetCurrentRow().(proto.KeyedRow).Get(score)
+		v2, _ := row.GetCurrentRow().(proto.KeyedRow).Get(age)
 		res = append(res, student{score: v1.(int64), age: v2.(int64)})
 		if row.Next() != nil {
 			queue.Push(row)

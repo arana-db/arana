@@ -41,11 +41,13 @@ type baseShow struct {
 func (bs *baseShow) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	switch val := bs.filter.(type) {
 	case string:
-		sb.WriteString(" LIKE ")
-		sb.WriteByte('\'')
+		sb.WriteString(" IN ")
+		sb.WriteByte('`')
 		sb.WriteString(val)
-		sb.WriteByte('\'')
+		sb.WriteByte('`')
 		return nil
+	case PredicateNode:
+		return val.Restore(flag, sb, nil)
 	case ExpressionNode:
 		sb.WriteString(" WHERE ")
 		return val.Restore(flag, sb, args)
@@ -100,6 +102,22 @@ func (s ShowTables) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) 
 }
 
 func (s ShowTables) Validate() error {
+	return nil
+}
+
+type ShowOpenTables struct {
+	*baseShow
+}
+
+func (s ShowOpenTables) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	sb.WriteString("SHOW OPEN TABLES")
+	if err := s.baseShow.Restore(flag, sb, args); err != nil {
+		return errors.WithStack(err)
+	}
+	return nil
+}
+
+func (s ShowOpenTables) Validate() error {
 	return nil
 }
 
@@ -226,6 +244,7 @@ type ShowColumns struct {
 	flag      showColumnsFlag
 	tableName TableName
 	like      sql.NullString
+	Column    string
 }
 
 func (sh *ShowColumns) IsFull() bool {

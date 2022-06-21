@@ -33,7 +33,7 @@ import (
 import (
 	_ "github.com/arana-db/parser/test_driver"
 
-	err2 "github.com/pkg/errors"
+	perrors "github.com/pkg/errors"
 
 	"go.uber.org/atomic"
 )
@@ -182,8 +182,8 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32) {
 
 	for {
 		c.sequence = 0
-		data, err := c.readEphemeralPacket()
-		if err != nil {
+		var data []byte
+		if data, err = c.readEphemeralPacket(); err != nil {
 			// Don't log EOF errors. They cause too much spam.
 			if err != io.EOF && !strings.Contains(err.Error(), "use of closed network connection") {
 				log.Errorf("Error reading packet from %s: %v", c, err)
@@ -201,6 +201,11 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32) {
 			Data:         content,
 		}
 		if err = l.ExecuteCommand(c, ctx); err != nil {
+			if err == io.EOF {
+				log.Debugf("the connection#%d of remote client %s requests quit", c.ConnectionID, c.conn.(*net.TCPConn).RemoteAddr())
+			} else {
+				log.Errorf("failed to execute command: %v", err)
+			}
 			return
 		}
 	}
@@ -334,7 +339,7 @@ func (l *Listener) writeHandshakeV10(c *Conn, enableTLS bool, salt []byte) error
 
 	// Sanity check.
 	if pos != len(data) {
-		return err2.Errorf("error building Handshake packet: got %v bytes expected %v", pos, len(data))
+		return perrors.Errorf("error building Handshake packet: got %v bytes expected %v", pos, len(data))
 	}
 
 	if err := c.writeEphemeralPacket(); err != nil {
@@ -359,10 +364,10 @@ func (l *Listener) parseClientHandshakePacket(firstTime bool, data []byte) (*han
 	// Client flags, 4 bytes.
 	clientFlags, pos, ok := readUint32(data, pos)
 	if !ok {
-		return nil, err2.New("parseClientHandshakePacket: can't read client flags")
+		return nil, perrors.New("parseClientHandshakePacket: can't read client flags")
 	}
 	if clientFlags&mysql.CapabilityClientProtocol41 == 0 {
-		return nil, err2.New("parseClientHandshakePacket: only support protocol 4.1")
+		return nil, perrors.New("parseClientHandshakePacket: only support protocol 4.1")
 	}
 
 	// Remember a subset of the capabilities, so we can use them
@@ -381,13 +386,13 @@ func (l *Listener) parseClientHandshakePacket(firstTime bool, data []byte) (*han
 	// See doc.go for more information.
 	_, pos, ok = readUint32(data, pos)
 	if !ok {
-		return nil, err2.New("parseClientHandshakePacket: can't read maxPacketSize")
+		return nil, perrors.New("parseClientHandshakePacket: can't read maxPacketSize")
 	}
 
 	// Character set. Need to handle it.
 	characterSet, pos, ok := readByte(data, pos)
 	if !ok {
-		return nil, err2.New("parseClientHandshakePacket: can't read characterSet")
+		return nil, perrors.New("parseClientHandshakePacket: can't read characterSet")
 	}
 	l.characterSet = characterSet
 
@@ -407,7 +412,7 @@ func (l *Listener) parseClientHandshakePacket(firstTime bool, data []byte) (*han
 	// username
 	username, pos, ok := readNullString(data, pos)
 	if !ok {
-		return nil, err2.New("parseClientHandshakePacket: can't read username")
+		return nil, perrors.New("parseClientHandshakePacket: can't read username")
 	}
 
 	// auth-response can have three forms.
@@ -416,29 +421,29 @@ func (l *Listener) parseClientHandshakePacket(firstTime bool, data []byte) (*han
 		var l uint64
 		l, pos, ok = readLenEncInt(data, pos)
 		if !ok {
-			return nil, err2.New("parseClientHandshakePacket: can't read auth-response variable length")
+			return nil, perrors.New("parseClientHandshakePacket: can't read auth-response variable length")
 		}
 		authResponse, pos, ok = readBytesCopy(data, pos, int(l))
 		if !ok {
-			return nil, err2.New("parseClientHandshakePacket: can't read auth-response")
+			return nil, perrors.New("parseClientHandshakePacket: can't read auth-response")
 		}
 
 	} else if clientFlags&mysql.CapabilityClientSecureConnection != 0 {
 		var l byte
 		l, pos, ok = readByte(data, pos)
 		if !ok {
-			return nil, err2.New("parseClientHandshakePacket: can't read auth-response length")
+			return nil, perrors.New("parseClientHandshakePacket: can't read auth-response length")
 		}
 
 		authResponse, pos, ok = readBytesCopy(data, pos, int(l))
 		if !ok {
-			return nil, err2.New("parseClientHandshakePacket: can't read auth-response")
+			return nil, perrors.New("parseClientHandshakePacket: can't read auth-response")
 		}
 	} else {
 		a := ""
 		a, pos, ok = readNullString(data, pos)
 		if !ok {
-			return nil, err2.New("parseClientHandshakePacket: can't read auth-response")
+			return nil, perrors.New("parseClientHandshakePacket: can't read auth-response")
 		}
 		authResponse = []byte(a)
 	}
@@ -449,7 +454,7 @@ func (l *Listener) parseClientHandshakePacket(firstTime bool, data []byte) (*han
 		dbname := ""
 		dbname, pos, ok = readNullString(data, pos)
 		if !ok {
-			return nil, err2.New("parseClientHandshakePacket: can't read dbname")
+			return nil, perrors.New("parseClientHandshakePacket: can't read dbname")
 		}
 		schemaName = dbname
 	}
@@ -459,7 +464,7 @@ func (l *Listener) parseClientHandshakePacket(firstTime bool, data []byte) (*han
 	if clientFlags&mysql.CapabilityClientPluginAuth != 0 {
 		authMethod, pos, ok = readNullString(data, pos)
 		if !ok {
-			return nil, err2.New("parseClientHandshakePacket: can't read authMethod")
+			return nil, perrors.New("parseClientHandshakePacket: can't read authMethod")
 		}
 	}
 
@@ -542,7 +547,7 @@ func (l *Listener) ExecuteCommand(c *Conn, ctx *proto.Context) error {
 	case mysql.ComQuit:
 		// https://dev.mysql.com/doc/internals/en/com-quit.html
 		c.recycleReadPacket()
-		return err2.New("ComQuit")
+		return io.EOF
 	case mysql.ComInitDB:
 		return l.handleInitDB(c, ctx)
 	case mysql.ComQuery:
@@ -582,7 +587,7 @@ func parseConnAttrs(data []byte, pos int) (map[string]string, int, error) {
 
 	attrLen, pos, ok := readLenEncInt(data, pos)
 	if !ok {
-		return nil, 0, err2.Errorf("parseClientHandshakePacket: can't read connection attributes variable length")
+		return nil, 0, perrors.Errorf("parseClientHandshakePacket: can't read connection attributes variable length")
 	}
 
 	var attrLenRead uint64
@@ -593,27 +598,27 @@ func parseConnAttrs(data []byte, pos int) (map[string]string, int, error) {
 		var keyLen byte
 		keyLen, pos, ok = readByte(data, pos)
 		if !ok {
-			return nil, 0, err2.Errorf("parseClientHandshakePacket: can't read connection attribute key length")
+			return nil, 0, perrors.Errorf("parseClientHandshakePacket: can't read connection attribute key length")
 		}
 		attrLenRead += uint64(keyLen) + 1
 
 		var connAttrKey []byte
 		connAttrKey, pos, ok = readBytesCopy(data, pos, int(keyLen))
 		if !ok {
-			return nil, 0, err2.Errorf("parseClientHandshakePacket: can't read connection attribute key")
+			return nil, 0, perrors.Errorf("parseClientHandshakePacket: can't read connection attribute key")
 		}
 
 		var valLen byte
 		valLen, pos, ok = readByte(data, pos)
 		if !ok {
-			return nil, 0, err2.Errorf("parseClientHandshakePacket: can't read connection attribute value length")
+			return nil, 0, perrors.Errorf("parseClientHandshakePacket: can't read connection attribute value length")
 		}
 		attrLenRead += uint64(valLen) + 1
 
 		var connAttrVal []byte
 		connAttrVal, pos, ok = readBytesCopy(data, pos, int(valLen))
 		if !ok {
-			return nil, 0, err2.Errorf("parseClientHandshakePacket: can't read connection attribute value")
+			return nil, 0, perrors.Errorf("parseClientHandshakePacket: can't read connection attribute value")
 		}
 
 		attrs[string(connAttrKey[:])] = string(connAttrVal[:])
@@ -962,6 +967,57 @@ func (c *Conn) parseStmtArgs(data []byte, typ mysql.FieldType, pos int) (interfa
 	}
 }
 
+func (c *Conn) DefColumnDefinition(field *Field) []byte {
+	length := 4 +
+		lenEncStringSize("def") +
+		lenEncStringSize(field.database) +
+		lenEncStringSize(field.table) +
+		lenEncStringSize(field.orgTable) +
+		lenEncStringSize(field.name) +
+		lenEncStringSize(field.orgName) +
+		1 + // length of fixed length fields
+		2 + // character set
+		4 + // column length
+		1 + // type
+		2 + // flags
+		1 + // decimals
+		2 + // filler
+		lenEncStringSize(string(field.defaultValue)) // default value
+
+	// Get the type and the flags back. If the Field contains
+	// non-zero flags, we use them. Otherwise, use the flags we
+	// derive from the type.
+	typ, flags := mysql.TypeToMySQL(field.fieldType)
+	if field.flags != 0 {
+		flags = int64(field.flags)
+	}
+
+	data := make([]byte, length)
+	writeLenEncInt(data, 0, uint64(length-4))
+	writeLenEncInt(data, 3, uint64(c.sequence))
+	c.sequence++
+	pos := 4
+
+	pos = writeLenEncString(data, pos, "def") // Always same.
+	pos = writeLenEncString(data, pos, field.database)
+	pos = writeLenEncString(data, pos, field.table)
+	pos = writeLenEncString(data, pos, field.orgTable)
+	pos = writeLenEncString(data, pos, field.name)
+	pos = writeLenEncString(data, pos, field.orgName)
+	pos = writeByte(data, pos, 0x0c)
+	pos = writeUint16(data, pos, field.charSet)
+	pos = writeUint32(data, pos, field.columnLength)
+	pos = writeByte(data, pos, byte(typ))
+	pos = writeUint16(data, pos, uint16(flags))
+	pos = writeByte(data, pos, byte(field.decimals))
+	pos = writeUint16(data, pos, uint16(0x0000))
+	if len(field.defaultValue) > 0 {
+		writeLenEncString(data, pos, string(field.defaultValue))
+	}
+
+	return data
+}
+
 func (c *Conn) writeColumnDefinition(field *Field) error {
 	length := 4 + // lenEncStringSize("def")
 		lenEncStringSize(field.database) +
@@ -1011,11 +1067,7 @@ func (c *Conn) writeColumnDefinition(field *Field) error {
 
 // writeFields writes the fields of a Result. It should be called only
 // if there are valid Columns in the result.
-func (c *Conn) writeFields(capabilities uint32, result proto.Result) error {
-	var (
-		fields = result.GetFields()
-	)
-
+func (c *Conn) writeFields(capabilities uint32, fields []proto.Field) error {
 	// Send the number of fields first.
 	if err := c.sendColumnCount(uint64(len(fields))); err != nil {
 		return err
@@ -1039,86 +1091,35 @@ func (c *Conn) writeFields(capabilities uint32, result proto.Result) error {
 	return nil
 }
 
-func (c *Conn) writeRow(row []*proto.Value) error {
-	length := 0
-	for _, val := range row {
-		if val == nil || val.Val == nil {
-			length++
-		} else {
-			l := len(val.Raw)
-			length += lenEncIntSize(uint64(l)) + l
-		}
+func (c *Conn) writeRow(row proto.Row) error {
+	var bf bytes.Buffer
+	n, err := row.WriteTo(&bf)
+	if err != nil {
+		return perrors.WithStack(err)
 	}
-
-	data := c.startEphemeralPacket(length)
-	pos := 0
-	for _, val := range row {
-		if val == nil || val.Val == nil {
-			pos = writeByte(data, pos, mysql.NullValue)
-		} else {
-			l := len(val.Raw)
-			pos = writeLenEncInt(data, pos, uint64(l))
-			pos += copy(data[pos:], val.Raw)
-		}
-	}
-
-	if pos != length {
-		return err2.Errorf("packet row: got %v bytes but expected %v", pos, length)
-	}
+	data := c.startEphemeralPacket(int(n))
+	copy(data, bf.Bytes())
 
 	return c.writeEphemeralPacket()
 }
 
-// writeRowIter sends the rows of a Result.
-func (c *Conn) writeRowIter(result proto.Result) error {
-	row := result.GetRows()[0]
-	rowIter := row.(*TextIterRow)
+func (c *Conn) writeDataset(ds proto.Dataset) error {
 	var (
-		has    bool
-		err    error
-		values []*proto.Value
+		row proto.Row
+		err error
 	)
-	for has, err = rowIter.Next(); has && err == nil; has, err = rowIter.Next() {
-		if values, err = rowIter.Decode(); err != nil {
-			return err
+	for {
+		row, err = ds.Next()
+		if perrors.Is(err, io.EOF) {
+			return nil
 		}
-		if err = c.writeRow(values); err != nil {
-			return err
-		}
-	}
-	return err
-}
-
-// writeRowChan sends the rows of a Result.
-func (c *Conn) writeRowChan(result proto.Result) error {
-	res := result.(*Result)
-	for row := range res.GetDataChan() {
-		textRow := row.(*TextIterRow)
-		values, err := textRow.Decode()
 		if err != nil {
 			return err
 		}
-		if err = c.writeRow(values); err != nil {
+		if err = c.writeRow(row); err != nil {
 			return err
 		}
 	}
-	return nil
-}
-
-// writeRows sends the rows of a Result.
-func (c *Conn) writeRows(result proto.Result) error {
-	for _, row := range result.GetRows() {
-		r := row.(*Row)
-		textRow := TextRow{*r}
-		values, err := textRow.Decode()
-		if err != nil {
-			return err
-		}
-		if err := c.writeRow(values); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // writeEndResult concludes the sending of a Result.
@@ -1144,7 +1145,7 @@ func (c *Conn) writeEndResult(capabilities uint32, more bool, affectedRows, last
 	return nil
 }
 
-// writePrepare writes a prepare query response to the wire.
+// writePrepare writes a prepared query response to the wire.
 func (c *Conn) writePrepare(capabilities uint32, prepare *proto.Stmt) error {
 	paramsCount := prepare.ParamsCount
 
@@ -1186,473 +1187,22 @@ func (c *Conn) writePrepare(capabilities uint32, prepare *proto.Stmt) error {
 	return nil
 }
 
-func (c *Conn) writeBinaryRow(fields []proto.Field, row []*proto.Value) error {
-	length := 0
-	nullBitMapLen := (len(fields) + 7 + 2) / 8
-	for _, val := range row {
-		if val != nil && val.Val != nil {
-			l, err := val2MySQLLen(val)
-			if err != nil {
-				return fmt.Errorf("internal value %v get MySQL value length error: %v", val, err)
-			}
-			length += l
-		}
-	}
-
-	length += nullBitMapLen + 1
-
-	Data := c.startEphemeralPacket(length)
-	pos := 0
-
-	pos = writeByte(Data, pos, 0x00)
-
-	for i := 0; i < nullBitMapLen; i++ {
-		pos = writeByte(Data, pos, 0x00)
-	}
-
-	for i, val := range row {
-		if val == nil || val.Val == nil {
-			bytePos := (i+2)/8 + 1
-			bitPos := (i + 2) % 8
-			Data[bytePos] |= 1 << uint(bitPos)
-		} else {
-			v, err := val2MySQL(val)
-			if err != nil {
-				c.recycleWritePacket()
-				return fmt.Errorf("internal value %v to MySQL value error: %v", val, err)
-			}
-			pos += copy(Data[pos:], v)
-		}
-	}
-
-	if pos != length {
-		return fmt.Errorf("internal error packet row: got %v bytes but expected %v", pos, length)
-	}
-
-	return c.writeEphemeralPacket()
-}
-
-func (c *Conn) writeBinaryRowIter(result proto.Result) error {
-	row := result.GetRows()[0]
-	rowIter := row.(*BinaryIterRow)
+func (c *Conn) writeDatasetBinary(result proto.Dataset) error {
 	var (
-		has    bool
-		err    error
-		values []*proto.Value
+		row proto.Row
+		err error
 	)
-	for has, err = rowIter.Next(); has && err == nil; has, err = rowIter.Next() {
-		if values, err = rowIter.Decode(); err != nil {
-			return err
-		}
-		if err = c.writeBinaryRow(rowIter.Fields(), values); err != nil {
-			return err
-		}
-	}
-	return err
-}
 
-// writeRowChan sends the rows of a Result.
-func (c *Conn) writeBinaryRowChan(result proto.Result) error {
-	res := result.(*Result)
-	for row := range res.GetDataChan() {
-		r := row.(*BinaryIterRow)
-		if err := c.writePacket(r.Data()); err != nil {
-			return err
+	for {
+		row, err = result.Next()
+		if perrors.Is(err, io.EOF) {
+			return nil
 		}
-	}
-	return nil
-}
-
-// writeTextToBinaryRows sends the rows of a Result with binary form.
-func (c *Conn) writeTextToBinaryRows(result proto.Result) error {
-	for _, row := range result.GetRows() {
-		r := row.(*Row)
-		textRow := TextRow{*r}
-		values, err := textRow.Decode()
 		if err != nil {
 			return err
 		}
-		if err := c.writeBinaryRow(result.GetFields(), values); err != nil {
+		if err = c.writeRow(row); err != nil {
 			return err
 		}
 	}
-	return nil
-}
-
-func val2MySQL(v *proto.Value) ([]byte, error) {
-	var out []byte
-	pos := 0
-	if v == nil {
-		return out, nil
-	}
-
-	switch v.Typ {
-	case mysql.FieldTypeNULL:
-		// no-op
-	case mysql.FieldTypeTiny:
-		val, err := strconv.ParseInt(fmt.Sprint(v.Val), 10, 8)
-		if err != nil {
-			return []byte{}, err
-		}
-		out = make([]byte, 1)
-		writeByte(out, pos, uint8(val))
-	case mysql.FieldTypeUint8:
-		val, err := strconv.ParseUint(fmt.Sprint(v.Val), 10, 8)
-		if err != nil {
-			return []byte{}, err
-		}
-		out = make([]byte, 1)
-		writeByte(out, pos, uint8(val))
-	case mysql.FieldTypeUint16:
-		val, err := strconv.ParseUint(fmt.Sprint(v.Val), 10, 16)
-		if err != nil {
-			return []byte{}, err
-		}
-		out = make([]byte, 2)
-		writeUint16(out, pos, uint16(val))
-	case mysql.FieldTypeShort, mysql.FieldTypeYear:
-		val, err := strconv.ParseInt(fmt.Sprint(v.Val), 10, 16)
-		if err != nil {
-			return []byte{}, err
-		}
-		out = make([]byte, 2)
-		writeUint16(out, pos, uint16(val))
-	case mysql.FieldTypeUint24, mysql.FieldTypeUint32:
-		val, err := strconv.ParseUint(fmt.Sprint(v.Val), 10, 32)
-		if err != nil {
-			return []byte{}, err
-		}
-		out = make([]byte, 4)
-		writeUint32(out, pos, uint32(val))
-	case mysql.FieldTypeInt24, mysql.FieldTypeLong:
-		val, err := strconv.ParseInt(fmt.Sprint(v.Val), 10, 32)
-		if err != nil {
-			return []byte{}, err
-		}
-		out = make([]byte, 4)
-		writeUint32(out, pos, uint32(val))
-	case mysql.FieldTypeFloat:
-		val, err := strconv.ParseFloat(fmt.Sprint(v.Val), 32)
-		if err != nil {
-			return []byte{}, err
-		}
-		bits := math.Float32bits(float32(val))
-		out = make([]byte, 4)
-		writeUint32(out, pos, bits)
-	case mysql.FieldTypeUint64:
-		val, err := strconv.ParseUint(fmt.Sprint(v.Val), 10, 64)
-		if err != nil {
-			return []byte{}, err
-		}
-		out = make([]byte, 8)
-		writeUint64(out, pos, uint64(val))
-	case mysql.FieldTypeLongLong:
-		val, err := strconv.ParseInt(fmt.Sprint(v.Val), 10, 64)
-		if err != nil {
-			return []byte{}, err
-		}
-		out = make([]byte, 8)
-		writeUint64(out, pos, uint64(val))
-	case mysql.FieldTypeDouble:
-		val, err := strconv.ParseFloat(fmt.Sprint(v.Val), 64)
-		if err != nil {
-			return []byte{}, err
-		}
-		bits := math.Float64bits(val)
-		out = make([]byte, 8)
-		writeUint64(out, pos, bits)
-	case mysql.FieldTypeTimestamp, mysql.FieldTypeDate, mysql.FieldTypeDateTime:
-		if len(v.Raw) > 19 {
-			out = make([]byte, 1+11)
-			out[pos] = 0x0b
-			pos++
-			year, err := strconv.ParseUint(string(v.Raw[0:4]), 10, 16)
-			if err != nil {
-				return []byte{}, err
-			}
-			month, err := strconv.ParseUint(string(v.Raw[5:7]), 10, 8)
-			if err != nil {
-				return []byte{}, err
-			}
-			day, err := strconv.ParseUint(string(v.Raw[8:10]), 10, 8)
-			if err != nil {
-				return []byte{}, err
-			}
-			hour, err := strconv.ParseUint(string(v.Raw[11:13]), 10, 8)
-			if err != nil {
-				return []byte{}, err
-			}
-			minute, err := strconv.ParseUint(string(v.Raw[14:16]), 10, 8)
-			if err != nil {
-				return []byte{}, err
-			}
-			second, err := strconv.ParseUint(string(v.Raw[17:19]), 10, 8)
-			if err != nil {
-				return []byte{}, err
-			}
-			val := make([]byte, 6)
-			count := copy(val, v.Raw[20:])
-			for i := 0; i < (6 - count); i++ {
-				val[count+i] = 0x30
-			}
-			microSecond, err := strconv.ParseUint(string(val), 10, 32)
-			if err != nil {
-				return []byte{}, err
-			}
-			pos = writeUint16(out, pos, uint16(year))
-			pos = writeByte(out, pos, byte(month))
-			pos = writeByte(out, pos, byte(day))
-			pos = writeByte(out, pos, byte(hour))
-			pos = writeByte(out, pos, byte(minute))
-			pos = writeByte(out, pos, byte(second))
-			writeUint32(out, pos, uint32(microSecond))
-		} else if len(v.Raw) > 10 {
-			out = make([]byte, 1+7)
-			out[pos] = 0x07
-			pos++
-			year, err := strconv.ParseUint(string(v.Raw[0:4]), 10, 16)
-			if err != nil {
-				return []byte{}, err
-			}
-			month, err := strconv.ParseUint(string(v.Raw[5:7]), 10, 8)
-			if err != nil {
-				return []byte{}, err
-			}
-			day, err := strconv.ParseUint(string(v.Raw[8:10]), 10, 8)
-			if err != nil {
-				return []byte{}, err
-			}
-			hour, err := strconv.ParseUint(string(v.Raw[11:13]), 10, 8)
-			if err != nil {
-				return []byte{}, err
-			}
-			minute, err := strconv.ParseUint(string(v.Raw[14:16]), 10, 8)
-			if err != nil {
-				return []byte{}, err
-			}
-			second, err := strconv.ParseUint(string(v.Raw[17:]), 10, 8)
-			if err != nil {
-				return []byte{}, err
-			}
-			pos = writeUint16(out, pos, uint16(year))
-			pos = writeByte(out, pos, byte(month))
-			pos = writeByte(out, pos, byte(day))
-			pos = writeByte(out, pos, byte(hour))
-			pos = writeByte(out, pos, byte(minute))
-			writeByte(out, pos, byte(second))
-		} else if len(v.Raw) > 0 {
-			out = make([]byte, 1+4)
-			out[pos] = 0x04
-			pos++
-			year, err := strconv.ParseUint(string(v.Raw[0:4]), 10, 16)
-			if err != nil {
-				return []byte{}, err
-			}
-			month, err := strconv.ParseUint(string(v.Raw[5:7]), 10, 8)
-			if err != nil {
-				return []byte{}, err
-			}
-			day, err := strconv.ParseUint(string(v.Raw[8:]), 10, 8)
-			if err != nil {
-				return []byte{}, err
-			}
-			pos = writeUint16(out, pos, uint16(year))
-			pos = writeByte(out, pos, byte(month))
-			writeByte(out, pos, byte(day))
-		} else {
-			out = make([]byte, 1)
-			out[pos] = 0x00
-		}
-	case mysql.FieldTypeTime:
-		if string(v.Raw) == "00:00:00" {
-			out = make([]byte, 1)
-			out[pos] = 0x00
-		} else if strings.Contains(string(v.Raw), ".") {
-			out = make([]byte, 1+12)
-			out[pos] = 0x0c
-			pos++
-
-			sub1 := strings.Split(string(v.Raw), ":")
-			if len(sub1) != 3 {
-				err := fmt.Errorf("incorrect time value, ':' is not found")
-				return []byte{}, err
-			}
-			sub2 := strings.Split(sub1[2], ".")
-			if len(sub2) != 2 {
-				err := fmt.Errorf("incorrect time value, '.' is not found")
-				return []byte{}, err
-			}
-
-			var total []byte
-			if strings.HasPrefix(sub1[0], "-") {
-				out[pos] = 0x01
-				total = []byte(sub1[0])
-				total = total[1:]
-			} else {
-				out[pos] = 0x00
-				total = []byte(sub1[0])
-			}
-			pos++
-
-			h, err := strconv.ParseUint(string(total), 10, 32)
-			if err != nil {
-				return []byte{}, err
-			}
-
-			days := uint32(h) / 24
-			hours := uint32(h) % 24
-			minute := sub1[1]
-			second := sub2[0]
-			microSecond := sub2[1]
-
-			minutes, err := strconv.ParseUint(minute, 10, 8)
-			if err != nil {
-				return []byte{}, err
-			}
-
-			seconds, err := strconv.ParseUint(second, 10, 8)
-			if err != nil {
-				return []byte{}, err
-			}
-			pos = writeUint32(out, pos, uint32(days))
-			pos = writeByte(out, pos, byte(hours))
-			pos = writeByte(out, pos, byte(minutes))
-			pos = writeByte(out, pos, byte(seconds))
-
-			val := make([]byte, 6)
-			count := copy(val, microSecond)
-			for i := 0; i < (6 - count); i++ {
-				val[count+i] = 0x30
-			}
-			microSeconds, err := strconv.ParseUint(string(val), 10, 32)
-			if err != nil {
-				return []byte{}, err
-			}
-			writeUint32(out, pos, uint32(microSeconds))
-		} else if len(v.Raw) > 0 {
-			out = make([]byte, 1+8)
-			out[pos] = 0x08
-			pos++
-
-			sub1 := strings.Split(string(v.Raw), ":")
-			if len(sub1) != 3 {
-				err := fmt.Errorf("incorrect time value, ':' is not found")
-				return []byte{}, err
-			}
-
-			var total []byte
-			if strings.HasPrefix(sub1[0], "-") {
-				out[pos] = 0x01
-				total = []byte(sub1[0])
-				total = total[1:]
-			} else {
-				out[pos] = 0x00
-				total = []byte(sub1[0])
-			}
-			pos++
-
-			h, err := strconv.ParseUint(string(total), 10, 32)
-			if err != nil {
-				return []byte{}, err
-			}
-
-			days := uint32(h) / 24
-			hours := uint32(h) % 24
-			minute := sub1[1]
-			second := sub1[2]
-
-			minutes, err := strconv.ParseUint(minute, 10, 8)
-			if err != nil {
-				return []byte{}, err
-			}
-
-			seconds, err := strconv.ParseUint(second, 10, 8)
-			if err != nil {
-				return []byte{}, err
-			}
-			pos = writeUint32(out, pos, uint32(days))
-			pos = writeByte(out, pos, byte(hours))
-			pos = writeByte(out, pos, byte(minutes))
-			writeByte(out, pos, byte(seconds))
-		} else {
-			err := fmt.Errorf("incorrect time value")
-			return []byte{}, err
-		}
-	case mysql.FieldTypeDecimal, mysql.FieldTypeNewDecimal, mysql.FieldTypeVarChar, mysql.FieldTypeTinyBLOB,
-		mysql.FieldTypeMediumBLOB, mysql.FieldTypeLongBLOB, mysql.FieldTypeBLOB, mysql.FieldTypeVarString,
-		mysql.FieldTypeString, mysql.FieldTypeGeometry, mysql.FieldTypeJSON, mysql.FieldTypeBit,
-		mysql.FieldTypeEnum, mysql.FieldTypeSet:
-		l := len(v.Raw)
-		length := lenEncIntSize(uint64(l)) + l
-		out = make([]byte, length)
-		pos = writeLenEncInt(out, pos, uint64(l))
-		copy(out[pos:], v.Raw)
-	default:
-		out = make([]byte, len(v.Raw))
-		copy(out, v.Raw)
-	}
-	return out, nil
-}
-
-func val2MySQLLen(v *proto.Value) (int, error) {
-	var length int
-	var err error
-	if v == nil {
-		return 0, nil
-	}
-
-	switch v.Typ {
-	case mysql.FieldTypeNULL:
-		length = 0
-	case mysql.FieldTypeTiny, mysql.FieldTypeUint8:
-		length = 1
-	case mysql.FieldTypeUint16, mysql.FieldTypeShort, mysql.FieldTypeYear:
-		length = 2
-	case mysql.FieldTypeUint24, mysql.FieldTypeUint32, mysql.FieldTypeInt24, mysql.FieldTypeLong, mysql.FieldTypeFloat:
-		length = 4
-	case mysql.FieldTypeUint64, mysql.FieldTypeLongLong, mysql.FieldTypeDouble:
-		length = 8
-	case mysql.FieldTypeTimestamp, mysql.FieldTypeDate, mysql.FieldTypeDateTime:
-		if len(v.Raw) > 19 {
-			length = 12
-		} else if len(v.Raw) > 10 {
-			length = 8
-		} else if len(v.Raw) > 0 {
-			length = 5
-		} else {
-			length = 1
-		}
-	case mysql.FieldTypeTime:
-		if string(v.Raw) == "00:00:00" {
-			length = 1
-		} else if strings.Contains(string(v.Raw), ".") {
-			length = 13
-		} else if len(v.Raw) > 0 {
-			length = 9
-		} else {
-			err = fmt.Errorf("incorrect time value")
-		}
-	case mysql.FieldTypeDecimal, mysql.FieldTypeNewDecimal, mysql.FieldTypeVarChar, mysql.FieldTypeTinyBLOB,
-		mysql.FieldTypeMediumBLOB, mysql.FieldTypeLongBLOB, mysql.FieldTypeBLOB, mysql.FieldTypeVarString,
-		mysql.FieldTypeString, mysql.FieldTypeGeometry, mysql.FieldTypeJSON, mysql.FieldTypeBit,
-		mysql.FieldTypeEnum, mysql.FieldTypeSet:
-		l := len(v.Raw)
-		length = lenEncIntSize(uint64(l)) + l
-	default:
-		length = len(v.Raw)
-	}
-	if err != nil {
-		return 0, err
-	}
-	return length, nil
-}
-
-func (c *Conn) writeBinaryRows(result proto.Result) error {
-	for _, row := range result.GetRows() {
-		r := row.(*Row)
-		if err := c.writePacket(r.Data()); err != nil {
-			return err
-		}
-	}
-	return nil
 }

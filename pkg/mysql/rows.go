@@ -18,243 +18,92 @@
 package mysql
 
 import (
-	"bytes"
 	"encoding/binary"
-	"fmt"
+	"io"
 	"math"
+	"strconv"
 	"time"
 )
 
 import (
-	"github.com/arana-db/arana/pkg/constants/mysql"
-	"github.com/arana-db/arana/pkg/mysql/errors"
-	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/util/log"
+	"github.com/pkg/errors"
 )
 
-type ResultSet struct {
-	Columns     []proto.Field
-	ColumnNames []string
-}
+import (
+	"github.com/arana-db/arana/pkg/constants/mysql"
+	mysqlErrors "github.com/arana-db/arana/pkg/mysql/errors"
+	"github.com/arana-db/arana/pkg/proto"
+)
 
-type Row struct {
-	Content   []byte
-	ResultSet *ResultSet
-}
+var (
+	_ proto.KeyedRow = (*BinaryRow)(nil)
+	_ proto.KeyedRow = (*TextRow)(nil)
+)
 
 type BinaryRow struct {
-	Row
+	fields []proto.Field
+	raw    []byte
 }
 
-type TextRow struct {
-	Row
-}
-
-func (row *Row) Columns() []string {
-	if row.ResultSet.ColumnNames != nil {
-		return row.ResultSet.ColumnNames
-	}
-
-	columns := make([]string, len(row.ResultSet.Columns))
-	if row.Content != nil {
-		for i := range columns {
-			field := row.ResultSet.Columns[i].(*Field)
-			if tableName := field.table; len(tableName) > 0 {
-				columns[i] = tableName + "." + field.name
-			} else {
-				columns[i] = field.name
-			}
-		}
-	} else {
-		for i := range columns {
-			field := row.ResultSet.Columns[i].(*Field)
-			columns[i] = field.name
+func (bi BinaryRow) Get(name string) (proto.Value, error) {
+	idx := -1
+	for i, it := range bi.fields {
+		if it.Name() == name {
+			idx = i
+			break
 		}
 	}
-
-	row.ResultSet.ColumnNames = columns
-	return columns
-}
-
-func (row *Row) Fields() []proto.Field {
-	return row.ResultSet.Columns
-}
-
-func (row *Row) Data() []byte {
-	return row.Content
-}
-
-func (row *Row) Encode(values []*proto.Value, columns []proto.Field, columnNames []string) proto.Row {
-	var bf bytes.Buffer
-	row.ResultSet = &ResultSet{
-		Columns:     columns,
-		ColumnNames: columnNames,
+	if idx == -1 {
+		return nil, errors.Errorf("no such field '%s' found", name)
 	}
 
-	for _, val := range values {
-		bf.Write(val.Raw)
+	dest := make([]proto.Value, len(bi.fields))
+	if err := bi.Scan(dest); err != nil {
+		return nil, errors.WithStack(err)
 	}
-	row.Content = bf.Bytes()
-	return row
+
+	return dest[idx], nil
 }
 
-func (row *Row) Decode() ([]*proto.Value, error) {
-	return nil, nil
+func (bi BinaryRow) Fields() []proto.Field {
+	return bi.fields
 }
 
-func (row *Row) GetColumnValue(column string) (interface{}, error) {
-	values, err := row.Decode()
+func NewBinaryRow(fields []proto.Field, raw []byte) BinaryRow {
+	return BinaryRow{
+		fields: fields,
+		raw:    raw,
+	}
+}
+
+func (bi BinaryRow) IsBinary() bool {
+	return true
+}
+
+func (bi BinaryRow) Length() int {
+	return len(bi.raw)
+}
+
+func (bi BinaryRow) WriteTo(w io.Writer) (n int64, err error) {
+	var wrote int
+	wrote, err = w.Write(bi.raw)
 	if err != nil {
-		return nil, err
+		return
 	}
-	for _, value := range values {
-		if string(value.Raw) == column {
-			return value.Val, nil
-		}
-	}
-	return nil, nil
+	n += int64(wrote)
+	return
 }
 
-func (rows *TextRow) Encode(row []*proto.Value, fields []proto.Field, columnNames []string) proto.Row {
-	var val []byte
-
-	for i := 0; i < len(fields); i++ {
-		field := fields[i].(*Field)
-		switch field.fieldType {
-		case mysql.FieldTypeTimestamp, mysql.FieldTypeDateTime,
-			mysql.FieldTypeDate, mysql.FieldTypeNewDate:
-			data, err := appendDateTime(row[i].Raw, row[i].Val.(time.Time))
-			if err != nil {
-				log.Errorf("appendDateTime fail, val=%+v, err=%v", &row[i], err)
-				return nil
-			}
-			val = append(val, data...)
-		default:
-			val = PutLengthEncodedString(row[i].Raw)
-		}
-	}
-
-	rows.ResultSet = &ResultSet{
-		Columns:     fields,
-		ColumnNames: columnNames,
-	}
-
-	rows.Content = val
-	return rows
-}
-
-func (rows *TextRow) Decode() ([]*proto.Value, error) {
-	dest := make([]*proto.Value, len(rows.ResultSet.Columns))
-
-	// RowSet Packet
-	var val []byte
-	var isNull bool
-	var n int
-	var err error
-	pos := 0
-
-	for i := 0; i < len(rows.ResultSet.Columns); i++ {
-		field := rows.ResultSet.Columns[i].(*Field)
-
-		// Read bytes and convert to string
-		val, isNull, n, err = readLengthEncodedString(rows.Content[pos:])
-		dest[i] = &proto.Value{
-			Typ:   field.fieldType,
-			Flags: field.flags,
-			Len:   n,
-			Val:   val,
-			Raw:   val,
-		}
-		pos += n
-		if err == nil {
-			if !isNull {
-				switch field.fieldType {
-				case mysql.FieldTypeTimestamp, mysql.FieldTypeDateTime,
-					mysql.FieldTypeDate, mysql.FieldTypeNewDate:
-					dest[i].Val, err = parseDateTime(
-						val,
-						time.Local,
-					)
-					if err == nil {
-						continue
-					}
-				default:
-					continue
-				}
-			} else {
-				dest[i].Val = nil
-				continue
-			}
-		}
-		return nil, err // err != nil
-	}
-
-	return dest, nil
-}
-
-func (rows *BinaryRow) Encode(row []*proto.Value, fields []proto.Field, columnNames []string) proto.Row {
-	length := 0
-	nullBitMapLen := (len(fields) + 7 + 2) / 8
-	for _, val := range row {
-		if val != nil && val.Val != nil {
-			l, err := val2MySQLLen(val)
-			if err != nil {
-				return nil
-			}
-			length += l
-		}
-	}
-
-	length += nullBitMapLen + 1
-
-	Data := *bufPool.Get(length)
-	pos := 0
-
-	pos = writeByte(Data, pos, 0x00)
-
-	for i := 0; i < nullBitMapLen; i++ {
-		pos = writeByte(Data, pos, 0x00)
-	}
-
-	for i, val := range row {
-		if val == nil || val.Val == nil {
-			bytePos := (i+2)/8 + 1
-			bitPos := (i + 2) % 8
-			Data[bytePos] |= 1 << uint(bitPos)
-		} else {
-			v, err := val2MySQL(val)
-			if err != nil {
-				return nil
-			}
-			pos += copy(Data[pos:], v)
-		}
-	}
-
-	if pos != length {
-		return nil
-	}
-
-	rows.ResultSet = &ResultSet{
-		Columns:     fields,
-		ColumnNames: columnNames,
-	}
-
-	rows.Content = Data
-	return rows
-}
-
-func (rows *BinaryRow) Decode() ([]*proto.Value, error) {
-	dest := make([]*proto.Value, len(rows.ResultSet.Columns))
-
-	if rows.Content[0] != mysql.OKPacket {
-		return nil, errors.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "read binary rows (%v) failed", rows)
+func (bi BinaryRow) Scan(dest []proto.Value) error {
+	if bi.raw[0] != mysql.OKPacket {
+		return mysqlErrors.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "read binary rows (%v) failed", bi)
 	}
 
 	// NULL-bitmap,  [(column-count + 7 + 2) / 8 bytes]
 	pos := 1 + (len(dest)+7+2)>>3
-	nullMask := rows.Content[1:pos]
+	nullMask := bi.raw[1:pos]
 
-	for i := 0; i < len(rows.ResultSet.Columns); i++ {
+	for i := 0; i < len(bi.fields); i++ {
 		// Field is NULL
 		// (byte >> bit-pos) % 2 == 1
 		if ((nullMask[(i+2)>>3] >> uint((i+2)&7)) & 1) == 1 {
@@ -262,134 +111,64 @@ func (rows *BinaryRow) Decode() ([]*proto.Value, error) {
 			continue
 		}
 
-		field := rows.ResultSet.Columns[i].(*Field)
+		field := bi.fields[i].(*Field)
 		// Convert to byte-coded string
-		switch field.fieldType {
+		// TODO Optimize storage space based on the length of data types
+		mysqlType, _ := mysql.TypeToMySQL(field.fieldType)
+		switch mysql.FieldType(mysqlType) {
 		case mysql.FieldTypeNULL:
-			dest[i] = &proto.Value{
-				Typ:   field.fieldType,
-				Flags: field.flags,
-				Len:   1,
-				Val:   nil,
-				Raw:   nil,
-			}
+			dest[i] = nil
 			continue
 
 		// Numeric Types
 		case mysql.FieldTypeTiny:
 			if field.flags&mysql.UnsignedFlag != 0 {
-				dest[i] = &proto.Value{
-					Typ:   field.fieldType,
-					Flags: field.flags,
-					Len:   1,
-					Val:   int64(rows.Content[pos]),
-					Raw:   rows.Content[pos : pos+1],
-				}
+				dest[i] = int64(bi.raw[pos])
 			} else {
-				dest[i] = &proto.Value{
-					Typ:   field.fieldType,
-					Flags: field.flags,
-					Len:   1,
-					Val:   int64(int8(rows.Content[pos])),
-					Raw:   rows.Content[pos : pos+1],
-				}
+				dest[i] = int64(int8(bi.raw[pos]))
 			}
 			pos++
 			continue
 
 		case mysql.FieldTypeShort, mysql.FieldTypeYear:
 			if field.flags&mysql.UnsignedFlag != 0 {
-				dest[i] = &proto.Value{
-					Typ:   field.fieldType,
-					Flags: field.flags,
-					Len:   2,
-					Val:   int64(binary.LittleEndian.Uint16(rows.Content[pos : pos+2])),
-					Raw:   rows.Content[pos : pos+1],
-				}
+				dest[i] = int64(binary.LittleEndian.Uint16(bi.raw[pos : pos+2]))
 			} else {
-				dest[i] = &proto.Value{
-					Typ:   field.fieldType,
-					Flags: field.flags,
-					Len:   2,
-					Val:   int64(int16(binary.LittleEndian.Uint16(rows.Content[pos : pos+2]))),
-					Raw:   rows.Content[pos : pos+1],
-				}
+				dest[i] = int64(int16(binary.LittleEndian.Uint16(bi.raw[pos : pos+2])))
 			}
 			pos += 2
 			continue
 
 		case mysql.FieldTypeInt24, mysql.FieldTypeLong:
 			if field.flags&mysql.UnsignedFlag != 0 {
-				dest[i] = &proto.Value{
-					Typ:   field.fieldType,
-					Flags: field.flags,
-					Len:   4,
-					Val:   int64(binary.LittleEndian.Uint32(rows.Content[pos : pos+4])),
-					Raw:   rows.Content[pos : pos+4],
-				}
+				dest[i] = int64(binary.LittleEndian.Uint32(bi.raw[pos : pos+4]))
 			} else {
-				dest[i] = &proto.Value{
-					Typ:   field.fieldType,
-					Flags: field.flags,
-					Len:   4,
-					Val:   int64(int32(binary.LittleEndian.Uint32(rows.Content[pos : pos+4]))),
-					Raw:   rows.Content[pos : pos+4],
-				}
+				dest[i] = int64(int32(binary.LittleEndian.Uint32(bi.raw[pos : pos+4])))
 			}
 			pos += 4
 			continue
 
 		case mysql.FieldTypeLongLong:
 			if field.flags&mysql.UnsignedFlag != 0 {
-				val := binary.LittleEndian.Uint64(rows.Content[pos : pos+8])
+				val := binary.LittleEndian.Uint64(bi.raw[pos : pos+8])
 				if val > math.MaxInt64 {
-					dest[i] = &proto.Value{
-						Typ:   field.fieldType,
-						Flags: field.flags,
-						Len:   8,
-						Val:   uint64ToString(val),
-						Raw:   rows.Content[pos : pos+8],
-					}
+					dest[i] = uint64ToString(val)
 				} else {
-					dest[i] = &proto.Value{
-						Typ:   field.fieldType,
-						Flags: field.flags,
-						Len:   8,
-						Val:   int64(val),
-						Raw:   rows.Content[pos : pos+8],
-					}
+					dest[i] = int64(val)
 				}
 			} else {
-				dest[i] = &proto.Value{
-					Typ:   field.fieldType,
-					Flags: field.flags,
-					Len:   8,
-					Val:   int64(binary.LittleEndian.Uint64(rows.Content[pos : pos+8])),
-					Raw:   rows.Content[pos : pos+8],
-				}
+				dest[i] = int64(binary.LittleEndian.Uint64(bi.raw[pos : pos+8]))
 			}
 			pos += 8
 			continue
 
 		case mysql.FieldTypeFloat:
-			dest[i] = &proto.Value{
-				Typ:   field.fieldType,
-				Flags: field.flags,
-				Len:   4,
-				Val:   math.Float32frombits(binary.LittleEndian.Uint32(rows.Content[pos : pos+4])),
-				Raw:   rows.Content[pos : pos+4],
-			}
+			dest[i] = math.Float32frombits(binary.LittleEndian.Uint32(bi.raw[pos : pos+4]))
 			pos += 4
 			continue
 
 		case mysql.FieldTypeDouble:
-			dest[i] = &proto.Value{
-				Typ:   field.fieldType,
-				Flags: field.flags,
-				Len:   8,
-				Val:   math.Float64frombits(binary.LittleEndian.Uint64(rows.Content[pos : pos+8])),
-				Raw:   rows.Content[pos : pos+8],
-			}
+			dest[i] = math.Float64frombits(binary.LittleEndian.Uint64(bi.raw[pos : pos+8]))
 			pos += 8
 			continue
 
@@ -402,31 +181,25 @@ func (rows *BinaryRow) Decode() ([]*proto.Value, error) {
 			var isNull bool
 			var n int
 			var err error
-			val, isNull, n, err = readLengthEncodedString(rows.Content[pos:])
-			dest[i] = &proto.Value{
-				Typ:   field.fieldType,
-				Flags: field.flags,
-				Len:   n,
-				Val:   val,
-				Raw:   rows.Content[pos : pos+n],
-			}
+			val, isNull, n, err = readLengthEncodedString(bi.raw[pos:])
+			dest[i] = val
 			pos += n
 			if err == nil {
 				if !isNull {
 					continue
 				} else {
-					dest[i].Val = nil
+					dest[i] = nil
 					continue
 				}
 			}
-			return nil, err
+			return err
 
 		case
 			mysql.FieldTypeDate, mysql.FieldTypeNewDate, // Date YYYY-MM-DD
 			mysql.FieldTypeTime,                               // Time [-][H]HH:MM:SS[.fractal]
 			mysql.FieldTypeTimestamp, mysql.FieldTypeDateTime: // Timestamp YYYY-MM-DD HH:MM:SS[.fractal]
 
-			num, isNull, n := readLengthEncodedInteger(rows.Content[pos:])
+			num, isNull, n := readLengthEncodedInteger(bi.raw[pos:])
 			pos += n
 
 			var val interface{}
@@ -444,29 +217,14 @@ func (rows *BinaryRow) Decode() ([]*proto.Value, error) {
 				case 1, 2, 3, 4, 5, 6:
 					dstlen = 8 + 1 + decimals
 				default:
-					return nil, fmt.Errorf(
-						"protocol error, illegal decimals architecture.Value %d",
-						field.decimals,
-					)
+					return errors.Errorf("protocol error, illegal decimals architecture.Value %d", field.decimals)
 				}
-				val, err = formatBinaryTime(rows.Content[pos:pos+int(num)], dstlen)
-				dest[i] = &proto.Value{
-					Typ:   field.fieldType,
-					Flags: field.flags,
-					Len:   n,
-					Val:   val,
-					Raw:   rows.Content[pos : pos+n],
-				}
+				val, err = formatBinaryTime(bi.raw[pos:pos+int(num)], dstlen)
+				dest[i] = val
 			default:
-				val, err = parseBinaryDateTime(num, rows.Content[pos:], time.Local)
-				dest[i] = &proto.Value{
-					Typ:   field.fieldType,
-					Flags: field.flags,
-					Len:   n,
-					Val:   val,
-					Raw:   rows.Content[pos : pos+n],
-				}
+				val, err = parseBinaryDateTime(num, bi.raw[pos:], time.Local)
 				if err == nil {
+					dest[i] = val
 					break
 				}
 
@@ -480,34 +238,141 @@ func (rows *BinaryRow) Decode() ([]*proto.Value, error) {
 					case 1, 2, 3, 4, 5, 6:
 						dstlen = 19 + 1 + decimals
 					default:
-						return nil, fmt.Errorf(
-							"protocol error, illegal decimals architecture.Value %d",
-							field.decimals,
-						)
+						return errors.Errorf("protocol error, illegal decimals architecture.Value %d", field.decimals)
 					}
 				}
-				val, err = formatBinaryDateTime(rows.Content[pos:pos+int(num)], dstlen)
-				dest[i] = &proto.Value{
-					Typ:   field.fieldType,
-					Flags: field.flags,
-					Len:   n,
-					Val:   val,
-					Raw:   rows.Content[pos : pos+n],
+				val, err = formatBinaryDateTime(bi.raw[pos:pos+int(num)], dstlen)
+				if err != nil {
+					return errors.WithStack(err)
 				}
+				dest[i] = val
 			}
 
 			if err == nil {
 				pos += int(num)
 				continue
-			} else {
-				return nil, err
 			}
+
+			return err
 
 		// Please report if this happens!
 		default:
-			return nil, fmt.Errorf("unknown field type %d", field.fieldType)
+			return errors.Errorf("unknown field type %d", field.fieldType)
 		}
 	}
 
-	return dest, nil
+	return nil
+}
+
+type TextRow struct {
+	fields []proto.Field
+	raw    []byte
+}
+
+func (te TextRow) Get(name string) (proto.Value, error) {
+	idx := -1
+	for i, it := range te.fields {
+		if it.Name() == name {
+			idx = i
+			break
+		}
+	}
+	if idx == -1 {
+		return nil, errors.Errorf("no such field '%s' found", name)
+	}
+
+	dest := make([]proto.Value, len(te.fields))
+	if err := te.Scan(dest); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	return dest[idx], nil
+}
+
+func (te TextRow) Fields() []proto.Field {
+	return te.fields
+}
+
+func NewTextRow(fields []proto.Field, raw []byte) TextRow {
+	return TextRow{
+		fields: fields,
+		raw:    raw,
+	}
+}
+
+func (te TextRow) IsBinary() bool {
+	return false
+}
+
+func (te TextRow) Length() int {
+	return len(te.raw)
+}
+
+func (te TextRow) WriteTo(w io.Writer) (n int64, err error) {
+	var wrote int
+	wrote, err = w.Write(te.raw)
+	if err != nil {
+		return
+	}
+	n += int64(wrote)
+	return
+}
+
+func (te TextRow) Scan(dest []proto.Value) error {
+	// RowSet Packet
+	//var val []byte
+	//var isNull bool
+	var (
+		n      int
+		err    error
+		pos    int
+		isNull bool
+	)
+
+	// TODO: support parseTime
+
+	var (
+		b   []byte
+		loc = time.Local
+	)
+
+	for i := 0; i < len(te.fields); i++ {
+		b, isNull, n, err = readLengthEncodedString(te.raw[pos:])
+		if err != nil {
+			return errors.WithStack(err)
+		}
+		pos += n
+
+		if isNull {
+			dest[i] = nil
+			continue
+		}
+
+		switch te.fields[i].(*Field).fieldType {
+		case mysql.FieldTypeString, mysql.FieldTypeVarString, mysql.FieldTypeVarChar:
+			dest[i] = string(b)
+		case mysql.FieldTypeTiny, mysql.FieldTypeShort, mysql.FieldTypeLong, mysql.FieldTypeInt24,
+			mysql.FieldTypeLongLong, mysql.FieldTypeYear:
+			if te.fields[i].(*Field).flags&mysql.UnsignedFlag > 0 {
+				dest[i], err = strconv.ParseUint(string(b), 10, 64)
+			} else {
+				dest[i], err = strconv.ParseInt(string(b), 10, 64)
+			}
+			if err != nil {
+				return errors.WithStack(err)
+			}
+		case mysql.FieldTypeFloat, mysql.FieldTypeDouble, mysql.FieldTypeNewDecimal, mysql.FieldTypeDecimal:
+			if dest[i], err = strconv.ParseFloat(string(b), 64); err != nil {
+				return errors.WithStack(err)
+			}
+		case mysql.FieldTypeTimestamp, mysql.FieldTypeDateTime, mysql.FieldTypeDate, mysql.FieldTypeNewDate:
+			if dest[i], err = parseDateTime(b, loc); err != nil {
+				return errors.WithStack(err)
+			}
+		default:
+			dest[i] = b
+		}
+	}
+
+	return nil
 }

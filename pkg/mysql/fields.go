@@ -19,6 +19,7 @@ package mysql
 
 import (
 	"database/sql"
+	"math"
 	"reflect"
 )
 
@@ -61,19 +62,62 @@ type Field struct {
 	defaultValue       []byte
 }
 
+func (mf *Field) FieldType() mysql.FieldType {
+	return mf.fieldType
+}
+
+func (mf *Field) DecimalSize() (int64, int64, bool) {
+	decimals := int64(mf.decimals)
+	switch mf.fieldType {
+	case mysql.FieldTypeDecimal, mysql.FieldTypeNewDecimal:
+		if decimals > 0 {
+			return int64(mf.length) - 2, decimals, true
+		}
+		return int64(mf.length) - 1, decimals, true
+	case mysql.FieldTypeTimestamp, mysql.FieldTypeDateTime, mysql.FieldTypeTime:
+		return decimals, decimals, true
+	case mysql.FieldTypeFloat, mysql.FieldTypeDouble:
+		if decimals == 0x1f {
+			return math.MaxInt64, math.MaxInt64, true
+		}
+		return math.MaxInt64, decimals, true
+	}
+
+	return 0, 0, false
+}
+
+func (mf *Field) Length() (length int64, ok bool) {
+	length = int64(mf.length)
+	ok = true
+	return
+}
+
+func (mf *Field) Nullable() (nullable, ok bool) {
+	nullable, ok = mf.flags&mysql.NotNullFlag == 0, true
+	return
+}
+
 func NewField(name string, filedType mysql.FieldType) *Field {
 	return &Field{name: name, fieldType: filedType}
+}
+
+func (mf *Field) Name() string {
+	return mf.name
+}
+
+func (mf *Field) OriginName() string {
+	return mf.orgName
 }
 
 func (mf *Field) TableName() string {
 	return mf.table
 }
 
-func (mf *Field) DataBaseName() string {
+func (mf *Field) DatabaseName() string {
 	return mf.database
 }
 
-func (mf *Field) TypeDatabaseName() string {
+func (mf *Field) DatabaseTypeName() string {
 	switch mf.fieldType {
 	case mysql.FieldTypeBit:
 		return "BIT"
@@ -157,7 +201,7 @@ func (mf *Field) TypeDatabaseName() string {
 	}
 }
 
-func (mf *Field) scanType() reflect.Type {
+func (mf *Field) ScanType() reflect.Type {
 	switch mf.fieldType {
 	case mysql.FieldTypeTiny:
 		if mf.flags&mysql.NotNullFlag != 0 {

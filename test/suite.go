@@ -20,6 +20,7 @@ package test
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -43,6 +44,12 @@ import (
 
 type Option func(*MySuite)
 
+func WithDevMode() Option {
+	return func(mySuite *MySuite) {
+		mySuite.devMode = true
+	}
+}
+
 func WithMySQLServerAuth(username, password string) Option {
 	return func(mySuite *MySuite) {
 		mySuite.username = username
@@ -59,20 +66,23 @@ func WithMySQLDatabase(database string) Option {
 type MySuite struct {
 	suite.Suite
 
+	devMode bool
+
 	username, password, database string
 	port                         int
 
 	container *MySQLContainer
 
-	db     *sql.DB
-	dbSync sync.Once
+	mysqlDb *sql.DB
+	db      *sql.DB
+	dbSync  sync.Once
 
 	tmpFile string
 }
 
 func NewMySuite(options ...Option) *MySuite {
 	ms := &MySuite{
-		port: 3306,
+		port: 13306,
 	}
 	for _, it := range options {
 		it(ms)
@@ -94,7 +104,7 @@ func (ms *MySuite) DB() *sql.DB {
 		ms.T().Logf("====== connecting %s ======\n", dsn)
 
 		if ms.db, err = sql.Open("mysql", dsn); err != nil {
-			ms.T().Log("connect failed:", err.Error())
+			ms.T().Log("connect arana failed:", err.Error())
 		}
 	})
 
@@ -105,7 +115,30 @@ func (ms *MySuite) DB() *sql.DB {
 	return ms.db
 }
 
+func (ms *MySuite) MySQLDB(schema string) (*sql.DB, error) {
+	var (
+		mysqlDsn = fmt.Sprintf("root:123456@tcp(127.0.0.1:%d)/%s?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8", ms.container.Port, schema)
+		err      error
+	)
+	ms.T().Logf("====== connecting %s ======\n", mysqlDsn)
+
+	if ms.mysqlDb, err = sql.Open("mysql", mysqlDsn); err != nil {
+		ms.T().Log("connect mysql failed:", err.Error())
+		return nil, err
+	}
+
+	if ms.mysqlDb == nil {
+		return nil, errors.New("connect mysql failed")
+	}
+
+	return ms.mysqlDb, nil
+}
+
 func (ms *MySuite) SetupSuite() {
+	if ms.devMode {
+		return
+	}
+
 	var (
 		mt = MySQLContainerTester{
 			Username: ms.username,
@@ -138,6 +171,12 @@ func (ms *MySuite) SetupSuite() {
 }
 
 func (ms *MySuite) TearDownSuite() {
+	if ms.devMode {
+		if ms.db != nil {
+			_ = ms.db.Close()
+		}
+		return
+	}
 	if len(ms.tmpFile) > 0 {
 		ms.T().Logf("====== remove temp arana config file: %s ====== \n", ms.tmpFile)
 		_ = os.Remove(ms.tmpFile)

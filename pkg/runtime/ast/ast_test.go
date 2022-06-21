@@ -228,7 +228,12 @@ func TestParse_ShowStatement(t *testing.T) {
 		{"show databases", (*ShowDatabases)(nil), "SHOW DATABASES"},
 		{"show databases like '%foo%'", (*ShowDatabases)(nil), "SHOW DATABASES LIKE '%foo%'"},
 		{"show databases where name = 'foobar'", (*ShowDatabases)(nil), "SHOW DATABASES WHERE `name` = 'foobar'"},
+		{"show open tables", (*ShowOpenTables)(nil), "SHOW OPEN TABLES"},
+		{"show open tables in foobar", (*ShowOpenTables)(nil), "SHOW OPEN TABLES IN `foobar`"},
+		{"show open tables like '%foo%'", (*ShowOpenTables)(nil), "SHOW OPEN TABLES LIKE '%foo%'"},
+		{"show open tables where name = 'foo'", (*ShowOpenTables)(nil), "SHOW OPEN TABLES WHERE `name` = 'foo'"},
 		{"show tables", (*ShowTables)(nil), "SHOW TABLES"},
+		{"show tables in foobar", (*ShowTables)(nil), "SHOW TABLES IN `foobar`"},
 		{"show tables like '%foo%'", (*ShowTables)(nil), "SHOW TABLES LIKE '%foo%'"},
 		{"show tables where name = 'foo'", (*ShowTables)(nil), "SHOW TABLES WHERE `name` = 'foo'"},
 		{"sHow indexes from foo", (*ShowIndex)(nil), "SHOW INDEXES FROM `foo`"},
@@ -347,6 +352,35 @@ func TestParse_InsertStmt(t *testing.T) {
 		})
 	}
 
+	for _, it := range []tt{
+		{
+			"insert into student select * from student_tmp",
+			"INSERT INTO `student` SELECT * FROM `student_tmp`",
+		},
+		{
+			"insert into student(id,name) select emp_no, name from employees limit 10,2",
+			"INSERT INTO `student`(`id`, `name`) SELECT `emp_no`,`name` FROM `employees` LIMIT 10,2",
+		},
+		{
+			"insert into student(id,name) select emp_no, name from employees on duplicate key update version=version+1,modified_at=NOW()",
+			"INSERT INTO `student`(`id`, `name`) SELECT `emp_no`,`name` FROM `employees` ON DUPLICATE KEY UPDATE `version` = `version`+1, `modified_at` = NOW()",
+		},
+		{
+			"insert student select id, score from student_tmp union select id * 10, score * 10 from student_tmp",
+			"INSERT INTO `student` SELECT `id`,`score` FROM `student_tmp` UNION SELECT `id`*10,`score`*10 FROM `student_tmp`",
+		},
+	} {
+		t.Run(it.input, func(t *testing.T) {
+			stmt, err := Parse(it.input)
+			assert.NoError(t, err)
+			assert.IsTypef(t, (*InsertSelectStatement)(nil), stmt, "should be insert-select statement")
+
+			actual, err := RestoreToString(RestoreDefault, stmt.(Restorer))
+			assert.NoError(t, err, "should restore ok")
+			assert.Equal(t, it.expect, actual)
+		})
+	}
+
 }
 
 func TestRestoreCount(t *testing.T) {
@@ -413,4 +447,15 @@ func TestParse_AlterTableStmt(t *testing.T) {
 		})
 	}
 
+}
+
+func TestParse_DescStmt(t *testing.T) {
+	stmt := MustParse("desc student id")
+	// In MySQL, the case of "desc student 'id'" will be parsed successfully,
+	// but in arana, it will get an error by tidb parser.
+	desc := stmt.(*DescribeStatement)
+	var sb strings.Builder
+	_ = desc.Restore(RestoreDefault, &sb, nil)
+	t.Logf(sb.String())
+	assert.Equal(t, "DESC `student` `id`", sb.String())
 }

@@ -31,6 +31,7 @@ const (
 	Struncate           // TRUNCATE
 	SdropTable          // DROP TABLE
 	SalterTable         // ALTER TABLE
+	DropIndex           // DROP INDEX
 )
 
 type RestoreFlag uint32
@@ -53,6 +54,7 @@ var _sqlTypeNames = [...]string{
 	Struncate:   "TRUNCATE",
 	SdropTable:  "DROP TABLE",
 	SalterTable: "ALTER TABLE",
+	DropIndex:   "DROP INDEX",
 }
 
 // SQLType represents the type of SQL.

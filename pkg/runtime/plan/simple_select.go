@@ -27,8 +27,10 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/dataset"
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/resultx"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
@@ -56,11 +58,7 @@ func (s *SimpleQueryPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 	ctx, span := Tracer.Start(ctx, "SimpleQueryPlan.ExecIn")
 	defer span.End()
 
-	if s.filter() {
-		return &mysql.Result{
-			DataChan: make(chan proto.Row, 1),
-		}, nil
-	}
+	discard := s.filter()
 
 	if err = s.generate(&sb, &indexes); err != nil {
 		return nil, errors.Wrap(err, "failed to generate sql")
@@ -74,7 +72,28 @@ func (s *SimpleQueryPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 	if res, err = conn.Query(ctx, s.Database, query, args...); err != nil {
 		return nil, errors.WithStack(err)
 	}
-	return res, nil
+
+	if !discard {
+		return res, nil
+	}
+
+	var (
+		rr     = res.(*mysql.RawResult)
+		fields []proto.Field
+	)
+
+	defer func() {
+		_ = rr.Discard()
+	}()
+
+	if fields, err = rr.Fields(); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	emptyDs := &dataset.VirtualDataset{
+		Columns: fields,
+	}
+	return resultx.New(resultx.WithDataset(emptyDs)), nil
 }
 
 func (s *SimpleQueryPlan) filter() bool {

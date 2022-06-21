@@ -74,8 +74,10 @@ func (l *LikePredicateNode) InTables(tables map[string]struct{}) error {
 }
 
 func (l *LikePredicateNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
-	if err := l.Left.Restore(flag, sb, args); err != nil {
-		return errors.WithStack(err)
+	if l.Left != nil {
+		if err := l.Left.Restore(flag, sb, args); err != nil {
+			return errors.WithStack(err)
+		}
 	}
 
 	if l.Not {
@@ -83,9 +85,10 @@ func (l *LikePredicateNode) Restore(flag RestoreFlag, sb *strings.Builder, args 
 	} else {
 		sb.WriteString(" LIKE ")
 	}
-
-	if err := l.Right.Restore(flag, sb, args); err != nil {
-		return errors.WithStack(err)
+	if l.Right != nil {
+		if err := l.Right.Restore(flag, sb, args); err != nil {
+			return errors.WithStack(err)
+		}
 	}
 
 	return nil

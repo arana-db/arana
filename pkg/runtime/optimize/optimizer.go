@@ -37,7 +37,9 @@ import (
 	rast "github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
+	"github.com/arana-db/arana/pkg/runtime/namespace"
 	"github.com/arana-db/arana/pkg/runtime/plan"
+	"github.com/arana-db/arana/pkg/security"
 	"github.com/arana-db/arana/pkg/transformer"
 	"github.com/arana-db/arana/pkg/util/log"
 )
@@ -68,7 +70,7 @@ func IsDenyFullScanErr(err error) bool {
 
 func GetOptimizer() proto.Optimizer {
 	return optimizer{
-		schemaLoader: &schema_manager.SimpleSchemaLoader{},
+		schemaLoader: schema_manager.NewSimpleSchemaLoader(),
 	}
 }
 
@@ -109,12 +111,18 @@ func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.S
 		return o.optimizeSelect(ctx, conn, t, args)
 	case *rast.InsertStatement:
 		return o.optimizeInsert(ctx, conn, t, args)
+	case *rast.InsertSelectStatement:
+		return o.optimizeInsertSelect(ctx, conn, t, args)
 	case *rast.DeleteStatement:
 		return o.optimizeDelete(ctx, t, args)
 	case *rast.UpdateStatement:
 		return o.optimizeUpdate(ctx, conn, t, args)
+	case *rast.ShowOpenTables:
+		return o.optimizeShowOpenTables(ctx, t, args)
 	case *rast.ShowTables:
 		return o.optimizeShowTables(ctx, t, args)
+	case *rast.ShowIndex:
+		return o.optimizeShowIndex(ctx, t, args)
 	case *rast.TruncateStatement:
 		return o.optimizeTruncate(ctx, t, args)
 	case *rast.DropTableStatement:
@@ -125,6 +133,8 @@ func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.S
 		return o.optimizeDescribeStatement(ctx, t, args)
 	case *rast.AlterTableStatement:
 		return o.optimizeAlterTable(ctx, t, args)
+	case *rast.DropIndexStatement:
+		return o.optimizeDropIndex(ctx, t, args)
 	}
 
 	//TODO implement all statements
@@ -135,6 +145,24 @@ const (
 	_bypass uint32 = 1 << iota
 	_supported
 )
+
+func (o optimizer) optimizeDropIndex(ctx context.Context, stmt *rast.DropIndexStatement, args []interface{}) (proto.Plan, error) {
+	ru := rcontext.Rule(ctx)
+	//table shard
+
+	shard, err := o.computeShards(ru, stmt.Table, nil, args)
+	if err != nil {
+		return nil, err
+	}
+	if len(shard) == 0 {
+		return plan.Transparent(stmt, args), nil
+	}
+
+	shardPlan := plan.NewDropIndexPlan(stmt)
+	shardPlan.SetShard(shard)
+	shardPlan.BindArgs(args)
+	return shardPlan, nil
+}
 
 func (o optimizer) optimizeAlterTable(ctx context.Context, stmt *rast.AlterTableStatement, args []interface{}) (proto.Plan, error) {
 	var (
@@ -241,11 +269,72 @@ func (o optimizer) optimizeShowDatabases(ctx context.Context, stmt *rast.ShowDat
 	return ret, nil
 }
 
+func (o optimizer) overwriteLimit(stmt *rast.SelectStatement, args *[]interface{}) (originOffset, overwriteLimit int64) {
+	if stmt == nil || stmt.Limit == nil {
+		return 0, 0
+	}
+
+	offset := stmt.Limit.Offset()
+	limit := stmt.Limit.Limit()
+
+	// SELECT * FROM student where uid = ? limit ? offset ?
+	var offsetIndex int64
+	var limitIndex int64
+
+	if stmt.Limit.IsOffsetVar() {
+		offsetIndex = offset
+		offset = (*args)[offsetIndex].(int64)
+
+		if !stmt.Limit.IsLimitVar() {
+			limit = stmt.Limit.Limit()
+			*args = append(*args, limit)
+			limitIndex = int64(len(*args) - 1)
+		}
+	}
+	originOffset = offset
+
+	if stmt.Limit.IsLimitVar() {
+		limitIndex = limit
+		limit = (*args)[limitIndex].(int64)
+
+		if !stmt.Limit.IsOffsetVar() {
+			*args = append(*args, int64(0))
+			offsetIndex = int64(len(*args) - 1)
+		}
+	}
+
+	if stmt.Limit.IsLimitVar() || stmt.Limit.IsOffsetVar() {
+		if !stmt.Limit.IsLimitVar() {
+			stmt.Limit.SetLimitVar()
+			stmt.Limit.SetLimit(limitIndex)
+		}
+		if !stmt.Limit.IsOffsetVar() {
+			stmt.Limit.SetOffsetVar()
+			stmt.Limit.SetOffset(offsetIndex)
+		}
+
+		newLimitVar := limit + offset
+		overwriteLimit = newLimitVar
+		(*args)[limitIndex] = newLimitVar
+		(*args)[offsetIndex] = int64(0)
+		return
+	}
+
+	stmt.Limit.SetOffset(0)
+	stmt.Limit.SetLimit(offset + limit)
+	overwriteLimit = offset + limit
+	return
+}
+
 func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *rast.SelectStatement, args []interface{}) (proto.Plan, error) {
 	var ru *rule.Rule
 	if ru = rcontext.Rule(ctx); ru == nil {
 		return nil, errors.WithStack(errNoRuleFound)
 	}
+
+	// overwrite stmt limit x offset y. eg `select * from student offset 100 limit 5` will be
+	// `select * from student offset 0 limit 100+5`
+	originOffset, overwriteLimit := o.overwriteLimit(stmt, &args)
 	if stmt.HasJoin() {
 		return o.optimizeJoin(ctx, conn, stmt, args)
 	}
@@ -356,13 +445,22 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 		}
 	}
 
-	unionPlan := &plan.UnionPlan{
+	var tmpPlan proto.Plan
+	tmpPlan = &plan.UnionPlan{
 		Plans: plans,
+	}
+
+	if stmt.Limit != nil {
+		tmpPlan = &plan.LimitPlan{
+			ParentPlan:     tmpPlan,
+			OriginOffset:   originOffset,
+			OverwriteLimit: overwriteLimit,
+		}
 	}
 
 	// TODO: order/groupBy/aggregate
 	aggregate := &plan.AggregatePlan{
-		UnionPlan:  unionPlan,
+		Plan:       tmpPlan,
 		Combiner:   transformer.NewCombinerManager(),
 		AggrLoader: transformer.LoadAggrs(stmt.Select),
 	}
@@ -462,6 +560,13 @@ func (o optimizer) optimizeUpdate(ctx context.Context, conn proto.VConn, stmt *r
 		return ret, nil
 	}
 
+	//check update sharding key
+	for _, element := range stmt.Updated {
+		if _, _, ok := vt.GetShardMetadata(element.Column.Suffix()); ok {
+			return nil, errors.New("do not support update sharding key")
+		}
+	}
+
 	var (
 		shards   rule.DatabaseTables
 		fullScan = true
@@ -540,6 +645,13 @@ func (o optimizer) optimizeInsert(ctx context.Context, conn proto.VConn, stmt *r
 		return nil, errors.Wrap(errNoShardKeyFound, "failed to insert")
 	}
 
+	//check on duplicated key update
+	for _, upd := range stmt.DuplicatedUpdates() {
+		if upd.Column.Suffix() == stmt.Columns()[bingo] {
+			return nil, errors.New("do not support update sharding key")
+		}
+	}
+
 	var (
 		sharder = (*Sharder)(ru)
 		left    = rast.ColumnNameExpressionAtom(make([]string, 1))
@@ -613,6 +725,24 @@ func (o optimizer) optimizeInsert(ctx context.Context, conn proto.VConn, stmt *r
 	return ret, nil
 }
 
+func (o optimizer) optimizeInsertSelect(ctx context.Context, conn proto.VConn, stmt *rast.InsertSelectStatement, args []interface{}) (proto.Plan, error) {
+	var (
+		ru  = rcontext.Rule(ctx)
+		ret = plan.NewInsertSelectPlan()
+	)
+
+	ret.BindArgs(args)
+
+	if _, ok := ru.VTable(stmt.Table().Suffix()); !ok { // insert into non-sharding table
+		ret.Batch[""] = stmt
+		return ret, nil
+	}
+
+	// TODO: handle shard keys.
+
+	return nil, errors.New("not support insert-select into sharding table")
+}
+
 func (o optimizer) optimizeDelete(ctx context.Context, stmt *rast.DeleteStatement, args []interface{}) (proto.Plan, error) {
 	ru := rcontext.Rule(ctx)
 	shards, err := o.computeShards(ru, stmt.Table, stmt.Where, args)
@@ -633,37 +763,73 @@ func (o optimizer) optimizeDelete(ctx context.Context, stmt *rast.DeleteStatemen
 	return ret, nil
 }
 
-func (o optimizer) optimizeShowTables(ctx context.Context, stmt *rast.ShowTables, args []interface{}) (proto.Plan, error) {
-	vts := rcontext.Rule(ctx).VTables()
-	databaseTablesMap := make(map[string]rule.DatabaseTables, len(vts))
-	for tableName, vt := range vts {
-		shards := rule.DatabaseTables{}
-		// compute all tables
-		topology := vt.Topology()
-		topology.Each(func(dbIdx, tbIdx int) bool {
-			if d, t, ok := topology.Render(dbIdx, tbIdx); ok {
-				shards[d] = append(shards[d], t)
+func (o optimizer) optimizeShowOpenTables(ctx context.Context, stmt *rast.ShowOpenTables, args []interface{}) (proto.Plan, error) {
+	var invertedIndex map[string]string
+	for logicalTable, v := range rcontext.Rule(ctx).VTables() {
+		t := v.Topology()
+		t.Each(func(x, y int) bool {
+			if _, phyTable, ok := t.Render(x, y); ok {
+				if invertedIndex == nil {
+					invertedIndex = make(map[string]string)
+				}
+				invertedIndex[phyTable] = logicalTable
 			}
 			return true
 		})
-		databaseTablesMap[tableName] = shards
 	}
 
-	tmpPlanData := make(map[string]plan.DatabaseTable)
-	for showTableName, databaseTables := range databaseTablesMap {
-		for databaseName, shardingTables := range databaseTables {
-			for _, shardingTable := range shardingTables {
-				tmpPlanData[shardingTable] = plan.DatabaseTable{
-					Database:  databaseName,
-					TableName: showTableName,
-				}
-			}
+	clusters := security.DefaultTenantManager().GetClusters(rcontext.Tenant(ctx))
+	plans := make([]proto.Plan, 0, len(clusters))
+	for _, cluster := range clusters {
+		ns := namespace.Load(cluster)
+		// 配置里原子库 都需要执行一次
+		groups := ns.DBGroups()
+		for i := 0; i < len(groups); i++ {
+			ret := plan.NewShowOpenTablesPlan(stmt)
+			ret.BindArgs(args)
+			ret.SetInvertedShards(invertedIndex)
+			ret.SetDatabase(groups[i])
+			plans = append(plans, ret)
 		}
+	}
+
+	unionPlan := &plan.UnionPlan{
+		Plans: plans,
+	}
+
+	aggregate := &plan.AggregatePlan{
+		Plan:       unionPlan,
+		Combiner:   transformer.NewCombinerManager(),
+		AggrLoader: transformer.LoadAggrs(nil),
+	}
+
+	return aggregate, nil
+}
+
+func (o optimizer) optimizeShowTables(ctx context.Context, stmt *rast.ShowTables, args []interface{}) (proto.Plan, error) {
+	var invertedIndex map[string]string
+	for logicalTable, v := range rcontext.Rule(ctx).VTables() {
+		t := v.Topology()
+		t.Each(func(x, y int) bool {
+			if _, phyTable, ok := t.Render(x, y); ok {
+				if invertedIndex == nil {
+					invertedIndex = make(map[string]string)
+				}
+				invertedIndex[phyTable] = logicalTable
+			}
+			return true
+		})
 	}
 
 	ret := plan.NewShowTablesPlan(stmt)
 	ret.BindArgs(args)
-	ret.SetAllShards(tmpPlanData)
+	ret.SetInvertedShards(invertedIndex)
+	return ret, nil
+}
+
+func (o optimizer) optimizeShowIndex(_ context.Context, stmt *rast.ShowIndex, args []interface{}) (proto.Plan, error) {
+	ret := &plan.ShowIndexPlan{Stmt: stmt}
+	ret.BindArgs(args)
 	return ret, nil
 }
 
@@ -710,6 +876,7 @@ func (o optimizer) optimizeDescribeStatement(ctx context.Context, stmt *rast.Des
 		dbName, tblName := shards.Smallest()
 		ret.Database = dbName
 		ret.Table = tblName
+		ret.Column = stmt.Column
 	}
 
 	return ret, nil
@@ -762,6 +929,7 @@ func (o optimizer) rewriteSelectStatement(ctx context.Context, conn proto.VConn,
 			starExpand = true
 		}
 	}
+
 	if starExpand {
 		if len(tb) < 1 {
 			tb = stmt.From[0].TableName().Suffix()

@@ -295,7 +295,7 @@ func parseBinaryDateTime(num uint64, data []byte, loc *time.Location) (driver.Va
 	return nil, fmt.Errorf("invalid DATETIME packet length %d", num)
 }
 
-func appendDateTime(buf []byte, t time.Time) ([]byte, error) {
+func AppendDateTime(buf []byte, t time.Time) ([]byte, error) {
 	year, month, day := t.Date()
 	hour, min, sec := t.Clock()
 	nsec := t.Nanosecond()
@@ -600,6 +600,11 @@ func skipLengthEncodedString(b []byte) (int, error) {
 	return n, io.EOF
 }
 
+func readComFieldListDefaultValueLength(data []byte, pos int) (uint64, int) {
+	l, _, n := readLengthEncodedInteger(data[pos:])
+	return l, pos + n
+}
+
 // returns the number read, whether the value is NULL and the number of bytes read
 func readLengthEncodedInteger(b []byte) (uint64, bool, int) {
 	// See issue #349
@@ -632,7 +637,7 @@ func readLengthEncodedInteger(b []byte) (uint64, bool, int) {
 	return uint64(b[0]), false, 1
 }
 
-// encodes a uint64 value and appends it to the given bytes slice
+// appendLengthEncodedInteger encodes an uint64 value and appends it to the given bytes slice
 func appendLengthEncodedInteger(b []byte, n uint64) []byte {
 	switch {
 	case n <= 250:
