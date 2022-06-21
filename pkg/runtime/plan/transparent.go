@@ -71,13 +71,13 @@ func (tp *TransparentPlan) Type() proto.PlanType {
 }
 
 func (tp *TransparentPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
-	ctx, span := Tracer.Start(ctx, "TransparentPlan.ExecIn")
-	defer span.End()
 	var (
 		sb   strings.Builder
 		args []int
 		err  error
 	)
+	ctx, span := Tracer.Start(ctx, "TransparentPlan.ExecIn")
+	defer span.End()
 
 	if err = tp.stmt.Restore(rast.RestoreDefault, &sb, &args); err != nil {
 		return nil, errors.WithStack(err)

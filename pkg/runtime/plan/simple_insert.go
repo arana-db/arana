@@ -54,12 +54,12 @@ func (sp *SimpleInsertPlan) Put(db string, stmt *ast.InsertStatement) {
 }
 
 func (sp *SimpleInsertPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
-	ctx, span := Tracer.Start(ctx, "SimpleInsertPlan.ExecIn")
-	defer span.End()
 	var (
 		effected     uint64
 		lastInsertId uint64
 	)
+	ctx, span := Tracer.Start(ctx, "SimpleInsertPlan.ExecIn")
+	defer span.End()
 	// TODO: consider wrap a transaction if insert into multiple databases
 	// TODO: insert in parallel
 	for db, inserts := range sp.batch {

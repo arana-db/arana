@@ -20,11 +20,11 @@ package optimize
 import (
 	"context"
 	stdErrors "errors"
-	"github.com/arana-db/arana/pkg/runtime"
 	"strings"
 )
 
 import (
+	"github.com/arana-db/arana/pkg/runtime"
 	"github.com/arana-db/parser/ast"
 
 	"github.com/pkg/errors"

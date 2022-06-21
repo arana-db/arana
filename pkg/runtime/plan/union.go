@@ -19,12 +19,13 @@ package plan
 
 import (
 	"context"
-	"go.opentelemetry.io/otel"
 	"io"
 )
 
 import (
 	"github.com/pkg/errors"
+
+	"go.opentelemetry.io/otel"
 
 	"go.uber.org/multierr"
 )
@@ -45,9 +46,9 @@ func (u UnionPlan) Type() proto.PlanType {
 }
 
 func (u UnionPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+	var results []proto.Result
 	ctx, span := Tracer.Start(ctx, "UnionPlan.ExecIn")
 	defer span.End()
-	var results []proto.Result
 	for _, it := range u.Plans {
 		res, err := it.ExecIn(ctx, conn)
 		if err != nil {

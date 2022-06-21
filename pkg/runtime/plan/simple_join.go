@@ -50,14 +50,15 @@ func (s *SimpleJoinPlan) Type() proto.PlanType {
 }
 
 func (s *SimpleJoinPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
-	ctx, span := Tracer.Start(ctx, "SimpleJoinPlan.ExecIn")
-	defer span.End()
 	var (
 		sb      strings.Builder
 		indexes []int
 		res     proto.Result
 		err     error
 	)
+
+	ctx, span := Tracer.Start(ctx, "SimpleJoinPlan.ExecIn")
+	defer span.End()
 
 	if err := s.generateSelect(&sb, &indexes); err != nil {
 		return nil, err

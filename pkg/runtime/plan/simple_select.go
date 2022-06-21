@@ -46,14 +46,15 @@ func (s *SimpleQueryPlan) Type() proto.PlanType {
 }
 
 func (s *SimpleQueryPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
-	ctx, span := Tracer.Start(ctx, "SimpleQueryPlan.ExecIn")
-	defer span.End()
 	var (
 		sb      strings.Builder
 		indexes []int
 		res     proto.Result
 		err     error
 	)
+
+	ctx, span := Tracer.Start(ctx, "SimpleQueryPlan.ExecIn")
+	defer span.End()
 
 	if s.filter() {
 		return &mysql.Result{

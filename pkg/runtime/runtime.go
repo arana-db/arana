@@ -22,8 +22,7 @@ import (
 	"encoding/json"
 	stdErrors "errors"
 	"fmt"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/trace"
+
 	"io"
 	"sort"
 	"sync"
@@ -38,6 +37,9 @@ import (
 	"go.uber.org/atomic"
 
 	"golang.org/x/sync/errgroup"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 )
 
 import (
