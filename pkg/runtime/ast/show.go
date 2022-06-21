@@ -157,6 +157,13 @@ type ShowCreate struct {
 	tgt string
 }
 
+func (s *ShowCreate) ResetTable(table string) *ShowCreate {
+	ret := new(ShowCreate)
+	*ret = *s
+	ret.tgt = table
+	return ret
+}
+
 func (s *ShowCreate) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("SHOW CREATE ")
 	sb.WriteString(s.typ.String())
