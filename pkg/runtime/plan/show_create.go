@@ -19,7 +19,6 @@ package plan
 
 import (
 	"context"
-	"fmt"
 	"strings"
 )
 
@@ -94,8 +93,7 @@ func (st *ShowCreatePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 					return next, nil
 				}
 				dest[0] = target
-				dest[1] = strings.Replace(dest[1].(string), fmt.Sprintf("CREATE TABLE `%s`", st.Table),
-					fmt.Sprintf("CREATE TABLE `%s`", target), 1)
+				dest[1] = strings.Replace(dest[1].(string), st.Table, target, 1)
 
 				if next.IsBinary() {
 					return rows.NewBinaryVirtualRow(fields, dest), nil
