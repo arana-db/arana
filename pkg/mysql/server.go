@@ -157,11 +157,10 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32) {
 		if x := recover(); x != nil {
 			log.Errorf("mysql_server caught panic:\n%v", x)
 		}
-
 		conn.Close()
 		l.executor.ConnectionClose(&proto.Context{
 			Context:      context.Background(),
-			ConnectionID: l.connectionID,
+			ConnectionID: c.ConnectionID,
 		})
 	}()
 
@@ -197,9 +196,10 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32) {
 			Context:      context.Background(),
 			Schema:       c.Schema,
 			Tenant:       c.Tenant,
-			ConnectionID: l.connectionID,
+			ConnectionID: c.ConnectionID,
 			Data:         content,
 		}
+
 		if err = l.ExecuteCommand(c, ctx); err != nil {
 			if err == io.EOF {
 				log.Debugf("the connection#%d of remote client %s requests quit", c.ConnectionID, c.conn.(*net.TCPConn).RemoteAddr())
