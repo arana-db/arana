@@ -22,9 +22,13 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
+	"time"
 )
 
 import (
+	lru "github.com/hashicorp/golang-lru"
+
 	"github.com/pkg/errors"
 )
 
@@ -49,11 +53,35 @@ func init() {
 
 type SimpleSchemaLoader struct {
 	// key format is schema.table
-	metadataCache map[string]*proto.TableMetadata
+	metadataCache *lru.Cache
+	mutex         *sync.RWMutex
 }
 
 func NewSimpleSchemaLoader() *SimpleSchemaLoader {
-	return &SimpleSchemaLoader{metadataCache: make(map[string]*proto.TableMetadata)}
+	cache, err := lru.New(100)
+	if err != nil {
+		panic(err)
+	}
+	schemaLoader := &SimpleSchemaLoader{
+		metadataCache: cache,
+		mutex:         new(sync.RWMutex),
+	}
+	go schemaLoader.refresh()
+	return schemaLoader
+}
+
+func (l *SimpleSchemaLoader) refresh() {
+	ticker := time.NewTicker(10 * time.Minute)
+	for {
+		select {
+		case <-ticker.C:
+			l.mutex.Lock()
+			for l.metadataCache.Len() > 0 {
+				l.metadataCache.RemoveOldest()
+			}
+			l.mutex.Unlock()
+		}
+	}
 }
 
 func (l *SimpleSchemaLoader) Load(ctx context.Context, schema string, tables []string) (map[string]*proto.TableMetadata, error) {
@@ -67,11 +95,13 @@ func (l *SimpleSchemaLoader) Load(ctx context.Context, schema string, tables []s
 	if len(schema) > 0 {
 		for _, table := range tables {
 			qualifiedTblName := schema + "." + table
-			if l.metadataCache[qualifiedTblName] != nil {
-				tableMetadataMap[table] = l.metadataCache[qualifiedTblName]
+			l.mutex.RLock()
+			if tableMetadata, ok := l.metadataCache.Get(qualifiedTblName); ok {
+				tableMetadataMap[table] = tableMetadata.(*proto.TableMetadata)
 			} else {
 				queryTables = append(queryTables, table)
 			}
+			l.mutex.RUnlock()
 		}
 	} else {
 		copy(queryTables, tables)
@@ -97,7 +127,9 @@ func (l *SimpleSchemaLoader) Load(ctx context.Context, schema string, tables []s
 	for tableName, columns := range columnMetadataMap {
 		tableMetadataMap[tableName] = proto.NewTableMetadata(tableName, columns, indexMetadataMap[tableName])
 		if len(schema) > 0 {
-			l.metadataCache[schema+"."+tableName] = tableMetadataMap[tableName]
+			l.mutex.Lock()
+			l.metadataCache.Add(schema+"."+tableName, tableMetadataMap[tableName])
+			l.mutex.Unlock()
 		}
 	}
 
