@@ -24,7 +24,9 @@ import (
 
 import (
 	"github.com/pkg/errors"
+
 	uatomic "go.uber.org/atomic"
+
 	"golang.org/x/sync/errgroup"
 )
 

@@ -122,6 +122,8 @@ func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.S
 		return o.optimizeShowIndex(ctx, t, args)
 	case *rast.ShowColumns:
 		return o.optimizeShowColumns(ctx, t, args)
+	case *rast.ShowCreate:
+		return o.optimizeShowCreate(ctx, t, args)
 	case *rast.TruncateStatement:
 		return o.optimizeTruncate(ctx, t, args)
 	case *rast.DropTableStatement:
@@ -850,6 +852,34 @@ func (o optimizer) optimizeShowColumns(ctx context.Context, stmt *rast.ShowColum
 		})
 		_, tblName := shards.Smallest()
 		ret.Table = tblName
+	}
+
+	return ret, nil
+}
+
+func (o optimizer) optimizeShowCreate(ctx context.Context, stmt *rast.ShowCreate, args []interface{}) (proto.Plan, error) {
+	if stmt.Type() != rast.ShowCreateTypeTable {
+		return nil, errors.Errorf("not support SHOW CREATE %s", stmt.Type().String())
+	}
+
+	var (
+		ret   = plan.NewShowCreatePlan(stmt)
+		ru    = rcontext.Rule(ctx)
+		table = stmt.Target()
+	)
+	ret.BindArgs(args)
+
+	if vt, ok := ru.VTable(table); ok {
+		// sharding
+		topology := vt.Topology()
+		if d, t, ok := topology.Render(0, 0); ok {
+			ret.Database = d
+			ret.Table = t
+		} else {
+			return nil, errors.Errorf("failed to render table:%s ", table)
+		}
+	} else {
+		ret.Table = table
 	}
 
 	return ret, nil
