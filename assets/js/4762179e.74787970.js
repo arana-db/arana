@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkarana_website=self.webpackChunkarana_website||[]).push([[5023],{5249:a=>{a.exports=JSON.parse('{"permalink":"/arana/blog/tags/docusaurus","page":1,"postsPerPage":10,"totalPages":1,"totalCount":4,"blogDescription":"Blog","blogTitle":"Blog"}')}}]);

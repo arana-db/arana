@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkarana_website=self.webpackChunkarana_website||[]).push([[8907],{4397:a=>{a.exports=JSON.parse('{"permalink":"/arana/blog/tags/hello","page":1,"postsPerPage":10,"totalPages":1,"totalCount":2,"blogDescription":"Blog","blogTitle":"Blog"}')}}]);

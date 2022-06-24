@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkarana_website=self.webpackChunkarana_website||[]).push([[6923],{298:a=>{a.exports=JSON.parse('{"label":"hola","permalink":"/arana/blog/tags/hola","allTagsPath":"/arana/blog/tags","count":1}')}}]);
