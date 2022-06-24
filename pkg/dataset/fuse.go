@@ -65,13 +65,13 @@ func (fu *fuseableDataset) Next() (proto.Row, error) {
 
 	if next, err = fu.current.Next(); errors.Is(err, io.EOF) {
 		if err = fu.nextDataset(); err != nil {
-			return nil, errors.WithStack(err)
+			return nil, err
 		}
 		return fu.Next()
 	}
 
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 
 	return next, nil

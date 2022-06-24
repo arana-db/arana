@@ -600,6 +600,11 @@ func skipLengthEncodedString(b []byte) (int, error) {
 	return n, io.EOF
 }
 
+func readComFieldListDefaultValueLength(data []byte, pos int) (uint64, int) {
+	l, _, n := readLengthEncodedInteger(data[pos:])
+	return l, pos + n
+}
+
 // returns the number read, whether the value is NULL and the number of bytes read
 func readLengthEncodedInteger(b []byte) (uint64, bool, int) {
 	// See issue #349

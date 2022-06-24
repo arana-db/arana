@@ -19,6 +19,8 @@ package plan
 
 import (
 	"context"
+	"fmt"
+	"io"
 )
 
 import (
@@ -29,6 +31,7 @@ import (
 	"github.com/arana-db/arana/pkg/dataset"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/resultx"
+	"github.com/arana-db/arana/pkg/util/log"
 )
 
 // UnionPlan merges multiple query plan.
@@ -51,6 +54,58 @@ func (u UnionPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, 
 	}
 }
 
+func (u UnionPlan) showOpenTables(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+	var (
+		fields    []proto.Field
+		rows      []proto.Row
+		filterMap = make(map[string]struct{}, 0) // map[database-table]
+	)
+	for _, it := range u.Plans {
+		it := it
+		res, err := it.ExecIn(ctx, conn)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+		ds, err := res.Dataset()
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+		fields, err = ds.Fields()
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+		var row proto.Row
+
+		for {
+			row, err = ds.Next()
+			if errors.Is(err, io.EOF) {
+				break
+			}
+
+			if err != nil {
+				return nil, errors.WithStack(err)
+			}
+			var values []proto.Value
+			if err = row.Scan(values); err != nil {
+				return nil, errors.WithStack(err)
+			}
+			// Database Table In_use Name_locked
+			key := fmt.Sprintf("%s-%s", values[0].(string), values[1].(string))
+			if _, ok := filterMap[key]; ok {
+				continue
+			}
+			filterMap[key] = struct{}{}
+			rows = append(rows, row)
+		}
+	}
+	ds := &dataset.VirtualDataset{
+		Columns: fields,
+		Rows:    rows,
+	}
+
+	return resultx.New(resultx.WithDataset(ds)), nil
+}
+
 func (u UnionPlan) query(ctx context.Context, conn proto.VConn) (proto.Result, error) {
 	var generators []dataset.GenerateFunc
 	for _, it := range u.Plans {
@@ -63,8 +118,10 @@ func (u UnionPlan) query(ctx context.Context, conn proto.VConn) (proto.Result, e
 			return res.Dataset()
 		})
 	}
+
 	ds, err := dataset.Fuse(generators[0], generators[1:]...)
 	if err != nil {
+		log.Errorf("UnionPlan Fuse error:%v", err)
 		return nil, err
 	}
 	return resultx.New(resultx.WithDataset(ds)), nil

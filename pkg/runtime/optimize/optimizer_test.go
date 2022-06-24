@@ -235,3 +235,50 @@ func TestOptimizer_OptimizeAlterTable(t *testing.T) {
 		assert.NoError(t, err)
 	})
 }
+
+func TestOptimizer_OptimizeInsertSelect(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	conn := testdata.NewMockVConn(ctrl)
+	loader := testdata.NewMockSchemaLoader(ctrl)
+
+	var fakeId uint64
+	conn.EXPECT().Exec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, db string, sql string, args ...interface{}) (proto.Result, error) {
+			t.Logf("fake exec: db='%s', sql=\"%s\", args=%v\n", db, sql, args)
+			fakeId++
+
+			return resultx.New(
+				resultx.WithRowsAffected(uint64(strings.Count(sql, "?"))),
+				resultx.WithLastInsertID(fakeId),
+			), nil
+		}).
+		AnyTimes()
+
+	var (
+		ctx = context.Background()
+		ru  rule.Rule
+		opt = optimizer{schemaLoader: loader}
+	)
+
+	t.Run("non-sharding", func(t *testing.T) {
+		sql := "insert into employees(name, age) select name,age from employees_tmp limit 10,2"
+
+		p := parser.New()
+		stmt, _ := p.ParseOneStmt(sql, "", "")
+
+		ru.SetVTable("student", nil)
+		plan, err := opt.Optimize(rcontext.WithRule(ctx, &ru), conn, stmt, 1)
+		assert.NoError(t, err)
+
+		res, err := plan.ExecIn(ctx, conn)
+		assert.NoError(t, err)
+
+		affected, _ := res.RowsAffected()
+		assert.Equal(t, uint64(0), affected)
+		lastInsertId, _ := res.LastInsertId()
+		assert.Equal(t, fakeId, lastInsertId)
+	})
+
+}

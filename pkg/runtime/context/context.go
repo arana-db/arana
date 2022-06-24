@@ -40,6 +40,7 @@ type (
 	keyNodeLabel      struct{}
 	keySchema         struct{}
 	keyDefaultDBGroup struct{}
+	keyTenant         struct{}
 )
 
 type cFlag uint8
@@ -58,6 +59,11 @@ func WithDirect(ctx context.Context) context.Context {
 // WithSQL binds the original sql.
 func WithSQL(ctx context.Context, sql string) context.Context {
 	return context.WithValue(ctx, keySql{}, sql)
+}
+
+// WithTenant binds the tenant.
+func WithTenant(ctx context.Context, tenant string) context.Context {
+	return context.WithValue(ctx, keyTenant{}, tenant)
 }
 
 // WithDBGroup binds the default db.
@@ -96,6 +102,15 @@ func Sequencer(ctx context.Context) proto.Sequencer {
 		return nil
 	}
 	return s
+}
+
+// Tenant extracts the tenant.
+func Tenant(ctx context.Context) string {
+	db, ok := ctx.Value(keyTenant{}).(string)
+	if !ok {
+		return ""
+	}
+	return db
 }
 
 // DBGroup extracts the db.

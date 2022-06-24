@@ -46,6 +46,19 @@ func Map(generateFields FieldsFunc, transform TransformFunc) Option {
 	}
 }
 
+func GroupReduce(groups []string, generateFields FieldsFunc, reducer func() Reducer) Option {
+	return func(option *pipeOption) {
+		*option = append(*option, func(dataset proto.Dataset) proto.Dataset {
+			return &GroupDataset{
+				Dataset:   dataset,
+				keys:      groups,
+				reducer:   reducer,
+				fieldFunc: generateFields,
+			}
+		})
+	}
+}
+
 type Option func(*pipeOption)
 
 func Pipe(root proto.Dataset, options ...Option) proto.Dataset {

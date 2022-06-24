@@ -18,16 +18,22 @@
 package dataset
 
 import (
-	"errors"
+	"github.com/arana-db/arana/pkg/proto"
 )
 
-import (
-	perrors "github.com/pkg/errors"
-)
+// PeekableDataset represents a peekable dataset.
+type PeekableDataset interface {
+	proto.Dataset
+	// Peek peeks the next row, but will not consume it.
+	Peek() (proto.Row, error)
+}
 
-var errLengthNotMatched = errors.New("dataset: the length of dest values doesn't match")
-
-// IsLengthNotMatchedError returns true if target error is length-not-matched error.
-func IsLengthNotMatchedError(err error) bool {
-	return perrors.Is(err, errLengthNotMatched)
+type RandomAccessDataset interface {
+	PeekableDataset
+	// Len returns the length of sub-datasets.
+	Len() int
+	// PeekN peeks the next row with specified index.
+	PeekN(index int) (proto.Row, error)
+	// SetNextN force sets the next index of row.
+	SetNextN(index int) error
 }

@@ -20,6 +20,7 @@ package test
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -62,6 +63,24 @@ func WithMySQLDatabase(database string) Option {
 	}
 }
 
+func WithConfig(path string) Option {
+	return func(mySuite *MySuite) {
+		mySuite.configPath = path
+	}
+}
+
+func WithBootstrap(path string) Option {
+	return func(mySuite *MySuite) {
+		mySuite.bootstrapConfig = path
+	}
+}
+
+func WithScriptPath(path string) Option {
+	return func(mySuite *MySuite) {
+		mySuite.scriptPath = path
+	}
+}
+
 type MySuite struct {
 	suite.Suite
 
@@ -72,10 +91,11 @@ type MySuite struct {
 
 	container *MySQLContainer
 
-	db     *sql.DB
-	dbSync sync.Once
+	mysqlDb *sql.DB
+	db      *sql.DB
+	dbSync  sync.Once
 
-	tmpFile string
+	tmpFile, bootstrapConfig, configPath, scriptPath string
 }
 
 func NewMySuite(options ...Option) *MySuite {
@@ -102,7 +122,7 @@ func (ms *MySuite) DB() *sql.DB {
 		ms.T().Logf("====== connecting %s ======\n", dsn)
 
 		if ms.db, err = sql.Open("mysql", dsn); err != nil {
-			ms.T().Log("connect failed:", err.Error())
+			ms.T().Log("connect arana failed:", err.Error())
 		}
 	})
 
@@ -111,6 +131,25 @@ func (ms *MySuite) DB() *sql.DB {
 	}
 
 	return ms.db
+}
+
+func (ms *MySuite) MySQLDB(schema string) (*sql.DB, error) {
+	var (
+		mysqlDsn = fmt.Sprintf("root:123456@tcp(127.0.0.1:%d)/%s?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8", ms.container.Port, schema)
+		err      error
+	)
+	ms.T().Logf("====== connecting %s ======\n", mysqlDsn)
+
+	if ms.mysqlDb, err = sql.Open("mysql", mysqlDsn); err != nil {
+		ms.T().Log("connect mysql failed:", err.Error())
+		return nil, err
+	}
+
+	if ms.mysqlDb == nil {
+		return nil, errors.New("connect mysql failed")
+	}
+
+	return ms.mysqlDb, nil
 }
 
 func (ms *MySuite) SetupSuite() {
@@ -123,6 +162,8 @@ func (ms *MySuite) SetupSuite() {
 			Username: ms.username,
 			Password: ms.password,
 			Database: ms.database,
+
+			ScriptPath: ms.scriptPath,
 		}
 		err error
 	)
@@ -135,11 +176,17 @@ func (ms *MySuite) SetupSuite() {
 	ms.T().Logf("====== mysql is listening on %s ======\n", mysqlAddr)
 	ms.T().Logf("====== arana will listen on 127.0.0.1:%d ======\n", ms.port)
 
-	cfgPath := testdata.Path("../conf/config.yaml")
+	if ms.configPath == "" {
+		ms.configPath = "../conf/config.yaml"
+	}
+	cfgPath := testdata.Path(ms.configPath)
 
 	err = ms.createConfigFile(cfgPath, ms.container.Host, ms.container.Port)
 	require.NoError(ms.T(), err)
 
+	if ms.bootstrapConfig == "" {
+		ms.bootstrapConfig = "../conf/bootstrap.yaml"
+	}
 	go func() {
 		_ = os.Setenv(constants.EnvConfigPath, ms.tmpFile)
 		start.Run(testdata.Path("../conf/bootstrap.yaml"))

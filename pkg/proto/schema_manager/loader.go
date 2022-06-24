@@ -42,22 +42,51 @@ const (
 	indexMetadataSQL         = "SELECT TABLE_NAME, INDEX_NAME FROM information_schema.statistics WHERE TABLE_SCHEMA=database() AND TABLE_NAME IN (%s)"
 )
 
-type SimpleSchemaLoader struct{}
+type SimpleSchemaLoader struct {
+	// key format is schema.table
+	metadataCache map[string]*proto.TableMetadata
+}
+
+func NewSimpleSchemaLoader() *SimpleSchemaLoader {
+	return &SimpleSchemaLoader{metadataCache: make(map[string]*proto.TableMetadata)}
+}
 
 func (l *SimpleSchemaLoader) Load(ctx context.Context, conn proto.VConn, schema string, tables []string) map[string]*proto.TableMetadata {
-	ctx = rcontext.WithRead(rcontext.WithDirect(ctx))
 	var (
 		tableMetadataMap  = make(map[string]*proto.TableMetadata, len(tables))
 		indexMetadataMap  map[string][]*proto.IndexMetadata
 		columnMetadataMap map[string][]*proto.ColumnMetadata
+		queryTables       = make([]string, 0, len(tables))
 	)
-	columnMetadataMap = l.LoadColumnMetadataMap(ctx, conn, schema, tables)
+
+	if len(schema) > 0 {
+		for _, table := range tables {
+			qualifiedTblName := schema + "." + table
+			if l.metadataCache[qualifiedTblName] != nil {
+				tableMetadataMap[table] = l.metadataCache[qualifiedTblName]
+			} else {
+				queryTables = append(queryTables, table)
+			}
+		}
+	} else {
+		copy(queryTables, tables)
+	}
+
+	if len(queryTables) == 0 {
+		return tableMetadataMap
+	}
+
+	ctx = rcontext.WithRead(rcontext.WithDirect(ctx))
+	columnMetadataMap = l.LoadColumnMetadataMap(ctx, conn, schema, queryTables)
 	if columnMetadataMap != nil {
-		indexMetadataMap = l.LoadIndexMetadata(ctx, conn, schema, tables)
+		indexMetadataMap = l.LoadIndexMetadata(ctx, conn, schema, queryTables)
 	}
 
 	for tableName, columns := range columnMetadataMap {
 		tableMetadataMap[tableName] = proto.NewTableMetadata(tableName, columns, indexMetadataMap[tableName])
+		if len(schema) > 0 {
+			l.metadataCache[schema+"."+tableName] = tableMetadataMap[tableName]
+		}
 	}
 
 	return tableMetadataMap

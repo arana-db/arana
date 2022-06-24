@@ -18,13 +18,14 @@
 package test
 
 import (
+	"database/sql"
 	"fmt"
 	"testing"
 	"time"
 )
 
 import (
-	_ "github.com/go-sql-driver/mysql" // register mysql
+	_ "github.com/go-sql-driver/mysql"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -43,6 +44,8 @@ func TestSuite(t *testing.T) {
 	su := NewMySuite(
 		WithMySQLServerAuth("root", "123456"),
 		WithMySQLDatabase("employees"),
+		WithConfig("../integration_test/config/db_tbl/config.yaml"),
+		WithScriptPath("../scripts"),
 		//WithDevMode(), // NOTICE: UNCOMMENT IF YOU WANT TO DEBUG LOCAL ARANA SERVER!!!
 	)
 	suite.Run(t, &IntegrationSuite{su})
@@ -185,13 +188,31 @@ func (s *IntegrationSuite) TestInsert() {
 		t  = s.T()
 	)
 	result, err := db.Exec(`INSERT INTO employees ( emp_no, birth_date, first_name, last_name, gender, hire_date )
-		VALUES (?, ?, ?, ?, ?, ?)`, 100001, "1992-01-07", "scott", "lewis", "M", "2014-09-01")
+		VALUES (?, ?, ?, ?, ?, ?)  `, 100001, "1992-01-07", "scott", "lewis", "M", "2014-09-01")
 	assert.NoErrorf(t, err, "insert row error: %v", err)
 	affected, err := result.RowsAffected()
 	assert.NoErrorf(t, err, "insert row error: %v", err)
 	assert.Equal(t, int64(1), affected)
 }
 
+func (s *IntegrationSuite) TestInsertOnDuplicateKey() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	i := 32
+	result, err := db.Exec(`INSERT IGNORE INTO student(id,uid,score,name,nickname,gender,birth_year) 
+     values (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE nickname='dump' `, 1654008174496657000, i, 3.14, fmt.Sprintf("fake_name_%d", i), fmt.Sprintf("fake_nickname_%d", i), 1, 2022)
+	assert.NoErrorf(t, err, "insert row error: %v", err)
+	_, err = result.RowsAffected()
+	assert.NoErrorf(t, err, "insert row error: %v", err)
+
+	_, err = db.Exec(`INSERT IGNORE INTO student(id,uid,score,name,nickname,gender,birth_year) 
+     values (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE uid=32 `, 1654008174496657000, i, 3.14, fmt.Sprintf("fake_name_%d", i), fmt.Sprintf("fake_nickname_%d", i), 1, 2022)
+	assert.Error(t, err, "insert row error: %v", err)
+
+}
 func (s *IntegrationSuite) TestSelect() {
 	var (
 		db = s.DB()
@@ -257,6 +278,9 @@ func (s *IntegrationSuite) TestUpdate() {
 	assert.NoErrorf(t, err, "update row error: %v", err)
 
 	assert.Equal(t, int64(1), affected)
+
+	_, err = db.Exec("update student set score=100.0,uid=11 where uid = ?", 32)
+	assert.Error(t, err)
 }
 
 func (s *IntegrationSuite) TestDelete() {
@@ -319,6 +343,8 @@ func (s *IntegrationSuite) TestJoinTable() {
 		db = s.DB()
 		t  = s.T()
 	)
+
+	t.Skip()
 
 	sqls := []string{
 		//shard  & no shard
@@ -471,4 +497,117 @@ func (s *IntegrationSuite) TestAlterTable() {
 	assert.NoErrorf(t, err, "alter table error: %v", err)
 
 	assert.Equal(t, int64(0), affected)
+}
+
+func (s *IntegrationSuite) TestDropIndex() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	result, err := db.Exec("drop index `nickname` on student")
+	assert.NoErrorf(t, err, "drop index error: %v", err)
+	affected, err := result.RowsAffected()
+	assert.NoErrorf(t, err, "drop index error: %v", err)
+
+	assert.Equal(t, int64(0), affected)
+
+	schemas := map[string]string{"employees_0000": "student_0000", "employees_0001": "student_0012", "employees_0002": "student_0020", "employees_0003": "student_0024"}
+
+	for schema := range schemas {
+		table := schemas[schema]
+
+		func(schema string) {
+			mysqlDb, err := s.MySQLDB(schema)
+			assert.NoErrorf(t, err, "connect mysql error: %v", err)
+
+			defer mysqlDb.Close()
+			rows, err := mysqlDb.Query(fmt.Sprintf("show index from %s", table))
+			assert.NoErrorf(t, err, "show create error: %v", err)
+
+			defer rows.Close()
+
+			ret, err := convertRowsToMapSlice(rows)
+			assert.NoErrorf(t, err, "connect mysql error: %v", err)
+
+			newRet := make([]map[string]string, len(ret), len(ret))
+			for i := range ret {
+				newRet[i] = make(map[string]string)
+				for k, v := range ret[i] {
+					if (*v.(*interface{})) == nil {
+						newRet[i][k] = ""
+						continue
+					}
+					newRet[i][k] = string((*v.(*interface{})).([]uint8))
+				}
+			}
+			t.Logf("ret : %#v", newRet)
+
+			for i := range ret {
+				keyName := string((*ret[i]["Key_name"].(*interface{})).([]uint8))
+				t.Logf("Key_name : %s", keyName)
+				if keyName == "nickname" {
+					t.Fatal("drop index `nickname` fail")
+				}
+			}
+
+		}(schema)
+
+	}
+
+}
+
+func convertRowsToMapSlice(rows *sql.Rows) ([]map[string]interface{}, error) {
+	ret := make([]map[string]interface{}, 0, 4)
+
+	columns, _ := rows.Columns()
+
+	cache := make([]interface{}, len(columns))
+	for index := range cache {
+		var placeholder interface{}
+		cache[index] = &placeholder
+	}
+
+	for rows.Next() {
+		if err := rows.Scan(cache...); err != nil {
+			return nil, err
+		}
+
+		record := make(map[string]interface{})
+		for i, d := range cache {
+			record[columns[i]] = d
+		}
+
+		ret = append(ret, record)
+	}
+
+	return ret, nil
+}
+
+func (s *IntegrationSuite) TestShowColumns() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	result, err := db.Query("show columns from student")
+	assert.NoErrorf(t, err, "show columns error: %v", err)
+
+	defer result.Close()
+
+	affected, err := result.ColumnTypes()
+	assert.NoErrorf(t, err, "show columns: %v", err)
+	assert.Equal(t, affected[0].DatabaseTypeName(), "VARCHAR")
+}
+
+func (s *IntegrationSuite) TestShowCreate() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	row := db.QueryRow("show create table student")
+	var table, createStr string
+	assert.NoError(t, row.Scan(&table, &createStr))
+	assert.Equal(t, "student", table)
 }

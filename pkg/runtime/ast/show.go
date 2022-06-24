@@ -41,11 +41,13 @@ type baseShow struct {
 func (bs *baseShow) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	switch val := bs.filter.(type) {
 	case string:
-		sb.WriteString(" LIKE ")
-		sb.WriteByte('\'')
+		sb.WriteString(" IN ")
+		sb.WriteByte('`')
 		sb.WriteString(val)
-		sb.WriteByte('\'')
+		sb.WriteByte('`')
 		return nil
+	case PredicateNode:
+		return val.Restore(flag, sb, nil)
 	case ExpressionNode:
 		sb.WriteString(" WHERE ")
 		return val.Restore(flag, sb, args)
@@ -103,6 +105,22 @@ func (s ShowTables) Validate() error {
 	return nil
 }
 
+type ShowOpenTables struct {
+	*baseShow
+}
+
+func (s ShowOpenTables) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	sb.WriteString("SHOW OPEN TABLES")
+	if err := s.baseShow.Restore(flag, sb, args); err != nil {
+		return errors.WithStack(err)
+	}
+	return nil
+}
+
+func (s ShowOpenTables) Validate() error {
+	return nil
+}
+
 const (
 	_ ShowCreateType = iota
 	ShowCreateTypeTable
@@ -137,6 +155,13 @@ func (s ShowCreateType) String() string {
 type ShowCreate struct {
 	typ ShowCreateType
 	tgt string
+}
+
+func (s *ShowCreate) ResetTable(table string) *ShowCreate {
+	ret := new(ShowCreate)
+	*ret = *s
+	ret.tgt = table
+	return ret
 }
 
 func (s *ShowCreate) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -224,7 +249,7 @@ const (
 
 type ShowColumns struct {
 	flag      showColumnsFlag
-	tableName TableName
+	TableName TableName
 	like      sql.NullString
 	Column    string
 }
@@ -248,7 +273,7 @@ func (sh *ShowColumns) Restore(flag RestoreFlag, sb *strings.Builder, args *[]in
 	}
 
 	sb.WriteString("COLUMNS FROM ")
-	if err := sh.tableName.Restore(flag, sb, args); err != nil {
+	if err := sh.TableName.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
 
@@ -275,7 +300,7 @@ func (sh *ShowColumns) Validate() error {
 }
 
 func (sh *ShowColumns) Table() TableName {
-	return sh.tableName
+	return sh.TableName
 }
 
 func (sh *ShowColumns) CntParams() int {
