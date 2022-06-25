@@ -136,6 +136,8 @@ func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.S
 		return o.optimizeAlterTable(ctx, t, args)
 	case *rast.DropIndexStatement:
 		return o.optimizeDropIndex(ctx, t, args)
+	case *rast.CreateIndexStatement:
+		return o.optimizeCreateIndex(ctx, t, args)
 	}
 
 	//TODO implement all statements
@@ -160,6 +162,24 @@ func (o optimizer) optimizeDropIndex(ctx context.Context, stmt *rast.DropIndexSt
 	}
 
 	shardPlan := plan.NewDropIndexPlan(stmt)
+	shardPlan.SetShard(shard)
+	shardPlan.BindArgs(args)
+	return shardPlan, nil
+}
+
+func (o optimizer) optimizeCreateIndex(ctx context.Context, stmt *rast.CreateIndexStatement, args []interface{}) (proto.Plan, error) {
+	ru := rcontext.Rule(ctx)
+	//table shard
+
+	shard, err := o.computeShards(ru, stmt.Table, nil, args)
+	if err != nil {
+		return nil, err
+	}
+	if len(shard) == 0 {
+		return plan.Transparent(stmt, args), nil
+	}
+
+	shardPlan := plan.NewCreateIndexPlan(stmt)
 	shardPlan.SetShard(shard)
 	shardPlan.BindArgs(args)
 	return shardPlan, nil

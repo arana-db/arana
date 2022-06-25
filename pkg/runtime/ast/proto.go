@@ -32,6 +32,7 @@ const (
 	SdropTable          // DROP TABLE
 	SalterTable         // ALTER TABLE
 	DropIndex           // DROP INDEX
+	CreateIndex         // CREATE INDEX
 )
 
 type RestoreFlag uint32
@@ -55,6 +56,7 @@ var _sqlTypeNames = [...]string{
 	SdropTable:  "DROP TABLE",
 	SalterTable: "ALTER TABLE",
 	DropIndex:   "DROP INDEX",
+	CreateIndex: "CREATE INDEX",
 }
 
 // SQLType represents the type of SQL.
