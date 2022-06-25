@@ -119,7 +119,9 @@ func (u UnionPlan) query(ctx context.Context, conn proto.VConn) (proto.Result, e
 		})
 	}
 
-	ds, err := dataset.Fuse(generators[0], generators[1:]...)
+	ds, err := dataset.Parallel(generators[0], generators[1:]...)
+
+	//ds, err := dataset.Fuse(generators[0], generators[1:]...)
 	if err != nil {
 		log.Errorf("UnionPlan Fuse error:%v", err)
 		return nil, err

@@ -23,7 +23,6 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/merge"
 	"github.com/arana-db/arana/pkg/proto"
 )
 
@@ -34,18 +33,20 @@ type OrderByItem struct {
 }
 
 type OrderByValue struct {
-	row                      *merge.MergeRows
+	row                      proto.Row
 	orderByItems             []OrderByItem
 	orderValuesCaseSensitive []bool
 	orderValues              []interface{}
+	index                    int
 }
 
-func NewOrderByValue(row *merge.MergeRows, orderByItems []OrderByItem) *OrderByValue {
+func NewOrderByValue(row proto.Row, orderByItems []OrderByItem, index int) *OrderByValue {
 	return &OrderByValue{
 		row:                      row,
 		orderByItems:             orderByItems,
 		orderValuesCaseSensitive: buildOrderValuesCaseSensitive(orderByItems),
-		orderValues:              make([]interface{}, len(orderByItems)),
+		orderValues:              make([]interface{}, 0),
+		index:                    index,
 	}
 }
 
@@ -55,15 +56,19 @@ func buildOrderValuesCaseSensitive(orderByItems []OrderByItem) []bool {
 	return result
 }
 
+//func (value *OrderByValue) Next() bool {
+//	result := value.row.HasNext()
+//	value.buildOrderValues()
+//	return result
+//}
+
 func (value *OrderByValue) Next() bool {
-	result := value.row.HasNext()
-	value.buildOrderValues()
-	return result
+	return true
 }
 
-func (value *OrderByValue) buildOrderValues() {
+func (value *OrderByValue) BuildOrderValues() {
 	for _, item := range value.orderByItems {
-		val, err := value.row.GetCurrentRow().(proto.KeyedRow).Get(item.Column)
+		val, err := value.row.(proto.KeyedRow).Get(item.Column)
 		if err != nil {
 			panic("get order by column value error:" + err.Error())
 		}
@@ -121,69 +126,69 @@ func compareTo(thisValue, otherValue interface{}, nullDesc, desc, caseSensitive 
 func compareTime(thisValue, otherValue time.Time, desc bool) int8 {
 	if desc {
 		if thisValue.After(otherValue) {
-			return -1
-		}
-		return 1
-	} else {
-		if thisValue.After(otherValue) {
 			return 1
 		}
 		return -1
+	} else {
+		if thisValue.After(otherValue) {
+			return -1
+		}
+		return 1
 	}
 }
 
 func compareString(thisValue, otherValue string, desc bool) int8 {
 	if desc {
 		if fmt.Sprintf("%v", thisValue) > fmt.Sprintf("%v", otherValue) {
-			return -1
-		}
-		return 1
-	} else {
-		if fmt.Sprintf("%v", thisValue) > fmt.Sprintf("%v", otherValue) {
 			return 1
 		}
 		return -1
+	} else {
+		if fmt.Sprintf("%v", thisValue) > fmt.Sprintf("%v", otherValue) {
+			return -1
+		}
+		return 1
 	}
 }
 
 func compareInt64(thisValue, otherValue int64, desc bool) int8 {
 	if desc {
 		if thisValue > otherValue {
-			return -1
-		}
-		return 1
-	} else {
-		if thisValue > otherValue {
 			return 1
 		}
 		return -1
+	} else {
+		if thisValue > otherValue {
+			return -1
+		}
+		return 1
 	}
 }
 
 func compareUint64(thisValue, otherValue uint64, desc bool) int8 {
 	if desc {
 		if thisValue > otherValue {
-			return -1
-		}
-		return 1
-	} else {
-		if thisValue > otherValue {
 			return 1
 		}
 		return -1
+	} else {
+		if thisValue > otherValue {
+			return -1
+		}
+		return 1
 	}
 }
 
 func compareFloat64(thisValue, otherValue float64, desc bool) int8 {
 	if desc {
 		if thisValue > otherValue {
-			return -1
-		}
-		return 1
-	} else {
-		if thisValue > otherValue {
 			return 1
 		}
 		return -1
+	} else {
+		if thisValue > otherValue {
+			return -1
+		}
+		return 1
 	}
 }

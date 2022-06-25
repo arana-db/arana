@@ -20,6 +20,7 @@ package optimize
 import (
 	"context"
 	stdErrors "errors"
+	"github.com/arana-db/arana/pkg/merge/impl/order"
 	"strings"
 )
 
@@ -327,6 +328,23 @@ func (o optimizer) overwriteLimit(stmt *rast.SelectStatement, args *[]interface{
 	return
 }
 
+func (o optimizer) optimizeOrderBy(stmt *rast.SelectStatement, args *[]interface{}) []order.OrderByItem {
+	if stmt == nil || stmt.OrderBy == nil {
+		return nil
+	}
+	var result []order.OrderByItem
+	for _, node := range stmt.OrderBy {
+		column, _ := node.Expr.(rast.ColumnNameExpressionAtom)
+		item := order.OrderByItem{
+			Column:   column[0],
+			Desc:     node.Desc,
+			NullDesc: false,
+		}
+		result = append(result, item)
+	}
+	return result
+}
+
 func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *rast.SelectStatement, args []interface{}) (proto.Plan, error) {
 	var ru *rule.Rule
 	if ru = rcontext.Rule(ctx); ru == nil {
@@ -456,6 +474,15 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 			ParentPlan:     tmpPlan,
 			OriginOffset:   originOffset,
 			OverwriteLimit: overwriteLimit,
+		}
+	}
+
+	orderByItems := o.optimizeOrderBy(stmt, &args)
+
+	if stmt.OrderBy != nil {
+		tmpPlan = &plan.OrderPlan{
+			ParentPlan:   tmpPlan,
+			OrderByItems: orderByItems,
 		}
 	}
 

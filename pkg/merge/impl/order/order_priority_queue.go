@@ -43,6 +43,8 @@ func (pq *OrderPriorityQueue) Less(i, j int) bool {
 
 func (pq *OrderPriorityQueue) Swap(i, j int) {
 	pq.orderByValues[i], pq.orderByValues[j] = pq.orderByValues[j], pq.orderByValues[i]
+	pq.orderByValues[i].index = j
+	pq.orderByValues[j].index = i
 }
 
 func (pq *OrderPriorityQueue) Push(x interface{}) {
