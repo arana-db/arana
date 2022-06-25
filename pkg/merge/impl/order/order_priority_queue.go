@@ -23,11 +23,14 @@ import (
 
 type OrderPriorityQueue struct {
 	orderByValues []*OrderByValue
+	OrderByItems  []OrderByItem
 }
 
-func NewOrderPriorityQueue() OrderPriorityQueue {
-	pq := OrderPriorityQueue{}
-	heap.Init(&pq)
+func NewOrderPriorityQueue(orderByItems []OrderByItem) *OrderPriorityQueue {
+	pq := &OrderPriorityQueue{
+		OrderByItems: orderByItems,
+	}
+	heap.Init(pq)
 	return pq
 }
 

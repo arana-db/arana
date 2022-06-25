@@ -33,17 +33,21 @@ type OrderByItem struct {
 }
 
 type OrderByValue struct {
-	row                      proto.Row
-	orderByItems             []OrderByItem
+	rowItem                  *RowItem
 	orderValuesCaseSensitive []bool
 	orderValues              []interface{}
 	index                    int
 }
 
-func NewOrderByValue(row proto.Row, orderByItems []OrderByItem, index int) *OrderByValue {
+type RowItem struct {
+	Row       proto.KeyedRow
+	StreamIdx int
+}
+
+func NewOrderByValue(row *RowItem, orderByItems []OrderByItem, index int) *OrderByValue {
 	return &OrderByValue{
-		row:                      row,
-		orderByItems:             orderByItems,
+		rowItem: row,
+		//orderByItems:             orderByItems,
 		orderValuesCaseSensitive: buildOrderValuesCaseSensitive(orderByItems),
 		orderValues:              make([]interface{}, 0),
 		index:                    index,
@@ -68,7 +72,7 @@ func (value *OrderByValue) Next() bool {
 
 func (value *OrderByValue) BuildOrderValues() {
 	for _, item := range value.orderByItems {
-		val, err := value.row.(proto.KeyedRow).Get(item.Column)
+		val, err := value.rowItem.row.Get(item.Column)
 		if err != nil {
 			panic("get order by column value error:" + err.Error())
 		}
