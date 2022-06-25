@@ -67,9 +67,13 @@ func (l *Listener) handleInitDB(c *Conn, ctx *proto.Context) error {
 }
 
 func (l *Listener) handleQuery(c *Conn, ctx *proto.Context) error {
+	var err error
 	c.startWriterBuffering()
 	defer func() {
-		if err := c.endWriterBuffering(); err != nil {
+		if err != nil {
+			log.Errorf("conn %v: error: %v", ctx.ConnectionID, err)
+		}
+		if err = c.endWriterBuffering(); err != nil {
 			log.Errorf("conn %v: flush() failed: %v", ctx.ConnectionID, err)
 		}
 	}()
@@ -78,7 +82,6 @@ func (l *Listener) handleQuery(c *Conn, ctx *proto.Context) error {
 
 	var (
 		result proto.Result
-		err    error
 		warn   uint16
 	)
 
