@@ -61,14 +61,6 @@ const (
 )
 
 const (
-	FieldTypeUint8 FieldType = iota + 0x85
-	FieldTypeUint16
-	FieldTypeUint24
-	FieldTypeUint32
-	FieldTypeUint64
-)
-
-const (
 	FieldTypeJSON FieldType = iota + 0xf5
 	FieldTypeNewDecimal
 	FieldTypeEnum
@@ -118,48 +110,14 @@ var mysqlToType = map[int64]FieldType{
 	255: FieldTypeGeometry,
 }
 
-// modifyType modifies the vitess type based on the
-// mysql flag. The function checks specific flags based
-// on the type. This allows us to ignore stray flags
-// that MySQL occasionally sets.
-func modifyType(typ FieldType, flags int64) FieldType {
-	switch typ {
-	case FieldTypeTiny:
-		if uint(flags)&UnsignedFlag != 0 {
-			return FieldTypeUint8
-		}
-		return FieldTypeTiny
-	case FieldTypeShort:
-		if uint(flags)&UnsignedFlag != 0 {
-			return FieldTypeUint16
-		}
-		return FieldTypeShort
-	case FieldTypeLong:
-		if uint(flags)&UnsignedFlag != 0 {
-			return FieldTypeUint32
-		}
-		return FieldTypeLong
-	case FieldTypeLongLong:
-		if uint(flags)&UnsignedFlag != 0 {
-			return FieldTypeUint64
-		}
-		return FieldTypeLongLong
-	case FieldTypeInt24:
-		if uint(flags)&UnsignedFlag != 0 {
-			return FieldTypeUint24
-		}
-		return FieldTypeInt24
-	}
-	return typ
-}
-
 // MySQLToType computes the vitess type from mysql type and flags.
-func MySQLToType(mysqlType, flags int64) (typ FieldType, err error) {
+func MySQLToType(mysqlType, flags int64) (FieldType, error) {
+	_ = flags
 	result, ok := mysqlToType[mysqlType]
 	if !ok {
 		return 0, fmt.Errorf("unsupported type: %d", mysqlType)
 	}
-	return modifyType(result, flags), nil
+	return result, nil
 }
 
 // typeToMySQL is the reverse of MysqlToType.
@@ -168,19 +126,14 @@ var typeToMySQL = map[FieldType]struct {
 	flags int64
 }{
 	FieldTypeTiny:       {typ: 1},
-	FieldTypeUint8:      {typ: 1, flags: int64(UnsignedFlag)},
 	FieldTypeShort:      {typ: 2},
-	FieldTypeUint16:     {typ: 2, flags: int64(UnsignedFlag)},
 	FieldTypeLong:       {typ: 3},
-	FieldTypeUint32:     {typ: 3, flags: int64(UnsignedFlag)},
 	FieldTypeFloat:      {typ: 4},
 	FieldTypeDouble:     {typ: 5},
 	FieldTypeNULL:       {typ: 6, flags: int64(BinaryFlag)},
 	FieldTypeTimestamp:  {typ: 7},
 	FieldTypeLongLong:   {typ: 8},
-	FieldTypeUint64:     {typ: 8, flags: int64(UnsignedFlag)},
 	FieldTypeInt24:      {typ: 9},
-	FieldTypeUint24:     {typ: 9, flags: int64(UnsignedFlag)},
 	FieldTypeDate:       {typ: 10, flags: int64(BinaryFlag)},
 	FieldTypeTime:       {typ: 11, flags: int64(BinaryFlag)},
 	FieldTypeDateTime:   {typ: 12, flags: int64(BinaryFlag)},
