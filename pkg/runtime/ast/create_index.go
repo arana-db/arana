@@ -34,7 +34,7 @@ func (c *CreateIndexStatement) CntParams() int {
 }
 
 func (c *CreateIndexStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
-	sb.WriteString("CREATE INDEX")
+	sb.WriteString("CREATE INDEX ")
 	sb.WriteString(c.IndexName)
 	if len(c.Table) == 0 {
 		return nil
