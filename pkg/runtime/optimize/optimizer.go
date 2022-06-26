@@ -24,7 +24,6 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/runtime"
 	"github.com/arana-db/parser/ast"
 
 	"github.com/pkg/errors"
@@ -34,6 +33,7 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/proto/schema_manager"
+	"github.com/arana-db/arana/pkg/runtime"
 	rast "github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"

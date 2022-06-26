@@ -29,6 +29,9 @@ import (
 	"github.com/arana-db/parser/ast"
 
 	"github.com/pkg/errors"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 )
 
 import (
@@ -43,13 +46,8 @@ import (
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
-import (
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/trace"
-)
-
 var (
-	Tracer = otel.Tracer("executor")
+	Tracer = otel.Tracer("Executor")
 
 	errMissingTx          = stdErrors.New("no transaction found")
 	errNoDatabaseSelected = mysqlErrors.NewSQLError(mConstants.ERNoDb, mConstants.SSNoDatabaseSelected, "No database selected")

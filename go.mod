@@ -8,6 +8,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.1.2
 	github.com/dop251/goja v0.0.0-20220422102209-3faab1d8f20e
 	github.com/dubbogo/gost v1.12.3
+	github.com/dubbogo/tools v1.0.9 // indirect
 	github.com/go-playground/validator/v10 v10.10.1
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect

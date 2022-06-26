@@ -25,8 +25,6 @@ import (
 
 import (
 	"github.com/pkg/errors"
-
-	"go.opentelemetry.io/otel"
 )
 
 import (
@@ -35,8 +33,6 @@ import (
 	"github.com/arana-db/arana/pkg/resultx"
 	"github.com/arana-db/arana/pkg/util/log"
 )
-
-var Tracer = otel.Tracer("ExecPlan")
 
 // UnionPlan merges multiple query plan.
 type UnionPlan struct {

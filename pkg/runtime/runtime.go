@@ -33,12 +33,12 @@ import (
 
 	"github.com/pkg/errors"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
+
 	"go.uber.org/atomic"
 
 	"golang.org/x/sync/errgroup"
-
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/trace"
 )
 
 import (
@@ -59,7 +59,7 @@ var (
 	_ proto.VConn = (*defaultRuntime)(nil)
 	_ proto.VConn = (*compositeTx)(nil)
 
-	Tracer = otel.Tracer("runtime")
+	Tracer = otel.Tracer("Runtime")
 )
 
 var (
