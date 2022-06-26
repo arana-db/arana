@@ -19,7 +19,6 @@ package plan
 
 import (
 	"context"
-	"github.com/arana-db/arana/pkg/dataset"
 )
 
 import (
@@ -27,6 +26,8 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/dataset"
+	"github.com/arana-db/arana/pkg/merge/impl/order"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/resultx"
 )
@@ -34,9 +35,8 @@ import (
 var _ proto.Plan = (*OrderPlan)(nil)
 
 type OrderPlan struct {
-	ParentPlan proto.Plan
-	//OrderByItems []order.OrderByItem
-	OrderByItems []dataset.OrderByItem
+	ParentPlan   proto.Plan
+	OrderByItems []order.OrderByItem
 }
 
 func (orderPlan *OrderPlan) Type() proto.PlanType {

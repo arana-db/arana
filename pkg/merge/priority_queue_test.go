@@ -19,6 +19,7 @@ package merge
 
 import (
 	"container/heap"
+	"database/sql"
 	"testing"
 )
 
@@ -27,78 +28,91 @@ import (
 )
 
 import (
+	consts "github.com/arana-db/arana/pkg/constants/mysql"
+	"github.com/arana-db/arana/pkg/merge/impl/order"
+	"github.com/arana-db/arana/pkg/mysql"
+	"github.com/arana-db/arana/pkg/mysql/rows"
 	"github.com/arana-db/arana/pkg/proto"
 )
 
 func TestPriorityQueue(t *testing.T) {
-	rows := buildMergeRows(t, [][]student{
-		{{score: 85, age: 72}, {score: 75, age: 70}, {score: 65, age: 50}},
-		{{score: 90, age: 72}, {score: 75, age: 68}, {score: 70, age: 40}},
-		{{score: 85, age: 70}, {score: 78, age: 60}, {score: 75, age: 80}, {score: 65, age: 80}, {score: 60, age: 40}},
-	})
-	queue := NewPriorityQueue(rows, []OrderByItem{
-		{Column: score, Desc: true},
-		{Column: age, Desc: true},
-	})
-
-	res := make([]student, 0)
-	for {
-		if queue.Len() == 0 {
-			break
-		}
-		row := heap.Pop(&queue).(*MergeRows)
-		v1, _ := row.GetCurrentRow().(proto.KeyedRow).Get(score)
-		v2, _ := row.GetCurrentRow().(proto.KeyedRow).Get(age)
-		res = append(res, student{score: v1.(int64), age: v2.(int64)})
-		if row.Next() != nil {
-			queue.Push(row)
-		}
+	fields := []proto.Field{
+		mysql.NewField("id", consts.FieldTypeLong),
+		mysql.NewField("score", consts.FieldTypeLong),
 	}
-	assert.Equal(t, []student{
-		{score: 90, age: 72}, {score: 85, age: 72}, {score: 85, age: 70},
-		{score: 78, age: 60}, {score: 75, age: 80}, {score: 75, age: 70},
-		{score: 75, age: 68}, {score: 70, age: 40}, {score: 65, age: 80},
-		{score: 65, age: 50}, {score: 60, age: 40},
-	}, res)
+	items := []order.OrderByItem{
+		{"id", false},
+		{"score", true},
+	}
+
+	r1 := &order.RowItem{rows.NewTextVirtualRow(fields, []proto.Value{
+		int64(1),
+		int64(80),
+	}), 1}
+	r2 := &order.RowItem{rows.NewTextVirtualRow(fields, []proto.Value{
+		int64(2),
+		int64(75),
+	}), 1}
+	r3 := &order.RowItem{rows.NewTextVirtualRow(fields, []proto.Value{
+		int64(1),
+		int64(90),
+	}), 1}
+	r4 := &order.RowItem{rows.NewTextVirtualRow(fields, []proto.Value{
+		int64(3),
+		int64(85),
+	}), 1}
+	pq := NewPriorityQueue([]*order.RowItem{
+		r1, r2, r3, r4,
+	}, items)
+
+	assertScorePojoEquals(t, fakeScorePojo{
+		id:    int64(1),
+		score: int64(90),
+	}, heap.Pop(pq).(*order.RowItem).Row)
+
+	assertScorePojoEquals(t, fakeScorePojo{
+		id:    int64(1),
+		score: int64(80),
+	}, heap.Pop(pq).(*order.RowItem).Row)
+
+	assertScorePojoEquals(t, fakeScorePojo{
+		id:    int64(2),
+		score: int64(75),
+	}, heap.Pop(pq).(*order.RowItem).Row)
+
+	assertScorePojoEquals(t, fakeScorePojo{
+		id:    int64(3),
+		score: int64(85),
+	}, heap.Pop(pq).(*order.RowItem).Row)
+
 }
 
-func TestPriorityQueue2(t *testing.T) {
-	rows := buildMergeRows(t, [][]student{
-		{{score: 65, age: 50}, {score: 75, age: 70}, {score: 85, age: 72}},
-		{{score: 70, age: 40}, {score: 75, age: 68}, {score: 90, age: 72}},
-		{{score: 60, age: 40}, {score: 65, age: 80}, {score: 75, age: 80}, {score: 78, age: 60}, {score: 85, age: 70}},
-	})
-	queue := NewPriorityQueue(rows, []OrderByItem{
-		{Column: score, Desc: false},
-		{Column: age, Desc: false},
-	})
-
-	res := make([]student, 0)
-	for {
-		if queue.Len() == 0 {
-			break
-		}
-		row := heap.Pop(&queue).(*MergeRows)
-
-		v1, _ := row.GetCurrentRow().(proto.KeyedRow).Get(score)
-		v2, _ := row.GetCurrentRow().(proto.KeyedRow).Get(age)
-		res = append(res, student{score: v1.(int64), age: v2.(int64)})
-		if row.Next() != nil {
-			queue.Push(row)
-		}
-	}
-	assert.Equal(t, []student{
-		{score: 60, age: 40}, {score: 65, age: 50}, {score: 65, age: 80},
-		{score: 70, age: 40}, {score: 75, age: 68}, {score: 75, age: 70},
-		{score: 75, age: 80}, {score: 78, age: 60}, {score: 85, age: 70},
-		{score: 85, age: 72}, {score: 90, age: 72},
-	}, res)
+func assertScorePojoEquals(t *testing.T, expected fakeScorePojo, actual proto.Row) {
+	var pojo fakeScorePojo
+	err := scanScorePojo(actual, &pojo)
+	assert.NoError(t, err)
+	assert.Equal(t, expected, pojo)
 }
 
-func buildMergeRows(t *testing.T, vals [][]student) []*MergeRows {
-	rows := make([]*MergeRows, 0)
-	for _, v := range vals {
-		rows = append(rows, buildMergeRow(t, v))
+type fakeScorePojo struct {
+	id    int64
+	score int64
+}
+
+func scanScorePojo(row proto.Row, dest *fakeScorePojo) error {
+	s := make([]proto.Value, 2)
+	if err := row.Scan(s); err != nil {
+		return err
 	}
-	return rows
+
+	var (
+		id    sql.NullInt64
+		score sql.NullInt64
+	)
+	_, _ = id.Scan(s[0]), score.Scan(s[1])
+
+	dest.id = id.Int64
+	dest.score = score.Int64
+
+	return nil
 }
