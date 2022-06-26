@@ -40,8 +40,8 @@ func TestPriorityQueue(t *testing.T) {
 		mysql.NewField("score", consts.FieldTypeLong),
 	}
 	items := []OrderByItem{
-		{"id", false},
-		{"score", true},
+		{"id", false, false},
+		{"score", true, false},
 	}
 
 	r1 := &RowItem{rows.NewTextVirtualRow(fields, []proto.Value{

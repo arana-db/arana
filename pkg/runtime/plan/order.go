@@ -58,27 +58,9 @@ func (orderPlan *OrderPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto
 		return nil, errors.WithStack(err)
 	}
 
-	randomAccess, _ := ds.(dataset.RandomAccessDataset)
+	fuseable, _ := ds.(*dataset.FuseableDataset)
 
-	orderedDataset := dataset.NewOrderedDataset(randomAccess, orderPlan.OrderByItems)
+	orderedDataset := dataset.NewOrderedDataset(fuseable.ToParallel(), orderPlan.OrderByItems)
 
-	//result := order.NewOrderPriorityQueue()
-	//index := 0
-	//for i := 0; i < randomAccess.Len(); i++ {
-	//	err := randomAccess.SetNextN(i)
-	//	if err != nil {
-	//		continue
-	//	}
-	//	for {
-	//		row, err := randomAccess.Next()
-	//		if err != nil {
-	//			break
-	//		}
-	//		orderByValue := order.NewOrderByValue(row, orderPlan.OrderByItems, index)
-	//		orderByValue.BuildOrderValues()
-	//		result.Push(orderByValue)
-	//		index++
-	//	}
-	//}
 	return resultx.New(resultx.WithDataset(orderedDataset)), nil
 }

@@ -19,7 +19,6 @@ package dataset
 
 import (
 	"container/heap"
-	"fmt"
 )
 
 import (
@@ -36,8 +35,9 @@ type RowItem struct {
 	streamIdx int
 }
 type OrderByItem struct {
-	Column string
-	Desc   bool
+	Column   string
+	Desc     bool
+	NullDesc bool
 }
 
 func NewPriorityQueue(rows []*RowItem, orderByItems []OrderByItem) *PriorityQueue {
@@ -54,20 +54,23 @@ func (pq *PriorityQueue) Len() int {
 }
 
 func (pq *PriorityQueue) Less(i, j int) bool {
+	orderValues1 := &OrderByValue{
+		orderValues: make(map[string]interface{}),
+	}
+	orderValues2 := &OrderByValue{
+		orderValues: make(map[string]interface{}),
+	}
 	for _, item := range pq.orderByItems {
 		row1 := pq.rows[i]
 		row2 := pq.rows[j]
 
 		val1, _ := row1.row.Get(item.Column)
 		val2, _ := row2.row.Get(item.Column)
-		if val1 != val2 {
-			if item.Desc {
-				return fmt.Sprintf("%v", val1) > fmt.Sprintf("%v", val2)
-			}
-			return fmt.Sprintf("%v", val1) < fmt.Sprintf("%v", val2)
-		}
+
+		orderValues1.orderValues[item.Column] = val1
+		orderValues2.orderValues[item.Column] = val2
 	}
-	return true
+	return orderValues1.Compare(orderValues2, pq.orderByItems) > 0
 }
 
 func (pq *PriorityQueue) Swap(i, j int) {
@@ -77,6 +80,7 @@ func (pq *PriorityQueue) Swap(i, j int) {
 func (pq *PriorityQueue) Push(x interface{}) {
 	item := x.(*RowItem)
 	pq.rows = append(pq.rows, item)
+	pq.update()
 }
 
 func (pq *PriorityQueue) Pop() interface{} {
@@ -88,4 +92,8 @@ func (pq *PriorityQueue) Pop() interface{} {
 	item := old.rows[n-1]
 	pq.rows = old.rows[0 : n-1]
 	return item
+}
+
+func (pq *PriorityQueue) update() {
+	heap.Fix(pq, pq.Len()-1)
 }

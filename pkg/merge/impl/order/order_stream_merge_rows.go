@@ -18,18 +18,18 @@
 package order
 
 import (
-	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/merge"
 )
 
 type OrderByStreamMergeRows struct {
 	orderByItems []OrderByItem
-	queue        OrderPriorityQueue
-	rows         []proto.Row
+	queue        *OrderPriorityQueue
+	rows         []*merge.MergeRows
 	isFirstNext  bool
-	currentRow   proto.Row
+	currentRow   *merge.MergeRows
 }
 
-func NewOrderByStreamMergeRows(rows []proto.Row, orderByItems []OrderByItem) *OrderByStreamMergeRows {
+func NewOrderByStreamMergeRows(rows []*merge.MergeRows, orderByItems []OrderByItem) *OrderByStreamMergeRows {
 	result := &OrderByStreamMergeRows{
 		rows:         rows,
 		orderByItems: orderByItems,
@@ -42,10 +42,10 @@ func NewOrderByStreamMergeRows(rows []proto.Row, orderByItems []OrderByItem) *Or
 	return result
 }
 
-func buildMergeRowsToQueue(rows []proto.Row, orderByItems []OrderByItem) OrderPriorityQueue {
+func buildMergeRowsToQueue(rows []*merge.MergeRows, orderByItems []OrderByItem) *OrderPriorityQueue {
 	result := NewOrderPriorityQueue()
 	for _, item := range rows {
-		orderByValue := NewOrderByValue(item, orderByItems, 0)
+		orderByValue := NewOrderByValue(item, orderByItems)
 		if orderByValue.Next() {
 			result.Push(orderByValue)
 		}

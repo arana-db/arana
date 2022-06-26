@@ -15,70 +15,20 @@
  * limitations under the License.
  */
 
-package order
+package dataset
 
 import (
 	"fmt"
 	"time"
 )
 
-import (
-	"github.com/arana-db/arana/pkg/merge"
-	"github.com/arana-db/arana/pkg/proto"
-)
-
-type OrderByItem struct {
-	Column   string
-	Desc     bool
-	NullDesc bool
-}
-
 type OrderByValue struct {
-	row                      *merge.MergeRows
-	orderByItems             []OrderByItem
-	orderValuesCaseSensitive []bool
-	orderValues              []interface{}
-	index                    int
+	orderValues map[string]interface{}
 }
 
-func NewOrderByValue(row *merge.MergeRows, orderByItems []OrderByItem) *OrderByValue {
-	return &OrderByValue{
-		row:                      row,
-		orderByItems:             orderByItems,
-		orderValuesCaseSensitive: buildOrderValuesCaseSensitive(orderByItems),
-		orderValues:              make([]interface{}, len(orderByItems)),
-	}
-}
-
-func buildOrderValuesCaseSensitive(orderByItems []OrderByItem) []bool {
-	// TODO Get Database case sensitive from schema metadata.
-	result := make([]bool, len(orderByItems))
-	return result
-}
-
-func (value *OrderByValue) Next() bool {
-	result := value.row.HasNext()
-	value.buildOrderValues()
-	return result
-}
-
-func (value *OrderByValue) buildOrderValues() {
-	for _, item := range value.orderByItems {
-		val, err := value.row.GetCurrentRow().(proto.KeyedRow).Get(item.Column)
-		if err != nil {
-			panic("get order by column value error:" + err.Error())
-		}
-		// TODO How to judgment the value is Comparable.
-		//if val != nil && false {
-		//	panic("get order by column value error:" + err.Error())
-		//}
-		value.orderValues = append(value.orderValues, val)
-	}
-}
-
-func (value *OrderByValue) Compare(compareVal *OrderByValue) int8 {
-	for i, item := range value.orderByItems {
-		compare := compareTo(value.orderValues[i], compareVal.orderValues[i], item.NullDesc, item.Desc, value.orderValuesCaseSensitive[i])
+func (value *OrderByValue) Compare(compareVal *OrderByValue, orderByItems []OrderByItem) int8 {
+	for _, item := range orderByItems {
+		compare := compareTo(value.orderValues[item.Column], compareVal.orderValues[item.Column], item.NullDesc, item.Desc)
 		if compare == 0 {
 			continue
 		}
@@ -87,7 +37,7 @@ func (value *OrderByValue) Compare(compareVal *OrderByValue) int8 {
 	return 0
 }
 
-func compareTo(thisValue, otherValue interface{}, nullDesc, desc, caseSensitive bool) int8 {
+func compareTo(thisValue, otherValue interface{}, nullDesc, desc bool) int8 {
 	if thisValue == nil && otherValue == nil {
 		return 0
 	}
@@ -122,69 +72,69 @@ func compareTo(thisValue, otherValue interface{}, nullDesc, desc, caseSensitive 
 func compareTime(thisValue, otherValue time.Time, desc bool) int8 {
 	if desc {
 		if thisValue.After(otherValue) {
-			return -1
-		}
-		return 1
-	} else {
-		if thisValue.After(otherValue) {
 			return 1
 		}
 		return -1
+	} else {
+		if thisValue.After(otherValue) {
+			return -1
+		}
+		return 1
 	}
 }
 
 func compareString(thisValue, otherValue string, desc bool) int8 {
 	if desc {
 		if fmt.Sprintf("%v", thisValue) > fmt.Sprintf("%v", otherValue) {
-			return -1
-		}
-		return 1
-	} else {
-		if fmt.Sprintf("%v", thisValue) > fmt.Sprintf("%v", otherValue) {
 			return 1
 		}
 		return -1
+	} else {
+		if fmt.Sprintf("%v", thisValue) > fmt.Sprintf("%v", otherValue) {
+			return -1
+		}
+		return 1
 	}
 }
 
 func compareInt64(thisValue, otherValue int64, desc bool) int8 {
 	if desc {
 		if thisValue > otherValue {
-			return -1
-		}
-		return 1
-	} else {
-		if thisValue > otherValue {
 			return 1
 		}
 		return -1
+	} else {
+		if thisValue > otherValue {
+			return -1
+		}
+		return 1
 	}
 }
 
 func compareUint64(thisValue, otherValue uint64, desc bool) int8 {
 	if desc {
 		if thisValue > otherValue {
-			return -1
-		}
-		return 1
-	} else {
-		if thisValue > otherValue {
 			return 1
 		}
 		return -1
+	} else {
+		if thisValue > otherValue {
+			return -1
+		}
+		return 1
 	}
 }
 
 func compareFloat64(thisValue, otherValue float64, desc bool) int8 {
 	if desc {
 		if thisValue > otherValue {
-			return -1
-		}
-		return 1
-	} else {
-		if thisValue > otherValue {
 			return 1
 		}
 		return -1
+	} else {
+		if thisValue > otherValue {
+			return -1
+		}
+		return 1
 	}
 }
