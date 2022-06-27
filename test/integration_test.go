@@ -25,7 +25,7 @@ import (
 )
 
 import (
-	_ "github.com/go-sql-driver/mysql" // register mysql
+	_ "github.com/go-sql-driver/mysql"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -598,6 +598,18 @@ func (s *IntegrationSuite) TestShowColumns() {
 	affected, err := result.ColumnTypes()
 	assert.NoErrorf(t, err, "show columns: %v", err)
 	assert.Equal(t, affected[0].DatabaseTypeName(), "VARCHAR")
+}
+
+func (s *IntegrationSuite) TestShowCreate() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	row := db.QueryRow("show create table student")
+	var table, createStr string
+	assert.NoError(t, row.Scan(&table, &createStr))
+	assert.Equal(t, "student", table)
 }
 
 func (s *IntegrationSuite) TestDropTrigger() {
