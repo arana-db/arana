@@ -31,6 +31,7 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/dataset"
+	"github.com/arana-db/arana/pkg/merge/aggregator"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/proto/schema_manager"
@@ -488,14 +489,34 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 		}
 	}
 
-	// TODO: order/groupBy/aggregate
-	aggregate := &plan.AggregatePlan{
-		Plan:       tmpPlan,
-		Combiner:   transformer.NewCombinerManager(),
-		AggrLoader: transformer.LoadAggrs(stmt.Select),
+	convertOrderByItems := func(origins []*rast.OrderByItem) []dataset.OrderByItem {
+		var result = make([]dataset.OrderByItem, 0, len(origins))
+		for _, origin := range origins {
+			var columnName string
+			if cn, ok := origin.Expr.(rast.ColumnNameExpressionAtom); ok {
+				columnName = cn.Suffix()
+			}
+			result = append(result, dataset.OrderByItem{
+				Column: columnName,
+				Desc:   origin.Desc,
+			})
+		}
+		return result
 	}
-
-	return aggregate, nil
+	if stmt.GroupBy != nil {
+		return &plan.GroupPlan{
+			Plan:         tmpPlan,
+			AggItems:     aggregator.LoadAggs(stmt.Select),
+			OrderByItems: convertOrderByItems(stmt.OrderBy),
+		}, nil
+	} else {
+		// TODO: refactor groupby/orderby/aggregate plan to a unified plan
+		return &plan.AggregatePlan{
+			Plan:       tmpPlan,
+			Combiner:   transformer.NewCombinerManager(),
+			AggrLoader: transformer.LoadAggrs(stmt.Select),
+		}, nil
+	}
 }
 
 //optimizeJoin ony support  a join b in one db
