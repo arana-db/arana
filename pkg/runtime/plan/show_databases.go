@@ -48,8 +48,7 @@ func (s *ShowDatabasesPlan) Type() proto.PlanType {
 	return proto.PlanTypeQuery
 }
 
-func (s *ShowDatabasesPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
-	_ = conn
+func (s *ShowDatabasesPlan) ExecIn(ctx context.Context, _ proto.VConn) (proto.Result, error) {
 	tenant, ok := security.DefaultTenantManager().GetTenantOfCluster(rcontext.Schema(ctx))
 	if !ok {
 		return nil, errors.New("no tenant found in current db")

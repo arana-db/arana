@@ -252,30 +252,10 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 		} else {
 			err = errNoDatabaseSelected
 		}
-	case *ast.TruncateTableStmt:
-		if schemaless {
-			err = errNoDatabaseSelected
-		} else {
-			res, warn, err = rt.Execute(ctx)
-		}
-	case *ast.DropTableStmt:
-		if schemaless {
-			err = errNoDatabaseSelected
-		} else {
-			res, warn, err = rt.Execute(ctx)
-		}
-	case *ast.ExplainStmt:
-		if schemaless {
-			err = errNoDatabaseSelected
-		} else {
-			res, warn, err = rt.Execute(ctx)
-		}
-	case *ast.DropIndexStmt:
-		if schemaless {
-			err = errNoDatabaseSelected
-		} else {
-			res, warn, err = rt.Execute(ctx)
-		}
+	case *ast.TruncateTableStmt, *ast.DropTableStmt, *ast.ExplainStmt, *ast.DropIndexStmt:
+		res, warn, err = isSelectDatabase(ctx, schemaless, rt)
+	case *ast.DropTriggerStmt:
+		res, warn, err = rt.Execute(ctx)
 	default:
 		if schemaless {
 			err = errNoDatabaseSelected
@@ -288,12 +268,18 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 				res, warn, err = rt.Execute(ctx)
 			}
 		}
-
 	}
 
 	executor.doPostFilter(ctx, res)
 
 	return res, warn, err
+}
+
+func isSelectDatabase(ctx *proto.Context, schemaless bool, rt runtime.Runtime) (proto.Result, uint16, error) {
+	if schemaless {
+		return nil, 0, errNoDatabaseSelected
+	}
+	return rt.Execute(ctx)
 }
 
 func (executor *RedirectExecutor) ExecutorComStmtExecute(ctx *proto.Context) (proto.Result, uint16, error) {

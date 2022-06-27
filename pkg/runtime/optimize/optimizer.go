@@ -134,6 +134,8 @@ func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.S
 		return o.optimizeAlterTable(ctx, t, args)
 	case *rast.DropIndexStatement:
 		return o.optimizeDropIndex(ctx, t, args)
+	case *rast.DropTriggerStatement:
+		return o.optimizeTrigger(ctx, t, args)
 	}
 
 	//TODO implement all statements
@@ -1010,4 +1012,10 @@ func (o optimizer) rewriteInsertStatement(ctx context.Context, conn proto.VConn,
 	//	newValue = append(newValue, )
 	//}
 	return nil
+}
+
+func (o optimizer) optimizeTrigger(_ context.Context, stmt *rast.DropTriggerStatement, args []interface{}) (proto.Plan, error) {
+	ret := &plan.DropTriggerPlan{Stmt: stmt}
+	ret.BindArgs(args)
+	return ret, nil
 }

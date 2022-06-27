@@ -110,6 +110,8 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		return cc.convAlterTableStmt(stmt), nil
 	case *ast.DropIndexStmt:
 		return cc.convDropIndexStmt(stmt), nil
+	case *ast.DropTriggerStmt:
+		return cc.convDropTrigger(stmt), nil
 	default:
 		return nil, errors.Errorf("unimplement: stmt type %T!", stmt)
 	}
@@ -1438,6 +1440,15 @@ func (cc *convCtx) convTableName(val *ast.TableName, tgt *TableSourceNode) {
 	tgt.source = tableName
 	tgt.indexHints = indexHints
 	tgt.partitions = partitions
+}
+
+func (cc *convCtx) convDropTrigger(stmt *ast.DropTriggerStmt) *DropTriggerStatement {
+	var tableName TableName
+	if db := stmt.Trigger.Schema.O; len(db) > 0 {
+		tableName = append(tableName, db)
+	}
+	tableName = append(tableName, stmt.Trigger.Name.O)
+	return &DropTriggerStatement{Table: tableName, IfExists: stmt.IfExists}
 }
 
 func toExpressionNode(src interface{}) ExpressionNode {
