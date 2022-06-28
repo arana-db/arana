@@ -252,8 +252,10 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 		} else {
 			err = errNoDatabaseSelected
 		}
-	case *ast.TruncateTableStmt, *ast.DropTableStmt, *ast.ExplainStmt, *ast.DropIndexStmt, *ast.DropTriggerStmt:
+	case *ast.TruncateTableStmt, *ast.DropTableStmt, *ast.ExplainStmt, *ast.DropIndexStmt:
 		res, warn, err = isSelectDatabase(ctx, schemaless, rt)
+	case *ast.DropTriggerStmt:
+		res, warn, err = rt.Execute(ctx)
 	default:
 		if schemaless {
 			err = errNoDatabaseSelected
