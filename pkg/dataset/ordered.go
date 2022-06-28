@@ -23,21 +23,19 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/merge"
-	"github.com/arana-db/arana/pkg/merge/impl/order"
 	"github.com/arana-db/arana/pkg/proto"
 )
 
 type orderedDataset struct {
 	dataset  RandomAccessDataset
-	queue    *merge.PriorityQueue
+	queue    *PriorityQueue
 	firstRow bool
 }
 
-func NewOrderedDataset(dataset RandomAccessDataset, items []order.OrderByItem) proto.Dataset {
+func NewOrderedDataset(dataset RandomAccessDataset, items []OrderByItem) proto.Dataset {
 	return &orderedDataset{
 		dataset:  dataset,
-		queue:    merge.NewPriorityQueue(make([]*order.RowItem, 0), items),
+		queue:    NewPriorityQueue(make([]*RowItem, 0), items),
 		firstRow: true,
 	}
 }
@@ -61,9 +59,9 @@ func (or *orderedDataset) Next() (proto.Row, error) {
 			} else if err != nil {
 				return nil, err
 			}
-			or.queue.Push(&order.RowItem{
-				Row:       row.(proto.KeyedRow),
-				StreamIdx: i,
+			or.queue.Push(&RowItem{
+				row:       row.(proto.KeyedRow),
+				streamIdx: i,
 			})
 		}
 		or.firstRow = false
@@ -73,18 +71,18 @@ func (or *orderedDataset) Next() (proto.Row, error) {
 	}
 	data := heap.Pop(or.queue)
 
-	item := data.(*order.RowItem)
-	or.dataset.SetNextN(item.StreamIdx)
+	item := data.(*RowItem)
+	or.dataset.SetNextN(item.streamIdx)
 	nextRow, err := or.dataset.Next()
 	if err == io.EOF {
-		return item.Row, nil
+		return item.row, nil
 	} else if err != nil {
 		return nil, err
 	}
-	heap.Push(or.queue, &order.RowItem{
-		Row:       nextRow.(proto.KeyedRow),
-		StreamIdx: item.StreamIdx,
+	heap.Push(or.queue, &RowItem{
+		row:       nextRow.(proto.KeyedRow),
+		streamIdx: item.streamIdx,
 	})
 
-	return item.Row, nil
+	return item.row, nil
 }

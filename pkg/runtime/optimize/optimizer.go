@@ -20,6 +20,7 @@ package optimize
 import (
 	"context"
 	stdErrors "errors"
+	"github.com/arana-db/arana/pkg/dataset"
 	"strings"
 )
 
@@ -30,7 +31,6 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/merge/impl/order"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/proto/schema_manager"
@@ -328,14 +328,14 @@ func (o optimizer) overwriteLimit(stmt *rast.SelectStatement, args *[]interface{
 	return
 }
 
-func (o optimizer) optimizeOrderBy(stmt *rast.SelectStatement) []order.OrderByItem {
+func (o optimizer) optimizeOrderBy(stmt *rast.SelectStatement) []dataset.OrderByItem {
 	if stmt == nil || stmt.OrderBy == nil {
 		return nil
 	}
-	var result []order.OrderByItem
+	var result []dataset.OrderByItem
 	for _, node := range stmt.OrderBy {
 		column, _ := node.Expr.(rast.ColumnNameExpressionAtom)
-		item := order.OrderByItem{
+		item := dataset.OrderByItem{
 			Column: column[0],
 			Desc:   node.Desc,
 		}

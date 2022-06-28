@@ -19,71 +19,77 @@ package merge
 
 import (
 	"container/heap"
+	"fmt"
 )
 
 import (
-	"github.com/arana-db/arana/pkg/merge/impl/order"
+	"github.com/arana-db/arana/pkg/proto"
 )
 
 type PriorityQueue struct {
-	rows         []*order.RowItem
-	orderByItems []order.OrderByItem
+	results      []*MergeRows
+	orderByItems []OrderByItem
 }
 
-func NewPriorityQueue(rows []*order.RowItem, orderByItems []order.OrderByItem) *PriorityQueue {
-	pq := &PriorityQueue{
-		rows:         rows,
+type OrderByItem struct {
+	Column string
+	Desc   bool
+}
+
+func NewPriorityQueue(rows []*MergeRows, orderByItems []OrderByItem) PriorityQueue {
+	pq := PriorityQueue{
+		results:      rows,
 		orderByItems: orderByItems,
 	}
-	heap.Init(pq)
+	heap.Init(&pq)
 	return pq
 }
 
 func (pq *PriorityQueue) Len() int {
-	return len(pq.rows)
+	return len(pq.results)
 }
 
 func (pq *PriorityQueue) Less(i, j int) bool {
-	orderValues1 := &order.OrderByValue{
-		OrderValues: make(map[string]interface{}),
-	}
-	orderValues2 := &order.OrderByValue{
-		OrderValues: make(map[string]interface{}),
-	}
 	for _, item := range pq.orderByItems {
-		row1 := pq.rows[i]
-		row2 := pq.rows[j]
+		rowi := pq.results[i].GetCurrentRow().(proto.KeyedRow)
+		rowj := pq.results[j].GetCurrentRow().(proto.KeyedRow)
 
-		val1, _ := row1.Row.Get(item.Column)
-		val2, _ := row2.Row.Get(item.Column)
-
-		orderValues1.OrderValues[item.Column] = val1
-		orderValues2.OrderValues[item.Column] = val2
+		val1, _ := rowi.Get(item.Column)
+		val2, _ := rowj.Get(item.Column)
+		if val1 != val2 {
+			if item.Desc {
+				return fmt.Sprintf("%v", val1) > fmt.Sprintf("%v", val2)
+			}
+			return fmt.Sprintf("%v", val1) < fmt.Sprintf("%v", val2)
+		}
 	}
-	return orderValues1.Compare(orderValues2, pq.orderByItems) > 0
+	return true
 }
 
 func (pq *PriorityQueue) Swap(i, j int) {
-	pq.rows[i], pq.rows[j] = pq.rows[j], pq.rows[i]
+	pq.results[i], pq.results[j] = pq.results[j], pq.results[i]
 }
 
 func (pq *PriorityQueue) Push(x interface{}) {
-	item := x.(*order.RowItem)
-	pq.rows = append(pq.rows, item)
+	item := x.(*MergeRows)
+	pq.results = append(pq.results, item)
 	pq.update()
 }
 
 func (pq *PriorityQueue) Pop() interface{} {
 	old := *pq
-	n := len(old.rows)
-	if n == 0 {
-		return nil
-	}
-	item := old.rows[n-1]
-	pq.rows = old.rows[0 : n-1]
+	n := len(old.results)
+	item := old.results[n-1]
+	pq.results = old.results[0 : n-1]
+	pq.update()
 	return item
 }
 
+func (pq *PriorityQueue) Peek() interface{} {
+	return pq.results[0]
+}
+
+// update modifies the priority and value of an Item in the queue.
 func (pq *PriorityQueue) update() {
-	heap.Fix(pq, pq.Len()-1)
+	heap.Fix(pq, len(pq.results)-1)
 }

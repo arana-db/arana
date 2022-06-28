@@ -15,15 +15,13 @@
  * limitations under the License.
  */
 
-package order
+package dataset
 
 import (
+	"container/heap"
 	"fmt"
-	"time"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/proto"
+	"time"
 )
 
 type OrderByValue struct {
@@ -31,12 +29,75 @@ type OrderByValue struct {
 }
 
 type RowItem struct {
-	Row       proto.KeyedRow
-	StreamIdx int
+	row       proto.KeyedRow
+	streamIdx int
 }
 type OrderByItem struct {
 	Column string
 	Desc   bool
+}
+
+type PriorityQueue struct {
+	rows         []*RowItem
+	orderByItems []OrderByItem
+}
+
+func NewPriorityQueue(rows []*RowItem, orderByItems []OrderByItem) *PriorityQueue {
+	pq := &PriorityQueue{
+		rows:         rows,
+		orderByItems: orderByItems,
+	}
+	heap.Init(pq)
+	return pq
+}
+
+func (pq *PriorityQueue) Len() int {
+	return len(pq.rows)
+}
+
+func (pq *PriorityQueue) Less(i, j int) bool {
+	orderValues1 := &OrderByValue{
+		OrderValues: make(map[string]interface{}),
+	}
+	orderValues2 := &OrderByValue{
+		OrderValues: make(map[string]interface{}),
+	}
+	for _, item := range pq.orderByItems {
+		row1 := pq.rows[i]
+		row2 := pq.rows[j]
+
+		val1, _ := row1.row.Get(item.Column)
+		val2, _ := row2.row.Get(item.Column)
+
+		orderValues1.OrderValues[item.Column] = val1
+		orderValues2.OrderValues[item.Column] = val2
+	}
+	return orderValues1.Compare(orderValues2, pq.orderByItems) > 0
+}
+
+func (pq *PriorityQueue) Swap(i, j int) {
+	pq.rows[i], pq.rows[j] = pq.rows[j], pq.rows[i]
+}
+
+func (pq *PriorityQueue) Push(x interface{}) {
+	item := x.(*RowItem)
+	pq.rows = append(pq.rows, item)
+	pq.update()
+}
+
+func (pq *PriorityQueue) Pop() interface{} {
+	old := *pq
+	n := len(old.rows)
+	if n == 0 {
+		return nil
+	}
+	item := old.rows[n-1]
+	pq.rows = old.rows[0 : n-1]
+	return item
+}
+
+func (pq *PriorityQueue) update() {
+	heap.Fix(pq, pq.Len()-1)
 }
 
 func (value *OrderByValue) Compare(compareVal *OrderByValue, orderByItems []OrderByItem) int8 {
