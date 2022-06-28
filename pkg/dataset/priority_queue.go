@@ -20,8 +20,15 @@ package dataset
 import (
 	"container/heap"
 	"fmt"
-	"github.com/arana-db/arana/pkg/proto"
 	"time"
+)
+
+import (
+	"golang.org/x/exp/constraints"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/proto"
 )
 
 type OrderByValue struct {
@@ -111,31 +118,31 @@ func (value *OrderByValue) Compare(compareVal *OrderByValue, orderByItems []Orde
 	return 0
 }
 
-func compareTo(thisValue, otherValue interface{}, desc bool) int {
-	if thisValue == nil && otherValue == nil {
+func compareTo(a, b interface{}, desc bool) int {
+	if a == nil && b == nil {
 		return 0
 	}
-	if thisValue == nil {
+	if a == nil {
 		return 1
 	}
-	if otherValue == nil {
+	if b == nil {
 		return -1
 	}
 	// TODO Deal with case sensitive.
 	var (
 		result = 0
 	)
-	switch thisValue.(type) {
+	switch a.(type) {
 	case string:
-		result = compareString(fmt.Sprintf("%v", thisValue), fmt.Sprintf("%v", otherValue))
+		result = compareValue(fmt.Sprintf("%v", a), fmt.Sprintf("%v", b))
 	case int8, int16, int32, int64:
-		result = compareInt64(thisValue.(int64), otherValue.(int64))
+		result = compareValue(a.(int64), b.(int64))
 	case uint8, uint16, uint32, uint64:
-		result = compareUint64(thisValue.(uint64), otherValue.(uint64))
+		result = compareValue(a.(uint64), b.(uint64))
 	case float32, float64:
-		result = compareFloat64(thisValue.(float64), otherValue.(float64))
+		result = compareValue(a.(float64), b.(float64))
 	case time.Time:
-		result = compareTime(thisValue.(time.Time), otherValue.(time.Time))
+		result = compareTime(a.(time.Time), b.(time.Time))
 	}
 	if desc {
 		return -1 * result
@@ -143,36 +150,19 @@ func compareTo(thisValue, otherValue interface{}, desc bool) int {
 	return result
 }
 
-func compareTime(thisValue, otherValue time.Time) int {
-	if thisValue.After(otherValue) {
+func compareValue[T constraints.Ordered](a, b T) int {
+	switch {
+	case a > b:
 		return -1
+	case a < b:
+		return 1
+	default:
+		return 0
 	}
-	return 1
 }
 
-func compareString(thisValue, otherValue string) int {
-	if fmt.Sprintf("%v", thisValue) > fmt.Sprintf("%v", otherValue) {
-		return -1
-	}
-	return 1
-}
-
-func compareInt64(thisValue, otherValue int64) int {
-	if thisValue > otherValue {
-		return -1
-	}
-	return 1
-}
-
-func compareUint64(thisValue, otherValue uint64) int {
-	if thisValue > otherValue {
-		return -1
-	}
-	return 1
-}
-
-func compareFloat64(thisValue, otherValue float64) int {
-	if thisValue > otherValue {
+func compareTime(a, b time.Time) int {
+	if a.After(b) {
 		return -1
 	}
 	return 1
