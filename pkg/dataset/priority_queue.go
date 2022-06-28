@@ -162,8 +162,12 @@ func compareValue[T constraints.Ordered](a, b T) int {
 }
 
 func compareTime(a, b time.Time) int {
-	if a.After(b) {
+	switch {
+	case a.After(b):
 		return -1
+	case a.Before(b):
+		return 1
+	default:
+		return 0
 	}
-	return 1
 }

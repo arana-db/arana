@@ -332,7 +332,7 @@ func (o optimizer) optimizeOrderBy(stmt *rast.SelectStatement) []dataset.OrderBy
 	if stmt == nil || stmt.OrderBy == nil {
 		return nil
 	}
-	var result []dataset.OrderByItem
+	result := make([]dataset.OrderByItem, 0, len(stmt.OrderBy))
 	for _, node := range stmt.OrderBy {
 		column, _ := node.Expr.(rast.ColumnNameExpressionAtom)
 		item := dataset.OrderByItem{
