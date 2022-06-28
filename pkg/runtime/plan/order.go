@@ -57,7 +57,11 @@ func (orderPlan *OrderPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto
 		return nil, errors.WithStack(err)
 	}
 
-	fuseable, _ := ds.(*dataset.FuseableDataset)
+	fuseable, ok := ds.(*dataset.FuseableDataset)
+
+	if !ok {
+		return nil, errors.New("order plan convert Dataset to FuseableDataset cause error")
+	}
 
 	orderedDataset := dataset.NewOrderedDataset(fuseable.ToParallel(), orderPlan.OrderByItems)
 
