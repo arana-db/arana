@@ -100,7 +100,7 @@ func (pq *PriorityQueue) update() {
 	heap.Fix(pq, pq.Len()-1)
 }
 
-func (value *OrderByValue) Compare(compareVal *OrderByValue, orderByItems []OrderByItem) int8 {
+func (value *OrderByValue) Compare(compareVal *OrderByValue, orderByItems []OrderByItem) int {
 	for _, item := range orderByItems {
 		compare := compareTo(value.OrderValues[item.Column], compareVal.OrderValues[item.Column], item.Desc)
 		if compare == 0 {
@@ -111,7 +111,7 @@ func (value *OrderByValue) Compare(compareVal *OrderByValue, orderByItems []Orde
 	return 0
 }
 
-func compareTo(thisValue, otherValue interface{}, desc bool) int8 {
+func compareTo(thisValue, otherValue interface{}, desc bool) int {
 	if thisValue == nil && otherValue == nil {
 		return 0
 	}
@@ -122,87 +122,58 @@ func compareTo(thisValue, otherValue interface{}, desc bool) int8 {
 		return -1
 	}
 	// TODO Deal with case sensitive.
+	var (
+		result = 0
+	)
 	switch thisValue.(type) {
 	case string:
-		return compareString(fmt.Sprintf("%v", thisValue), fmt.Sprintf("%v", otherValue), desc)
+		result = compareString(fmt.Sprintf("%v", thisValue), fmt.Sprintf("%v", otherValue))
 	case int8, int16, int32, int64:
-		return compareInt64(thisValue.(int64), otherValue.(int64), desc)
+		result = compareInt64(thisValue.(int64), otherValue.(int64))
 	case uint8, uint16, uint32, uint64:
-		return compareUint64(thisValue.(uint64), otherValue.(uint64), desc)
+		result = compareUint64(thisValue.(uint64), otherValue.(uint64))
 	case float32, float64:
-		return compareFloat64(thisValue.(float64), otherValue.(float64), desc)
+		result = compareFloat64(thisValue.(float64), otherValue.(float64))
 	case time.Time:
-		return compareTime(thisValue.(time.Time), otherValue.(time.Time), desc)
+		result = compareTime(thisValue.(time.Time), otherValue.(time.Time))
 	}
-	return 0
+	if desc {
+		return -1 * result
+	}
+	return result
 }
 
-func compareTime(thisValue, otherValue time.Time, desc bool) int8 {
-	if desc {
-		if thisValue.After(otherValue) {
-			return 1
-		}
+func compareTime(thisValue, otherValue time.Time) int {
+	if thisValue.After(otherValue) {
 		return -1
-	} else {
-		if thisValue.After(otherValue) {
-			return -1
-		}
-		return 1
 	}
+	return 1
 }
 
-func compareString(thisValue, otherValue string, desc bool) int8 {
-	if desc {
-		if fmt.Sprintf("%v", thisValue) > fmt.Sprintf("%v", otherValue) {
-			return 1
-		}
+func compareString(thisValue, otherValue string) int {
+	if fmt.Sprintf("%v", thisValue) > fmt.Sprintf("%v", otherValue) {
 		return -1
-	} else {
-		if fmt.Sprintf("%v", thisValue) > fmt.Sprintf("%v", otherValue) {
-			return -1
-		}
-		return 1
 	}
+	return 1
 }
 
-func compareInt64(thisValue, otherValue int64, desc bool) int8 {
-	if desc {
-		if thisValue > otherValue {
-			return 1
-		}
+func compareInt64(thisValue, otherValue int64) int {
+	if thisValue > otherValue {
 		return -1
-	} else {
-		if thisValue > otherValue {
-			return -1
-		}
-		return 1
 	}
+	return 1
 }
 
-func compareUint64(thisValue, otherValue uint64, desc bool) int8 {
-	if desc {
-		if thisValue > otherValue {
-			return 1
-		}
+func compareUint64(thisValue, otherValue uint64) int {
+	if thisValue > otherValue {
 		return -1
-	} else {
-		if thisValue > otherValue {
-			return -1
-		}
-		return 1
 	}
+	return 1
 }
 
-func compareFloat64(thisValue, otherValue float64, desc bool) int8 {
-	if desc {
-		if thisValue > otherValue {
-			return 1
-		}
+func compareFloat64(thisValue, otherValue float64) int {
+	if thisValue > otherValue {
 		return -1
-	} else {
-		if thisValue > otherValue {
-			return -1
-		}
-		return 1
 	}
+	return 1
 }
