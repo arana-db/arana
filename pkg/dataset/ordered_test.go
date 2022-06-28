@@ -18,7 +18,6 @@
 package dataset
 
 import (
-	"github.com/arana-db/arana/pkg/merge/impl/order"
 	"testing"
 )
 
@@ -33,7 +32,7 @@ func TestOrderedDataset(t *testing.T) {
 	defer ctrl.Finish()
 
 	pd := generateFakeParallelDataset(ctrl, 0, 2, 2, 2, 1, 1)
-	items := []order.OrderByItem{
+	items := []OrderByItem{
 		{
 			Column: "id",
 			Desc:   false,

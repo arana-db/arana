@@ -29,7 +29,6 @@ import (
 
 import (
 	consts "github.com/arana-db/arana/pkg/constants/mysql"
-	"github.com/arana-db/arana/pkg/merge/impl/order"
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/mysql/rows"
 	"github.com/arana-db/arana/pkg/proto"
@@ -40,50 +39,50 @@ func TestPriorityQueue(t *testing.T) {
 		mysql.NewField("id", consts.FieldTypeLong),
 		mysql.NewField("score", consts.FieldTypeLong),
 	}
-	items := []order.OrderByItem{
+	items := []OrderByItem{
 		{"id", false},
 		{"score", true},
 	}
 
-	r1 := &order.RowItem{rows.NewTextVirtualRow(fields, []proto.Value{
+	r1 := &RowItem{rows.NewTextVirtualRow(fields, []proto.Value{
 		int64(1),
 		int64(80),
 	}), 1}
-	r2 := &order.RowItem{rows.NewTextVirtualRow(fields, []proto.Value{
+	r2 := &RowItem{rows.NewTextVirtualRow(fields, []proto.Value{
 		int64(2),
 		int64(75),
 	}), 1}
-	r3 := &order.RowItem{rows.NewTextVirtualRow(fields, []proto.Value{
+	r3 := &RowItem{rows.NewTextVirtualRow(fields, []proto.Value{
 		int64(1),
 		int64(90),
 	}), 1}
-	r4 := &order.RowItem{rows.NewTextVirtualRow(fields, []proto.Value{
+	r4 := &RowItem{rows.NewTextVirtualRow(fields, []proto.Value{
 		int64(3),
 		int64(85),
 	}), 1}
-	pq := NewPriorityQueue([]*order.RowItem{
+	pq := NewPriorityQueue([]*RowItem{
 		r1, r2, r3, r4,
 	}, items)
 
 	assertScorePojoEquals(t, fakeScorePojo{
 		id:    int64(1),
 		score: int64(90),
-	}, heap.Pop(pq).(*order.RowItem).Row)
+	}, heap.Pop(pq).(*RowItem).row)
 
 	assertScorePojoEquals(t, fakeScorePojo{
 		id:    int64(1),
 		score: int64(80),
-	}, heap.Pop(pq).(*order.RowItem).Row)
+	}, heap.Pop(pq).(*RowItem).row)
 
 	assertScorePojoEquals(t, fakeScorePojo{
 		id:    int64(2),
 		score: int64(75),
-	}, heap.Pop(pq).(*order.RowItem).Row)
+	}, heap.Pop(pq).(*RowItem).row)
 
 	assertScorePojoEquals(t, fakeScorePojo{
 		id:    int64(3),
 		score: int64(85),
-	}, heap.Pop(pq).(*order.RowItem).Row)
+	}, heap.Pop(pq).(*RowItem).row)
 
 }
 
