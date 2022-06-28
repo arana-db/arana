@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package group_by
+package group
 
 import (
 	"container/heap"

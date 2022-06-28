@@ -77,21 +77,6 @@ func (fu *FuseableDataset) Next() (proto.Row, error) {
 	return next, nil
 }
 
-func (fu *FuseableDataset) ToParallel() RandomAccessDataset {
-	generators := make([]GenerateFunc, len(fu.generators)+1)
-	for i := 0; i < len(fu.generators); i++ {
-		generators[i+1] = fu.generators[i]
-	}
-	streams := make([]*peekableDataset, len(fu.generators)+1)
-	streams[0] = &peekableDataset{Dataset: fu.current}
-	result := &parallelDataset{
-		fields:     fu.fields,
-		generators: generators,
-		streams:    streams,
-	}
-	return result
-}
-
 func (fu *FuseableDataset) nextDataset() error {
 	var err error
 	if err = fu.current.Close(); err != nil {
@@ -112,6 +97,21 @@ func (fu *FuseableDataset) nextDataset() error {
 	}
 
 	return nil
+}
+
+func (fu *FuseableDataset) ToParallel() RandomAccessDataset {
+	generators := make([]GenerateFunc, len(fu.generators)+1)
+	for i := 0; i < len(fu.generators); i++ {
+		generators[i+1] = fu.generators[i]
+	}
+	streams := make([]*peekableDataset, len(fu.generators)+1)
+	streams[0] = &peekableDataset{Dataset: fu.current}
+	result := &parallelDataset{
+		fields:     fu.fields,
+		generators: generators,
+		streams:    streams,
+	}
+	return result
 }
 
 func Fuse(first GenerateFunc, others ...GenerateFunc) (proto.Dataset, error) {

@@ -57,6 +57,7 @@ func (orderPlan *OrderPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto
 		return nil, errors.WithStack(err)
 	}
 
+	fuseable, _ := ds.(*dataset.FuseableDataset)
 	fuseable, ok := ds.(*dataset.FuseableDataset)
 
 	if !ok {

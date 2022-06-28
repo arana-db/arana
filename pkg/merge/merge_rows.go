@@ -47,6 +47,10 @@ func (s *MergeRows) Next() proto.Row {
 	return result
 }
 
+func (s *MergeRows) HasNext() bool {
+	return s.currentRowIndex < len(s.rows)-1
+}
+
 func (s *MergeRows) GetCurrentRow() proto.Row {
 	if len(s.rows) == 0 || s.currentRowIndex > len(s.rows) {
 		return nil
