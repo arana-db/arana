@@ -20,7 +20,6 @@ package optimize
 import (
 	"context"
 	stdErrors "errors"
-	"github.com/arana-db/arana/pkg/dataset"
 	"strings"
 )
 
