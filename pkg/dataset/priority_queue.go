@@ -19,6 +19,7 @@ package dataset
 
 import (
 	"container/heap"
+	"fmt"
 	"time"
 )
 
@@ -132,8 +133,14 @@ func compareTo(a, b interface{}, desc bool) int {
 		result = 0
 	)
 	switch a.(type) {
-	case string, int8, int16, int32, int64, uint8, uint16, uint32, uint64, float32, float64:
-		result = compareValue(a, b)
+	case string:
+		result = compareValue(fmt.Sprintf("%v", a), fmt.Sprintf("%v", b))
+	case int8, int16, int32, int64:
+		result = compareValue(a.(int64), b.(int64))
+	case uint8, uint16, uint32, uint64:
+		result = compareValue(a.(uint64), b.(uint64))
+	case float32, float64:
+		result = compareValue(a.(float64), b.(float64))
 	case time.Time:
 		result = compareTime(a.(time.Time), b.(time.Time))
 	}

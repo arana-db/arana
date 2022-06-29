@@ -45,7 +45,7 @@ data:
           nodes:
             - name: node0
               host: arana-mysql
-              port: 3306
+              port: 3307
               username: root
               password: "123456"
               database: employees_0000
@@ -54,7 +54,7 @@ data:
           nodes:
             - name: node1
               host: arana-mysql
-              port: 3306
+              port: 3307
               username: root
               password: "123456"
               database: employees_0001
@@ -63,7 +63,7 @@ data:
           nodes:
             - name: node2
               host: arana-mysql
-              port: 3306
+              port: 3307
               username: root
               password: "123456"
               database: employees_0002
@@ -72,7 +72,7 @@ data:
           nodes:
             - name: node3
               host: arana-mysql
-              port: 3306
+              port: 3307
               username: root
               password: "123456"
               database: employees_0003
