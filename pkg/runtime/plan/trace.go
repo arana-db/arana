@@ -18,35 +18,7 @@
 package plan
 
 import (
-	"context"
+	"go.opentelemetry.io/otel"
 )
 
-import (
-	"github.com/pkg/errors"
-)
-
-import (
-	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/transformer"
-)
-
-type AggregatePlan struct {
-	transformer.Combiner
-	AggrLoader *transformer.AggrLoader
-	Plan       proto.Plan
-}
-
-func (a *AggregatePlan) Type() proto.PlanType {
-	return proto.PlanTypeQuery
-}
-
-func (a *AggregatePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
-	ctx, span := Tracer.Start(ctx, "AggregatePlan.ExecIn")
-	defer span.End()
-	res, err := a.Plan.ExecIn(ctx, conn)
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-
-	return a.Combiner.Merge(res, a.AggrLoader)
-}
+var Tracer = otel.Tracer("ExecPlan")

@@ -47,11 +47,12 @@ func (s *ShowVariablesPlan) Type() proto.PlanType {
 }
 
 func (s *ShowVariablesPlan) ExecIn(ctx context.Context, vConn proto.VConn) (proto.Result, error) {
-
 	var (
 		sb   strings.Builder
 		args []int
 	)
+	ctx, span := Tracer.Start(ctx, "ShowVariablesPlan.ExecIn")
+	defer span.End()
 
 	if err := s.stmt.Restore(ast.RestoreDefault, &sb, &args); err != nil {
 		return nil, errors.Wrap(err, "failed to execute DELETE statement")
