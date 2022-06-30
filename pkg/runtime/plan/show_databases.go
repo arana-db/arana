@@ -49,6 +49,8 @@ func (s *ShowDatabasesPlan) Type() proto.PlanType {
 }
 
 func (s *ShowDatabasesPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+	ctx, span := Tracer.Start(ctx, "ShowDatabasesPlan.ExecIn")
+	defer span.End()
 	_ = conn
 	tenant, ok := security.DefaultTenantManager().GetTenantOfCluster(rcontext.Schema(ctx))
 	if !ok {

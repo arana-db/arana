@@ -44,6 +44,8 @@ func (u UnionPlan) Type() proto.PlanType {
 }
 
 func (u UnionPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+	ctx, span := Tracer.Start(ctx, "UnionPlan.ExecIn")
+	defer span.End()
 	switch u.Plans[0].Type() {
 	case proto.PlanTypeQuery:
 		return u.query(ctx, conn)
