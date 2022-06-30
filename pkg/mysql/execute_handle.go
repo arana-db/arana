@@ -67,10 +67,14 @@ func (l *Listener) handleInitDB(c *Conn, ctx *proto.Context) error {
 }
 
 func (l *Listener) handleQuery(c *Conn, ctx *proto.Context) error {
+	var err error
 	c.startWriterBuffering()
 	defer func() {
-		if err := c.endWriterBuffering(); err != nil {
-			log.Errorf("conn %v: flush() failed: %v", c.ID(), err)
+		if err != nil {
+			log.Errorf("conn %v: error: %v", ctx.ConnectionID, err)
+		}
+		if err = c.endWriterBuffering(); err != nil {
+			log.Errorf("conn %v: flush() failed: %v", ctx.ConnectionID, err)
 		}
 	}()
 
@@ -78,13 +82,12 @@ func (l *Listener) handleQuery(c *Conn, ctx *proto.Context) error {
 
 	var (
 		result proto.Result
-		err    error
 		warn   uint16
 	)
 
 	if result, warn, err = l.executor.ExecutorComQuery(ctx); err != nil {
 		if wErr := c.writeErrorPacketFromError(err); wErr != nil {
-			log.Errorf("Error writing query error to client %v: %v", l.connectionID, wErr)
+			log.Errorf("Error writing query error to client %v: %v", ctx.ConnectionID, wErr)
 			return wErr
 		}
 		return nil
@@ -93,7 +96,7 @@ func (l *Listener) handleQuery(c *Conn, ctx *proto.Context) error {
 	var ds proto.Dataset
 	if ds, err = result.Dataset(); err != nil {
 		if wErr := c.writeErrorPacketFromError(err); wErr != nil {
-			log.Errorf("Error writing query error to client %v: %v", l.connectionID, wErr)
+			log.Errorf("Error writing query error to client %v: %v", ctx.ConnectionID, wErr)
 			return wErr
 		}
 		return nil
@@ -160,7 +163,7 @@ func (l *Listener) handleStmtExecute(c *Conn, ctx *proto.Context) error {
 	c.startWriterBuffering()
 	defer func() {
 		if err := c.endWriterBuffering(); err != nil {
-			log.Errorf("conn %v: flush() failed: %v", c.ID(), err)
+			log.Errorf("conn %v: flush() failed: %v", ctx.ConnectionID, err)
 		}
 	}()
 
@@ -185,7 +188,7 @@ func (l *Listener) handleStmtExecute(c *Conn, ctx *proto.Context) error {
 	if err != nil {
 		if wErr := c.writeErrorPacketFromError(err); wErr != nil {
 			// If we can't even write the error, we're done.
-			log.Error("Error writing query error to client %v: %v", l.connectionID, wErr)
+			log.Error("Error writing query error to client %v: %v", ctx.ConnectionID, wErr)
 			return wErr
 		}
 		return nil
@@ -201,7 +204,7 @@ func (l *Listener) handleStmtExecute(c *Conn, ctx *proto.Context) error {
 
 	if result, warn, err = l.executor.ExecutorComStmtExecute(ctx); err != nil {
 		if wErr := c.writeErrorPacketFromError(err); wErr != nil {
-			log.Errorf("Error writing query error to client %v: %v, executor error: %v", l.connectionID, wErr, err)
+			log.Errorf("Error writing query error to client %v: %v, executor error: %v", ctx.ConnectionID, wErr, err)
 			return wErr
 		}
 		return nil
@@ -210,7 +213,7 @@ func (l *Listener) handleStmtExecute(c *Conn, ctx *proto.Context) error {
 	var ds proto.Dataset
 	if ds, err = result.Dataset(); err != nil {
 		if wErr := c.writeErrorPacketFromError(err); wErr != nil {
-			log.Errorf("Error writing query error to client %v: %v, executor error: %v", l.connectionID, wErr, err)
+			log.Errorf("Error writing query error to client %v: %v, executor error: %v", ctx.ConnectionID, wErr, err)
 			return wErr
 		}
 		return nil
@@ -304,7 +307,7 @@ func (l *Listener) handleSetOption(c *Conn, ctx *proto.Context) error {
 		case 1:
 			l.capabilities &^= mysql.CapabilityClientMultiStatements
 		default:
-			log.Errorf("Got unhandled packet (ComSetOption default) from client %v, returning error: %v", l.connectionID, ctx.Data)
+			log.Errorf("Got unhandled packet (ComSetOption default) from client %v, returning error: %v", ctx.ConnectionID, ctx.Data)
 			if err := c.writeErrorPacket(mysql.ERUnknownComError, mysql.SSUnknownComError, "error handling packet: %v", ctx.Data); err != nil {
 				log.Errorf("Error writing error packet to client: %v", err)
 				return err
@@ -315,7 +318,7 @@ func (l *Listener) handleSetOption(c *Conn, ctx *proto.Context) error {
 			return err
 		}
 	}
-	log.Errorf("Got unhandled packet (ComSetOption else) from client %v, returning error: %v", l.connectionID, ctx.Data)
+	log.Errorf("Got unhandled packet (ComSetOption else) from client %v, returning error: %v", ctx.ConnectionID, ctx.Data)
 	if err := c.writeErrorPacket(mysql.ERUnknownComError, mysql.SSUnknownComError, "error handling packet: %v", ctx.Data); err != nil {
 		log.Errorf("Error writing error packet to client: %v", err)
 		return err

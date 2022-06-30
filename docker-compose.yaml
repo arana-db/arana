@@ -41,7 +41,7 @@ services:
   arana:
     build: .
     container_name: arana
-    image: aranadb/arana:latest
+    image: aranadb/arana:master
     networks:
       - local
     ports:
