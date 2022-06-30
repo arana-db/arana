@@ -253,7 +253,7 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 			err = errNoDatabaseSelected
 		}
 	case *ast.TruncateTableStmt, *ast.DropTableStmt, *ast.ExplainStmt, *ast.DropIndexStmt:
-		res, warn, err = isSelectDatabase(ctx, schemaless, rt)
+		res, warn, err = executeStmt(ctx, schemaless, rt)
 	case *ast.DropTriggerStmt:
 		res, warn, err = rt.Execute(ctx)
 	default:
@@ -275,7 +275,7 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 	return res, warn, err
 }
 
-func isSelectDatabase(ctx *proto.Context, schemaless bool, rt runtime.Runtime) (proto.Result, uint16, error) {
+func executeStmt(ctx *proto.Context, schemaless bool, rt runtime.Runtime) (proto.Result, uint16, error) {
 	if schemaless {
 		return nil, 0, errNoDatabaseSelected
 	}

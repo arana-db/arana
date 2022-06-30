@@ -620,21 +620,16 @@ func (s *IntegrationSuite) TestDropTrigger() {
 
 	type tt struct {
 		sql string
-		err string
 	}
 
 	for _, it := range []tt{
-		{"DROP TRIGGER arana", "Error 1360: Trigger does not exist"},
-		{"DROP TRIGGER employees_0000.arana", "Error 1360: Trigger does not exist"},
-		{"DROP TRIGGER IF EXISTS arana", ""},
-		{"DROP TRIGGER IF EXISTS employees_0000.arana", ""},
+		{"DROP TRIGGER arana"},
+		{"DROP TRIGGER employees_0000.arana"},
+		{"DROP TRIGGER IF EXISTS arana"},
+		{"DROP TRIGGER IF EXISTS employees_0000.arana"},
 	} {
 		t.Run(it.sql, func(t *testing.T) {
 			_, err := db.Exec(it.sql)
-			if it.err != "" {
-				assert.EqualError(t, err, it.err)
-				return
-			}
 			assert.NoError(t, err)
 		})
 	}

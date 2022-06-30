@@ -31,11 +31,11 @@ type DropTriggerStatement struct {
 }
 
 func (d DropTriggerStatement) CntParams() int {
-	panic("implement me")
+	return 0
 }
 
 func (d DropTriggerStatement) Mode() SQLType {
-	panic("implement me")
+	return DropTrigger
 }
 
 func (d DropTriggerStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {

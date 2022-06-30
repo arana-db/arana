@@ -266,7 +266,7 @@ func (o optimizer) getSelectFlag(ctx context.Context, stmt *rast.SelectStatement
 	return
 }
 
-func (o optimizer) optimizeShowDatabases(ctx context.Context, stmt *rast.ShowDatabases, args []interface{}) (proto.Plan, error) {
+func (o optimizer) optimizeShowDatabases(_ context.Context, stmt *rast.ShowDatabases, args []interface{}) (proto.Plan, error) {
 	ret := &plan.ShowDatabasesPlan{Stmt: stmt}
 	ret.BindArgs(args)
 	return ret, nil
@@ -1044,8 +1044,35 @@ func (o optimizer) rewriteInsertStatement(ctx context.Context, conn proto.VConn,
 	return nil
 }
 
-func (o optimizer) optimizeTrigger(_ context.Context, stmt *rast.DropTriggerStatement, args []interface{}) (proto.Plan, error) {
-	ret := &plan.DropTriggerPlan{Stmt: stmt}
+func (o optimizer) optimizeTrigger(ctx context.Context, stmt *rast.DropTriggerStatement, args []interface{}) (proto.Plan, error) {
+	var ru *rule.Rule
+	if ru = rcontext.Rule(ctx); ru == nil {
+		return nil, errors.WithStack(errNoRuleFound)
+	}
+
+	var (
+		shards rule.DatabaseTables
+		err    error
+	)
+
+	if shards, _, err = (*Sharder)(ru).Shard(stmt.Table, nil, args...); err != nil {
+		return nil, errors.Wrap(err, "calculate shards failed")
+	}
+
+	if shards.IsFullScan() {
+		shards = rule.DatabaseTables{}
+		for _, table := range ru.VTables() {
+			topology := table.Topology()
+			topology.Each(func(dbIdx, tbIdx int) bool {
+				if d, t, ok := topology.Render(dbIdx, tbIdx); ok {
+					shards[d] = append(shards[d], t)
+				}
+				return true
+			})
+		}
+	}
+
+	ret := &plan.DropTriggerPlan{Stmt: stmt, Shards: shards}
 	ret.BindArgs(args)
 	return ret, nil
 }

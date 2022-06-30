@@ -23,7 +23,13 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/resultx"
+	"github.com/pkg/errors"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
@@ -31,7 +37,8 @@ var _ proto.Plan = (*DropTriggerPlan)(nil)
 
 type DropTriggerPlan struct {
 	basePlan
-	Stmt *ast.DropTriggerStatement
+	Stmt   *ast.DropTriggerStatement
+	Shards rule.DatabaseTables
 }
 
 func (d *DropTriggerPlan) Type() proto.PlanType {
@@ -42,11 +49,29 @@ func (d *DropTriggerPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 	var (
 		sb   strings.Builder
 		args []int
+		err  error
 	)
 
-	if err := d.Stmt.Restore(ast.RestoreDefault, &sb, &args); err != nil {
-		return nil, err
+	for db := range d.Shards {
+		if err = d.Stmt.Restore(ast.RestoreDefault, &sb, &args); err != nil {
+			return nil, err
+		}
+
+		if err = d.execOne(ctx, conn, db, sb.String(), d.toArgs(args)); err != nil {
+			return nil, errors.WithStack(err)
+		}
+
+		sb.Reset()
 	}
 
-	return conn.Exec(ctx, "", sb.String(), d.toArgs(args)...)
+	return resultx.New(), nil
+}
+
+func (d *DropTriggerPlan) execOne(ctx context.Context, conn proto.VConn, db, query string, args []interface{}) error {
+	res, err := conn.Exec(ctx, db, query, args...)
+	if err != nil {
+		return err
+	}
+	_, _ = res.Dataset()
+	return nil
 }
