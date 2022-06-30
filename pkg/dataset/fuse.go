@@ -101,9 +101,7 @@ func (fu *FuseableDataset) nextDataset() error {
 
 func (fu *FuseableDataset) ToParallel() RandomAccessDataset {
 	generators := make([]GenerateFunc, len(fu.generators)+1)
-	for i := 0; i < len(fu.generators); i++ {
-		generators[i+1] = fu.generators[i]
-	}
+	copy(generators[1:], fu.generators)
 	streams := make([]*peekableDataset, len(fu.generators)+1)
 	streams[0] = &peekableDataset{Dataset: fu.current}
 	result := &parallelDataset{

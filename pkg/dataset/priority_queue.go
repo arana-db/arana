@@ -20,6 +20,7 @@ package dataset
 import (
 	"container/heap"
 	"fmt"
+	"strconv"
 	"time"
 )
 
@@ -69,17 +70,18 @@ func (pq *PriorityQueue) Less(i, j int) bool {
 	orderValues2 := &OrderByValue{
 		OrderValues: make(map[string]interface{}),
 	}
+	if i >= len(pq.rows) || j >= len(pq.rows) {
+		return false
+	}
+	row1 := pq.rows[i]
+	row2 := pq.rows[j]
 	for _, item := range pq.orderByItems {
-		row1 := pq.rows[i]
-		row2 := pq.rows[j]
-
 		val1, _ := row1.row.Get(item.Column)
 		val2, _ := row2.row.Get(item.Column)
-
 		orderValues1.OrderValues[item.Column] = val1
 		orderValues2.OrderValues[item.Column] = val2
 	}
-	return orderValues1.Compare(orderValues2, pq.orderByItems) > 0
+	return compare(orderValues1, orderValues2, pq.orderByItems) < 0
 }
 
 func (pq *PriorityQueue) Swap(i, j int) {
@@ -107,9 +109,9 @@ func (pq *PriorityQueue) update() {
 	heap.Fix(pq, pq.Len()-1)
 }
 
-func (value *OrderByValue) Compare(compareVal *OrderByValue, orderByItems []OrderByItem) int {
+func compare(a *OrderByValue, b *OrderByValue, orderByItems []OrderByItem) int {
 	for _, item := range orderByItems {
-		compare := compareTo(value.OrderValues[item.Column], compareVal.OrderValues[item.Column], item.Desc)
+		compare := compareTo(a.OrderValues[item.Column], b.OrderValues[item.Column], item.Desc)
 		if compare == 0 {
 			continue
 		}
@@ -123,10 +125,10 @@ func compareTo(a, b interface{}, desc bool) int {
 		return 0
 	}
 	if a == nil {
-		return 1
+		return -1
 	}
 	if b == nil {
-		return -1
+		return 1
 	}
 	// TODO Deal with case sensitive.
 	var (
@@ -136,11 +138,17 @@ func compareTo(a, b interface{}, desc bool) int {
 	case string:
 		result = compareValue(fmt.Sprintf("%v", a), fmt.Sprintf("%v", b))
 	case int8, int16, int32, int64:
-		result = compareValue(a.(int64), b.(int64))
+		a, _ := strconv.ParseInt(fmt.Sprintf("%v", a), 10, 64)
+		b, _ := strconv.ParseInt(fmt.Sprintf("%v", b), 10, 64)
+		result = compareValue(a, b)
 	case uint8, uint16, uint32, uint64:
-		result = compareValue(a.(uint64), b.(uint64))
+		a, _ := strconv.ParseUint(fmt.Sprintf("%v", a), 10, 64)
+		b, _ := strconv.ParseUint(fmt.Sprintf("%v", b), 10, 64)
+		result = compareValue(a, b)
 	case float32, float64:
-		result = compareValue(a.(float64), b.(float64))
+		a, _ := strconv.ParseFloat(fmt.Sprintf("%v", a), 64)
+		b, _ := strconv.ParseFloat(fmt.Sprintf("%v", b), 64)
+		result = compareValue(a, b)
 	case time.Time:
 		result = compareTime(a.(time.Time), b.(time.Time))
 	}
@@ -153,9 +161,9 @@ func compareTo(a, b interface{}, desc bool) int {
 func compareValue[T constraints.Ordered](a, b T) int {
 	switch {
 	case a > b:
-		return -1
-	case a < b:
 		return 1
+	case a < b:
+		return -1
 	default:
 		return 0
 	}
@@ -164,9 +172,9 @@ func compareValue[T constraints.Ordered](a, b T) int {
 func compareTime(a, b time.Time) int {
 	switch {
 	case a.After(b):
-		return -1
-	case a.Before(b):
 		return 1
+	case a.Before(b):
+		return -1
 	default:
 		return 0
 	}
