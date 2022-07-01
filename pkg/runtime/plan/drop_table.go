@@ -50,6 +50,8 @@ func (d *DropTablePlan) Type() proto.PlanType {
 }
 
 func (d *DropTablePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+	ctx, span := Tracer.Start(ctx, "DropTablePlan.ExecIn")
+	defer span.End()
 	var (
 		sb   strings.Builder
 		args []int

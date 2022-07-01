@@ -19,7 +19,6 @@ package plan
 
 import (
 	"context"
-	"strings"
 )
 
 import (
@@ -27,41 +26,44 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/dataset"
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/resultx"
 )
 
-var _ proto.Plan = (*ShowVariablesPlan)(nil)
+var _ proto.Plan = (*OrderPlan)(nil)
 
-type ShowVariablesPlan struct {
-	basePlan
-	stmt *ast.ShowVariables
+type OrderPlan struct {
+	ParentPlan   proto.Plan
+	OrderByItems []dataset.OrderByItem
 }
 
-func NewShowVariablesPlan(stmt *ast.ShowVariables) *ShowVariablesPlan {
-	return &ShowVariablesPlan{stmt: stmt}
-}
-
-func (s *ShowVariablesPlan) Type() proto.PlanType {
+func (orderPlan *OrderPlan) Type() proto.PlanType {
 	return proto.PlanTypeQuery
 }
 
-func (s *ShowVariablesPlan) ExecIn(ctx context.Context, vConn proto.VConn) (proto.Result, error) {
-	var (
-		sb   strings.Builder
-		args []int
-	)
-	ctx, span := Tracer.Start(ctx, "ShowVariablesPlan.ExecIn")
-	defer span.End()
-
-	if err := s.stmt.Restore(ast.RestoreDefault, &sb, &args); err != nil {
-		return nil, errors.Wrap(err, "failed to execute DELETE statement")
+func (orderPlan *OrderPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+	if orderPlan.ParentPlan == nil {
+		return nil, errors.New("order plan: ParentPlan is nil")
 	}
 
-	ret, err := vConn.Query(ctx, "", sb.String(), s.toArgs(args)...)
+	res, err := orderPlan.ParentPlan.ExecIn(ctx, conn)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 
-	return ret, nil
+	ds, err := res.Dataset()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	fuseable, ok := ds.(*dataset.FuseableDataset)
+
+	if !ok {
+		return nil, errors.New("order plan convert Dataset to FuseableDataset cause error")
+	}
+
+	orderedDataset := dataset.NewOrderedDataset(fuseable.ToParallel(), orderPlan.OrderByItems)
+
+	return resultx.New(resultx.WithDataset(orderedDataset)), nil
 }

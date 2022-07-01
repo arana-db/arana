@@ -30,9 +30,11 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/dataset"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/proto/schema_manager"
+	"github.com/arana-db/arana/pkg/runtime"
 	rast "github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
@@ -86,7 +88,9 @@ func (o *optimizer) SchemaLoader() proto.SchemaLoader {
 }
 
 func (o optimizer) Optimize(ctx context.Context, conn proto.VConn, stmt ast.StmtNode, args ...interface{}) (plan proto.Plan, err error) {
+	ctx, span := runtime.Tracer.Start(ctx, "Optimize")
 	defer func() {
+		span.End()
 		if rec := recover(); rec != nil {
 			err = errors.Errorf("cannot analyze sql %s", rcontext.SQL(ctx))
 			log.Errorf("optimize panic: sql=%s, rec=%v", rcontext.SQL(ctx), rec)
@@ -329,6 +333,22 @@ func (o optimizer) overwriteLimit(stmt *rast.SelectStatement, args *[]interface{
 	return
 }
 
+func (o optimizer) optimizeOrderBy(stmt *rast.SelectStatement) []dataset.OrderByItem {
+	if stmt == nil || stmt.OrderBy == nil {
+		return nil
+	}
+	result := make([]dataset.OrderByItem, 0, len(stmt.OrderBy))
+	for _, node := range stmt.OrderBy {
+		column, _ := node.Expr.(rast.ColumnNameExpressionAtom)
+		item := dataset.OrderByItem{
+			Column: column[0],
+			Desc:   node.Desc,
+		}
+		result = append(result, item)
+	}
+	return result
+}
+
 func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *rast.SelectStatement, args []interface{}) (proto.Plan, error) {
 	var ru *rule.Rule
 	if ru = rcontext.Rule(ctx); ru == nil {
@@ -458,6 +478,15 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 			ParentPlan:     tmpPlan,
 			OriginOffset:   originOffset,
 			OverwriteLimit: overwriteLimit,
+		}
+	}
+
+	orderByItems := o.optimizeOrderBy(stmt)
+
+	if stmt.OrderBy != nil {
+		tmpPlan = &plan.OrderPlan{
+			ParentPlan:   tmpPlan,
+			OrderByItems: orderByItems,
 		}
 	}
 

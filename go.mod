@@ -8,6 +8,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.1.2
 	github.com/dop251/goja v0.0.0-20220422102209-3faab1d8f20e
 	github.com/dubbogo/gost v1.12.3
+	github.com/dubbogo/tools v1.0.9 // indirect
 	github.com/go-playground/validator/v10 v10.10.1
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/golang/mock v1.5.0
@@ -19,12 +20,14 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.11.0
 	github.com/spf13/cobra v1.2.1
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.7.1
 	github.com/testcontainers/testcontainers-go v0.12.0
 	github.com/tidwall/gjson v1.14.0
 	go.etcd.io/etcd/api/v3 v3.5.1
 	go.etcd.io/etcd/client/v3 v3.5.0
 	go.etcd.io/etcd/server/v3 v3.5.0-alpha.0
+	go.opentelemetry.io/otel v1.7.0 // indirect
+	go.opentelemetry.io/otel/trace v1.7.0 // indirect
 	go.uber.org/atomic v1.9.0
 	go.uber.org/zap v1.19.1
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
@@ -102,6 +105,7 @@ require (
 	go.opencensus.io v0.23.0 // indirect
 	go.uber.org/multierr v1.7.0 // indirect
 	golang.org/x/crypto v0.0.0-20220427172511-eb4f295cb31f // indirect
+	golang.org/x/exp v0.0.0-20220613132600-b0d781184e0d // indirect
 	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2 // indirect
 	golang.org/x/sys v0.0.0-20220429233432-b5fbb4746d32 // indirect
 	golang.org/x/text v0.3.7 // indirect

@@ -51,6 +51,8 @@ func (s *TruncatePlan) Type() proto.PlanType {
 }
 
 func (s *TruncatePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+	ctx, span := Tracer.Start(ctx, "TruncatePlan.ExecIn")
+	defer span.End()
 	if s.shards == nil || s.shards.IsEmpty() {
 		return resultx.New(), nil
 	}
