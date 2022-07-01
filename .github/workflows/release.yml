@@ -20,7 +20,7 @@
 name: Release
 on:
   release:
-    types: [created]
+    types: [ created ]
 
 jobs:
   releases-matrix:
@@ -29,9 +29,9 @@ jobs:
     strategy:
       matrix:
         # build and publish in parallel: linux/386, linux/amd64, windows/386, windows/amd64, darwin/amd64
-        goos: [linux, windows]
-        goarch: ["386", amd64, arm]
-        exclude:  
+        goos: [ linux, windows ]
+        goarch: [ "386", amd64, arm ]
+        exclude:
           - goarch: "arm"
             goos: windows
 
@@ -42,6 +42,6 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
-          goversion: "https://golang.org/dl/go1.16.15.linux-amd64.tar.gz"
+          goversion: "https://go.dev/dl/go1.18.3.linux-amd64.tar.gz"
           project_path: "./cmd/arana"
           binary_name: "arana"
