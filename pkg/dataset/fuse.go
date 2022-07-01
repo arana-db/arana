@@ -29,17 +29,17 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
-var _ proto.Dataset = (*fuseableDataset)(nil)
+var _ proto.Dataset = (*FuseableDataset)(nil)
 
 type GenerateFunc func() (proto.Dataset, error)
 
-type fuseableDataset struct {
+type FuseableDataset struct {
 	fields     []proto.Field
 	current    proto.Dataset
 	generators []GenerateFunc
 }
 
-func (fu *fuseableDataset) Close() error {
+func (fu *FuseableDataset) Close() error {
 	if fu.current == nil {
 		return nil
 	}
@@ -49,11 +49,11 @@ func (fu *fuseableDataset) Close() error {
 	return nil
 }
 
-func (fu *fuseableDataset) Fields() ([]proto.Field, error) {
+func (fu *FuseableDataset) Fields() ([]proto.Field, error) {
 	return fu.fields, nil
 }
 
-func (fu *fuseableDataset) Next() (proto.Row, error) {
+func (fu *FuseableDataset) Next() (proto.Row, error) {
 	if fu.current == nil {
 		return nil, io.EOF
 	}
@@ -65,19 +65,19 @@ func (fu *fuseableDataset) Next() (proto.Row, error) {
 
 	if next, err = fu.current.Next(); errors.Is(err, io.EOF) {
 		if err = fu.nextDataset(); err != nil {
-			return nil, errors.WithStack(err)
+			return nil, err
 		}
 		return fu.Next()
 	}
 
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 
 	return next, nil
 }
 
-func (fu *fuseableDataset) nextDataset() error {
+func (fu *FuseableDataset) nextDataset() error {
 	var err error
 	if err = fu.current.Close(); err != nil {
 		return errors.Wrap(err, "failed to close previous fused dataset")
@@ -99,6 +99,19 @@ func (fu *fuseableDataset) nextDataset() error {
 	return nil
 }
 
+func (fu *FuseableDataset) ToParallel() RandomAccessDataset {
+	generators := make([]GenerateFunc, len(fu.generators)+1)
+	copy(generators[1:], fu.generators)
+	streams := make([]*peekableDataset, len(fu.generators)+1)
+	streams[0] = &peekableDataset{Dataset: fu.current}
+	result := &parallelDataset{
+		fields:     fu.fields,
+		generators: generators,
+		streams:    streams,
+	}
+	return result
+}
+
 func Fuse(first GenerateFunc, others ...GenerateFunc) (proto.Dataset, error) {
 	current, err := first()
 	if err != nil {
@@ -113,7 +126,7 @@ func Fuse(first GenerateFunc, others ...GenerateFunc) (proto.Dataset, error) {
 		return nil, errors.WithStack(err)
 	}
 
-	return &fuseableDataset{
+	return &FuseableDataset{
 		fields:     fields,
 		current:    current,
 		generators: others,

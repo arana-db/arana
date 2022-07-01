@@ -31,13 +31,17 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/dataset"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/proto/schema_manager"
+	"github.com/arana-db/arana/pkg/runtime"
 	rast "github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
+	"github.com/arana-db/arana/pkg/runtime/namespace"
 	"github.com/arana-db/arana/pkg/runtime/plan"
+	"github.com/arana-db/arana/pkg/security"
 	"github.com/arana-db/arana/pkg/sequence"
 	"github.com/arana-db/arana/pkg/transformer"
 	"github.com/arana-db/arana/pkg/util/log"
@@ -88,7 +92,9 @@ func (o *optimizer) SchemaLoader() proto.SchemaLoader {
 }
 
 func (o optimizer) Optimize(ctx context.Context, conn proto.VConn, stmt ast.StmtNode, args ...interface{}) (plan proto.Plan, err error) {
+	ctx, span := runtime.Tracer.Start(ctx, "Optimize")
 	defer func() {
+		span.End()
 		if rec := recover(); rec != nil {
 			err = errors.Errorf("cannot analyze sql %s", rcontext.SQL(ctx))
 			log.Errorf("optimize panic: sql=%s, rec=%v", rcontext.SQL(ctx), rec)
@@ -116,10 +122,16 @@ func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.S
 		return o.optimizeDelete(ctx, t, args)
 	case *rast.UpdateStatement:
 		return o.optimizeUpdate(ctx, conn, t, args)
+	case *rast.ShowOpenTables:
+		return o.optimizeShowOpenTables(ctx, t, args)
 	case *rast.ShowTables:
 		return o.optimizeShowTables(ctx, t, args)
 	case *rast.ShowIndex:
 		return o.optimizeShowIndex(ctx, t, args)
+	case *rast.ShowColumns:
+		return o.optimizeShowColumns(ctx, t, args)
+	case *rast.ShowCreate:
+		return o.optimizeShowCreate(ctx, t, args)
 	case *rast.TruncateStatement:
 		return o.optimizeTruncate(ctx, t, args)
 	case *rast.DropTableStatement:
@@ -131,8 +143,7 @@ func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.S
 	case *rast.AlterTableStatement:
 		return o.optimizeAlterTable(ctx, t, args)
 	case *rast.DropIndexStatement:
-		return o.DropIndexStatement(ctx, t, args)
-
+		return o.optimizeDropIndex(ctx, t, args)
 	}
 
 	//TODO implement all statements
@@ -144,10 +155,22 @@ const (
 	_supported
 )
 
-func (o optimizer) DropIndexStatement(ctx context.Context, stmt *rast.DropIndexStatement, args []interface{}) (proto.Plan, error) {
-	ret := plan.NewDropIndexPlan(stmt)
-	ret.BindArgs(args)
-	return ret, nil
+func (o optimizer) optimizeDropIndex(ctx context.Context, stmt *rast.DropIndexStatement, args []interface{}) (proto.Plan, error) {
+	ru := rcontext.Rule(ctx)
+	//table shard
+
+	shard, err := o.computeShards(ru, stmt.Table, nil, args)
+	if err != nil {
+		return nil, err
+	}
+	if len(shard) == 0 {
+		return plan.Transparent(stmt, args), nil
+	}
+
+	shardPlan := plan.NewDropIndexPlan(stmt)
+	shardPlan.SetShard(shard)
+	shardPlan.BindArgs(args)
+	return shardPlan, nil
 }
 
 func (o optimizer) optimizeAlterTable(ctx context.Context, stmt *rast.AlterTableStatement, args []interface{}) (proto.Plan, error) {
@@ -255,11 +278,88 @@ func (o optimizer) optimizeShowDatabases(ctx context.Context, stmt *rast.ShowDat
 	return ret, nil
 }
 
+func (o optimizer) overwriteLimit(stmt *rast.SelectStatement, args *[]interface{}) (originOffset, overwriteLimit int64) {
+	if stmt == nil || stmt.Limit == nil {
+		return 0, 0
+	}
+
+	offset := stmt.Limit.Offset()
+	limit := stmt.Limit.Limit()
+
+	// SELECT * FROM student where uid = ? limit ? offset ?
+	var offsetIndex int64
+	var limitIndex int64
+
+	if stmt.Limit.IsOffsetVar() {
+		offsetIndex = offset
+		offset = (*args)[offsetIndex].(int64)
+
+		if !stmt.Limit.IsLimitVar() {
+			limit = stmt.Limit.Limit()
+			*args = append(*args, limit)
+			limitIndex = int64(len(*args) - 1)
+		}
+	}
+	originOffset = offset
+
+	if stmt.Limit.IsLimitVar() {
+		limitIndex = limit
+		limit = (*args)[limitIndex].(int64)
+
+		if !stmt.Limit.IsOffsetVar() {
+			*args = append(*args, int64(0))
+			offsetIndex = int64(len(*args) - 1)
+		}
+	}
+
+	if stmt.Limit.IsLimitVar() || stmt.Limit.IsOffsetVar() {
+		if !stmt.Limit.IsLimitVar() {
+			stmt.Limit.SetLimitVar()
+			stmt.Limit.SetLimit(limitIndex)
+		}
+		if !stmt.Limit.IsOffsetVar() {
+			stmt.Limit.SetOffsetVar()
+			stmt.Limit.SetOffset(offsetIndex)
+		}
+
+		newLimitVar := limit + offset
+		overwriteLimit = newLimitVar
+		(*args)[limitIndex] = newLimitVar
+		(*args)[offsetIndex] = int64(0)
+		return
+	}
+
+	stmt.Limit.SetOffset(0)
+	stmt.Limit.SetLimit(offset + limit)
+	overwriteLimit = offset + limit
+	return
+}
+
+func (o optimizer) optimizeOrderBy(stmt *rast.SelectStatement) []dataset.OrderByItem {
+	if stmt == nil || stmt.OrderBy == nil {
+		return nil
+	}
+	result := make([]dataset.OrderByItem, 0, len(stmt.OrderBy))
+	for _, node := range stmt.OrderBy {
+		column, _ := node.Expr.(rast.ColumnNameExpressionAtom)
+		item := dataset.OrderByItem{
+			Column: column[0],
+			Desc:   node.Desc,
+		}
+		result = append(result, item)
+	}
+	return result
+}
+
 func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *rast.SelectStatement, args []interface{}) (proto.Plan, error) {
 	var ru *rule.Rule
 	if ru = rcontext.Rule(ctx); ru == nil {
 		return nil, errors.WithStack(errNoRuleFound)
 	}
+
+	// overwrite stmt limit x offset y. eg `select * from student offset 100 limit 5` will be
+	// `select * from student offset 0 limit 100+5`
+	originOffset, overwriteLimit := o.overwriteLimit(stmt, &args)
 	if stmt.HasJoin() {
 		return o.optimizeJoin(ctx, conn, stmt, args)
 	}
@@ -370,13 +470,31 @@ func (o optimizer) optimizeSelect(ctx context.Context, conn proto.VConn, stmt *r
 		}
 	}
 
-	unionPlan := &plan.UnionPlan{
+	var tmpPlan proto.Plan
+	tmpPlan = &plan.UnionPlan{
 		Plans: plans,
+	}
+
+	if stmt.Limit != nil {
+		tmpPlan = &plan.LimitPlan{
+			ParentPlan:     tmpPlan,
+			OriginOffset:   originOffset,
+			OverwriteLimit: overwriteLimit,
+		}
+	}
+
+	orderByItems := o.optimizeOrderBy(stmt)
+
+	if stmt.OrderBy != nil {
+		tmpPlan = &plan.OrderPlan{
+			ParentPlan:   tmpPlan,
+			OrderByItems: orderByItems,
+		}
 	}
 
 	// TODO: order/groupBy/aggregate
 	aggregate := &plan.AggregatePlan{
-		UnionPlan:  unionPlan,
+		Plan:       tmpPlan,
 		Combiner:   transformer.NewCombinerManager(),
 		AggrLoader: transformer.LoadAggrs(stmt.Select),
 	}
@@ -679,6 +797,49 @@ func (o optimizer) optimizeDelete(ctx context.Context, stmt *rast.DeleteStatemen
 	return ret, nil
 }
 
+func (o optimizer) optimizeShowOpenTables(ctx context.Context, stmt *rast.ShowOpenTables, args []interface{}) (proto.Plan, error) {
+	var invertedIndex map[string]string
+	for logicalTable, v := range rcontext.Rule(ctx).VTables() {
+		t := v.Topology()
+		t.Each(func(x, y int) bool {
+			if _, phyTable, ok := t.Render(x, y); ok {
+				if invertedIndex == nil {
+					invertedIndex = make(map[string]string)
+				}
+				invertedIndex[phyTable] = logicalTable
+			}
+			return true
+		})
+	}
+
+	clusters := security.DefaultTenantManager().GetClusters(rcontext.Tenant(ctx))
+	plans := make([]proto.Plan, 0, len(clusters))
+	for _, cluster := range clusters {
+		ns := namespace.Load(cluster)
+		// 配置里原子库 都需要执行一次
+		groups := ns.DBGroups()
+		for i := 0; i < len(groups); i++ {
+			ret := plan.NewShowOpenTablesPlan(stmt)
+			ret.BindArgs(args)
+			ret.SetInvertedShards(invertedIndex)
+			ret.SetDatabase(groups[i])
+			plans = append(plans, ret)
+		}
+	}
+
+	unionPlan := &plan.UnionPlan{
+		Plans: plans,
+	}
+
+	aggregate := &plan.AggregatePlan{
+		Plan:       unionPlan,
+		Combiner:   transformer.NewCombinerManager(),
+		AggrLoader: transformer.LoadAggrs(nil),
+	}
+
+	return aggregate, nil
+}
+
 func (o optimizer) optimizeShowTables(ctx context.Context, stmt *rast.ShowTables, args []interface{}) (proto.Plan, error) {
 	var invertedIndex map[string]string
 	for logicalTable, v := range rcontext.Rule(ctx).VTables() {
@@ -703,6 +864,57 @@ func (o optimizer) optimizeShowTables(ctx context.Context, stmt *rast.ShowTables
 func (o optimizer) optimizeShowIndex(_ context.Context, stmt *rast.ShowIndex, args []interface{}) (proto.Plan, error) {
 	ret := &plan.ShowIndexPlan{Stmt: stmt}
 	ret.BindArgs(args)
+	return ret, nil
+}
+
+func (o optimizer) optimizeShowColumns(ctx context.Context, stmt *rast.ShowColumns, args []interface{}) (proto.Plan, error) {
+	vts := rcontext.Rule(ctx).VTables()
+	vtName := []string(stmt.TableName)[0]
+	ret := &plan.ShowColumnsPlan{Stmt: stmt}
+	ret.BindArgs(args)
+
+	if vTable, ok := vts[vtName]; ok {
+		shards := rule.DatabaseTables{}
+		// compute all tables
+		topology := vTable.Topology()
+		topology.Each(func(dbIdx, tbIdx int) bool {
+			if d, t, ok := topology.Render(dbIdx, tbIdx); ok {
+				shards[d] = append(shards[d], t)
+			}
+			return true
+		})
+		_, tblName := shards.Smallest()
+		ret.Table = tblName
+	}
+
+	return ret, nil
+}
+
+func (o optimizer) optimizeShowCreate(ctx context.Context, stmt *rast.ShowCreate, args []interface{}) (proto.Plan, error) {
+	if stmt.Type() != rast.ShowCreateTypeTable {
+		return nil, errors.Errorf("not support SHOW CREATE %s", stmt.Type().String())
+	}
+
+	var (
+		ret   = plan.NewShowCreatePlan(stmt)
+		ru    = rcontext.Rule(ctx)
+		table = stmt.Target()
+	)
+	ret.BindArgs(args)
+
+	if vt, ok := ru.VTable(table); ok {
+		// sharding
+		topology := vt.Topology()
+		if d, t, ok := topology.Render(0, 0); ok {
+			ret.Database = d
+			ret.Table = t
+		} else {
+			return nil, errors.Errorf("failed to render table:%s ", table)
+		}
+	} else {
+		ret.Table = table
+	}
+
 	return ret, nil
 }
 

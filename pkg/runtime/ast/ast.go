@@ -98,7 +98,7 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		}
 		switch tgt := result.(type) {
 		case *ShowColumns:
-			return &DescribeStatement{Table: tgt.tableName, Column: tgt.Column}, nil
+			return &DescribeStatement{Table: tgt.TableName, Column: tgt.Column}, nil
 		default:
 			return &ExplainStatement{tgt: tgt}, nil
 		}
@@ -552,11 +552,23 @@ func (cc *convCtx) convTruncateTableStmt(node *ast.TruncateTableStmt) Statement 
 }
 
 func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
+	toIn := func(node *ast.ShowStmt) (string, bool) {
+		if node.DBName == "" {
+			return "", false
+		}
+		return node.DBName, true
+	}
 	toWhere := func(node *ast.ShowStmt) (ExpressionNode, bool) {
 		if node.Where == nil {
 			return nil, false
 		}
 		return toExpressionNode(cc.convExpr(node.Where)), true
+	}
+	toShowLike := func(node *ast.ShowStmt) (PredicateNode, bool) {
+		if node.Pattern == nil {
+			return nil, false
+		}
+		return cc.convPatternLikeExpr(node.Pattern), true
 	}
 	toLike := func(node *ast.ShowStmt) (string, bool) {
 		if node.Pattern == nil {
@@ -567,15 +579,19 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 
 	toBaseShow := func() *baseShow {
 		var bs baseShow
-		if like, ok := toLike(node); ok {
+		if like, ok := toShowLike(node); ok {
 			bs.filter = like
 		} else if where, ok := toWhere(node); ok {
 			bs.filter = where
+		} else if in, ok := toIn(node); ok {
+			bs.filter = in
 		}
 		return &bs
 	}
 
 	switch node.Tp {
+	case ast.ShowOpenTables:
+		return &ShowOpenTables{baseShow: toBaseShow()}
 	case ast.ShowTables:
 		return &ShowTables{baseShow: toBaseShow()}
 	case ast.ShowDatabases:
@@ -595,7 +611,7 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 		return ret
 	case ast.ShowColumns:
 		ret := &ShowColumns{
-			tableName: []string{node.Table.Name.O},
+			TableName: []string{node.Table.Name.O},
 		}
 		if node.Column != nil {
 			ret.Column = node.Column.Name.O
@@ -1136,13 +1152,13 @@ func (cc *convCtx) toArg(arg ast.ExprNode) *FunctionArg {
 
 func (cc *convCtx) convPatternLikeExpr(expr *ast.PatternLikeExpr) PredicateNode {
 	var (
-		left  = cc.convExpr(expr.Expr)
-		right = cc.convExpr(expr.Pattern)
+		left, _  = cc.convExpr(expr.Expr).(PredicateNode)
+		right, _ = cc.convExpr(expr.Pattern).(PredicateNode)
 	)
 	return &LikePredicateNode{
 		Not:   expr.Not,
-		Left:  left.(PredicateNode),
-		Right: right.(PredicateNode),
+		Left:  left,
+		Right: right,
 	}
 }
 

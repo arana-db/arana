@@ -28,15 +28,21 @@ import (
 )
 
 import (
+	constant "github.com/arana-db/arana/pkg/constants/mysql"
 	"github.com/arana-db/arana/pkg/dataset"
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/mysql/rows"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/resultx"
 	"github.com/arana-db/arana/pkg/runtime/ast"
+	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 )
 
-var _ proto.Plan = (*ShowTablesPlan)(nil)
+var (
+	_ proto.Plan = (*ShowTablesPlan)(nil)
+
+	headerPrefix = "Tables_in_"
+)
 
 type ShowTablesPlan struct {
 	basePlan
@@ -63,6 +69,8 @@ func (st *ShowTablesPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 		res     proto.Result
 		err     error
 	)
+	ctx, span := Tracer.Start(ctx, "ShowTablesPlan.ExecIn")
+	defer span.End()
 
 	if err = st.Stmt.Restore(ast.RestoreDefault, &sb, &indexes); err != nil {
 		return nil, errors.WithStack(err)
@@ -83,6 +91,8 @@ func (st *ShowTablesPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 	}
 
 	fields, _ := ds.Fields()
+
+	fields[0] = mysql.NewField(headerPrefix+rcontext.Schema(ctx), constant.FieldTypeVarString)
 
 	// filter duplicates
 	duplicates := make(map[string]struct{})
@@ -129,6 +139,10 @@ func (st *ShowTablesPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 	)
 
 	return resultx.New(resultx.WithDataset(ds)), nil
+}
+
+func (st *ShowTablesPlan) SetDatabase(db string) {
+	st.Database = db
 }
 
 func (st *ShowTablesPlan) SetInvertedShards(m map[string]string) {

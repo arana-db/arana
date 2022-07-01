@@ -44,7 +44,9 @@ func TestSuite(t *testing.T) {
 	su := NewMySuite(
 		WithMySQLServerAuth("root", "123456"),
 		WithMySQLDatabase("employees"),
-		// WithDevMode(), // NOTICE: UNCOMMENT IF YOU WANT TO DEBUG LOCAL ARANA SERVER!!!
+		WithConfig("../integration_test/config/db_tbl/config.yaml"),
+		WithScriptPath("../scripts"),
+		//WithDevMode(), // NOTICE: UNCOMMENT IF YOU WANT TO DEBUG LOCAL ARANA SERVER!!!
 	)
 	suite.Run(t, &IntegrationSuite{su})
 }
@@ -277,7 +279,7 @@ func (s *IntegrationSuite) TestUpdate() {
 
 	assert.Equal(t, int64(1), affected)
 
-	result, err = db.Exec("update student set score=100.0,uid=11 where uid = ?", 32)
+	_, err = db.Exec("update student set score=100.0,uid=11 where uid = ?", 32)
 	assert.Error(t, err)
 }
 
@@ -547,4 +549,117 @@ func (s *IntegrationSuite) TestInsertAutoIncrement() {
 	if _, err := db.Exec("DELETE FROM student"); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func (s *IntegrationSuite) TestDropIndex() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	result, err := db.Exec("drop index `nickname` on student")
+	assert.NoErrorf(t, err, "drop index error: %v", err)
+	affected, err := result.RowsAffected()
+	assert.NoErrorf(t, err, "drop index error: %v", err)
+
+	assert.Equal(t, int64(0), affected)
+
+	schemas := map[string]string{"employees_0000": "student_0000", "employees_0001": "student_0012", "employees_0002": "student_0020", "employees_0003": "student_0024"}
+
+	for schema := range schemas {
+		table := schemas[schema]
+
+		func(schema string) {
+			mysqlDb, err := s.MySQLDB(schema)
+			assert.NoErrorf(t, err, "connect mysql error: %v", err)
+
+			defer mysqlDb.Close()
+			rows, err := mysqlDb.Query(fmt.Sprintf("show index from %s", table))
+			assert.NoErrorf(t, err, "show create error: %v", err)
+
+			defer rows.Close()
+
+			ret, err := convertRowsToMapSlice(rows)
+			assert.NoErrorf(t, err, "connect mysql error: %v", err)
+
+			newRet := make([]map[string]string, len(ret), len(ret))
+			for i := range ret {
+				newRet[i] = make(map[string]string)
+				for k, v := range ret[i] {
+					if (*v.(*interface{})) == nil {
+						newRet[i][k] = ""
+						continue
+					}
+					newRet[i][k] = string((*v.(*interface{})).([]uint8))
+				}
+			}
+			t.Logf("ret : %#v", newRet)
+
+			for i := range ret {
+				keyName := string((*ret[i]["Key_name"].(*interface{})).([]uint8))
+				t.Logf("Key_name : %s", keyName)
+				if keyName == "nickname" {
+					t.Fatal("drop index `nickname` fail")
+				}
+			}
+
+		}(schema)
+
+	}
+
+}
+
+func convertRowsToMapSlice(rows *sql.Rows) ([]map[string]interface{}, error) {
+	ret := make([]map[string]interface{}, 0, 4)
+
+	columns, _ := rows.Columns()
+
+	cache := make([]interface{}, len(columns))
+	for index := range cache {
+		var placeholder interface{}
+		cache[index] = &placeholder
+	}
+
+	for rows.Next() {
+		if err := rows.Scan(cache...); err != nil {
+			return nil, err
+		}
+
+		record := make(map[string]interface{})
+		for i, d := range cache {
+			record[columns[i]] = d
+		}
+
+		ret = append(ret, record)
+	}
+
+	return ret, nil
+}
+
+func (s *IntegrationSuite) TestShowColumns() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	result, err := db.Query("show columns from student")
+	assert.NoErrorf(t, err, "show columns error: %v", err)
+
+	defer result.Close()
+
+	affected, err := result.ColumnTypes()
+	assert.NoErrorf(t, err, "show columns: %v", err)
+	assert.Equal(t, affected[0].DatabaseTypeName(), "VARCHAR")
+}
+
+func (s *IntegrationSuite) TestShowCreate() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	row := db.QueryRow("show create table student")
+	var table, createStr string
+	assert.NoError(t, row.Scan(&table, &createStr))
+	assert.Equal(t, "student", table)
 }

@@ -38,6 +38,7 @@ docker-build:
 integration-test:
 	@go clean -testcache
 	go test -tags integration -v ./test/...
+	go test -tags integration-all -v ./integration_test/...
 
 clean:
 	@rm -rf coverage.txt

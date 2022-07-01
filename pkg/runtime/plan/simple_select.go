@@ -55,6 +55,9 @@ func (s *SimpleQueryPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 		err     error
 	)
 
+	ctx, span := Tracer.Start(ctx, "SimpleQueryPlan.ExecIn")
+	defer span.End()
+
 	discard := s.filter()
 
 	if err = s.generate(&sb, &indexes); err != nil {

@@ -29,6 +29,9 @@ import (
 	"github.com/arana-db/parser/ast"
 
 	"github.com/pkg/errors"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 )
 
 import (
@@ -44,6 +47,8 @@ import (
 )
 
 var (
+	Tracer = otel.Tracer("Executor")
+
 	errMissingTx          = stdErrors.New("no transaction found")
 	errNoDatabaseSelected = mysqlErrors.NewSQLError(mConstants.ERNoDb, mConstants.SSNoDatabaseSelected, "No database selected")
 )
@@ -121,6 +126,12 @@ func (executor *RedirectExecutor) ExecuteFieldList(ctx *proto.Context) ([]proto.
 		return nil, errors.WithStack(err)
 	}
 
+	if vt, ok := rt.Namespace().Rule().VTable(table); ok {
+		if _, atomTable, exist := vt.Topology().Render(0, 0); exist {
+			table = atomTable
+		}
+	}
+
 	db := rt.Namespace().DB0(ctx.Context)
 	if db == nil {
 		return nil, errors.New("cannot get physical backend connection")
@@ -130,6 +141,10 @@ func (executor *RedirectExecutor) ExecuteFieldList(ctx *proto.Context) ([]proto.
 }
 
 func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Result, uint16, error) {
+	var span trace.Span
+	ctx.Context, span = Tracer.Start(ctx.Context, "ExecutorComQuery")
+	defer span.End()
+
 	var (
 		schemaless bool // true if schema is not specified
 		err        error
@@ -259,6 +274,12 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 			res, warn, err = rt.Execute(ctx)
 		}
 	case *ast.ExplainStmt:
+		if schemaless {
+			err = errNoDatabaseSelected
+		} else {
+			res, warn, err = rt.Execute(ctx)
+		}
+	case *ast.DropIndexStmt:
 		if schemaless {
 			err = errNoDatabaseSelected
 		} else {

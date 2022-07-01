@@ -48,6 +48,9 @@ const (
 	// connBufferSize is how much we buffer for reading and
 	// writing. It is also how much we allocate for ephemeral buffers.
 	connBufferSize = 16 * 1024
+
+	// packetHeaderSize is the first four bytes of a packet
+	packetHeaderSize int = 4
 )
 
 // Constants for how ephemeral buffers were used for reading / writing.
@@ -426,6 +429,53 @@ func (c *Conn) ReadPacket() ([]byte, error) {
 	return result, err
 }
 
+func (c *Conn) writePacketForFieldList(data []byte) error {
+	index := 0
+	dataLength := len(data) - packetHeaderSize
+
+	w, unget := c.getWriter()
+	defer unget()
+
+	var header [packetHeaderSize]byte
+	for {
+		// toBeSent is capped to MaxPacketSize.
+		toBeSent := dataLength
+		if toBeSent > mysql.MaxPacketSize {
+			toBeSent = mysql.MaxPacketSize
+		}
+
+		// Write the body.
+		if n, err := w.Write(data[index : index+toBeSent+packetHeaderSize]); err != nil {
+			return errors.Wrapf(err, "Write(header) failed")
+		} else if n != (toBeSent + packetHeaderSize) {
+			return errors.Wrapf(err, "Write(packet) returned a short write: %v < %v", n, toBeSent+packetHeaderSize)
+		}
+
+		// Update our state.
+		c.sequence++
+		dataLength -= toBeSent
+		if dataLength == 0 {
+			if toBeSent == mysql.MaxPacketSize {
+				// The packet we just sent had exactly
+				// MaxPacketSize size, we need to
+				// send a zero-size packet too.
+				header[0] = 0
+				header[1] = 0
+				header[2] = 0
+				header[3] = c.sequence
+				if n, err := w.Write(data[index : index+toBeSent+packetHeaderSize]); err != nil {
+					return errors.Wrapf(err, "Write(header) failed")
+				} else if n != (toBeSent + packetHeaderSize) {
+					return errors.Wrapf(err, "Write(packet) returned a short write: %v < %v", n, (toBeSent + packetHeaderSize))
+				}
+				c.sequence++
+			}
+			return nil
+		}
+		index += toBeSent
+	}
+}
+
 // writePacket writes a packet, possibly cutting it into multiple
 // chunks.  Note this is not very efficient, as the client probably
 // has to build the []byte and that makes a memory copy.
@@ -475,7 +525,7 @@ func (c *Conn) writePacket(data []byte) error {
 			if packetLength == mysql.MaxPacketSize {
 				// The packet we just sent had exactly
 				// MaxPacketSize size, we need to
-				// sent a zero-size packet too.
+				// send a zero-size packet too.
 				header[0] = 0
 				header[1] = 0
 				header[2] = 0
@@ -512,7 +562,7 @@ func (c *Conn) writeEphemeralPacket() error {
 	switch c.currentEphemeralPolicy {
 	case ephemeralWrite:
 		if err := c.writePacket(*c.currentEphemeralBuffer); err != nil {
-			return errors.Wrapf(err, "conn %v", c.ID())
+			return errors.WithStack(errors.Wrapf(err, "conn %v", c.ID()))
 		}
 	case ephemeralUnused, ephemeralRead:
 		// Programming error.
@@ -658,6 +708,18 @@ func (c *Conn) writeErrorPacketFromError(err error) error {
 	}
 
 	return c.writeErrorPacket(mysql.ERUnknownError, mysql.SSUnknownSQLState, "unknown error: %v", err)
+}
+
+func (c *Conn) buildEOFPacket(flags uint16, warnings uint16) []byte {
+	data := make([]byte, 9)
+	pos := 0
+	data[pos] = 0x05
+	pos += 3
+	pos = writeLenEncInt(data, pos, uint64(c.sequence))
+	pos = writeByte(data, pos, mysql.EOFPacket)
+	pos = writeUint16(data, pos, flags)
+	_ = writeUint16(data, pos, warnings)
+	return data
 }
 
 // writeEOFPacket writes an EOF packet, through the buffer, and

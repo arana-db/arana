@@ -52,6 +52,8 @@ func (s *SimpleDeletePlan) Type() proto.PlanType {
 }
 
 func (s *SimpleDeletePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+	ctx, span := Tracer.Start(ctx, "SimpleDeletePlan.ExecIn")
+	defer span.End()
 	if s.shards == nil || s.shards.IsEmpty() {
 		return resultx.New(), nil
 	}
