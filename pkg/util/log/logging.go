@@ -147,7 +147,7 @@ func Init(logPath string, level LogLevel) {
 	log = zapLogger.Sugar()
 }
 
-// SetLogger: customize yourself logger.
+// SetLogger customize yourself logger.
 func SetLogger(logger Logger) {
 	log = logger
 }

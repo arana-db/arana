@@ -254,7 +254,7 @@ func (l *Listener) handlePrepare(c *Conn, ctx *proto.Context) error {
 	query := string(ctx.Data[1:])
 	c.recycleReadPacket()
 
-	// Popoulate PrepareData
+	// Populate PrepareData
 	statementID := l.statementID.Inc()
 
 	stmt := &proto.Stmt{
