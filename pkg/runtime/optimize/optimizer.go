@@ -1079,26 +1079,17 @@ func (o optimizer) optimizeTrigger(ctx context.Context, stmt *rast.DropTriggerSt
 		return nil, errors.WithStack(errNoRuleFound)
 	}
 
-	var (
-		shards rule.DatabaseTables
-		err    error
-	)
+	shards := rule.DatabaseTables{}
+	for _, table := range ru.VTables() {
+		topology := table.Topology()
+		topology.Each(func(dbIdx, tbIdx int) bool {
+			if d, t, ok := topology.Render(dbIdx, tbIdx); ok {
+				shards[d] = append(shards[d], t)
+			}
+			return true
+		})
 
-	if shards, _, err = (*Sharder)(ru).Shard(stmt.Table, nil, args...); err != nil {
-		return nil, errors.Wrap(err, "calculate shards failed")
-	}
-
-	if shards.IsFullScan() {
-		shards = rule.DatabaseTables{}
-		for _, table := range ru.VTables() {
-			topology := table.Topology()
-			topology.Each(func(dbIdx, tbIdx int) bool {
-				if d, t, ok := topology.Render(dbIdx, tbIdx); ok {
-					shards[d] = append(shards[d], t)
-				}
-				return true
-			})
-		}
+		break
 	}
 
 	ret := &plan.DropTriggerPlan{Stmt: stmt, Shards: shards}
