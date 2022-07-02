@@ -509,49 +509,6 @@ func (s *IntegrationSuite) TestCreateIndex() {
 	affected, err := result.RowsAffected()
 	assert.NoErrorf(t, err, "create index error: %v", err)
 	assert.Equal(t, int64(0), affected)
-
-	schemas := map[string]string{"employees_0000": "student_0000", "employees_0001": "student_0012", "employees_0002": "student_0020", "employees_0003": "student_0024"}
-
-	for schema := range schemas {
-		table := schemas[schema]
-
-		func(schema string) {
-			mysqlDb, err := s.MySQLDB(schema)
-			assert.NoErrorf(t, err, "connect mysql error: %v", err)
-
-			defer mysqlDb.Close()
-			rows, err := mysqlDb.Query(fmt.Sprintf("show index from %s", table))
-			assert.NoErrorf(t, err, "show create error: %v", err)
-
-			defer rows.Close()
-
-			ret, err := convertRowsToMapSlice(rows)
-			assert.NoErrorf(t, err, "connect mysql error: %v", err)
-
-			newRet := make([]map[string]string, len(ret), len(ret))
-			for i := range ret {
-				newRet[i] = make(map[string]string)
-				for k, v := range ret[i] {
-					if (*v.(*interface{})) == nil {
-						newRet[i][k] = ""
-						continue
-					}
-					newRet[i][k] = string((*v.(*interface{})).([]uint8))
-				}
-			}
-			t.Logf("ret : %#v", newRet)
-
-			for i := range ret {
-				keyName := string((*ret[i]["Key_name"].(*interface{})).([]uint8))
-				t.Logf("Key_name : %s", keyName)
-				if keyName == "name" {
-					//t.Fatal("create index `nickname` fail")
-				}
-			}
-
-		}(schema)
-
-	}
 }
 
 func (s *IntegrationSuite) TestDropIndex() {
