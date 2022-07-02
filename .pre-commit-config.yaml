@@ -19,6 +19,6 @@
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
 -   repo: http://github.com/golangci/golangci-lint
-    rev: v1.42.1
+    rev: v1.46.2
     hooks:
     -   id: golangci-lint

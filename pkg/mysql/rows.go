@@ -351,8 +351,8 @@ func (te TextRow) Scan(dest []proto.Value) error {
 		switch te.fields[i].(*Field).fieldType {
 		case mysql.FieldTypeString, mysql.FieldTypeVarString, mysql.FieldTypeVarChar:
 			dest[i] = string(b)
-		case mysql.FieldTypeTiny, mysql.FieldTypeShort, mysql.FieldTypeLong, mysql.FieldTypeInt24,
-			mysql.FieldTypeLongLong, mysql.FieldTypeYear:
+		case mysql.FieldTypeTiny, mysql.FieldTypeShort, mysql.FieldTypeLong,
+			mysql.FieldTypeInt24, mysql.FieldTypeLongLong, mysql.FieldTypeYear:
 			if te.fields[i].(*Field).flags&mysql.UnsignedFlag > 0 {
 				dest[i], err = strconv.ParseUint(string(b), 10, 64)
 			} else {

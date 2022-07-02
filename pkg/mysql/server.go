@@ -745,27 +745,15 @@ func (c *Conn) parseStmtArgs(data []byte, typ mysql.FieldType, pos int) (interfa
 	case mysql.FieldTypeTiny:
 		val, pos, ok := readByte(data, pos)
 		return int64(int8(val)), pos, ok
-	case mysql.FieldTypeUint8:
-		val, pos, ok := readByte(data, pos)
-		return int64(int8(val)), pos, ok
-	case mysql.FieldTypeUint16:
-		val, pos, ok := readUint16(data, pos)
-		return int64(int16(val)), pos, ok
 	case mysql.FieldTypeShort, mysql.FieldTypeYear:
 		val, pos, ok := readUint16(data, pos)
 		return int64(int16(val)), pos, ok
-	case mysql.FieldTypeUint24, mysql.FieldTypeUint32:
-		val, pos, ok := readUint32(data, pos)
-		return int64(val), pos, ok
 	case mysql.FieldTypeInt24, mysql.FieldTypeLong:
 		val, pos, ok := readUint32(data, pos)
 		return int64(int32(val)), pos, ok
 	case mysql.FieldTypeFloat:
 		val, pos, ok := readUint32(data, pos)
-		return math.Float32frombits(uint32(val)), pos, ok
-	case mysql.FieldTypeUint64:
-		val, pos, ok := readUint64(data, pos)
-		return val, pos, ok
+		return math.Float32frombits(val), pos, ok
 	case mysql.FieldTypeLongLong:
 		val, pos, ok := readUint64(data, pos)
 		return int64(val), pos, ok

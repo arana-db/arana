@@ -77,6 +77,8 @@ func (tp *TransparentPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.
 		args []int
 		err  error
 	)
+	ctx, span := Tracer.Start(ctx, "TransparentPlan.ExecIn")
+	defer span.End()
 
 	if err = tp.stmt.Restore(rast.RestoreDefault, &sb, &args); err != nil {
 		return nil, errors.WithStack(err)

@@ -54,6 +54,8 @@ func (d *DescribePlan) ExecIn(ctx context.Context, vConn proto.VConn) (proto.Res
 		res     proto.Result
 		err     error
 	)
+	ctx, span := Tracer.Start(ctx, "DescribePlan.ExecIn")
+	defer span.End()
 
 	if err = d.generate(&sb, &indexes); err != nil {
 		return nil, errors.Wrap(err, "failed to generate desc/describe sql")

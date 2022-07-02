@@ -57,6 +57,8 @@ func (up *UpdatePlan) Type() proto.PlanType {
 }
 
 func (up *UpdatePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+	ctx, span := Tracer.Start(ctx, "UpdatePlan.ExecIn")
+	defer span.End()
 	if up.shards == nil {
 		var sb strings.Builder
 		if err := up.stmt.Restore(ast.RestoreDefault, &sb, nil); err != nil {

@@ -69,6 +69,8 @@ func (st *ShowTablesPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 		res     proto.Result
 		err     error
 	)
+	ctx, span := Tracer.Start(ctx, "ShowTablesPlan.ExecIn")
+	defer span.End()
 
 	if err = st.Stmt.Restore(ast.RestoreDefault, &sb, &indexes); err != nil {
 		return nil, errors.WithStack(err)

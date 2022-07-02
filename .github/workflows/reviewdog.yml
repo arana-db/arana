@@ -30,4 +30,5 @@ jobs:
       - name: golangci-lint
         uses: reviewdog/action-golangci-lint@v2
         with:
-          go_version: "1.16"
+          go_version: "1.18"
+          golangci_lint_version: "v1.46.2" # use latest version by default
