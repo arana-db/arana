@@ -20,7 +20,6 @@ package test
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -91,9 +90,8 @@ type MySuite struct {
 
 	container *MySQLContainer
 
-	mysqlDb *sql.DB
-	db      *sql.DB
-	dbSync  sync.Once
+	db     *sql.DB
+	dbSync sync.Once
 
 	tmpFile, bootstrapConfig, configPath, scriptPath string
 }
@@ -131,25 +129,6 @@ func (ms *MySuite) DB() *sql.DB {
 	}
 
 	return ms.db
-}
-
-func (ms *MySuite) MySQLDB(schema string) (*sql.DB, error) {
-	var (
-		mysqlDsn = fmt.Sprintf("root:123456@tcp(127.0.0.1:%d)/%s?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8", ms.container.Port, schema)
-		err      error
-	)
-	ms.T().Logf("====== connecting %s ======\n", mysqlDsn)
-
-	if ms.mysqlDb, err = sql.Open("mysql", mysqlDsn); err != nil {
-		ms.T().Log("connect mysql failed:", err.Error())
-		return nil, err
-	}
-
-	if ms.mysqlDb == nil {
-		return nil, errors.New("connect mysql failed")
-	}
-
-	return ms.mysqlDb, nil
 }
 
 func (ms *MySuite) SetupSuite() {
