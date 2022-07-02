@@ -27,6 +27,7 @@ var (
 type CreateIndexStatement struct {
 	IndexName string
 	Table     TableName
+	Keys      []*IndexPartSpec
 }
 
 func (c *CreateIndexStatement) CntParams() int {
@@ -40,7 +41,21 @@ func (c *CreateIndexStatement) Restore(flag RestoreFlag, sb *strings.Builder, ar
 		return nil
 	}
 	sb.WriteString(" ON ")
-	return c.Table.Restore(flag, sb, args)
+	if err := c.Table.Restore(flag, sb, args); err != nil {
+		return err
+	}
+
+	sb.WriteString(" (")
+	for i, k := range c.Keys {
+		if i != 0 {
+			sb.WriteString(", ")
+		}
+		if err := k.Restore(flag, sb, args); err != nil {
+			return err
+		}
+	}
+	sb.WriteString(")")
+	return nil
 }
 
 func (c *CreateIndexStatement) Validate() error {

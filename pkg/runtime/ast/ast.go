@@ -136,9 +136,19 @@ func (cc *convCtx) convCreateIndexStmt(stmt *ast.CreateIndexStmt) *CreateIndexSt
 		tableName = append(tableName, db)
 	}
 	tableName = append(tableName, stmt.Table.Name.O)
+
+	keys := make([]*IndexPartSpec, len(stmt.IndexPartSpecifications))
+	for i, k := range stmt.IndexPartSpecifications {
+		keys[i] = &IndexPartSpec{
+			Column: cc.convColumn(k.Column),
+			Expr:   toExpressionNode(cc.convExpr(k.Expr)),
+		}
+	}
+
 	return &CreateIndexStatement{
 		Table:     tableName,
 		IndexName: stmt.IndexName,
+		Keys:      keys,
 	}
 }
 
