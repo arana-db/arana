@@ -45,7 +45,7 @@ const (
 	CREATE TABLE IF NOT EXISTS __arana_snowflake_sequence (
 		work_id int AUTO_INCREMENT COMMENT 'snowflake work id',
 		node_id varchar(255) NOT NULL COMMENT 'unique id of the node, eg. ip/name/uuid',
-		table_name varchar(255) NOT NULL COMMENT 'arana's logic table name',
+		table_name varchar(255) NOT NULL COMMENT 'arana logic table name',
 		PRIMARY KEY (work_id),
 		UNIQUE KEY(node_id, table_name)
 	) ENGINE = InnoDB;
@@ -58,7 +58,7 @@ var (
 	// mu Solving the competition of the initialization of Sequence related library tables
 	mu sync.Mutex
 
-	finishInitTable bool = false
+	finishInitTable = false
 
 	_defaultEpoch    int64 = 1533429240000
 	_defaultNodeBits uint8 = 10
@@ -81,7 +81,7 @@ type snowflakeSequence struct {
 	currentVal int64
 }
 
-// Start Start sequence and do some initialization operations
+// Start sequence and do some initialization operations
 func (seq *snowflakeSequence) Start(ctx context.Context, conf proto.SequenceConfig) error {
 	if err := seq.doInit(ctx, conf); err != nil {
 		return err
