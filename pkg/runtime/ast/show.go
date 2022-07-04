@@ -220,6 +220,10 @@ func (s *ShowIndex) TableName() TableName {
 	return s.tableName
 }
 
+func (s *ShowIndex) SetTableName(tableName TableName) {
+	s.tableName = tableName
+}
+
 func (s *ShowIndex) Where() (ExpressionNode, bool) {
 	if s.where != nil {
 		return s.where, true
