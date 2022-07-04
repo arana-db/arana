@@ -603,7 +603,7 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 		}
 	case ast.ShowIndex:
 		ret := &ShowIndex{
-			tableName: []string{node.Table.Name.O},
+			TableName: []string{node.Table.Name.O},
 		}
 		if where, ok := toWhere(node); ok {
 			ret.where = where

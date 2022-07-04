@@ -863,7 +863,7 @@ func (o optimizer) optimizeShowIndex(ctx context.Context, stmt *rast.ShowIndex, 
 		return nil, errors.WithStack(errNoRuleFound)
 	}
 
-	vt := ru.MustVTable(stmt.TableName().Suffix())
+	vt := ru.MustVTable(stmt.TableName.Suffix())
 	shards := rule.DatabaseTables{}
 
 	topology := vt.Topology()

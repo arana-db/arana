@@ -54,10 +54,10 @@ func (s *ShowIndexPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Res
 		err     error
 	)
 
-	toTable := s.Stmt.TableName().Suffix()
+	toTable := s.Stmt.TableName.Suffix()
 
 	db, table := s.Shards.Smallest()
-	s.Stmt.SetTableName(ast.TableName{table})
+	s.Stmt.TableName = ast.TableName{table}
 
 	if err = s.Stmt.Restore(ast.RestoreDefault, &sb, &indexes); err != nil {
 		return nil, errors.WithStack(err)
