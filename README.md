@@ -1,7 +1,7 @@
 # Arana
 
 <div align=center>
-    <img src="https://raw.githubusercontent.com/arana-db/arana/master/docs/pics/arana-logo.png"/>
+    <img src="https://raw.githubusercontent.com/arana-db/arana/master/docs/pics/arana-db-blue.png"/>
 </div>
 
 `Arana` is a Cloud Native Database Proxy. It can be deployed as a Database mesh sidecar. It provides transparent data access capabilities,
