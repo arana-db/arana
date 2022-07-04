@@ -68,8 +68,15 @@ func (s *ShowIndexPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Res
 		return nil, errors.WithStack(err)
 	}
 
-	ds, _ := query.Dataset()
-	fields, _ := ds.Fields()
+	ds, err := query.Dataset()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	fields, err := ds.Fields()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
 
 	ds = dataset.Pipe(ds,
 		dataset.Map(nil, func(next proto.Row) (proto.Row, error) {
