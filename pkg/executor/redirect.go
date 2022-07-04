@@ -39,6 +39,7 @@ import (
 	"github.com/arana-db/arana/pkg/metrics"
 	mysqlErrors "github.com/arana-db/arana/pkg/mysql/errors"
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/proto/hint"
 	"github.com/arana-db/arana/pkg/resultx"
 	"github.com/arana-db/arana/pkg/runtime"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
@@ -153,10 +154,20 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 	p := parser.New()
 	query := ctx.GetQuery()
 	start := time.Now()
-	act, err := p.ParseOneStmt(query, "", "")
+	act, hts, err := p.ParseOneStmtHints(query, "", "")
 	if err != nil {
 		return nil, 0, errors.WithStack(err)
 	}
+
+	var hints []*hint.Hint
+	for _, next := range hts {
+		var h *hint.Hint
+		if h, err = hint.Parse(next); err != nil {
+			return nil, 0, err
+		}
+		hints = append(hints, h)
+	}
+
 	metrics.ParserDuration.Observe(time.Since(start).Seconds())
 	log.Debugf("ComQuery: %s", query)
 
@@ -172,6 +183,7 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 	}
 
 	ctx.Stmt = &proto.Stmt{
+		Hints:    hints,
 		StmtNode: act,
 	}
 

@@ -217,7 +217,7 @@ func (bi BinaryRow) Scan(dest []proto.Value) error {
 				case 1, 2, 3, 4, 5, 6:
 					dstlen = 8 + 1 + decimals
 				default:
-					return errors.Errorf("protocol error, illegal decimals architecture.Value %d", field.decimals)
+					return errors.Errorf("protocol error, illegal decimals architecture.V %d", field.decimals)
 				}
 				val, err = formatBinaryTime(bi.raw[pos:pos+int(num)], dstlen)
 				dest[i] = val
@@ -238,7 +238,7 @@ func (bi BinaryRow) Scan(dest []proto.Value) error {
 					case 1, 2, 3, 4, 5, 6:
 						dstlen = 19 + 1 + decimals
 					default:
-						return errors.Errorf("protocol error, illegal decimals architecture.Value %d", field.decimals)
+						return errors.Errorf("protocol error, illegal decimals architecture.V %d", field.decimals)
 					}
 				}
 				val, err = formatBinaryDateTime(bi.raw[pos:pos+int(num)], dstlen)

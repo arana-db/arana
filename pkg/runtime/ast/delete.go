@@ -109,7 +109,7 @@ func (ds *DeleteStatement) CntParams() int {
 }
 
 func (ds *DeleteStatement) Mode() SQLType {
-	return Sdelete
+	return SQLTypeDelete
 }
 
 func (ds *DeleteStatement) IsLowPriority() bool {

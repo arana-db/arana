@@ -252,7 +252,7 @@ func (ss *SelectStatement) Validate() error {
 }
 
 func (ss *SelectStatement) Mode() SQLType {
-	return Squery
+	return SQLTypeSelect
 }
 
 func (ss *SelectStatement) CntParams() int {

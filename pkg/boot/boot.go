@@ -30,7 +30,6 @@ import (
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime"
 	"github.com/arana-db/arana/pkg/runtime/namespace"
-	"github.com/arana-db/arana/pkg/runtime/optimize"
 	"github.com/arana-db/arana/pkg/security"
 	"github.com/arana-db/arana/pkg/util/log"
 )
@@ -129,5 +128,5 @@ func buildNamespace(ctx context.Context, provider Discovery, cluster string) (*n
 	}
 	initCmds = append(initCmds, namespace.UpdateRule(&ru))
 
-	return namespace.New(cluster, optimize.GetOptimizer(), initCmds...), nil
+	return namespace.New(cluster, initCmds...), nil
 }

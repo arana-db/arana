@@ -159,7 +159,7 @@ func (r *ReplaceStatement) Values() [][]ExpressionNode {
 }
 
 func (r *ReplaceStatement) Mode() SQLType {
-	return Sreplace
+	return SQLTypeReplace
 }
 
 func (r *ReplaceStatement) CntParams() int {
@@ -343,7 +343,7 @@ func (is *InsertStatement) CntParams() int {
 }
 
 func (is *InsertStatement) Mode() SQLType {
-	return Sinsert
+	return SQLTypeInsert
 }
 
 type ReplaceSelectStatement struct {
@@ -369,7 +369,7 @@ func (r *ReplaceSelectStatement) CntParams() int {
 }
 
 func (r *ReplaceSelectStatement) Mode() SQLType {
-	return Sreplace
+	return SQLTypeReplace
 }
 
 type InsertSelectStatement struct {
@@ -461,5 +461,5 @@ func (is *InsertSelectStatement) CntParams() int {
 }
 
 func (is *InsertSelectStatement) Mode() SQLType {
-	return Sinsert
+	return SQLTypeInsertSelect
 }

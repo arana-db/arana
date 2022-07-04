@@ -28,6 +28,7 @@ import (
 
 var (
 	_ Statement = (*ShowTables)(nil)
+	_ Statement = (*ShowOpenTables)(nil)
 	_ Statement = (*ShowCreate)(nil)
 	_ Statement = (*ShowDatabases)(nil)
 	_ Statement = (*ShowColumns)(nil)
@@ -69,12 +70,12 @@ func (bs *baseShow) CntParams() int {
 	return 0
 }
 
-func (bs *baseShow) Mode() SQLType {
-	return Squery
-}
-
 type ShowDatabases struct {
 	*baseShow
+}
+
+func (s ShowDatabases) Mode() SQLType {
+	return SQLTypeShowDatabases
 }
 
 func (s ShowDatabases) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -93,6 +94,10 @@ type ShowTables struct {
 	*baseShow
 }
 
+func (s ShowTables) Mode() SQLType {
+	return SQLTypeShowTables
+}
+
 func (s ShowTables) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("SHOW TABLES")
 	if err := s.baseShow.Restore(flag, sb, args); err != nil {
@@ -107,6 +112,10 @@ func (s ShowTables) Validate() error {
 
 type ShowOpenTables struct {
 	*baseShow
+}
+
+func (s ShowOpenTables) Mode() SQLType {
+	return SQLTypeShowOpenTables
 }
 
 func (s ShowOpenTables) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -189,7 +198,7 @@ func (s *ShowCreate) CntParams() int {
 }
 
 func (s *ShowCreate) Mode() SQLType {
-	return Squery
+	return SQLTypeShowCreate
 }
 
 type ShowIndex struct {
@@ -231,7 +240,7 @@ func (s *ShowIndex) CntParams() int {
 }
 
 func (s *ShowIndex) Mode() SQLType {
-	return Squery
+	return SQLTypeShowIndex
 }
 
 type showColumnsFlag uint8
@@ -304,7 +313,7 @@ func (sh *ShowColumns) CntParams() int {
 }
 
 func (sh *ShowColumns) Mode() SQLType {
-	return Squery
+	return SQLTypeShowColumns
 }
 
 func (sh *ShowColumns) Full() bool {
@@ -364,5 +373,5 @@ func (s *ShowVariables) CntParams() int {
 }
 
 func (s *ShowVariables) Mode() SQLType {
-	return Squery
+	return SQLTypeShowVariables
 }

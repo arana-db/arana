@@ -29,6 +29,7 @@ import (
 	"github.com/arana-db/arana/pkg/constants/mysql"
 	"github.com/arana-db/arana/pkg/mysql/errors"
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/proto/hint"
 	"github.com/arana-db/arana/pkg/security"
 	"github.com/arana-db/arana/pkg/util/log"
 )
@@ -263,7 +264,7 @@ func (l *Listener) handlePrepare(c *Conn, ctx *proto.Context) error {
 		PrepareStmt: query,
 	}
 	p := parser.New()
-	act, err := p.ParseOneStmt(stmt.PrepareStmt, "", "")
+	act, hts, err := p.ParseOneStmtHints(stmt.PrepareStmt, "", "")
 	if err != nil {
 		log.Errorf("Conn %v: Error parsing prepared statement: %v", c, err)
 		if wErr := c.writeErrorPacketFromError(err); wErr != nil {
@@ -271,6 +272,18 @@ func (l *Listener) handlePrepare(c *Conn, ctx *proto.Context) error {
 			return wErr
 		}
 	}
+
+	for _, it := range hts {
+		var h *hint.Hint
+		if h, err = hint.Parse(it); err != nil {
+			if wErr := c.writeErrorPacketFromError(err); wErr != nil {
+				log.Errorf("Conn %v: Error writing prepared statement error: %v", c, wErr)
+				return wErr
+			}
+		}
+		stmt.Hints = append(stmt.Hints, h)
+	}
+
 	stmt.StmtNode = act
 
 	paramsCount := uint16(strings.Count(query, "?"))

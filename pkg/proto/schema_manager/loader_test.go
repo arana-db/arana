@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package schema_manager
+package schema_manager_test
 
 import (
 	"context"
@@ -25,6 +25,7 @@ import (
 import (
 	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/proto/schema_manager"
 	"github.com/arana-db/arana/pkg/runtime"
 	"github.com/arana-db/arana/pkg/runtime/namespace"
 )
@@ -46,7 +47,7 @@ func TestLoader(t *testing.T) {
 	cmds := make([]namespace.Command, 0)
 	cmds = append(cmds, namespace.UpsertDB(groupName, runtime.NewAtomDB(node)))
 	namespaceName := "dongjianhui"
-	ns := namespace.New(namespaceName, nil, cmds...)
+	ns := namespace.New(namespaceName, cmds...)
 	namespace.Register(ns)
 	rt, err := runtime.Load(namespaceName)
 	if err != nil {
@@ -54,7 +55,7 @@ func TestLoader(t *testing.T) {
 	}
 	schemeName := "employees"
 	tableName := "employees"
-	s := NewSimpleSchemaLoader()
+	s := schema_manager.NewSimpleSchemaLoader()
 
 	s.Load(context.Background(), rt.(proto.VConn), schemeName, []string{tableName})
 }

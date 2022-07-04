@@ -56,7 +56,8 @@ func TestShard(t *testing.T) {
 		{"select * from student where uid = if(PI()<3, 1, ?)", []interface{}{0}, []int{0}},
 	} {
 		t.Run(it.sql, func(t *testing.T) {
-			stmt := ast.MustParse(it.sql).(*ast.SelectStatement)
+			_, rawStmt := ast.MustParse(it.sql)
+			stmt := rawStmt.(*ast.SelectStatement)
 
 			result, _, err := (*Sharder)(fakeRule).Shard(stmt.From[0].TableName(), stmt.Where, it.args...)
 			assert.NoError(t, err, "shard failed")

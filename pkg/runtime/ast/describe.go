@@ -59,7 +59,7 @@ func (d *DescribeStatement) CntParams() int {
 }
 
 func (d *DescribeStatement) Mode() SQLType {
-	return Squery
+	return SQLTypeDescribe
 }
 
 // ExplainStatement represents mysql explain statement. see https://dev.mysql.com/doc/refman/8.0/en/explain.html
@@ -88,5 +88,5 @@ func (e *ExplainStatement) CntParams() int {
 }
 
 func (e *ExplainStatement) Mode() SQLType {
-	return Squery
+	return SQLTypeSelect
 }

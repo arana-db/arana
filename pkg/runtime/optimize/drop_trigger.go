@@ -15,45 +15,38 @@
  * limitations under the License.
  */
 
-package ast
+package optimize
 
 import (
-	"strings"
+	"context"
 )
 
 import (
-	"github.com/pkg/errors"
+	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/proto/rule"
+	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/runtime/plan"
 )
 
-type DropTableStatement struct {
-	Tables []*TableName
+func init() {
+	registerOptimizeHandler(ast.SQLTypeDropTrigger, optimizeTrigger)
 }
 
-func NewDropTableStatement() *DropTableStatement {
-	return &DropTableStatement{}
-}
+func optimizeTrigger(_ context.Context, o *optimizer) (proto.Plan, error) {
+	shards := rule.DatabaseTables{}
+	for _, table := range o.rule.VTables() {
+		topology := table.Topology()
+		topology.Each(func(dbIdx, tbIdx int) bool {
+			if d, t, ok := topology.Render(dbIdx, tbIdx); ok {
+				shards[d] = append(shards[d], t)
+			}
+			return true
+		})
 
-func (d DropTableStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
-	sb.WriteString("DROP TABLE ")
-	for index, table := range d.Tables {
-		if index != 0 {
-			sb.WriteString(", ")
-		}
-		if err := table.Restore(flag, sb, args); err != nil {
-			return errors.Errorf("An error occurred while restore DropTableStatement.Tables[%d],error:%s", index, err)
-		}
+		break
 	}
-	return nil
-}
 
-func (d DropTableStatement) CntParams() int {
-	return 0
-}
-
-func (d DropTableStatement) Validate() error {
-	return nil
-}
-
-func (d DropTableStatement) Mode() SQLType {
-	return SQLTypeDropTable
+	ret := &plan.DropTriggerPlan{Stmt: o.stmt.(*ast.DropTriggerStatement), Shards: shards}
+	ret.BindArgs(o.args)
+	return ret, nil
 }

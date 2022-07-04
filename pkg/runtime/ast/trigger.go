@@ -35,7 +35,7 @@ func (d DropTriggerStatement) CntParams() int {
 }
 
 func (d DropTriggerStatement) Mode() SQLType {
-	return DropTrigger
+	return SQLTypeDropTrigger
 }
 
 func (d DropTriggerStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {

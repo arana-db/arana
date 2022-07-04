@@ -44,11 +44,7 @@ func TestRegister(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	opt := testdata.NewMockOptimizer(ctrl)
-
-	const (
-		name = "employees"
-	)
+	const name = "employees"
 
 	getDB := func(i int) proto.DB {
 		db := testdata.NewMockDB(ctrl)
@@ -58,7 +54,7 @@ func TestRegister(t *testing.T) {
 		return db
 	}
 
-	err := Register(New(name, opt, UpsertDB(getGroup(0), getDB(1))))
+	err := Register(New(name, UpsertDB(getGroup(0), getDB(1))))
 	assert.NoError(t, err, "should register namespace ok")
 
 	defer func() {
@@ -89,8 +85,6 @@ func TestGetDBByWeight(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	opt := testdata.NewMockOptimizer(ctrl)
-
 	const (
 		name = "account"
 	)
@@ -104,7 +98,7 @@ func TestGetDBByWeight(t *testing.T) {
 	}
 	// when doing read operation, db 3 is the max
 	// when doing write operation, db 2 is the max
-	err := Register(New(name, opt,
+	err := Register(New(name,
 		UpsertDB(getGroup(0), getDB(1, 9, 1)),
 		UpsertDB(getGroup(0), getDB(2, 10, 5)),
 		UpsertDB(getGroup(0), getDB(3, 3, 10)),

@@ -64,5 +64,5 @@ func (stmt *TruncateStatement) CntParams() int {
 }
 
 func (stmt *TruncateStatement) Mode() SQLType {
-	return Struncate
+	return SQLTypeTruncate
 }
