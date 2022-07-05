@@ -193,7 +193,7 @@ func (s *ShowCreate) Mode() SQLType {
 }
 
 type ShowIndex struct {
-	tableName TableName
+	TableName TableName
 	where     ExpressionNode
 }
 
@@ -204,7 +204,7 @@ func (s *ShowIndex) Validate() error {
 func (s *ShowIndex) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("SHOW INDEXES FROM ")
 
-	_ = s.tableName.Restore(flag, sb, args)
+	_ = s.TableName.Restore(flag, sb, args)
 
 	if where, ok := s.Where(); ok {
 		sb.WriteString(" WHERE ")
@@ -214,10 +214,6 @@ func (s *ShowIndex) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) 
 	}
 
 	return nil
-}
-
-func (s *ShowIndex) TableName() TableName {
-	return s.tableName
 }
 
 func (s *ShowIndex) Where() (ExpressionNode, bool) {
