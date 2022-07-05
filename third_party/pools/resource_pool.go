@@ -48,6 +48,7 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/util/log"
 	"github.com/arana-db/arana/third_party/sync2"
 	"github.com/arana-db/arana/third_party/timer"
 )
@@ -154,6 +155,7 @@ func NewResourcePool(factory Factory, capacity, maxCap int, idleTimeout time.Dur
 
 				r, err := rp.Get(ctx)
 				if err != nil {
+					log.Errorf("get connection resource error: %v", err)
 					return
 				}
 				rp.Put(r)
