@@ -155,7 +155,7 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 	start := time.Now()
 	act, err := p.ParseOneStmt(query, "", "")
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, errors.WithStack(err)
 	}
 	metrics.ParserDuration.Observe(time.Since(start).Seconds())
 	log.Debugf("ComQuery: %s", query)
