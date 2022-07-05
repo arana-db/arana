@@ -863,16 +863,21 @@ func (o optimizer) optimizeShowIndex(ctx context.Context, stmt *rast.ShowIndex, 
 		return nil, errors.WithStack(errNoRuleFound)
 	}
 
-	vt := ru.MustVTable(stmt.TableName.Suffix())
+	ret := &plan.ShowIndexPlan{Stmt: stmt}
+	ret.BindArgs(args)
+
+	vt, ok := ru.VTable(stmt.TableName.Suffix())
+	if !ok {
+		return ret, nil
+	}
+
 	shards := rule.DatabaseTables{}
 
 	topology := vt.Topology()
 	if d, t, ok := topology.Render(0, 0); ok {
 		shards[d] = append(shards[d], t)
 	}
-
-	ret := &plan.ShowIndexPlan{Stmt: stmt, Shards: shards}
-	ret.BindArgs(args)
+	ret.Shards = shards
 	return ret, nil
 }
 

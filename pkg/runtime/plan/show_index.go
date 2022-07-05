@@ -54,6 +54,13 @@ func (s *ShowIndexPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Res
 		err     error
 	)
 
+	if s.Shards == nil {
+		if err = s.Stmt.Restore(ast.RestoreDefault, &sb, &indexes); err != nil {
+			return nil, errors.WithStack(err)
+		}
+		return conn.Query(ctx, "", sb.String(), s.toArgs(indexes)...)
+	}
+
 	toTable := s.Stmt.TableName.Suffix()
 
 	db, table := s.Shards.Smallest()
