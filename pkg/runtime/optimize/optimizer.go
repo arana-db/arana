@@ -857,9 +857,27 @@ func (o optimizer) optimizeShowTables(ctx context.Context, stmt *rast.ShowTables
 	return ret, nil
 }
 
-func (o optimizer) optimizeShowIndex(_ context.Context, stmt *rast.ShowIndex, args []interface{}) (proto.Plan, error) {
+func (o optimizer) optimizeShowIndex(ctx context.Context, stmt *rast.ShowIndex, args []interface{}) (proto.Plan, error) {
+	var ru *rule.Rule
+	if ru = rcontext.Rule(ctx); ru == nil {
+		return nil, errors.WithStack(errNoRuleFound)
+	}
+
 	ret := &plan.ShowIndexPlan{Stmt: stmt}
 	ret.BindArgs(args)
+
+	vt, ok := ru.VTable(stmt.TableName.Suffix())
+	if !ok {
+		return ret, nil
+	}
+
+	shards := rule.DatabaseTables{}
+
+	topology := vt.Topology()
+	if d, t, ok := topology.Render(0, 0); ok {
+		shards[d] = append(shards[d], t)
+	}
+	ret.Shards = shards
 	return ret, nil
 }
 
