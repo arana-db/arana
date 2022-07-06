@@ -25,6 +25,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -89,15 +90,16 @@ type (
 	}
 
 	Node struct {
-		Name      string                 `validate:"required" yaml:"name" json:"name"`
-		Host      string                 `validate:"required" yaml:"host" json:"host"`
-		Port      int                    `validate:"required" yaml:"port" json:"port"`
-		Username  string                 `validate:"required" yaml:"username" json:"username"`
-		Password  string                 `validate:"required" yaml:"password" json:"password"`
-		Database  string                 `validate:"required" yaml:"database" json:"database"`
-		ConnProps map[string]interface{} `yaml:"conn_props" json:"conn_props,omitempty"`
-		Weight    string                 `default:"r10w10" yaml:"weight" json:"weight"`
-		Labels    map[string]string      `yaml:"labels" json:"labels,omitempty"`
+		Name       string                 `validate:"required" yaml:"name" json:"name"`
+		Host       string                 `validate:"required" yaml:"host" json:"host"`
+		Port       int                    `validate:"required" yaml:"port" json:"port"`
+		Username   string                 `validate:"required" yaml:"username" json:"username"`
+		Password   string                 `validate:"required" yaml:"password" json:"password"`
+		Database   string                 `validate:"required" yaml:"database" json:"database"`
+		Parameters ParametersMap          `yaml:"parameters" json:"parameters"`
+		ConnProps  map[string]interface{} `yaml:"conn_props" json:"conn_props,omitempty"`
+		Weight     string                 `default:"r10w10" yaml:"weight" json:"weight"`
+		Labels     map[string]string      `yaml:"labels" json:"labels,omitempty"`
 	}
 
 	ShardingRule struct {
@@ -167,6 +169,19 @@ type (
 		TblPattern string `validate:"required" yaml:"tbl_pattern" json:"tbl_pattern"`
 	}
 )
+
+type ParametersMap map[string]string
+
+func (pm *ParametersMap) String() string {
+	sBuff := strings.Builder{}
+	for k, v := range *pm {
+		sBuff.WriteString(k)
+		sBuff.WriteString("=")
+		sBuff.WriteString(v)
+		sBuff.WriteString("&")
+	}
+	return strings.TrimRight(sBuff.String(), "&")
+}
 
 // Decoder decodes configuration.
 type Decoder struct {
