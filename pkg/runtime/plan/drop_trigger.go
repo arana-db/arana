@@ -23,59 +23,55 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/resultx"
 	"github.com/pkg/errors"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
-var _ proto.Plan = (*ShowColumnsPlan)(nil)
+var _ proto.Plan = (*DropTriggerPlan)(nil)
 
-type ShowColumnsPlan struct {
+type DropTriggerPlan struct {
 	basePlan
-	Stmt  *ast.ShowColumns
-	Table string
+	Stmt   *ast.DropTriggerStatement
+	Shards rule.DatabaseTables
 }
 
-func (s *ShowColumnsPlan) Type() proto.PlanType {
-	return proto.PlanTypeQuery
+func (d *DropTriggerPlan) Type() proto.PlanType {
+	return proto.PlanTypeExec
 }
 
-func (s *ShowColumnsPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+func (d *DropTriggerPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
 	var (
-		sb      strings.Builder
-		indexes []int
-	)
-
-	if err := s.generate(&sb, &indexes); err != nil {
-		return nil, errors.Wrap(err, "failed to generate show columns sql")
-	}
-
-	return conn.Query(ctx, "", sb.String(), s.toArgs(indexes)...)
-}
-
-func (s *ShowColumnsPlan) generate(sb *strings.Builder, args *[]int) error {
-	var (
-		stmt = *s.Stmt
+		sb   strings.Builder
+		args []int
 		err  error
 	)
 
-	if s.Table == "" {
-		if err = s.Stmt.Restore(ast.RestoreDefault, sb, args); err != nil {
-			return errors.WithStack(err)
+	for db := range d.Shards {
+		if err = d.Stmt.Restore(ast.RestoreDefault, &sb, &args); err != nil {
+			return nil, err
 		}
-		return nil
+
+		if err = d.execOne(ctx, conn, db, sb.String(), d.toArgs(args)); err != nil {
+			return nil, errors.WithStack(err)
+		}
+
+		sb.Reset()
 	}
 
-	s.resetTable(&stmt, s.Table)
-	if err = stmt.Restore(ast.RestoreDefault, sb, args); err != nil {
-		return errors.WithStack(err)
-	}
-	return nil
+	return resultx.New(), nil
 }
 
-func (s *ShowColumnsPlan) resetTable(dstmt *ast.ShowColumns, table string) {
-	dstmt.TableName = dstmt.TableName.ResetSuffix(table)
+func (d *DropTriggerPlan) execOne(ctx context.Context, conn proto.VConn, db, query string, args []interface{}) error {
+	res, err := conn.Exec(ctx, db, query, args...)
+	if err != nil {
+		return err
+	}
+	_, _ = res.Dataset()
+	return nil
 }
