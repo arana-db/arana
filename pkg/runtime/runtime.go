@@ -80,7 +80,7 @@ func NewAtomDB(node *config.Node) *AtomDB {
 	}
 
 	raw, _ := json.Marshal(map[string]interface{}{
-		"dsn": fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", node.Username, node.Password, node.Host, node.Port, node.Database),
+		"dsn": fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?%s", node.Username, node.Password, node.Host, node.Port, node.Database, node.Parameters.String()),
 	})
 	connector, err := mysql.NewConnector(raw)
 	if err != nil {
