@@ -539,3 +539,26 @@ func (s *IntegrationSuite) TestShowCreate() {
 	assert.NoError(t, row.Scan(&table, &createStr))
 	assert.Equal(t, "student", table)
 }
+
+func (s *IntegrationSuite) TestDropTrigger() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql string
+	}
+
+	for _, it := range []tt{
+		{"DROP TRIGGER arana"},
+		{"DROP TRIGGER employees_0000.arana"},
+		{"DROP TRIGGER IF EXISTS arana"},
+		{"DROP TRIGGER IF EXISTS employees_0000.arana"},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			_, err := db.Exec(it.sql)
+			assert.NoError(t, err)
+		})
+	}
+}

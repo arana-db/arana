@@ -140,6 +140,8 @@ func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.S
 		return o.optimizeAlterTable(ctx, t, args)
 	case *rast.DropIndexStatement:
 		return o.optimizeDropIndex(ctx, t, args)
+	case *rast.DropTriggerStatement:
+		return o.optimizeTrigger(ctx, t, args)
 	}
 
 	//TODO implement all statements
@@ -268,7 +270,7 @@ func (o optimizer) getSelectFlag(ctx context.Context, stmt *rast.SelectStatement
 	return
 }
 
-func (o optimizer) optimizeShowDatabases(ctx context.Context, stmt *rast.ShowDatabases, args []interface{}) (proto.Plan, error) {
+func (o optimizer) optimizeShowDatabases(_ context.Context, stmt *rast.ShowDatabases, args []interface{}) (proto.Plan, error) {
 	ret := &plan.ShowDatabasesPlan{Stmt: stmt}
 	ret.BindArgs(args)
 	return ret, nil
@@ -1087,4 +1089,28 @@ func (o optimizer) rewriteInsertStatement(ctx context.Context, conn proto.VConn,
 	//	newValue = append(newValue, )
 	//}
 	return nil
+}
+
+func (o optimizer) optimizeTrigger(ctx context.Context, stmt *rast.DropTriggerStatement, args []interface{}) (proto.Plan, error) {
+	var ru *rule.Rule
+	if ru = rcontext.Rule(ctx); ru == nil {
+		return nil, errors.WithStack(errNoRuleFound)
+	}
+
+	shards := rule.DatabaseTables{}
+	for _, table := range ru.VTables() {
+		topology := table.Topology()
+		topology.Each(func(dbIdx, tbIdx int) bool {
+			if d, t, ok := topology.Render(dbIdx, tbIdx); ok {
+				shards[d] = append(shards[d], t)
+			}
+			return true
+		})
+
+		break
+	}
+
+	ret := &plan.DropTriggerPlan{Stmt: stmt, Shards: shards}
+	ret.BindArgs(args)
+	return ret, nil
 }
