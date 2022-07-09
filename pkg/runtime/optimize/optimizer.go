@@ -141,6 +141,8 @@ func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.S
 		return o.optimizeAlterTable(ctx, t, args)
 	case *rast.DropIndexStatement:
 		return o.optimizeDropIndex(ctx, t, args)
+	case *rast.CreateIndexStatement:
+		return o.optimizeCreateIndex(ctx, t, args)
 	case *rast.DropTriggerStatement:
 		return o.optimizeTrigger(ctx, t, args)
 	}
@@ -170,6 +172,33 @@ func (o optimizer) optimizeDropIndex(ctx context.Context, stmt *rast.DropIndexSt
 	shardPlan.SetShard(shard)
 	shardPlan.BindArgs(args)
 	return shardPlan, nil
+}
+
+func (o optimizer) optimizeCreateIndex(ctx context.Context, stmt *rast.CreateIndexStatement, args []interface{}) (proto.Plan, error) {
+
+	var (
+		ret = plan.NewCreateIndexPlan(stmt)
+		ru  = rcontext.Rule(ctx)
+		vt  *rule.VTable
+	)
+
+	//table shard
+	_, ok := ru.VTable(stmt.Table.String())
+	if !ok {
+		return ret, nil
+	}
+
+	// sharding
+	shards := rule.DatabaseTables{}
+	topology := vt.Topology()
+	topology.Each(func(dbIdx, tbIdx int) bool {
+		if d, t, ok := topology.Render(dbIdx, tbIdx); ok {
+			shards[d] = append(shards[d], t)
+		}
+		return true
+	})
+	ret.SetShard(shards)
+	return ret, nil
 }
 
 func (o optimizer) optimizeAlterTable(ctx context.Context, stmt *rast.AlterTableStatement, args []interface{}) (proto.Plan, error) {

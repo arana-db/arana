@@ -46,7 +46,7 @@ func Transparent(stmt rast.Statement, args []interface{}) *TransparentPlan {
 	var typ proto.PlanType
 	switch stmt.Mode() {
 	case rast.Sinsert, rast.Sdelete, rast.Sreplace, rast.Supdate, rast.Struncate, rast.SdropTable,
-		rast.SalterTable, rast.DropIndex:
+		rast.SalterTable, rast.DropIndex, rast.CreateIndex:
 		typ = proto.PlanTypeExec
 	default:
 		typ = proto.PlanTypeQuery

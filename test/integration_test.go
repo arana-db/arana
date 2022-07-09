@@ -498,6 +498,19 @@ func (s *IntegrationSuite) TestAlterTable() {
 	assert.Equal(t, int64(0), affected)
 }
 
+func (s *IntegrationSuite) TestCreateIndex() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	result, err := db.Exec("create index `name` on student (name)")
+	assert.NoErrorf(t, err, "create index error: %v", err)
+	affected, err := result.RowsAffected()
+	assert.NoErrorf(t, err, "create index error: %v", err)
+	assert.Equal(t, int64(0), affected)
+}
+
 func (s *IntegrationSuite) TestDropIndex() {
 	var (
 		db = s.DB()
