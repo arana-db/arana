@@ -572,7 +572,7 @@ func (c *Conn) writeEphemeralPacket() error {
 	return nil
 }
 
-// recycleWritePacket recycles the write packet. It needs to be called
+// recycleWritePacket recycles write packet. It needs to be called
 // after writeEphemeralPacket was called.
 func (c *Conn) recycleWritePacket() {
 	if c.currentEphemeralPolicy != ephemeralWrite {

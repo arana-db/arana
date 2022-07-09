@@ -155,7 +155,7 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 	start := time.Now()
 	act, err := p.ParseOneStmt(query, "", "")
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, errors.WithStack(err)
 	}
 	metrics.ParserDuration.Observe(time.Since(start).Seconds())
 	log.Debugf("ComQuery: %s", query)
@@ -261,36 +261,10 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 		} else {
 			err = errNoDatabaseSelected
 		}
-	case *ast.TruncateTableStmt:
-		if schemaless {
-			err = errNoDatabaseSelected
-		} else {
-			res, warn, err = rt.Execute(ctx)
-		}
-	case *ast.DropTableStmt:
-		if schemaless {
-			err = errNoDatabaseSelected
-		} else {
-			res, warn, err = rt.Execute(ctx)
-		}
-	case *ast.ExplainStmt:
-		if schemaless {
-			err = errNoDatabaseSelected
-		} else {
-			res, warn, err = rt.Execute(ctx)
-		}
-	case *ast.DropIndexStmt:
-		if schemaless {
-			err = errNoDatabaseSelected
-		} else {
-			res, warn, err = rt.Execute(ctx)
-		}
-	case *ast.CreateIndexStmt:
-		if schemaless {
-			err = errNoDatabaseSelected
-		} else {
-			res, warn, err = rt.Execute(ctx)
-		}
+	case *ast.TruncateTableStmt, *ast.DropTableStmt, *ast.ExplainStmt, *ast.DropIndexStmt, *ast.CreateIndexStmt:
+		res, warn, err = executeStmt(ctx, schemaless, rt)
+	case *ast.DropTriggerStmt:
+		res, warn, err = rt.Execute(ctx)
 	default:
 		if schemaless {
 			err = errNoDatabaseSelected
@@ -303,12 +277,18 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 				res, warn, err = rt.Execute(ctx)
 			}
 		}
-
 	}
 
 	executor.doPostFilter(ctx, res)
 
 	return res, warn, err
+}
+
+func executeStmt(ctx *proto.Context, schemaless bool, rt runtime.Runtime) (proto.Result, uint16, error) {
+	if schemaless {
+		return nil, 0, errNoDatabaseSelected
+	}
+	return rt.Execute(ctx)
 }
 
 func (executor *RedirectExecutor) ExecutorComStmtExecute(ctx *proto.Context) (proto.Result, uint16, error) {

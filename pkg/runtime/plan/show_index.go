@@ -27,7 +27,11 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/dataset"
+	"github.com/arana-db/arana/pkg/mysql/rows"
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/proto/rule"
+	"github.com/arana-db/arana/pkg/resultx"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
@@ -35,7 +39,8 @@ var _ proto.Plan = (*ShowIndexPlan)(nil)
 
 type ShowIndexPlan struct {
 	basePlan
-	Stmt *ast.ShowIndex
+	Stmt   *ast.ShowIndex
+	Shards rule.DatabaseTables
 }
 
 func (s *ShowIndexPlan) Type() proto.PlanType {
@@ -49,14 +54,51 @@ func (s *ShowIndexPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Res
 		err     error
 	)
 
+	if s.Shards == nil {
+		if err = s.Stmt.Restore(ast.RestoreDefault, &sb, &indexes); err != nil {
+			return nil, errors.WithStack(err)
+		}
+		return conn.Query(ctx, "", sb.String(), s.toArgs(indexes)...)
+	}
+
+	toTable := s.Stmt.TableName.Suffix()
+
+	db, table := s.Shards.Smallest()
+	s.Stmt.TableName = ast.TableName{table}
+
 	if err = s.Stmt.Restore(ast.RestoreDefault, &sb, &indexes); err != nil {
 		return nil, errors.WithStack(err)
 	}
 
-	var (
-		query = sb.String()
-		args  = s.toArgs(indexes)
+	query, err := conn.Query(ctx, db, sb.String(), s.toArgs(indexes)...)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	ds, err := query.Dataset()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	fields, err := ds.Fields()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	ds = dataset.Pipe(ds,
+		dataset.Map(nil, func(next proto.Row) (proto.Row, error) {
+			dest := make([]proto.Value, len(fields))
+			if next.Scan(dest) != nil {
+				return next, nil
+			}
+			dest[0] = toTable
+
+			if next.IsBinary() {
+				return rows.NewBinaryVirtualRow(fields, dest), nil
+			}
+			return rows.NewTextVirtualRow(fields, dest), nil
+		}),
 	)
 
-	return conn.Query(ctx, "", query, args...)
+	return resultx.New(resultx.WithDataset(ds)), nil
 }

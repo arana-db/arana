@@ -33,6 +33,7 @@ const (
 	SalterTable         // ALTER TABLE
 	DropIndex           // DROP INDEX
 	CreateIndex         // CREATE INDEX
+	DropTrigger         // DROP TRIGGER
 )
 
 type RestoreFlag uint32

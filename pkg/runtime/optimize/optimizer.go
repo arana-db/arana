@@ -142,6 +142,8 @@ func (o optimizer) doOptimize(ctx context.Context, conn proto.VConn, stmt rast.S
 		return o.optimizeDropIndex(ctx, t, args)
 	case *rast.CreateIndexStatement:
 		return o.optimizeCreateIndex(ctx, t, args)
+	case *rast.DropTriggerStatement:
+		return o.optimizeTrigger(ctx, t, args)
 	}
 
 	//TODO implement all statements
@@ -297,7 +299,7 @@ func (o optimizer) getSelectFlag(ctx context.Context, stmt *rast.SelectStatement
 	return
 }
 
-func (o optimizer) optimizeShowDatabases(ctx context.Context, stmt *rast.ShowDatabases, args []interface{}) (proto.Plan, error) {
+func (o optimizer) optimizeShowDatabases(_ context.Context, stmt *rast.ShowDatabases, args []interface{}) (proto.Plan, error) {
 	ret := &plan.ShowDatabasesPlan{Stmt: stmt}
 	ret.BindArgs(args)
 	return ret, nil
@@ -886,9 +888,27 @@ func (o optimizer) optimizeShowTables(ctx context.Context, stmt *rast.ShowTables
 	return ret, nil
 }
 
-func (o optimizer) optimizeShowIndex(_ context.Context, stmt *rast.ShowIndex, args []interface{}) (proto.Plan, error) {
+func (o optimizer) optimizeShowIndex(ctx context.Context, stmt *rast.ShowIndex, args []interface{}) (proto.Plan, error) {
+	var ru *rule.Rule
+	if ru = rcontext.Rule(ctx); ru == nil {
+		return nil, errors.WithStack(errNoRuleFound)
+	}
+
 	ret := &plan.ShowIndexPlan{Stmt: stmt}
 	ret.BindArgs(args)
+
+	vt, ok := ru.VTable(stmt.TableName.Suffix())
+	if !ok {
+		return ret, nil
+	}
+
+	shards := rule.DatabaseTables{}
+
+	topology := vt.Topology()
+	if d, t, ok := topology.Render(0, 0); ok {
+		shards[d] = append(shards[d], t)
+	}
+	ret.Shards = shards
 	return ret, nil
 }
 
@@ -1098,4 +1118,28 @@ func (o optimizer) rewriteInsertStatement(ctx context.Context, conn proto.VConn,
 	//	newValue = append(newValue, )
 	//}
 	return nil
+}
+
+func (o optimizer) optimizeTrigger(ctx context.Context, stmt *rast.DropTriggerStatement, args []interface{}) (proto.Plan, error) {
+	var ru *rule.Rule
+	if ru = rcontext.Rule(ctx); ru == nil {
+		return nil, errors.WithStack(errNoRuleFound)
+	}
+
+	shards := rule.DatabaseTables{}
+	for _, table := range ru.VTables() {
+		topology := table.Topology()
+		topology.Each(func(dbIdx, tbIdx int) bool {
+			if d, t, ok := topology.Render(dbIdx, tbIdx); ok {
+				shards[d] = append(shards[d], t)
+			}
+			return true
+		})
+
+		break
+	}
+
+	ret := &plan.DropTriggerPlan{Stmt: stmt, Shards: shards}
+	ret.BindArgs(args)
+	return ret, nil
 }

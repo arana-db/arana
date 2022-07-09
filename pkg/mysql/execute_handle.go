@@ -67,13 +67,9 @@ func (l *Listener) handleInitDB(c *Conn, ctx *proto.Context) error {
 }
 
 func (l *Listener) handleQuery(c *Conn, ctx *proto.Context) error {
-	var err error
 	c.startWriterBuffering()
 	defer func() {
-		if err != nil {
-			log.Errorf("conn %v: error: %v", ctx.ConnectionID, err)
-		}
-		if err = c.endWriterBuffering(); err != nil {
+		if err := c.endWriterBuffering(); err != nil {
 			log.Errorf("conn %v: flush() failed: %v", ctx.ConnectionID, err)
 		}
 	}()
@@ -82,10 +78,12 @@ func (l *Listener) handleQuery(c *Conn, ctx *proto.Context) error {
 
 	var (
 		result proto.Result
+		err    error
 		warn   uint16
 	)
 
 	if result, warn, err = l.executor.ExecutorComQuery(ctx); err != nil {
+		log.Errorf("executor com_query error %v: %v", ctx.ConnectionID, err)
 		if wErr := c.writeErrorPacketFromError(err); wErr != nil {
 			log.Errorf("Error writing query error to client %v: %v", ctx.ConnectionID, wErr)
 			return wErr
@@ -95,6 +93,7 @@ func (l *Listener) handleQuery(c *Conn, ctx *proto.Context) error {
 
 	var ds proto.Dataset
 	if ds, err = result.Dataset(); err != nil {
+		log.Errorf("get dataset error %v: %v", ctx.ConnectionID, err)
 		if wErr := c.writeErrorPacketFromError(err); wErr != nil {
 			log.Errorf("Error writing query error to client %v: %v", ctx.ConnectionID, wErr)
 			return wErr
@@ -119,9 +118,11 @@ func (l *Listener) handleQuery(c *Conn, ctx *proto.Context) error {
 	fields, _ := ds.Fields()
 
 	if err = c.writeFields(l.capabilities, fields); err != nil {
+		log.Errorf("write fields error %v: %v", ctx.ConnectionID, err)
 		return err
 	}
 	if err = c.writeDataset(ds); err != nil {
+		log.Errorf("write dataset error %v: %v", ctx.ConnectionID, err)
 		return err
 	}
 	if err = c.writeEndResult(l.capabilities, false, 0, 0, warn); err != nil {
@@ -254,7 +255,7 @@ func (l *Listener) handlePrepare(c *Conn, ctx *proto.Context) error {
 	query := string(ctx.Data[1:])
 	c.recycleReadPacket()
 
-	// Popoulate PrepareData
+	// Populate PrepareData
 	statementID := l.statementID.Inc()
 
 	stmt := &proto.Stmt{

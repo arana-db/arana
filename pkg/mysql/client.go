@@ -28,7 +28,6 @@ import (
 	"math/big"
 	"net"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -37,6 +36,7 @@ import (
 	"github.com/arana-db/arana/pkg/constants/mysql"
 	err2 "github.com/arana-db/arana/pkg/mysql/errors"
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/util/bytefmt"
 	"github.com/arana-db/arana/pkg/util/log"
 	"github.com/arana-db/arana/third_party/pools"
 )
@@ -414,10 +414,11 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 				return
 			}
 		case "maxAllowedPacket":
-			cfg.MaxAllowedPacket, err = strconv.Atoi(value)
+			byteSize, err := bytefmt.ToBytes(value)
 			if err != nil {
-				return
+				return err
 			}
+			cfg.MaxAllowedPacket = int(byteSize)
 		default:
 			// lazy init
 			if cfg.Params == nil {
