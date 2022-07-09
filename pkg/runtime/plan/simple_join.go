@@ -66,14 +66,14 @@ func (s *SimpleJoinPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Re
 
 	sb.WriteString(" FROM ")
 
-	//add left part
+	// add left part
 	if err := s.generateTable(s.Left.Tables, s.Left.Alias, &sb); err != nil {
 		return nil, err
 	}
 
 	s.generateJoinType(&sb)
 
-	//add right part
+	// add right part
 	if err := s.generateTable(s.Right.Tables, s.Right.Alias, &sb); err != nil {
 		return nil, err
 	}
@@ -124,7 +124,6 @@ func (s *SimpleJoinPlan) generateSelect(sb *strings.Builder, args *[]int) error 
 }
 
 func (s *SimpleJoinPlan) generateTable(tables []string, alias string, sb *strings.Builder) error {
-
 	if len(tables) == 1 {
 		sb.WriteString(tables[0] + " ")
 
@@ -157,7 +156,7 @@ func (s *SimpleJoinPlan) generateTable(tables []string, alias string, sb *string
 }
 
 func (s *SimpleJoinPlan) generateJoinType(sb *strings.Builder) {
-	//add join type
+	// add join type
 	switch s.Join.Typ {
 	case ast.LeftJoin:
 		sb.WriteString("LEFT")

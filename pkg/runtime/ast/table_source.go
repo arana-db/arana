@@ -37,9 +37,7 @@ type TableSourceNode struct {
 func (t *TableSourceNode) ResetTableName(newTableName string) bool {
 	switch source := t.source.(type) {
 	case TableName:
-		var (
-			newSource = make(TableName, len(source))
-		)
+		newSource := make(TableName, len(source))
 		copy(newSource, source)
 		newSource[len(newSource)-1] = newTableName
 		t.source = newSource

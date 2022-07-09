@@ -179,7 +179,6 @@ func TestOptimizer_OptimizeInsert(t *testing.T) {
 		lastInsertId, _ := res.LastInsertId()
 		assert.Equal(t, fakeId, lastInsertId)
 	})
-
 }
 
 func TestOptimizer_OptimizeAlterTable(t *testing.T) {
@@ -229,7 +228,6 @@ func TestOptimizer_OptimizeAlterTable(t *testing.T) {
 
 		_, err = plan.ExecIn(ctx, conn)
 		assert.NoError(t, err)
-
 	})
 
 	t.Run("non-sharding", func(t *testing.T) {
@@ -295,5 +293,4 @@ func TestOptimizer_OptimizeInsertSelect(t *testing.T) {
 		lastInsertId, _ := res.LastInsertId()
 		assert.Equal(t, fakeId, lastInsertId)
 	})
-
 }

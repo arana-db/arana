@@ -58,7 +58,6 @@ func TestScripts_Time(t *testing.T) {
 	v, err = testFunc("DATE_FORMAT", now, "%Y-%m-%d")
 	assert.NoError(t, err)
 	t.Log("DATE_FORMAT:", v)
-
 }
 
 func TestTime_Month(t *testing.T) {

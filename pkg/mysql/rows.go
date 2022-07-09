@@ -320,8 +320,8 @@ func (te TextRow) WriteTo(w io.Writer) (n int64, err error) {
 
 func (te TextRow) Scan(dest []proto.Value) error {
 	// RowSet Packet
-	//var val []byte
-	//var isNull bool
+	// var val []byte
+	// var isNull bool
 	var (
 		n      int
 		err    error

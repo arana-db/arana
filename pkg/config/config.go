@@ -255,7 +255,6 @@ func (c *Center) PersistContext(ctx context.Context) error {
 	}
 
 	for k, v := range ConfigKeyMapping {
-
 		if err := c.storeOperate.Save(k, []byte(gjson.GetBytes(configJson, v).String())); err != nil {
 			return err
 		}

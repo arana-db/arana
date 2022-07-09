@@ -85,8 +85,7 @@ func New(options ...Option) proto.Result {
 	}
 }
 
-type emptyResult struct {
-}
+type emptyResult struct{}
 
 func (n emptyResult) Dataset() (proto.Dataset, error) {
 	return nil, nil

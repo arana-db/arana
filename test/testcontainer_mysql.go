@@ -67,7 +67,6 @@ func (tester MySQLContainerTester) SetupMySQLContainer(ctx context.Context) (*My
 		ContainerRequest: req,
 		Started:          true,
 	})
-
 	if err != nil {
 		return nil, err
 	}

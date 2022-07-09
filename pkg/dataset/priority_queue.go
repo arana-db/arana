@@ -40,6 +40,7 @@ type RowItem struct {
 	row       proto.KeyedRow
 	streamIdx int
 }
+
 type OrderByItem struct {
 	Column string
 	Desc   bool

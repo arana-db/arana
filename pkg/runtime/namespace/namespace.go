@@ -151,7 +151,6 @@ func (ns *Namespace) DB(ctx context.Context, group string) proto.DB {
 		for _, db := range exist {
 			wrList = append(wrList, int(db.Weight().R))
 		}
-
 	} else if rcontext.IsWrite(ctx) {
 		for _, db := range exist {
 			wrList = append(wrList, int(db.Weight().W))

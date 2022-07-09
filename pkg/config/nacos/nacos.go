@@ -52,7 +52,7 @@ func init() {
 	config.Register(&storeOperate{})
 }
 
-//StoreOperate config storage related plugins
+// StoreOperate config storage related plugins
 type storeOperate struct {
 	groupName  string
 	client     config_client.IConfigClient
@@ -63,7 +63,7 @@ type storeOperate struct {
 	cancelList []context.CancelFunc
 }
 
-//Init plugin initialization
+// Init plugin initialization
 func (s *storeOperate) Init(options map[string]interface{}) error {
 	s.lock = &sync.RWMutex{}
 	s.cfgLock = &sync.RWMutex{}
@@ -96,7 +96,6 @@ func (s *storeOperate) initNacosClient(options map[string]interface{}) error {
 			ClientConfig:  &clientConfig,
 		},
 	)
-
 	if err != nil {
 		return err
 	}
@@ -170,9 +169,8 @@ func (s *storeOperate) loadDataFromServer() error {
 	return nil
 }
 
-//Save save a configuration data
+// Save save a configuration data
 func (s *storeOperate) Save(key config.PathKey, val []byte) error {
-
 	_, err := s.client.PublishConfig(vo.ConfigParam{
 		Group:   s.groupName,
 		DataId:  string(key),
@@ -182,7 +180,7 @@ func (s *storeOperate) Save(key config.PathKey, val []byte) error {
 	return err
 }
 
-//Get get a configuration
+// Get get a configuration
 func (s *storeOperate) Get(key config.PathKey) ([]byte, error) {
 	defer s.cfgLock.RUnlock()
 	s.cfgLock.RLock()
@@ -191,7 +189,7 @@ func (s *storeOperate) Get(key config.PathKey) ([]byte, error) {
 	return val, nil
 }
 
-//Watch Monitor changes of the key
+// Watch Monitor changes of the key
 func (s *storeOperate) Watch(key config.PathKey) (<-chan []byte, error) {
 	defer s.lock.Unlock()
 	s.lock.Lock()
@@ -217,12 +215,12 @@ func (s *storeOperate) Watch(key config.PathKey) (<-chan []byte, error) {
 	return rec, nil
 }
 
-//Name plugin name
+// Name plugin name
 func (s *storeOperate) Name() string {
 	return "nacos"
 }
 
-//Close do close storeOperate
+// Close do close storeOperate
 func (s *storeOperate) Close() error {
 	return nil
 }
@@ -250,7 +248,6 @@ func (s *storeOperate) newWatcher(key config.PathKey, client config_client.IConf
 			s.receivers[config.PathKey(dataId)].ch <- []byte(content)
 		},
 	})
-
 	if err != nil {
 		return nil, err
 	}

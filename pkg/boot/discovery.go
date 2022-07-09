@@ -176,7 +176,6 @@ func (fp *discovery) GetCluster(ctx context.Context, cluster string) (*Cluster, 
 }
 
 func (fp *discovery) ListTenants(ctx context.Context) ([]string, error) {
-
 	cfg, err := fp.c.Load()
 	if err != nil {
 		return nil, err
@@ -269,7 +268,7 @@ func (fp *discovery) ListTables(ctx context.Context, cluster string) ([]string, 
 	}
 
 	var tables []string
-	for tb, _ := range fp.loadTables(cfg, cluster) {
+	for tb := range fp.loadTables(cfg, cluster) {
 		tables = append(tables, tb)
 	}
 	sort.Strings(tables)
@@ -509,9 +508,7 @@ func parseTopology(input string) (format string, begin, end int, err error) {
 		return
 	}
 
-	var (
-		beginStr, endStr string
-	)
+	var beginStr, endStr string
 	for i := 1; i < len(mats[0]); i++ {
 		switch getTopologyRegexp().SubexpNames()[i] {
 		case "begin":

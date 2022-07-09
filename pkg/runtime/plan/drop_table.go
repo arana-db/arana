@@ -58,16 +58,14 @@ func (d *DropTablePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Res
 	)
 
 	for _, shards := range d.shardsMap {
-		var stmt = new(ast.DropTableStatement)
+		stmt := new(ast.DropTableStatement)
 		for db, tables := range shards {
 			for _, table := range tables {
-
 				stmt.Tables = append(stmt.Tables, &ast.TableName{
 					table,
 				})
 			}
 			err := stmt.Restore(ast.RestoreDefault, &sb, &args)
-
 			if err != nil {
 				return nil, err
 			}

@@ -154,9 +154,7 @@ func (s *SimpleQueryPlan) generate(sb *strings.Builder, args *[]int) error {
 		//        UNION ALL
 		//     (SELECT * FROM student_0000 WHERE uid IN (1,2,3)
 
-		var (
-			stmt = new(ast.SelectStatement)
-		)
+		stmt := new(ast.SelectStatement)
 		*stmt = *s.Stmt // do copy
 
 		restore := func(table string) error {
@@ -193,9 +191,7 @@ func (s *SimpleQueryPlan) generate(sb *strings.Builder, args *[]int) error {
 }
 
 func (s *SimpleQueryPlan) resetOrderBy(tgt *ast.SelectStatement, sb *strings.Builder, args *[]int) error {
-	var (
-		builder strings.Builder
-	)
+	var builder strings.Builder
 	builder.WriteString("SELECT * FROM (")
 	builder.WriteString(sb.String())
 	builder.WriteString(") ")

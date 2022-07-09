@@ -56,7 +56,6 @@ func TestSetTopologyForTablesLessThanOne(t *testing.T) {
 
 	topology.SetTopology(0, 1, 2, 3)
 	topology.SetTopology(1, 4, 5, 6)
-
 	topology.SetTopology(1)
 
 	dbLen, tblLen := topology.Len()

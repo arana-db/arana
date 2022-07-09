@@ -27,9 +27,7 @@ import (
 	_ "github.com/arana-db/arana/cmd/tools"
 )
 
-var (
-	Version = "0.1.0"
-)
+var Version = "0.1.0"
 
 func main() {
 	rootCommand := &cobra.Command{

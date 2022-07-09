@@ -335,14 +335,11 @@ func AppendDateTime(buf []byte, t time.Time) ([]byte, error) {
 	localBuf[19] = '.'
 
 	// milli second
-	localBuf[20], localBuf[21], localBuf[22] =
-		digits01[nsec100000000], digits10[nsec1000000], digits01[nsec1000000]
+	localBuf[20], localBuf[21], localBuf[22] = digits01[nsec100000000], digits10[nsec1000000], digits01[nsec1000000]
 	// micro second
-	localBuf[23], localBuf[24], localBuf[25] =
-		digits10[nsec10000], digits01[nsec10000], digits10[nsec100]
+	localBuf[23], localBuf[24], localBuf[25] = digits10[nsec10000], digits01[nsec10000], digits10[nsec100]
 	// nano second
-	localBuf[26], localBuf[27], localBuf[28] =
-		digits01[nsec100], digits10[nsec1], digits01[nsec1]
+	localBuf[26], localBuf[27], localBuf[28] = digits01[nsec100], digits10[nsec1], digits01[nsec1]
 
 	// trim trailing zeros
 	n := len(localBuf)
@@ -1366,8 +1363,10 @@ func PutLengthEncodedInt(n uint64) []byte {
 		return []byte{0xfd, byte(n), byte(n >> 8), byte(n >> 16)}
 
 	case n <= 0xffffffffffffffff:
-		return []byte{0xfe, byte(n), byte(n >> 8), byte(n >> 16), byte(n >> 24),
-			byte(n >> 32), byte(n >> 40), byte(n >> 48), byte(n >> 56)}
+		return []byte{
+			0xfe, byte(n), byte(n >> 8), byte(n >> 16), byte(n >> 24),
+			byte(n >> 32), byte(n >> 40), byte(n >> 48), byte(n >> 56),
+		}
 	}
 	return nil
 }

@@ -23,8 +23,6 @@ import (
 )
 
 import (
-	"github.com/arana-db/parser/ast"
-
 	perrors "github.com/pkg/errors"
 
 	"go.opentelemetry.io/otel"
@@ -37,6 +35,7 @@ import (
 	rast "github.com/arana-db/arana/pkg/runtime/ast"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/util/log"
+	"github.com/arana-db/parser/ast"
 )
 
 var _ proto.Optimizer = (*optimizer)(nil)

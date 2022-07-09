@@ -38,8 +38,7 @@ import (
 	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
-type combinerManager struct {
-}
+type combinerManager struct{}
 
 type (
 	Combiner interface {

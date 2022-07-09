@@ -44,7 +44,6 @@ type (
 )
 
 func TestGroupByStreamMergeRows(t *testing.T) {
-
 	stmt := MergeRowStatement{
 		OrderBys: []merge.OrderByItem{
 			{
@@ -82,8 +81,11 @@ func TestGroupByStreamMergeRows(t *testing.T) {
 		res = append(res, student{countScore: v1.(int64), age: v2.(int64)})
 	}
 	assert.Equal(t, []student{
-		{countScore: 175, age: 81}, {countScore: 160, age: 70}, {countScore: 75, age: 68},
-		{countScore: 143, age: 60}, {countScore: 70, age: 40},
+		{countScore: 175, age: 81},
+		{countScore: 160, age: 70},
+		{countScore: 75, age: 68},
+		{countScore: 143, age: 60},
+		{countScore: 70, age: 40},
 	}, res)
 }
 

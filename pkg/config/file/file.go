@@ -39,9 +39,7 @@ import (
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
-var (
-	configFilenameList = []string{"config.yaml", "config.yml"}
-)
+var configFilenameList = []string{"config.yaml", "config.yml"}
 
 func init() {
 	config.Register(&storeOperate{})
@@ -112,7 +110,7 @@ func (s *storeOperate) Get(key config.PathKey) ([]byte, error) {
 	return val, nil
 }
 
-//Watch TODO change notification through file inotify mechanism
+// Watch TODO change notification through file inotify mechanism
 func (s *storeOperate) Watch(key config.PathKey) (<-chan []byte, error) {
 	defer s.lock.Unlock()
 

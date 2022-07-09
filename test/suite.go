@@ -86,6 +86,37 @@ func WithScriptPath(path string) Option {
 	}
 }
 
+func (ms *MySuite) LoadActualDataSetPath(path string) error {
+	var msg *Message
+	err := LoadYamlConfig(path, &msg)
+	if err != nil {
+		return err
+	}
+	ms.actualDataset = msg
+	return nil
+}
+
+func (ms *MySuite) LoadExpectedDataSetPath(path string) error {
+	var msg *Message
+	err := LoadYamlConfig(path, &msg)
+	if err != nil {
+		return err
+	}
+	ms.expectedDataset = msg
+	return nil
+}
+
+func WithTestCasePath(path string) Option {
+	return func(mySuite *MySuite) {
+		var ts *Cases
+		err := LoadYamlConfig(path, &ts)
+		if err != nil {
+			return
+		}
+		mySuite.cases = ts
+	}
+}
+
 type MySuite struct {
 	suite.Suite
 
@@ -100,6 +131,10 @@ type MySuite struct {
 	dbSync sync.Once
 
 	tmpFile, bootstrapConfig, configPath, scriptPath string
+
+	cases           *Cases
+	actualDataset   *Message
+	expectedDataset *Message
 }
 
 func NewMySuite(options ...Option) *MySuite {
@@ -110,6 +145,18 @@ func NewMySuite(options ...Option) *MySuite {
 		it(ms)
 	}
 	return ms
+}
+
+func (ms *MySuite) ActualDataset() *Message {
+	return ms.actualDataset
+}
+
+func (ms *MySuite) ExpectedDataset() *Message {
+	return ms.expectedDataset
+}
+
+func (ms *MySuite) TestCases() *Cases {
+	return ms.cases
 }
 
 func (ms *MySuite) DB() *sql.DB {
