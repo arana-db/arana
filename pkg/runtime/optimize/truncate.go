@@ -15,45 +15,40 @@
  * limitations under the License.
  */
 
-package ast
+package optimize
 
 import (
-	"strings"
+	"context"
 )
 
 import (
 	"github.com/pkg/errors"
 )
 
-type DropTableStatement struct {
-	Tables []*TableName
+import (
+	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/runtime/plan"
+)
+
+func init() {
+	registerOptimizeHandler(ast.SQLTypeTruncate, optimizeTruncate)
 }
 
-func NewDropTableStatement() *DropTableStatement {
-	return &DropTableStatement{}
-}
-
-func (d DropTableStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
-	sb.WriteString("DROP TABLE ")
-	for index, table := range d.Tables {
-		if index != 0 {
-			sb.WriteString(", ")
-		}
-		if err := table.Restore(flag, sb, args); err != nil {
-			return errors.Errorf("An error occurred while restore DropTableStatement.Tables[%d],error:%s", index, err)
-		}
+func optimizeTruncate(_ context.Context, o *optimizer) (proto.Plan, error) {
+	stmt := o.stmt.(*ast.TruncateStatement)
+	shards, err := o.computeShards(stmt.Table, nil, o.args)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to optimize TRUNCATE statement")
 	}
-	return nil
-}
 
-func (d DropTableStatement) CntParams() int {
-	return 0
-}
+	if shards == nil {
+		return plan.Transparent(stmt, o.args), nil
+	}
 
-func (d DropTableStatement) Validate() error {
-	return nil
-}
+	ret := plan.NewTruncatePlan(stmt)
+	ret.BindArgs(o.args)
+	ret.SetShards(shards)
 
-func (d DropTableStatement) Mode() SQLType {
-	return SQLTypeDropTable
+	return ret, nil
 }

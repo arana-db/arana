@@ -34,6 +34,7 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/proto/hint"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
 	"github.com/arana-db/arana/pkg/runtime/logical"
 )
@@ -676,28 +677,46 @@ func convInsertColumns(columnNames []*ast.ColumnName) []string {
 }
 
 // Parse parses the SQL string to Statement.
-func Parse(sql string, options ...ParseOption) (Statement, error) {
+func Parse(sql string, options ...ParseOption) ([]*hint.Hint, Statement, error) {
 	var o parseOption
 	for _, it := range options {
 		it(&o)
 	}
 
 	p := parser.New()
-	s, err := p.ParseOneStmt(sql, o.charset, o.collation)
+	s, hintStrs, err := p.ParseOneStmtHints(sql, o.charset, o.collation)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return FromStmtNode(s)
+	stmt, err := FromStmtNode(s)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if len(hintStrs) < 1 {
+		return nil, stmt, nil
+	}
+
+	hints := make([]*hint.Hint, 0, len(hintStrs))
+	for _, it := range hintStrs {
+		var h *hint.Hint
+		if h, err = hint.Parse(it); err != nil {
+			return nil, nil, errors.WithStack(err)
+		}
+		hints = append(hints, h)
+	}
+
+	return hints, stmt, nil
 }
 
 // MustParse parses the SQL string to Statement, panic if failed.
-func MustParse(sql string) Statement {
-	stmt, err := Parse(sql)
+func MustParse(sql string) ([]*hint.Hint, Statement) {
+	hints, stmt, err := Parse(sql)
 	if err != nil {
 		panic(err.Error())
 	}
-	return stmt
+	return hints, stmt
 }
 
 type convCtx struct {

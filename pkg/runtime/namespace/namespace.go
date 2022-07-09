@@ -76,8 +76,7 @@ type (
 
 		name string // the name of Namespace
 
-		rule      atomic.Value // *rule.Rule
-		optimizer proto.Optimizer
+		rule atomic.Value // *rule.Rule
 
 		// datasource map, eg: employee_0001 -> [mysql-a,mysql-b,mysql-c], ... employee_0007 -> [mysql-x,mysql-y,mysql-z]
 		dss atomic.Value // map[string][]proto.DB
@@ -91,12 +90,11 @@ type (
 )
 
 // New creates a Namespace.
-func New(name string, optimizer proto.Optimizer, commands ...Command) *Namespace {
+func New(name string, commands ...Command) *Namespace {
 	ns := &Namespace{
-		name:      name,
-		optimizer: optimizer,
-		cmds:      make(chan Command, 1),
-		done:      make(chan struct{}),
+		name: name,
+		cmds: make(chan Command, 1),
+		done: make(chan struct{}),
 	}
 	ns.dss.Store(make(map[string][]proto.DB)) // init empty map
 	ns.rule.Store(&rule.Rule{})               // init empty rule
@@ -164,11 +162,6 @@ func (ns *Namespace) DB(ctx context.Context, group string) proto.DB {
 	}
 
 	return exist[target]
-}
-
-// Optimizer returns the optimizer.
-func (ns *Namespace) Optimizer() proto.Optimizer {
-	return ns.optimizer
 }
 
 // Rule returns the sharding rule.

@@ -46,39 +46,39 @@ func TestParse(t *testing.T) {
 		"select * from student where uid = !0",
 	} {
 		t.Run(sql, func(t *testing.T) {
-			stmt, err = Parse(sql)
+			_, stmt, err = Parse(sql)
 			assert.NoError(t, err)
 			t.Log("stmt:", stmt)
 		})
 	}
 
 	// 1. select statement
-	stmt, err = Parse("select * from student as foo where `name` = if(1>2, 1, 2) order by age")
+	_, stmt, err = Parse("select * from student as foo where `name` = if(1>2, 1, 2) order by age")
 	assert.NoError(t, err, "parse+conv ast failed")
 	t.Logf("stmt:%+v", stmt)
 
 	// 2. delete statement
-	deleteStmt, err := Parse("delete from student as foo where `name` = if(1>2, 1, 2)")
+	_, deleteStmt, err := Parse("delete from student as foo where `name` = if(1>2, 1, 2)")
 	assert.NoError(t, err, "parse+conv ast failed")
 	t.Logf("stmt:%+v", deleteStmt)
 
 	// 3. insert statements
-	insertStmtWithSetClause, err := Parse("insert into sink set a=77, b='88'")
+	_, insertStmtWithSetClause, err := Parse("insert into sink set a=77, b='88'")
 	assert.NoError(t, err, "parse+conv ast failed")
 	t.Logf("stmt:%+v", insertStmtWithSetClause)
 
-	insertStmtWithValues, err := Parse("insert into sink values(1, '2')")
+	_, insertStmtWithValues, err := Parse("insert into sink values(1, '2')")
 	assert.NoError(t, err, "parse+conv ast failed")
 	t.Logf("stmt:%+v", insertStmtWithValues)
 
-	insertStmtWithOnDuplicateUpdates, err := Parse(
+	_, insertStmtWithOnDuplicateUpdates, err := Parse(
 		"insert into sink (a, b) values(1, '2') on duplicate key update a=a+1",
 	)
 	assert.NoError(t, err, "parse+conv ast failed")
 	t.Logf("stmt:%+v", insertStmtWithOnDuplicateUpdates)
 
 	// 4. update statement
-	updateStmt, err := Parse(
+	_, updateStmt, err := Parse(
 		"update source set a=a+1, b=b+2 where a>1 order by a limit 5",
 	)
 	assert.NoError(t, err, "parse+conv ast failed")
@@ -98,7 +98,7 @@ func TestParse_UnionStmt(t *testing.T) {
 		{"select id,uid,name,nickname from student where uid in (?,?,?) union all select id,uid,name,nickname from tb_user where uid in (?,?,?)", "SELECT `id`,`uid`,`name`,`nickname` FROM `student` WHERE `uid` IN (?,?,?) UNION ALL SELECT `id`,`uid`,`name`,`nickname` FROM `tb_user` WHERE `uid` IN (?,?,?)"},
 	} {
 		t.Run(next.input, func(t *testing.T) {
-			stmt, err := Parse(next.input)
+			_, stmt, err := Parse(next.input)
 			assert.NoError(t, err, "should parse ok")
 			assert.IsType(t, (*UnionSelectStatement)(nil), stmt, "should be union statement")
 
@@ -162,7 +162,7 @@ func TestParse_SelectStmt(t *testing.T) {
 		{"select null as pkid", "SELECT NULL AS `pkid`"},
 	} {
 		t.Run(next.input, func(t *testing.T) {
-			stmt, err := Parse(next.input)
+			_, stmt, err := Parse(next.input)
 			assert.NoError(t, err, "should parse ok")
 			assert.IsType(t, (*SelectStatement)(nil), stmt, "should be select statement")
 
@@ -185,7 +185,7 @@ func TestParse_DeleteStmt(t *testing.T) {
 		{"delete low_priority quick ignore from student where id = 1", "DELETE LOW_PRIORITY QUICK IGNORE FROM `student` WHERE `id` = 1"},
 	} {
 		t.Run(it.input, func(t *testing.T) {
-			stmt, err := Parse(it.input)
+			_, stmt, err := Parse(it.input)
 			assert.NoError(t, err)
 			assert.IsType(t, (*DeleteStatement)(nil), stmt, "should be delete statement")
 
@@ -206,7 +206,7 @@ func TestParse_DescribeStatement(t *testing.T) {
 		{"desc foobar", "DESC `foobar`"},
 	} {
 		t.Run(it.input, func(t *testing.T) {
-			stmt, err := Parse(it.input)
+			_, stmt, err := Parse(it.input)
 			assert.NoError(t, err)
 			assert.IsType(t, (*DescribeStatement)(nil), stmt, "should be describe statement")
 
@@ -243,7 +243,7 @@ func TestParse_ShowStatement(t *testing.T) {
 		{"show create table `foo`", (*ShowCreate)(nil), "SHOW CREATE TABLE `foo`"},
 	} {
 		t.Run(it.input, func(t *testing.T) {
-			stmt, err := Parse(it.input)
+			_, stmt, err := Parse(it.input)
 			assert.NoError(t, err)
 			assert.IsTypef(t, it.expectTyp, stmt, "should be %T", it.expectTyp)
 
@@ -256,7 +256,7 @@ func TestParse_ShowStatement(t *testing.T) {
 }
 
 func TestParse_ExplainStmt(t *testing.T) {
-	stmt, err := Parse("explain select * from student where uid = 1")
+	_, stmt, err := Parse("explain select * from student where uid = 1")
 	assert.NoError(t, err)
 	assert.IsType(t, (*ExplainStatement)(nil), stmt)
 	s := MustRestoreToString(RestoreDefault, stmt)
@@ -291,7 +291,7 @@ func TestParseMore(t *testing.T) {
 
 	for _, sql := range tbls {
 		t.Run(sql, func(t *testing.T) {
-			_, err := Parse(sql)
+			_, _, err := Parse(sql)
 			assert.NoError(t, err)
 		})
 	}
@@ -308,7 +308,7 @@ func TestParse_UpdateStmt(t *testing.T) {
 		{"update low_priority student set nickname = ? where id = 1 limit 1", "UPDATE LOW_PRIORITY `student` SET `nickname` = ? WHERE `id` = 1 LIMIT 1"},
 	} {
 		t.Run(it.input, func(t *testing.T) {
-			stmt, err := Parse(it.input)
+			_, stmt, err := Parse(it.input)
 			assert.NoError(t, err)
 			assert.IsTypef(t, (*UpdateStatement)(nil), stmt, "should be update statement")
 
@@ -342,7 +342,7 @@ func TestParse_InsertStmt(t *testing.T) {
 		},
 	} {
 		t.Run(it.input, func(t *testing.T) {
-			stmt, err := Parse(it.input)
+			_, stmt, err := Parse(it.input)
 			assert.NoError(t, err)
 			assert.IsTypef(t, (*InsertStatement)(nil), stmt, "should be insert statement")
 
@@ -371,7 +371,7 @@ func TestParse_InsertStmt(t *testing.T) {
 		},
 	} {
 		t.Run(it.input, func(t *testing.T) {
-			stmt, err := Parse(it.input)
+			_, stmt, err := Parse(it.input)
 			assert.NoError(t, err)
 			assert.IsTypef(t, (*InsertSelectStatement)(nil), stmt, "should be insert-select statement")
 
@@ -384,7 +384,7 @@ func TestParse_InsertStmt(t *testing.T) {
 }
 
 func TestRestoreCount(t *testing.T) {
-	stmt := MustParse("select count(1)")
+	_, stmt := MustParse("select count(1)")
 	sel := stmt.(*SelectStatement)
 	var sb strings.Builder
 	_ = sel.Restore(RestoreDefault, &sb, nil)
@@ -392,7 +392,7 @@ func TestRestoreCount(t *testing.T) {
 }
 
 func TestQuote(t *testing.T) {
-	stmt := MustParse("select `a``bc`")
+	_, stmt := MustParse("select `a``bc`")
 	sel := stmt.(*SelectStatement)
 	var sb strings.Builder
 	_ = sel.Restore(RestoreDefault, &sb, nil)
@@ -437,7 +437,7 @@ func TestParse_AlterTableStmt(t *testing.T) {
 		},
 	} {
 		t.Run(it.input, func(t *testing.T) {
-			stmt, err := Parse(it.input)
+			_, stmt, err := Parse(it.input)
 			assert.NoError(t, err)
 			assert.IsTypef(t, (*AlterTableStatement)(nil), stmt, "should be alter table statement")
 
@@ -450,7 +450,7 @@ func TestParse_AlterTableStmt(t *testing.T) {
 }
 
 func TestParse_DescStmt(t *testing.T) {
-	stmt := MustParse("desc student id")
+	_, stmt := MustParse("desc student id")
 	// In MySQL, the case of "desc student 'id'" will be parsed successfully,
 	// but in arana, it will get an error by tidb parser.
 	desc := stmt.(*DescribeStatement)

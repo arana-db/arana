@@ -41,6 +41,12 @@ import (
 	"github.com/arana-db/arana/testdata"
 )
 
+const (
+	timeout      = "1s"
+	readTimeout  = "3s"
+	writeTimeout = "5s"
+)
+
 type Option func(*MySuite)
 
 func WithDevMode() Option {
@@ -113,7 +119,15 @@ func (ms *MySuite) DB() *sql.DB {
 		}
 
 		var (
-			dsn = fmt.Sprintf("arana:123456@tcp(127.0.0.1:%d)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8", ms.port)
+			dsn = fmt.Sprintf(
+				"arana:123456@tcp(127.0.0.1:%d)/employees?"+
+					"timeout=%s&"+
+					"readTimeout=%s&"+
+					"writeTimeout=%s&"+
+					"parseTime=true&"+
+					"loc=Local&"+
+					"charset=utf8mb4,utf8",
+				ms.port, timeout, readTimeout, writeTimeout)
 			err error
 		)
 

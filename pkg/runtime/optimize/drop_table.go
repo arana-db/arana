@@ -15,63 +15,54 @@
  * limitations under the License.
  */
 
-package plan
+package optimize
 
 import (
 	"context"
-	"strings"
-)
-
-import (
-	"github.com/pkg/errors"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
-	"github.com/arana-db/arana/pkg/resultx"
 	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/runtime/plan"
 )
 
-var _ proto.Plan = (*DropTriggerPlan)(nil)
-
-type DropTriggerPlan struct {
-	basePlan
-	Stmt   *ast.DropTriggerStatement
-	Shards rule.DatabaseTables
+func init() {
+	registerOptimizeHandler(ast.SQLTypeDropTable, optimizeDropTable)
 }
 
-func (d *DropTriggerPlan) Type() proto.PlanType {
-	return proto.PlanTypeExec
-}
-
-func (d *DropTriggerPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
-	var (
-		sb   strings.Builder
-		args []int
-		err  error
-	)
-
-	for db := range d.Shards {
-		if err = d.Stmt.Restore(ast.RestoreDefault, &sb, &args); err != nil {
+func optimizeDropTable(_ context.Context, o *optimizer) (proto.Plan, error) {
+	stmt := o.stmt.(*ast.DropTableStatement)
+	//table shard
+	var shards []rule.DatabaseTables
+	//tables not shard
+	noShardStmt := ast.NewDropTableStatement()
+	for _, table := range stmt.Tables {
+		shard, err := o.computeShards(*table, nil, o.args)
+		if err != nil {
 			return nil, err
 		}
-
-		if err = d.execOne(ctx, conn, db, sb.String(), d.toArgs(args)); err != nil {
-			return nil, errors.WithStack(err)
+		if shard == nil {
+			noShardStmt.Tables = append(noShardStmt.Tables, table)
+			continue
 		}
-
-		sb.Reset()
+		shards = append(shards, shard)
 	}
 
-	return resultx.New(), nil
-}
+	shardPlan := plan.NewDropTablePlan(stmt)
+	shardPlan.BindArgs(o.args)
+	shardPlan.SetShards(shards)
 
-func (d *DropTriggerPlan) execOne(ctx context.Context, conn proto.VConn, db, query string, args []interface{}) error {
-	res, err := conn.Exec(ctx, db, query, args...)
-	if err != nil {
-		return err
+	if len(noShardStmt.Tables) == 0 {
+		return shardPlan, nil
 	}
-	_, _ = res.Dataset()
-	return nil
+
+	noShardPlan := plan.Transparent(noShardStmt, o.args)
+
+	return &plan.UnionPlan{
+		Plans: []proto.Plan{
+			noShardPlan, shardPlan,
+		},
+	}, nil
 }

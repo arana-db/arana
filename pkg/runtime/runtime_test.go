@@ -30,20 +30,18 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/runtime/namespace"
-	"github.com/arana-db/arana/testdata"
 )
 
 func TestLoad(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	opt := testdata.NewMockOptimizer(ctrl)
 
 	const schemaName = "FakeSchema"
 
 	rt, err := Load(schemaName)
 	assert.Error(t, err)
 	assert.Nil(t, rt)
-	_ = namespace.Register(namespace.New(schemaName, opt))
+	_ = namespace.Register(namespace.New(schemaName))
 	defer func() {
 		_ = namespace.Unregister(schemaName)
 	}()

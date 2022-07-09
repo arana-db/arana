@@ -15,45 +15,45 @@
  * limitations under the License.
  */
 
-package ast
+package optimize
 
 import (
-	"strings"
+	"context"
 )
 
 import (
 	"github.com/pkg/errors"
 )
 
-type DropTableStatement struct {
-	Tables []*TableName
+import (
+	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/runtime/plan"
+)
+
+func init() {
+	registerOptimizeHandler(ast.SQLTypeDelete, optimizeDelete)
 }
 
-func NewDropTableStatement() *DropTableStatement {
-	return &DropTableStatement{}
-}
+func optimizeDelete(ctx context.Context, o *optimizer) (proto.Plan, error) {
+	var (
+		stmt = o.stmt.(*ast.DeleteStatement)
+	)
 
-func (d DropTableStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
-	sb.WriteString("DROP TABLE ")
-	for index, table := range d.Tables {
-		if index != 0 {
-			sb.WriteString(", ")
-		}
-		if err := table.Restore(flag, sb, args); err != nil {
-			return errors.Errorf("An error occurred while restore DropTableStatement.Tables[%d],error:%s", index, err)
-		}
+	shards, err := o.computeShards(stmt.Table, stmt.Where, o.args)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to optimize DELETE statement")
 	}
-	return nil
-}
 
-func (d DropTableStatement) CntParams() int {
-	return 0
-}
+	// TODO: delete from a child sharding-table directly
 
-func (d DropTableStatement) Validate() error {
-	return nil
-}
+	if shards == nil {
+		return plan.Transparent(stmt, o.args), nil
+	}
 
-func (d DropTableStatement) Mode() SQLType {
-	return SQLTypeDropTable
+	ret := plan.NewSimpleDeletePlan(stmt)
+	ret.BindArgs(o.args)
+	ret.SetShards(shards)
+
+	return ret, nil
 }

@@ -46,9 +46,11 @@ import (
 	"github.com/arana-db/arana/pkg/metrics"
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/proto/schema_manager"
 	"github.com/arana-db/arana/pkg/resultx"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/runtime/namespace"
+	"github.com/arana-db/arana/pkg/runtime/optimize"
 	"github.com/arana-db/arana/pkg/util/log"
 	"github.com/arana-db/arana/pkg/util/rand2"
 	"github.com/arana-db/arana/third_party/pools"
@@ -58,8 +60,11 @@ var (
 	_ Runtime     = (*defaultRuntime)(nil)
 	_ proto.VConn = (*defaultRuntime)(nil)
 	_ proto.VConn = (*compositeTx)(nil)
+)
 
-	Tracer = otel.Tracer("Runtime")
+var (
+	Tracer                                  = otel.Tracer("Runtime")
+	_defaultSchemaLoader proto.SchemaLoader = schema_manager.NewSimpleSchemaLoader()
 )
 
 var (
@@ -218,10 +223,15 @@ func (tx *compositeTx) Execute(ctx *proto.Context) (res proto.Result, warn uint1
 		c    = ctx.Context
 	)
 
-	c = rcontext.WithRule(c, ru)
 	c = rcontext.WithSQL(c, ctx.GetQuery())
 
-	if plan, err = tx.rt.ns.Optimizer().Optimize(c, tx, ctx.Stmt.StmtNode, args...); err != nil {
+	var opt proto.Optimizer
+	if opt, err = optimize.NewOptimizer(tx, _defaultSchemaLoader, ru, ctx.Stmt.Hints, ctx.Stmt.StmtNode, args); err != nil {
+		err = errors.WithStack(err)
+		return
+	}
+
+	if plan, err = opt.Optimize(ctx); err != nil {
 		err = errors.WithStack(err)
 		return
 	}
@@ -627,14 +637,20 @@ func (pi *defaultRuntime) Execute(ctx *proto.Context) (res proto.Result, warn ui
 		c    = ctx.Context
 	)
 
-	c = rcontext.WithRule(c, ru)
 	c = rcontext.WithSQL(c, ctx.GetQuery())
 	c = rcontext.WithSchema(c, ctx.Schema)
 	c = rcontext.WithDBGroup(c, pi.ns.DBGroups()[0])
 	c = rcontext.WithTenant(c, ctx.Tenant)
 
 	start := time.Now()
-	if plan, err = pi.ns.Optimizer().Optimize(c, pi, ctx.Stmt.StmtNode, args...); err != nil {
+
+	var opt proto.Optimizer
+	if opt, err = optimize.NewOptimizer(pi, _defaultSchemaLoader, ru, ctx.Stmt.Hints, ctx.Stmt.StmtNode, args); err != nil {
+		err = errors.WithStack(err)
+		return
+	}
+
+	if plan, err = opt.Optimize(c); err != nil {
 		err = errors.WithStack(err)
 		return
 	}

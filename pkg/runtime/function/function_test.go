@@ -104,7 +104,7 @@ func BenchmarkEval(b *testing.B) {
 }
 
 func mustGetMathAtom() *ast.MathExpressionAtom {
-	stmt, err := ast.Parse("select * from t where a = 1 + if(?,1,0)")
+	_, stmt, err := ast.Parse("select * from t where a = 1 + if(?,1,0)")
 	if err != nil {
 		panic(err.Error())
 	}
