@@ -24,10 +24,6 @@ import (
 	"time"
 )
 
-import (
-	"github.com/arana-db/parser/ast"
-)
-
 const (
 	PlanTypeQuery PlanType = iota // QUERY
 	PlanTypeExec                  // EXEC
@@ -56,7 +52,7 @@ type (
 	// Optimizer represents a sql statement optimizer which can be used to create QueryPlan or ExecPlan.
 	Optimizer interface {
 		// Optimize optimizes the sql with arguments then returns a Plan.
-		Optimize(ctx context.Context, conn VConn, stmt ast.StmtNode, args ...interface{}) (Plan, error)
+		Optimize(ctx context.Context) (Plan, error)
 	}
 
 	// Weight represents the read/write weight info.
@@ -114,7 +110,9 @@ type (
 		Rollback(ctx context.Context) (Result, uint16, error)
 	}
 
+	// SchemaLoader represents a schema discovery.
 	SchemaLoader interface {
+		// Load loads the schema.
 		Load(ctx context.Context, conn VConn, schema string, tables []string) map[string]*TableMetadata
 	}
 )

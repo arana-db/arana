@@ -112,7 +112,7 @@ func (u *UnionSelectStatement) OrderBy() OrderByNode {
 }
 
 func (u *UnionSelectStatement) Mode() SQLType {
-	return Squery
+	return SQLTypeUnion
 }
 
 func (u *UnionSelectStatement) First() *SelectStatement {

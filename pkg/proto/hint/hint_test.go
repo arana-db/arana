@@ -15,45 +15,40 @@
  * limitations under the License.
  */
 
-package ast
+package hint
 
 import (
-	"strings"
+	"testing"
 )
 
 import (
-	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 )
 
-type DropTableStatement struct {
-	Tables []*TableName
-}
-
-func NewDropTableStatement() *DropTableStatement {
-	return &DropTableStatement{}
-}
-
-func (d DropTableStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
-	sb.WriteString("DROP TABLE ")
-	for index, table := range d.Tables {
-		if index != 0 {
-			sb.WriteString(", ")
-		}
-		if err := table.Restore(flag, sb, args); err != nil {
-			return errors.Errorf("An error occurred while restore DropTableStatement.Tables[%d],error:%s", index, err)
-		}
+func TestParse(t *testing.T) {
+	type tt struct {
+		input  string
+		output string
+		pass   bool
 	}
-	return nil
-}
 
-func (d DropTableStatement) CntParams() int {
-	return 0
-}
-
-func (d DropTableStatement) Validate() error {
-	return nil
-}
-
-func (d DropTableStatement) Mode() SQLType {
-	return SQLTypeDropTable
+	for _, next := range []tt{
+		{"route( foo , bar , qux )", "ROUTE(foo,bar,qux)", true},
+		{"master", "MASTER()", true},
+		{"slave", "SLAVE()", true},
+		{"not_exist_hint(1,2,3)", "", false},
+		{"route(,,,)", "ROUTE()", true},
+		{"fullscan()", "FULLSCAN()", true},
+		{"route(foo=111,bar=222,qux=333,)", "ROUTE(foo=111,bar=222,qux=333)", true},
+	} {
+		t.Run(next.input, func(t *testing.T) {
+			res, err := Parse(next.input)
+			if next.pass {
+				assert.NoError(t, err)
+				assert.Equal(t, next.output, res.String())
+			} else {
+				assert.Error(t, err)
+			}
+		})
+	}
 }

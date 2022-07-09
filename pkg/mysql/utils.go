@@ -1084,7 +1084,7 @@ func convertAssignRows(dest, src interface{}) error {
 		i64, err := strconv.ParseInt(s, 10, dv.Type().Bits())
 		if err != nil {
 			err = strconvErr(err)
-			return fmt.Errorf("converting driver.Value type %T (%q) to a %s: %v", src, s, dv.Kind(), err)
+			return fmt.Errorf("converting driver.V type %T (%q) to a %s: %v", src, s, dv.Kind(), err)
 		}
 		dv.SetInt(i64)
 		return nil
@@ -1096,7 +1096,7 @@ func convertAssignRows(dest, src interface{}) error {
 		u64, err := strconv.ParseUint(s, 10, dv.Type().Bits())
 		if err != nil {
 			err = strconvErr(err)
-			return fmt.Errorf("converting driver.Value type %T (%q) to a %s: %v", src, s, dv.Kind(), err)
+			return fmt.Errorf("converting driver.V type %T (%q) to a %s: %v", src, s, dv.Kind(), err)
 		}
 		dv.SetUint(u64)
 		return nil
@@ -1108,7 +1108,7 @@ func convertAssignRows(dest, src interface{}) error {
 		f64, err := strconv.ParseFloat(s, dv.Type().Bits())
 		if err != nil {
 			err = strconvErr(err)
-			return fmt.Errorf("converting driver.Value type %T (%q) to a %s: %v", src, s, dv.Kind(), err)
+			return fmt.Errorf("converting driver.V type %T (%q) to a %s: %v", src, s, dv.Kind(), err)
 		}
 		dv.SetFloat(f64)
 		return nil
@@ -1126,7 +1126,7 @@ func convertAssignRows(dest, src interface{}) error {
 		}
 	}
 
-	return fmt.Errorf("unsupported Scan, storing driver.Value type %T into type %T", src, dest)
+	return fmt.Errorf("unsupported Scan, storing driver.V type %T into type %T", src, dest)
 }
 
 func cloneBytes(b []byte) []byte {

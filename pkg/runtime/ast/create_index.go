@@ -17,7 +17,9 @@
 
 package ast
 
-import "strings"
+import (
+	"strings"
+)
 
 var (
 	_ Statement = (*CreateIndexStatement)(nil)
@@ -63,5 +65,5 @@ func (c *CreateIndexStatement) Validate() error {
 }
 
 func (c *CreateIndexStatement) Mode() SQLType {
-	return CreateIndex
+	return SQLTypeCreateIndex
 }

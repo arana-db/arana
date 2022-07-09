@@ -15,45 +15,40 @@
  * limitations under the License.
  */
 
-package ast
+package optimize
 
 import (
-	"strings"
+	"context"
 )
 
 import (
-	"github.com/pkg/errors"
+	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/runtime/plan"
 )
 
-type DropTableStatement struct {
-	Tables []*TableName
+func init() {
+	registerOptimizeHandler(ast.SQLTypeShowTables, optimizeShowTables)
 }
 
-func NewDropTableStatement() *DropTableStatement {
-	return &DropTableStatement{}
-}
-
-func (d DropTableStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
-	sb.WriteString("DROP TABLE ")
-	for index, table := range d.Tables {
-		if index != 0 {
-			sb.WriteString(", ")
-		}
-		if err := table.Restore(flag, sb, args); err != nil {
-			return errors.Errorf("An error occurred while restore DropTableStatement.Tables[%d],error:%s", index, err)
-		}
+func optimizeShowTables(_ context.Context, o *optimizer) (proto.Plan, error) {
+	stmt := o.stmt.(*ast.ShowTables)
+	var invertedIndex map[string]string
+	for logicalTable, v := range o.rule.VTables() {
+		t := v.Topology()
+		t.Each(func(x, y int) bool {
+			if _, phyTable, ok := t.Render(x, y); ok {
+				if invertedIndex == nil {
+					invertedIndex = make(map[string]string)
+				}
+				invertedIndex[phyTable] = logicalTable
+			}
+			return true
+		})
 	}
-	return nil
-}
 
-func (d DropTableStatement) CntParams() int {
-	return 0
-}
-
-func (d DropTableStatement) Validate() error {
-	return nil
-}
-
-func (d DropTableStatement) Mode() SQLType {
-	return SQLTypeDropTable
+	ret := plan.NewShowTablesPlan(stmt)
+	ret.BindArgs(o.args)
+	ret.SetInvertedShards(invertedIndex)
+	return ret, nil
 }

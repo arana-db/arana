@@ -21,6 +21,10 @@ import (
 	"github.com/arana-db/parser/ast"
 )
 
+import (
+	"github.com/arana-db/arana/pkg/proto/hint"
+)
+
 // Stmt is a buffer used for store prepare statement metadata.
 type Stmt struct {
 	StatementID uint32
@@ -29,5 +33,6 @@ type Stmt struct {
 	ParamsType  []int32
 	ColumnNames []string
 	BindVars    map[string]interface{}
+	Hints       []*hint.Hint
 	StmtNode    ast.StmtNode
 }
