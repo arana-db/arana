@@ -35,8 +35,8 @@ import (
 
 type CreateIndexPlan struct {
 	basePlan
-	stmt  *ast.CreateIndexStatement
-	shard rule.DatabaseTables
+	stmt   *ast.CreateIndexStatement
+	Shards rule.DatabaseTables
 }
 
 func NewCreateIndexPlan(stmt *ast.CreateIndexStatement) *CreateIndexPlan {
@@ -55,7 +55,7 @@ func (c *CreateIndexPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 		args []int
 	)
 
-	for db, tables := range c.shard {
+	for db, tables := range c.Shards {
 		for i := range tables {
 			table := tables[i]
 
@@ -79,7 +79,7 @@ func (c *CreateIndexPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 }
 
 func (c *CreateIndexPlan) SetShard(shard rule.DatabaseTables) {
-	c.shard = shard
+	c.Shards = shard
 }
 
 func (c *CreateIndexPlan) execOne(ctx context.Context, conn proto.VConn, db, query string, args []interface{}) error {

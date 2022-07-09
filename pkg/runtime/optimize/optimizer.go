@@ -172,21 +172,30 @@ func (o optimizer) optimizeDropIndex(ctx context.Context, stmt *rast.DropIndexSt
 }
 
 func (o optimizer) optimizeCreateIndex(ctx context.Context, stmt *rast.CreateIndexStatement, args []interface{}) (proto.Plan, error) {
-	ru := rcontext.Rule(ctx)
+
+	var (
+		ret = plan.NewCreateIndexPlan(stmt)
+		ru  = rcontext.Rule(ctx)
+		vt  *rule.VTable
+	)
+
 	//table shard
-
-	shard, err := o.computeShards(ru, stmt.Table, nil, args)
-	if err != nil {
-		return nil, err
-	}
-	if len(shard) == 0 {
-		return plan.Transparent(stmt, args), nil
+	_, ok := ru.VTable(stmt.Table.String())
+	if !ok {
+		return ret, nil
 	}
 
-	shardPlan := plan.NewCreateIndexPlan(stmt)
-	shardPlan.SetShard(shard)
-	shardPlan.BindArgs(args)
-	return shardPlan, nil
+	// sharding
+	shards := rule.DatabaseTables{}
+	topology := vt.Topology()
+	topology.Each(func(dbIdx, tbIdx int) bool {
+		if d, t, ok := topology.Render(dbIdx, tbIdx); ok {
+			shards[d] = append(shards[d], t)
+		}
+		return true
+	})
+	ret.SetShard(shards)
+	return ret, nil
 }
 
 func (o optimizer) optimizeAlterTable(ctx context.Context, stmt *rast.AlterTableStatement, args []interface{}) (proto.Plan, error) {
