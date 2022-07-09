@@ -33,7 +33,14 @@ var (
 	_ Statement = (*ShowDatabases)(nil)
 	_ Statement = (*ShowColumns)(nil)
 	_ Statement = (*ShowIndex)(nil)
+	_ Statement = (*ShowTopology)(nil)
 )
+
+type FromTable string
+
+func (f FromTable) String() string {
+	return string(f)
+}
 
 type baseShow struct {
 	filter interface{} // ExpressionNode or string
@@ -46,6 +53,9 @@ func (bs *baseShow) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) 
 		sb.WriteByte('`')
 		sb.WriteString(val)
 		sb.WriteByte('`')
+		return nil
+	case FromTable:
+		sb.WriteString(val.String())
 		return nil
 	case PredicateNode:
 		return val.Restore(flag, sb, nil)
@@ -107,6 +117,22 @@ func (s ShowTables) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) 
 }
 
 func (s ShowTables) Validate() error {
+	return nil
+}
+
+type ShowTopology struct {
+	*baseShow
+}
+
+func (s ShowTopology) Mode() SQLType {
+	return SQLTypeShowTopology
+}
+
+func (s ShowTopology) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	return s.baseShow.Restore(flag, sb, args)
+}
+
+func (s ShowTopology) Validate() error {
 	return nil
 }
 

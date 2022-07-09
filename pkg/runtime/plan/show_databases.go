@@ -19,6 +19,7 @@ package plan
 
 import (
 	"context"
+	"github.com/arana-db/arana/pkg/mysql/thead"
 )
 
 import (
@@ -26,9 +27,7 @@ import (
 )
 
 import (
-	consts "github.com/arana-db/arana/pkg/constants/mysql"
 	"github.com/arana-db/arana/pkg/dataset"
-	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/mysql/rows"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/resultx"
@@ -56,7 +55,7 @@ func (s *ShowDatabasesPlan) ExecIn(ctx context.Context, _ proto.VConn) (proto.Re
 		return nil, errors.New("no tenant found in current db")
 	}
 
-	columns := []proto.Field{mysql.NewField("Database", consts.FieldTypeVarString)}
+	columns := thead.Database.ToFields()
 	ds := &dataset.VirtualDataset{
 		Columns: columns,
 	}
