@@ -63,7 +63,7 @@ func (c combinerManager) Merge(result proto.Result, loader *AggrLoader) (proto.R
 
 	mergeVals := make([]proto.Value, 0, len(loader.Aggrs))
 	for i := 0; i < len(loader.Aggrs); i++ {
-		switch loader.Aggrs[i][0] {
+		switch loader.Aggrs[i] {
 		case ast.AggrAvg:
 			mergeVals = append(mergeVals, gxbig.NewDecFromInt(0))
 		case ast.AggrMin:
@@ -118,7 +118,7 @@ func (c combinerManager) Merge(result proto.Result, loader *AggrLoader) (proto.R
 				return nil, errors.WithStack(err)
 			}
 
-			switch loader.Aggrs[aggrIdx][0] {
+			switch loader.Aggrs[aggrIdx] {
 			case ast.AggrMax:
 				if dummyVal.Compare(floatDecimal) < 0 {
 					dummyVal = floatDecimal

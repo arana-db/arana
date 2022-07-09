@@ -46,7 +46,7 @@ func Map(generateFields FieldsFunc, transform TransformFunc) Option {
 	}
 }
 
-func GroupReduce(groups []string, generateFields FieldsFunc, reducer func() Reducer) Option {
+func GroupReduce(groups []OrderByItem, generateFields FieldsFunc, reducer func() Reducer) Option {
 	return func(option *pipeOption) {
 		*option = append(*option, func(dataset proto.Dataset) proto.Dataset {
 			return &GroupDataset{

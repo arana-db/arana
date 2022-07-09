@@ -30,6 +30,8 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/merge"
+	"github.com/arana-db/arana/pkg/mysql/rows"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/util/log"
 )
@@ -44,9 +46,71 @@ type Reducer interface {
 	Row() proto.Row
 }
 
+type AggregateItem struct {
+	agg merge.Aggregator
+	idx int
+}
+
+type AggregateReducer struct {
+	AggItems   map[int]merge.Aggregator
+	currentRow proto.Row
+	Fields     []proto.Field
+}
+
+func NewGroupReducer(aggFuncMap map[int]func() merge.Aggregator, fields []proto.Field) *AggregateReducer {
+	aggItems := make(map[int]merge.Aggregator)
+	for idx, f := range aggFuncMap {
+		aggItems[idx] = f()
+	}
+	return &AggregateReducer{
+		AggItems:   aggItems,
+		currentRow: nil,
+		Fields:     fields,
+	}
+}
+
+func (gr *AggregateReducer) Reduce(next proto.Row) error {
+	var (
+		values = make([]proto.Value, len(gr.Fields))
+		result = make([]proto.Value, len(gr.Fields))
+	)
+	err := next.Scan(values)
+	if err != nil {
+		return err
+	}
+
+	for idx, aggregator := range gr.AggItems {
+		aggregator.Aggregate([]interface{}{values[idx]})
+	}
+
+	for i := 0; i < len(values); i++ {
+		if gr.AggItems[i] == nil {
+			result[i] = values[i]
+		} else {
+			aggResult, ok := gr.AggItems[i].GetResult()
+			if !ok {
+				return errors.New("can not aggregate value")
+			}
+			result[i] = aggResult
+		}
+	}
+
+	if next.IsBinary() {
+		gr.currentRow = rows.NewBinaryVirtualRow(gr.Fields, result)
+	} else {
+		gr.currentRow = rows.NewTextVirtualRow(gr.Fields, result)
+	}
+	return nil
+}
+
+func (gr *AggregateReducer) Row() proto.Row {
+	return gr.currentRow
+}
+
 type GroupDataset struct {
+	// Should be an orderedDataset
 	proto.Dataset
-	keys []string
+	keys []OrderByItem
 
 	fieldFunc           FieldsFunc
 	actualFieldsOnce    sync.Once
@@ -247,13 +311,13 @@ func (gd *GroupDataset) getKeyIndexes() ([]int, error) {
 		for _, key := range gd.keys {
 			idx := -1
 			for i := 0; i < len(fields); i++ {
-				if fields[i].Name() == key {
+				if fields[i].Name() == key.Column {
 					idx = i
 					break
 				}
 			}
 			if idx == -1 {
-				gd.keyIndexesFailure = fmt.Errorf("cannot find group field '%s'", key)
+				gd.keyIndexesFailure = fmt.Errorf("cannot find group field '%+v'", key)
 				return
 			}
 			gd.keyIndexes = append(gd.keyIndexes, idx)

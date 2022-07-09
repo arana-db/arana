@@ -108,7 +108,7 @@ func TestGroupReduce(t *testing.T) {
 	}
 
 	// Simulate: SELECT gender,COUNT(*) AS amount FROM xxx WHERE ... GROUP BY gender
-	groups := []string{"gender"}
+	groups := []OrderByItem{{"gender", true}}
 	p := Pipe(&origin,
 		GroupReduce(
 			groups,
