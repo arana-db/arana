@@ -140,7 +140,7 @@ func optimizeInsert(ctx context.Context, o *optimizer) (proto.Plan, error) {
 			}
 			newborn.SetValues(values)
 
-			rewriteInsertStatement(ctx, o, newborn, db, table)
+			rewriteInsertStatement(ctx, newborn, db, table)
 			ret.Put(db, newborn)
 		}
 	}
@@ -165,8 +165,8 @@ func optimizeInsertSelect(_ context.Context, o *optimizer) (proto.Plan, error) {
 	return nil, errors.New("not support insert-select into sharding table")
 }
 
-func rewriteInsertStatement(ctx context.Context, o *optimizer, stmt *ast.InsertStatement, db, tb string) error {
-	metaData := o.schemaLoader.Load(ctx, o.vconn, db, []string{tb})[tb]
+func rewriteInsertStatement(ctx context.Context, stmt *ast.InsertStatement, db, tb string) error {
+	metaData := proto.LoadSchemaLoader().Load(ctx, db, []string{tb})[tb]
 	if metaData == nil || len(metaData.ColumnNames) == 0 {
 		return errors.Errorf("can not get metadata for db:%s and table:%s", db, tb)
 	}

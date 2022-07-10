@@ -64,7 +64,7 @@ func TestOptimizer_OptimizeSelect(t *testing.T) {
 
 	p := parser.New()
 	stmt, _ := p.ParseOneStmt(sql, "", "")
-	opt, err := NewOptimizer(conn, nil, ru, nil, stmt, []interface{}{1, 2, 3})
+	opt, err := NewOptimizer(ru, nil, stmt, []interface{}{1, 2, 3})
 	assert.NoError(t, err)
 	plan, err := opt.Optimize(ctx)
 	assert.NoError(t, err)
@@ -126,7 +126,11 @@ func TestOptimizer_OptimizeInsert(t *testing.T) {
 			), nil
 		}).
 		AnyTimes()
-	loader.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fakeStudentMetadata).Times(2)
+	loader.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any()).Return(fakeStudentMetadata).Times(2)
+
+	oldLoader := proto.LoadSchemaLoader()
+	proto.RegisterSchemaLoader(loader)
+	defer proto.RegisterSchemaLoader(oldLoader)
 
 	var (
 		ctx = context.Background()
@@ -140,7 +144,7 @@ func TestOptimizer_OptimizeInsert(t *testing.T) {
 		p := parser.New()
 		stmt, _ := p.ParseOneStmt(sql, "", "")
 
-		opt, err := NewOptimizer(conn, loader, ru, nil, stmt, []interface{}{8, 9, 16})
+		opt, err := NewOptimizer(ru, nil, stmt, []interface{}{8, 9, 16})
 		assert.NoError(t, err)
 
 		plan, err := opt.Optimize(ctx) // 8,16 -> fake_db_0000, 9 -> fake_db_0001
@@ -161,7 +165,7 @@ func TestOptimizer_OptimizeInsert(t *testing.T) {
 		p := parser.New()
 		stmt, _ := p.ParseOneStmt(sql, "", "")
 
-		opt, err := NewOptimizer(conn, loader, ru, nil, stmt, []interface{}{1})
+		opt, err := NewOptimizer(ru, nil, stmt, []interface{}{1})
 		assert.NoError(t, err)
 
 		plan, err := opt.Optimize(ctx)
@@ -183,7 +187,6 @@ func TestOptimizer_OptimizeAlterTable(t *testing.T) {
 	defer ctrl.Finish()
 
 	conn := testdata.NewMockVConn(ctrl)
-	loader := testdata.NewMockSchemaLoader(ctrl)
 
 	conn.EXPECT().Exec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, db string, sql string, args ...interface{}) (proto.Result, error) {
@@ -218,7 +221,7 @@ func TestOptimizer_OptimizeAlterTable(t *testing.T) {
 		p := parser.New()
 		stmt, _ := p.ParseOneStmt(sql, "", "")
 
-		opt, err := NewOptimizer(conn, loader, &ru, nil, stmt, nil)
+		opt, err := NewOptimizer(&ru, nil, stmt, nil)
 		assert.NoError(t, err)
 
 		plan, err := opt.Optimize(ctx)
@@ -235,7 +238,7 @@ func TestOptimizer_OptimizeAlterTable(t *testing.T) {
 		p := parser.New()
 		stmt, _ := p.ParseOneStmt(sql, "", "")
 
-		opt, err := NewOptimizer(conn, loader, &ru, nil, stmt, nil)
+		opt, err := NewOptimizer(&ru, nil, stmt, nil)
 		assert.NoError(t, err)
 
 		plan, err := opt.Optimize(ctx)
@@ -251,7 +254,6 @@ func TestOptimizer_OptimizeInsertSelect(t *testing.T) {
 	defer ctrl.Finish()
 
 	conn := testdata.NewMockVConn(ctrl)
-	loader := testdata.NewMockSchemaLoader(ctrl)
 
 	var fakeId uint64
 	conn.EXPECT().Exec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
@@ -279,7 +281,7 @@ func TestOptimizer_OptimizeInsertSelect(t *testing.T) {
 		p := parser.New()
 		stmt, _ := p.ParseOneStmt(sql, "", "")
 
-		opt, err := NewOptimizer(conn, loader, &ru, nil, stmt, []interface{}{1})
+		opt, err := NewOptimizer(&ru, nil, stmt, []interface{}{1})
 		assert.NoError(t, err)
 
 		plan, err := opt.Optimize(ctx)

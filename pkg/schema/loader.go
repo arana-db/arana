@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package schema_manager
+package schema
 
 import (
 	"context"
@@ -30,6 +30,7 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/runtime"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/util/log"
 )
@@ -42,6 +43,10 @@ const (
 	indexMetadataSQL         = "SELECT TABLE_NAME, INDEX_NAME FROM information_schema.statistics WHERE TABLE_SCHEMA=database() AND TABLE_NAME IN (%s)"
 )
 
+func init() {
+	proto.RegisterSchemaLoader(NewSimpleSchemaLoader())
+}
+
 type SimpleSchemaLoader struct {
 	// key format is schema.table
 	metadataCache map[string]*proto.TableMetadata
@@ -51,7 +56,7 @@ func NewSimpleSchemaLoader() *SimpleSchemaLoader {
 	return &SimpleSchemaLoader{metadataCache: make(map[string]*proto.TableMetadata)}
 }
 
-func (l *SimpleSchemaLoader) Load(ctx context.Context, conn proto.VConn, schema string, tables []string) map[string]*proto.TableMetadata {
+func (l *SimpleSchemaLoader) Load(ctx context.Context, schema string, tables []string) map[string]*proto.TableMetadata {
 	var (
 		tableMetadataMap  = make(map[string]*proto.TableMetadata, len(tables))
 		indexMetadataMap  map[string][]*proto.IndexMetadata
@@ -77,9 +82,10 @@ func (l *SimpleSchemaLoader) Load(ctx context.Context, conn proto.VConn, schema 
 	}
 
 	ctx = rcontext.WithRead(rcontext.WithDirect(ctx))
-	columnMetadataMap = l.LoadColumnMetadataMap(ctx, conn, schema, queryTables)
+
+	columnMetadataMap = l.LoadColumnMetadataMap(ctx, schema, queryTables)
 	if columnMetadataMap != nil {
-		indexMetadataMap = l.LoadIndexMetadata(ctx, conn, schema, queryTables)
+		indexMetadataMap = l.LoadIndexMetadata(ctx, schema, queryTables)
 	}
 
 	for tableName, columns := range columnMetadataMap {
@@ -92,11 +98,14 @@ func (l *SimpleSchemaLoader) Load(ctx context.Context, conn proto.VConn, schema 
 	return tableMetadataMap
 }
 
-func (l *SimpleSchemaLoader) LoadColumnMetadataMap(ctx context.Context, conn proto.VConn, schema string, tables []string) map[string][]*proto.ColumnMetadata {
+func (l *SimpleSchemaLoader) LoadColumnMetadataMap(ctx context.Context, schema string, tables []string) map[string][]*proto.ColumnMetadata {
+	conn, err := runtime.Load(schema)
+	if err != nil {
+		return nil
+	}
 	var (
 		resultSet proto.Result
 		ds        proto.Dataset
-		err       error
 	)
 
 	if resultSet, err = conn.Query(ctx, schema, getColumnMetadataSQL(tables)); err != nil {
@@ -167,10 +176,14 @@ func convertInterfaceToStrNullable(value proto.Value) string {
 	}
 }
 
-func (l *SimpleSchemaLoader) LoadIndexMetadata(ctx context.Context, conn proto.VConn, schema string, tables []string) map[string][]*proto.IndexMetadata {
+func (l *SimpleSchemaLoader) LoadIndexMetadata(ctx context.Context, schema string, tables []string) map[string][]*proto.IndexMetadata {
+	conn, err := runtime.Load(schema)
+	if err != nil {
+		return nil
+	}
+
 	var (
 		resultSet proto.Result
-		err       error
 		ds        proto.Dataset
 	)
 

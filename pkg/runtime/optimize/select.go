@@ -401,7 +401,7 @@ func rewriteSelectStatement(ctx context.Context, o *optimizer, stmt *ast.SelectS
 		if len(tb) < 1 {
 			tb = stmt.From[0].TableName().Suffix()
 		}
-		metaData := o.schemaLoader.Load(ctx, o.vconn, db, []string{tb})[tb]
+		metaData := proto.LoadSchemaLoader().Load(ctx, db, []string{tb})[tb]
 		if metaData == nil || len(metaData.ColumnNames) == 0 {
 			return errors.Errorf("can not get metadata for db:%s and table:%s", db, tb)
 		}

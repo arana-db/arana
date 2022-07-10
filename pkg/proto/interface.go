@@ -20,6 +20,7 @@ package proto
 import (
 	"context"
 	"encoding/json"
+	"sort"
 )
 
 import (
@@ -117,4 +118,24 @@ func (c Context) GetQuery() string {
 		}
 	}
 	return bytesconv.BytesToString(c.Data[1:])
+}
+
+func (c Context) GetArgs() []interface{} {
+	if c.Stmt == nil || len(c.Stmt.BindVars) < 1 {
+		return nil
+	}
+
+	var (
+		keys = make([]string, 0, len(c.Stmt.BindVars))
+		args = make([]interface{}, 0, len(c.Stmt.BindVars))
+	)
+
+	for k := range c.Stmt.BindVars {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		args = append(args, c.Stmt.BindVars[k])
+	}
+	return args
 }
