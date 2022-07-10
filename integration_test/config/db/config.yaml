@@ -86,6 +86,7 @@ data:
           - column: uid
             type: scriptExpr
             expr: parseInt($value % 32 / 8)
+            step: 32
         tbl_rules:
           - column: uid
             type: scriptExpr

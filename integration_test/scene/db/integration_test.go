@@ -24,7 +24,7 @@ import (
 )
 
 import (
-	_ "github.com/go-sql-driver/mysql" // register mysql
+	_ "github.com/go-sql-driver/mysql"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -144,7 +144,7 @@ func (s *IntegrationSuite) TestSimpleSharding() {
 		{"SELECT * FROM student WHERE uid = 42 AND 1=2", nil, 0},
 		{"SELECT * FROM student WHERE uid = ?", []interface{}{42}, 1},
 		{"SELECT * FROM student WHERE uid in (?,?,?)", []interface{}{1, 2, 33}, 3},
-		{"SELECT * FROM student where uid between 1 and 10", nil, 7},
+		{"SELECT * FROM student where uid between 1 and 10", nil, 10},
 		//{"SELECT * FROM student", nil, total}, // TODO: fix -> packet got EOF
 	} {
 		t.Run(it.sql, func(t *testing.T) {
