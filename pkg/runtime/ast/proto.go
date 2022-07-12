@@ -40,6 +40,7 @@ const (
 	SQLTypeShowColumns            // SHOW COLUMNS
 	SQLTypeShowCreate             // SHOW CREATE
 	SQLTypeShowVariables          // SHOW VARIABLES
+	SQLTypeShowTopology           // SHOW TOPOLOGY
 	SQLTypeDescribe               // DESCRIBE
 	SQLTypeUnion                  // UNION
 	SQLTypeDropTrigger            // DROP TRIGGER

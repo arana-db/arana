@@ -585,6 +585,12 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 		}
 		return node.DBName, true
 	}
+	toFrom := func(node *ast.ShowStmt) (FromTable, bool) {
+		if node.Table == nil {
+			return "", false
+		}
+		return FromTable(node.Table.Name.String()), true
+	}
 	toWhere := func(node *ast.ShowStmt) (ExpressionNode, bool) {
 		if node.Where == nil {
 			return nil, false
@@ -612,11 +618,15 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 			bs.filter = where
 		} else if in, ok := toIn(node); ok {
 			bs.filter = in
+		} else if from, ok := toFrom(node); ok {
+			bs.filter = from
 		}
 		return &bs
 	}
 
 	switch node.Tp {
+	case ast.ShowTopology:
+		return &ShowTopology{baseShow: toBaseShow()}
 	case ast.ShowOpenTables:
 		return &ShowOpenTables{baseShow: toBaseShow()}
 	case ast.ShowTables:
