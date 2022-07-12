@@ -739,7 +739,7 @@ func (c *Conn) writeEOFPacket(flags uint16, warnings uint16) error {
 // Packet parsing methods, for generic packets.
 //
 
-// isEOFPacket determines whether or not a Content packet is a "true" EOF. DO NOT blindly compare the
+// isEOFPacket determines whether a Content packet is a "true" EOF. DO NOT blindly compare the
 // first byte of a packet to EOFPacket as you might do for other packet types, as 0xfe is overloaded
 // as a first byte.
 //
