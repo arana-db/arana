@@ -19,7 +19,6 @@ package plan
 
 import (
 	"context"
-	"github.com/arana-db/arana/pkg/mysql/thead"
 )
 
 import (
@@ -29,6 +28,7 @@ import (
 import (
 	"github.com/arana-db/arana/pkg/dataset"
 	"github.com/arana-db/arana/pkg/mysql/rows"
+	"github.com/arana-db/arana/pkg/mysql/thead"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/resultx"
 	"github.com/arana-db/arana/pkg/runtime/ast"
