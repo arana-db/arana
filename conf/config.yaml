@@ -97,6 +97,7 @@ data:
           - column: uid
             type: scriptExpr
             expr: $value % 32
+            step: 32
         topology:
           db_pattern: employees_${0000..0003}
           tbl_pattern: student_${0000..0031}
