@@ -23,7 +23,6 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/plan"
 )
@@ -42,15 +41,6 @@ func optimizeCreateIndex(_ context.Context, o *optimizer) (proto.Plan, error) {
 		return ret, nil
 	}
 
-	// sharding
-	shards := rule.DatabaseTables{}
-	topology := vt.Topology()
-	topology.Each(func(dbIdx, tbIdx int) bool {
-		if d, t, ok := topology.Render(dbIdx, tbIdx); ok {
-			shards[d] = append(shards[d], t)
-		}
-		return true
-	})
-	ret.SetShard(shards)
+	ret.SetShard(vt.Topology().Enumerate())
 	return ret, nil
 }

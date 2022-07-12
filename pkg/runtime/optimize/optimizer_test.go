@@ -126,7 +126,7 @@ func TestOptimizer_OptimizeInsert(t *testing.T) {
 			), nil
 		}).
 		AnyTimes()
-	loader.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any()).Return(fakeStudentMetadata).Times(2)
+	loader.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any()).Return(fakeStudentMetadata, nil).Times(2)
 
 	oldLoader := proto.LoadSchemaLoader()
 	proto.RegisterSchemaLoader(loader)

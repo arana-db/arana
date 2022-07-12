@@ -86,11 +86,11 @@ func LoadSchemaLoader() SchemaLoader {
 // SchemaLoader represents a schema discovery.
 type SchemaLoader interface {
 	// Load loads the schema.
-	Load(ctx context.Context, schema string, tables []string) map[string]*TableMetadata
+	Load(ctx context.Context, schema string, table []string) (map[string]*TableMetadata, error)
 }
 
 type noopSchemaLoader struct{}
 
-func (n noopSchemaLoader) Load(_ context.Context, _ string, _ []string) map[string]*TableMetadata {
-	return nil
+func (n noopSchemaLoader) Load(_ context.Context, _ string, _ []string) (map[string]*TableMetadata, error) {
+	return nil, nil
 }

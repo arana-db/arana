@@ -63,7 +63,7 @@ func optimizeSelect(ctx context.Context, o *optimizer) (proto.Plan, error) {
 
 	if flag&_bypass != 0 {
 		if len(stmt.From) > 0 {
-			err := rewriteSelectStatement(ctx, o, stmt, rcontext.DBGroup(ctx), stmt.From[0].TableName().Suffix())
+			err := rewriteSelectStatement(ctx, stmt, stmt.From[0].TableName().Suffix())
 			if err != nil {
 				return nil, err
 			}
@@ -92,7 +92,8 @@ func optimizeSelect(ctx context.Context, o *optimizer) (proto.Plan, error) {
 	}
 
 	toSingle := func(db, tbl string) (proto.Plan, error) {
-		if err := rewriteSelectStatement(ctx, o, stmt, db, tbl); err != nil {
+		_, tb0, _ := vt.Topology().Smallest()
+		if err := rewriteSelectStatement(ctx, stmt, tb0); err != nil {
 			return nil, err
 		}
 		ret := &plan.SimpleQueryPlan{
@@ -133,16 +134,7 @@ func optimizeSelect(ctx context.Context, o *optimizer) (proto.Plan, error) {
 	// Handle multiple shards
 
 	if shards.IsFullScan() { // expand all shards if all shards matched
-		// init shards
-		shards = rule.DatabaseTables{}
-		// compute all tables
-		topology := vt.Topology()
-		topology.Each(func(dbIdx, tbIdx int) bool {
-			if d, t, ok := topology.Render(dbIdx, tbIdx); ok {
-				shards[d] = append(shards[d], t)
-			}
-			return true
-		})
+		shards = vt.Topology().Enumerate()
 	}
 
 	plans := make([]proto.Plan, 0, len(shards))
@@ -157,9 +149,9 @@ func optimizeSelect(ctx context.Context, o *optimizer) (proto.Plan, error) {
 	}
 
 	if len(plans) > 0 {
-		tempPlan := plans[0].(*plan.SimpleQueryPlan)
-		if err = rewriteSelectStatement(ctx, o, stmt, tempPlan.Database, tempPlan.Tables[0]); err != nil {
-			return nil, err
+		_, tb, _ := vt.Topology().Smallest()
+		if err = rewriteSelectStatement(ctx, stmt, tb); err != nil {
+			return nil, errors.WithStack(err)
 		}
 	}
 
@@ -388,7 +380,7 @@ func overwriteLimit(stmt *ast.SelectStatement, args *[]interface{}) (originOffse
 	return
 }
 
-func rewriteSelectStatement(ctx context.Context, o *optimizer, stmt *ast.SelectStatement, db, tb string) error {
+func rewriteSelectStatement(ctx context.Context, stmt *ast.SelectStatement, tb string) error {
 	// todo db 计算逻辑&tb shard 的计算逻辑
 	var starExpand = false
 	if len(stmt.Select) == 1 {
@@ -397,20 +389,26 @@ func rewriteSelectStatement(ctx context.Context, o *optimizer, stmt *ast.SelectS
 		}
 	}
 
-	if starExpand {
-		if len(tb) < 1 {
-			tb = stmt.From[0].TableName().Suffix()
-		}
-		metaData := proto.LoadSchemaLoader().Load(ctx, db, []string{tb})[tb]
-		if metaData == nil || len(metaData.ColumnNames) == 0 {
-			return errors.Errorf("can not get metadata for db:%s and table:%s", db, tb)
-		}
-		selectElements := make([]ast.SelectElement, len(metaData.Columns))
-		for i, column := range metaData.ColumnNames {
-			selectElements[i] = ast.NewSelectElementColumn([]string{column}, "")
-		}
-		stmt.Select = selectElements
+	if !starExpand {
+		return nil
 	}
+
+	if len(tb) < 1 {
+		tb = stmt.From[0].TableName().Suffix()
+	}
+	metadatas, err := proto.LoadSchemaLoader().Load(ctx, rcontext.Schema(ctx), []string{tb})
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	metadata := metadatas[tb]
+	if metadata == nil || len(metadata.ColumnNames) == 0 {
+		return errors.Errorf("optimize: cannot get metadata of `%s`.`%s`", rcontext.Schema(ctx), tb)
+	}
+	selectElements := make([]ast.SelectElement, len(metadata.Columns))
+	for i, column := range metadata.ColumnNames {
+		selectElements[i] = ast.NewSelectElementColumn([]string{column}, "")
+	}
+	stmt.Select = selectElements
 
 	return nil
 }

@@ -41,11 +41,12 @@ func (m *MockSchemaLoader) EXPECT() *MockSchemaLoaderMockRecorder {
 }
 
 // Load mocks base method.
-func (m *MockSchemaLoader) Load(arg0 context.Context, arg1 string, arg2 []string) map[string]*proto.TableMetadata {
+func (m *MockSchemaLoader) Load(arg0 context.Context, arg1 string, arg2 []string) (map[string]*proto.TableMetadata, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Load", arg0, arg1, arg2)
 	ret0, _ := ret[0].(map[string]*proto.TableMetadata)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Load indicates an expected call of Load.

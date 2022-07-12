@@ -30,6 +30,7 @@ import (
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
+	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/runtime/plan"
 )
 
@@ -126,6 +127,8 @@ func optimizeInsert(ctx context.Context, o *optimizer) (proto.Plan, error) {
 		slots[db][table] = append(slots[db][table], i)
 	}
 
+	_, tb0, _ := vt.Topology().Smallest()
+
 	for db, slot := range slots {
 		for table, indexes := range slot {
 			// clone insert stmt without values
@@ -140,7 +143,7 @@ func optimizeInsert(ctx context.Context, o *optimizer) (proto.Plan, error) {
 			}
 			newborn.SetValues(values)
 
-			rewriteInsertStatement(ctx, newborn, db, table)
+			rewriteInsertStatement(ctx, newborn, tb0)
 			ret.Put(db, newborn)
 		}
 	}
@@ -165,17 +168,21 @@ func optimizeInsertSelect(_ context.Context, o *optimizer) (proto.Plan, error) {
 	return nil, errors.New("not support insert-select into sharding table")
 }
 
-func rewriteInsertStatement(ctx context.Context, stmt *ast.InsertStatement, db, tb string) error {
-	metaData := proto.LoadSchemaLoader().Load(ctx, db, []string{tb})[tb]
-	if metaData == nil || len(metaData.ColumnNames) == 0 {
-		return errors.Errorf("can not get metadata for db:%s and table:%s", db, tb)
+func rewriteInsertStatement(ctx context.Context, stmt *ast.InsertStatement, tb string) error {
+	metadatas, err := proto.LoadSchemaLoader().Load(ctx, rcontext.Schema(ctx), []string{tb})
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	metadata := metadatas[tb]
+	if metadata == nil || len(metadata.ColumnNames) == 0 {
+		return errors.Errorf("optimize: cannot get metadata of `%s`.`%s`", rcontext.Schema(ctx), tb)
 	}
 
-	if len(metaData.ColumnNames) == len(stmt.Columns()) {
+	if len(metadata.ColumnNames) == len(stmt.Columns()) {
 		// User had explicitly specified every value
 		return nil
 	}
-	columnsMetadata := metaData.Columns
+	columnsMetadata := metadata.Columns
 
 	for _, colName := range stmt.Columns() {
 		if columnsMetadata[colName].PrimaryKey && columnsMetadata[colName].Generated {

@@ -628,7 +628,6 @@ func (pi *defaultRuntime) Execute(ctx *proto.Context) (res proto.Result, warn ui
 
 	c = rcontext.WithSQL(c, ctx.GetQuery())
 	c = rcontext.WithSchema(c, ctx.Schema)
-	c = rcontext.WithDBGroup(c, pi.Namespace().DBGroups()[0])
 	c = rcontext.WithTenant(c, ctx.Tenant)
 
 	start := time.Now()

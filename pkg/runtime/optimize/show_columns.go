@@ -23,7 +23,6 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/plan"
 )
@@ -41,16 +40,7 @@ func optimizeShowColumns(_ context.Context, o *optimizer) (proto.Plan, error) {
 	ret.BindArgs(o.args)
 
 	if vTable, ok := vts[vtName]; ok {
-		shards := rule.DatabaseTables{}
-		// compute all tables
-		topology := vTable.Topology()
-		topology.Each(func(dbIdx, tbIdx int) bool {
-			if d, t, ok := topology.Render(dbIdx, tbIdx); ok {
-				shards[d] = append(shards[d], t)
-			}
-			return true
-		})
-		_, tblName := shards.Smallest()
+		_, tblName, _ := vTable.Topology().Smallest()
 		ret.Table = tblName
 	}
 

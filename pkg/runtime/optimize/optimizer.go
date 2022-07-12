@@ -145,16 +145,8 @@ func (o optimizer) computeShards(table rast.TableName, where rast.ExpressionNode
 	}
 
 	if len(shards) == 0 {
-		// init shards
-		shards = rule.DatabaseTables{}
 		// compute all tables
-		topology := vt.Topology()
-		topology.Each(func(dbIdx, tbIdx int) bool {
-			if d, t, ok := topology.Render(dbIdx, tbIdx); ok {
-				shards[d] = append(shards[d], t)
-			}
-			return true
-		})
+		shards = vt.Topology().Enumerate()
 	}
 
 	return shards, nil
