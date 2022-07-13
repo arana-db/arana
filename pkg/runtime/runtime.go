@@ -20,10 +20,9 @@ package runtime
 import (
 	"context"
 	"encoding/json"
-	stdErrors "errors"
+	"errors"
 	"fmt"
 	"io"
-	"sort"
 	"sync"
 	"time"
 )
@@ -31,7 +30,7 @@ import (
 import (
 	"github.com/bwmarrin/snowflake"
 
-	"github.com/pkg/errors"
+	perrors "github.com/pkg/errors"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -46,7 +45,6 @@ import (
 	"github.com/arana-db/arana/pkg/metrics"
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/proto/schema_manager"
 	"github.com/arana-db/arana/pkg/resultx"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/runtime/namespace"
@@ -62,13 +60,10 @@ var (
 	_ proto.VConn = (*compositeTx)(nil)
 )
 
-var (
-	Tracer                                  = otel.Tracer("Runtime")
-	_defaultSchemaLoader proto.SchemaLoader = schema_manager.NewSimpleSchemaLoader()
-)
+var Tracer = otel.Tracer("Runtime")
 
 var (
-	errTxClosed = stdErrors.New("transaction is closed")
+	errTxClosed = errors.New("transaction is closed")
 )
 
 func NewAtomDB(node *config.Node) *AtomDB {
@@ -106,21 +101,20 @@ func NewAtomDB(node *config.Node) *AtomDB {
 // Runtime executes a sql statement.
 type Runtime interface {
 	proto.Executable
+	proto.VConn
 	// Namespace returns the namespace.
 	Namespace() *namespace.Namespace
 	// Begin begins a new transaction.
-	Begin(ctx *proto.Context) (proto.Tx, error)
+	Begin(ctx context.Context) (proto.Tx, error)
 }
 
 // Load loads a Runtime, here schema means logical database name.
 func Load(schema string) (Runtime, error) {
 	var ns *namespace.Namespace
 	if ns = namespace.Load(schema); ns == nil {
-		return nil, errors.Errorf("no such logical database %s", schema)
+		return nil, perrors.Errorf("no such logical database %s", schema)
 	}
-	return &defaultRuntime{
-		ns: ns,
-	}, nil
+	return (*defaultRuntime)(ns), nil
 }
 
 var (
@@ -159,7 +153,7 @@ func (tx *compositeTx) call(ctx context.Context, db string, query string, args .
 
 	res, _, err := atx.Call(ctx, query, args...)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, perrors.WithStack(err)
 	}
 	return res, nil
 }
@@ -198,9 +192,7 @@ func (tx *compositeTx) Execute(ctx *proto.Context) (res proto.Result, warn uint1
 		return
 	}
 
-	var (
-		args = tx.rt.extractArgs(ctx)
-	)
+	args := ctx.GetArgs()
 	if direct := rcontext.IsDirect(ctx.Context); direct {
 		var (
 			group = tx.rt.Namespace().DBGroups()[0]
@@ -212,13 +204,13 @@ func (tx *compositeTx) Execute(ctx *proto.Context) (res proto.Result, warn uint1
 		}
 		res, warn, err = atx.Call(cctx, ctx.GetQuery(), args...)
 		if err != nil {
-			err = errors.WithStack(err)
+			err = perrors.WithStack(err)
 		}
 		return
 	}
 
 	var (
-		ru   = tx.rt.ns.Rule()
+		ru   = tx.rt.Namespace().Rule()
 		plan proto.Plan
 		c    = ctx.Context
 	)
@@ -226,19 +218,19 @@ func (tx *compositeTx) Execute(ctx *proto.Context) (res proto.Result, warn uint1
 	c = rcontext.WithSQL(c, ctx.GetQuery())
 
 	var opt proto.Optimizer
-	if opt, err = optimize.NewOptimizer(tx, _defaultSchemaLoader, ru, ctx.Stmt.Hints, ctx.Stmt.StmtNode, args); err != nil {
-		err = errors.WithStack(err)
+	if opt, err = optimize.NewOptimizer(ru, ctx.Stmt.Hints, ctx.Stmt.StmtNode, args); err != nil {
+		err = perrors.WithStack(err)
 		return
 	}
 
 	if plan, err = opt.Optimize(ctx); err != nil {
-		err = errors.WithStack(err)
+		err = perrors.WithStack(err)
 		return
 	}
 
 	if res, err = plan.ExecIn(c, tx); err != nil {
 		// TODO: how to warp error packet
-		err = errors.WithStack(err)
+		err = perrors.WithStack(err)
 		return
 	}
 
@@ -371,7 +363,7 @@ func (tx *atomTx) CallFieldList(ctx context.Context, table, wildcard string) ([]
 	// TODO: choose table
 	var err error
 	if err = tx.bc.WriteComFieldList(table, wildcard); err != nil {
-		return nil, errors.WithStack(err)
+		return nil, perrors.WithStack(err)
 	}
 	return tx.bc.ReadColumnDefinitions()
 }
@@ -402,7 +394,7 @@ type AtomDB struct {
 
 func (db *AtomDB) begin(ctx context.Context) (*atomTx, error) {
 	if db.closed.Load() {
-		return nil, errors.Errorf("the db instance '%s' is closed already", db.id)
+		return nil, perrors.Errorf("the db instance '%s' is closed already", db.id)
 	}
 
 	var (
@@ -411,7 +403,7 @@ func (db *AtomDB) begin(ctx context.Context) (*atomTx, error) {
 	)
 
 	if bc, err = db.borrowConnection(ctx); err != nil {
-		return nil, errors.WithStack(err)
+		return nil, perrors.WithStack(err)
 	}
 
 	db.pendingRequests.Inc()
@@ -428,13 +420,13 @@ func (db *AtomDB) begin(ctx context.Context) (*atomTx, error) {
 	var res proto.Result
 	if res, err = bc.ExecuteWithWarningCount("begin", true); err != nil {
 		defer dispose()
-		return nil, errors.WithStack(err)
+		return nil, perrors.WithStack(err)
 	}
 
 	// NOTICE: must consume the result
 	if _, err = res.RowsAffected(); err != nil {
 		defer dispose()
-		return nil, errors.WithStack(err)
+		return nil, perrors.WithStack(err)
 	}
 
 	return &atomTx{parent: db, bc: bc}, nil
@@ -442,7 +434,7 @@ func (db *AtomDB) begin(ctx context.Context) (*atomTx, error) {
 
 func (db *AtomDB) CallFieldList(ctx context.Context, table, wildcard string) ([]proto.Field, error) {
 	if db.closed.Load() {
-		return nil, errors.Errorf("the db instance '%s' is closed already", db.id)
+		return nil, perrors.Errorf("the db instance '%s' is closed already", db.id)
 	}
 
 	var (
@@ -451,14 +443,14 @@ func (db *AtomDB) CallFieldList(ctx context.Context, table, wildcard string) ([]
 	)
 
 	if bc, err = db.borrowConnection(ctx); err != nil {
-		return nil, errors.WithStack(err)
+		return nil, perrors.WithStack(err)
 	}
 
 	defer db.returnConnection(bc)
 	defer db.pending()()
 
 	if err = bc.WriteComFieldList(table, wildcard); err != nil {
-		return nil, errors.WithStack(err)
+		return nil, perrors.WithStack(err)
 	}
 
 	return bc.ReadColumnDefinitions()
@@ -466,14 +458,14 @@ func (db *AtomDB) CallFieldList(ctx context.Context, table, wildcard string) ([]
 
 func (db *AtomDB) Call(ctx context.Context, sql string, args ...interface{}) (res proto.Result, warn uint16, err error) {
 	if db.closed.Load() {
-		err = errors.Errorf("the db instance '%s' is closed already", db.id)
+		err = perrors.Errorf("the db instance '%s' is closed already", db.id)
 		return
 	}
 
 	var bc *mysql.BackendConnection
 
 	if bc, err = db.borrowConnection(ctx); err != nil {
-		err = errors.WithStack(err)
+		err = perrors.WithStack(err)
 		return
 	}
 
@@ -566,7 +558,7 @@ func (db *AtomDB) borrowConnection(ctx context.Context) (*mysql.BackendConnectio
 	res, err := bcp.Get(ctx)
 	//log.Infof("^^^^^ borrow conn: %d/%d => %d/%d", available0, active0, db.pool.Active(), db.pool.Available())
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, perrors.WithStack(err)
 	}
 	return res, nil
 }
@@ -576,25 +568,22 @@ func (db *AtomDB) returnConnection(bc *mysql.BackendConnection) {
 	//log.Infof("^^^^^ return conn: active=%d, available=%d", db.pool.Active(), db.pool.Available())
 }
 
-type defaultRuntime struct {
-	ns *namespace.Namespace
-}
+type defaultRuntime namespace.Namespace
 
-func (pi *defaultRuntime) Begin(ctx *proto.Context) (proto.Tx, error) {
-	var span trace.Span
-	ctx.Context, span = Tracer.Start(ctx, "defaultRuntime.Begin")
+func (pi *defaultRuntime) Begin(ctx context.Context) (proto.Tx, error) {
+	_, span := Tracer.Start(ctx, "defaultRuntime.Begin")
 	defer span.End()
 	tx := &compositeTx{
 		id:  nextTxID(),
 		rt:  pi,
 		txs: make(map[string]*atomTx),
 	}
-	log.Debugf("begin transaction: %s", tx.String())
+	log.Debugf("begin transaction: %s", tx)
 	return tx, nil
 }
 
 func (pi *defaultRuntime) Namespace() *namespace.Namespace {
-	return pi.ns
+	return (*namespace.Namespace)(pi)
 }
 
 func (pi *defaultRuntime) Query(ctx context.Context, db string, query string, args ...interface{}) (proto.Result, error) {
@@ -606,7 +595,7 @@ func (pi *defaultRuntime) Exec(ctx context.Context, db string, query string, arg
 	ctx = rcontext.WithWrite(ctx)
 	res, err := pi.call(ctx, db, query, args...)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, perrors.WithStack(err)
 	}
 
 	if closer, ok := res.(io.Closer); ok {
@@ -625,40 +614,39 @@ func (pi *defaultRuntime) Execute(ctx *proto.Context) (res proto.Result, warn ui
 		span.End()
 		metrics.ExecuteDuration.Observe(time.Since(execStart).Seconds())
 	}()
-	args := pi.extractArgs(ctx)
+	args := ctx.GetArgs()
 
 	if direct := rcontext.IsDirect(ctx.Context); direct {
 		return pi.callDirect(ctx, args)
 	}
 
 	var (
-		ru   = pi.ns.Rule()
+		ru   = pi.Namespace().Rule()
 		plan proto.Plan
 		c    = ctx.Context
 	)
 
 	c = rcontext.WithSQL(c, ctx.GetQuery())
 	c = rcontext.WithSchema(c, ctx.Schema)
-	c = rcontext.WithDBGroup(c, pi.ns.DBGroups()[0])
 	c = rcontext.WithTenant(c, ctx.Tenant)
 
 	start := time.Now()
 
 	var opt proto.Optimizer
-	if opt, err = optimize.NewOptimizer(pi, _defaultSchemaLoader, ru, ctx.Stmt.Hints, ctx.Stmt.StmtNode, args); err != nil {
-		err = errors.WithStack(err)
+	if opt, err = optimize.NewOptimizer(ru, ctx.Stmt.Hints, ctx.Stmt.StmtNode, args); err != nil {
+		err = perrors.WithStack(err)
 		return
 	}
 
 	if plan, err = opt.Optimize(c); err != nil {
-		err = errors.WithStack(err)
+		err = perrors.WithStack(err)
 		return
 	}
 	metrics.OptimizeDuration.Observe(time.Since(start).Seconds())
 
 	if res, err = plan.ExecIn(c, pi); err != nil {
 		// TODO: how to warp error packet
-		err = errors.WithStack(err)
+		err = perrors.WithStack(err)
 		return
 	}
 
@@ -666,44 +654,24 @@ func (pi *defaultRuntime) Execute(ctx *proto.Context) (res proto.Result, warn ui
 }
 
 func (pi *defaultRuntime) callDirect(ctx *proto.Context, args []interface{}) (res proto.Result, warn uint16, err error) {
-	res, warn, err = pi.ns.DB0(ctx.Context).Call(rcontext.WithWrite(ctx.Context), ctx.GetQuery(), args...)
+	res, warn, err = pi.Namespace().DB0(ctx.Context).Call(rcontext.WithWrite(ctx.Context), ctx.GetQuery(), args...)
 	if err != nil {
-		err = errors.WithStack(err)
+		err = perrors.WithStack(err)
 		return
 	}
 	return
 }
 
-func (pi *defaultRuntime) extractArgs(ctx *proto.Context) []interface{} {
-	if ctx.Stmt == nil || len(ctx.Stmt.BindVars) < 1 {
-		return nil
-	}
-
-	var (
-		keys = make([]string, 0, len(ctx.Stmt.BindVars))
-		args = make([]interface{}, 0, len(ctx.Stmt.BindVars))
-	)
-
-	for k := range ctx.Stmt.BindVars {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		args = append(args, ctx.Stmt.BindVars[k])
-	}
-	return args
-}
-
 func (pi *defaultRuntime) call(ctx context.Context, group, query string, args ...interface{}) (proto.Result, error) {
 	if len(group) < 1 { // empty db, select first
-		if groups := pi.ns.DBGroups(); len(groups) > 0 {
+		if groups := pi.Namespace().DBGroups(); len(groups) > 0 {
 			group = groups[0]
 		}
 	}
 
-	db := pi.ns.DB(ctx, group)
+	db := pi.Namespace().DB(ctx, group)
 	if db == nil {
-		return nil, errors.Errorf("cannot get upstream database %s", group)
+		return nil, perrors.Errorf("cannot get upstream database %s", group)
 	}
 
 	log.Debugf("call upstream: db=%s, sql=\"%s\", args=%v", group, query, args)

@@ -66,15 +66,13 @@ func IsDenyFullScanErr(err error) bool {
 }
 
 type optimizer struct {
-	rule         *rule.Rule
-	hints        []*hint.Hint
-	vconn        proto.VConn
-	stmt         rast.Statement
-	args         []interface{}
-	schemaLoader proto.SchemaLoader
+	rule  *rule.Rule
+	hints []*hint.Hint
+	stmt  rast.Statement
+	args  []interface{}
 }
 
-func NewOptimizer(vconn proto.VConn, schemaer proto.SchemaLoader, rule *rule.Rule, hints []*hint.Hint, stmt ast.StmtNode, args []interface{}) (proto.Optimizer, error) {
+func NewOptimizer(rule *rule.Rule, hints []*hint.Hint, stmt ast.StmtNode, args []interface{}) (proto.Optimizer, error) {
 	var (
 		rstmt rast.Statement
 		err   error
@@ -84,12 +82,10 @@ func NewOptimizer(vconn proto.VConn, schemaer proto.SchemaLoader, rule *rule.Rul
 	}
 
 	return &optimizer{
-		rule:         rule,
-		hints:        hints,
-		vconn:        vconn,
-		stmt:         rstmt,
-		args:         args,
-		schemaLoader: schemaer,
+		rule:  rule,
+		hints: hints,
+		stmt:  rstmt,
+		args:  args,
 	}, nil
 }
 
@@ -149,16 +145,8 @@ func (o optimizer) computeShards(table rast.TableName, where rast.ExpressionNode
 	}
 
 	if len(shards) == 0 {
-		// init shards
-		shards = rule.DatabaseTables{}
 		// compute all tables
-		topology := vt.Topology()
-		topology.Each(func(dbIdx, tbIdx int) bool {
-			if d, t, ok := topology.Render(dbIdx, tbIdx); ok {
-				shards[d] = append(shards[d], t)
-			}
-			return true
-		})
+		shards = vt.Topology().Enumerate()
 	}
 
 	return shards, nil

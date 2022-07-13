@@ -35,14 +35,7 @@ func init() {
 func optimizeTrigger(_ context.Context, o *optimizer) (proto.Plan, error) {
 	shards := rule.DatabaseTables{}
 	for _, table := range o.rule.VTables() {
-		topology := table.Topology()
-		topology.Each(func(dbIdx, tbIdx int) bool {
-			if d, t, ok := topology.Render(dbIdx, tbIdx); ok {
-				shards[d] = append(shards[d], t)
-			}
-			return true
-		})
-
+		shards = table.Topology().Enumerate()
 		break
 	}
 
