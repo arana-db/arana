@@ -55,14 +55,6 @@ func optimizeAlterTable(_ context.Context, o *optimizer) (proto.Plan, error) {
 	}
 
 	// sharding
-	shards := rule.DatabaseTables{}
-	topology := vt.Topology()
-	topology.Each(func(dbIdx, tbIdx int) bool {
-		if d, t, ok := topology.Render(dbIdx, tbIdx); ok {
-			shards[d] = append(shards[d], t)
-		}
-		return true
-	})
-	ret.Shards = shards
+	ret.Shards = vt.Topology().Enumerate()
 	return ret, nil
 }

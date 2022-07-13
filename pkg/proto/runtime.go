@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-//go:generate mockgen -destination=../../testdata/mock_runtime.go -package=testdata . VConn,Plan,Optimizer,DB,SchemaLoader
+//go:generate mockgen -destination=../../testdata/mock_runtime.go -package=testdata . VConn,Plan,Optimizer,DB
 package proto
 
 import (
@@ -102,17 +102,12 @@ type (
 	// Tx represents transaction.
 	Tx interface {
 		Executable
+		VConn
 		// ID returns the unique transaction id.
 		ID() int64
 		// Commit commits current transaction.
 		Commit(ctx context.Context) (Result, uint16, error)
 		// Rollback rollbacks current transaction.
 		Rollback(ctx context.Context) (Result, uint16, error)
-	}
-
-	// SchemaLoader represents a schema discovery.
-	SchemaLoader interface {
-		// Load loads the schema.
-		Load(ctx context.Context, conn VConn, schema string, tables []string) map[string]*TableMetadata
 	}
 )

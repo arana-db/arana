@@ -84,16 +84,8 @@ func optimizeUpdate(_ context.Context, o *optimizer) (proto.Plan, error) {
 
 	// compute all sharding tables
 	if shards.IsFullScan() {
-		// init shards
-		shards = rule.DatabaseTables{}
 		// compute all tables
-		topology := vt.Topology()
-		topology.Each(func(dbIdx, tbIdx int) bool {
-			if d, t, ok := topology.Render(dbIdx, tbIdx); ok {
-				shards[d] = append(shards[d], t)
-			}
-			return true
-		})
+		shards = vt.Topology().Enumerate()
 	}
 
 	ret := plan.NewUpdatePlan(stmt)
