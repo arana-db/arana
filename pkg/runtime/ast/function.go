@@ -48,8 +48,10 @@ const (
 	Fpasswd
 )
 
-type FunctionArgType uint8
-type FunctionType uint8
+type (
+	FunctionArgType uint8
+	FunctionType    uint8
+)
 
 func (f FunctionType) String() string {
 	switch f {
@@ -535,9 +537,7 @@ func (cd *ConvertDataType) Parse(s string) error {
 		return errors.Errorf("invalid cast string '%s'", s)
 	}
 
-	var (
-		name, first, second, suffix string
-	)
+	var name, first, second, suffix string
 	for i := 1; i < len(keys); i++ {
 		sub := subs[i]
 		switch keys[i] {

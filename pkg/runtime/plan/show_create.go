@@ -34,9 +34,7 @@ import (
 	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
-var (
-	_ proto.Plan = (*ShowCreatePlan)(nil)
-)
+var _ proto.Plan = (*ShowCreatePlan)(nil)
 
 type ShowCreatePlan struct {
 	basePlan

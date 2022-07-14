@@ -84,5 +84,4 @@ func TestFuse(t *testing.T) {
 
 		seq++
 	}
-
 }

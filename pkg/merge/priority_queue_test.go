@@ -55,10 +55,17 @@ func TestPriorityQueue(t *testing.T) {
 		}
 	}
 	assert.Equal(t, []student{
-		{score: 90, age: 72}, {score: 85, age: 72}, {score: 85, age: 70},
-		{score: 78, age: 60}, {score: 75, age: 80}, {score: 75, age: 70},
-		{score: 75, age: 68}, {score: 70, age: 40}, {score: 65, age: 80},
-		{score: 65, age: 50}, {score: 60, age: 40},
+		{score: 90, age: 72},
+		{score: 85, age: 72},
+		{score: 85, age: 70},
+		{score: 78, age: 60},
+		{score: 75, age: 80},
+		{score: 75, age: 70},
+		{score: 75, age: 68},
+		{score: 70, age: 40},
+		{score: 65, age: 80},
+		{score: 65, age: 50},
+		{score: 60, age: 40},
 	}, res)
 }
 
@@ -88,10 +95,17 @@ func TestPriorityQueue2(t *testing.T) {
 		}
 	}
 	assert.Equal(t, []student{
-		{score: 60, age: 40}, {score: 65, age: 50}, {score: 65, age: 80},
-		{score: 70, age: 40}, {score: 75, age: 68}, {score: 75, age: 70},
-		{score: 75, age: 80}, {score: 78, age: 60}, {score: 85, age: 70},
-		{score: 85, age: 72}, {score: 90, age: 72},
+		{score: 60, age: 40},
+		{score: 65, age: 50},
+		{score: 65, age: 80},
+		{score: 70, age: 40},
+		{score: 75, age: 68},
+		{score: 75, age: 70},
+		{score: 75, age: 80},
+		{score: 78, age: 60},
+		{score: 85, age: 70},
+		{score: 85, age: 72},
+		{score: 90, age: 72},
 	}, res)
 }
 

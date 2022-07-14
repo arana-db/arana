@@ -146,7 +146,7 @@ type ReplaceStatement struct {
 }
 
 func (r *ReplaceStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
@@ -352,7 +352,7 @@ type ReplaceSelectStatement struct {
 }
 
 func (r *ReplaceSelectStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 

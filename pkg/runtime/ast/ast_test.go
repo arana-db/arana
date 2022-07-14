@@ -106,9 +106,7 @@ func TestParse_UnionStmt(t *testing.T) {
 			assert.NoError(t, err, "should restore ok")
 			assert.Equal(t, next.expect, actual)
 		})
-
 	}
-
 }
 
 func TestParse_SelectStmt(t *testing.T) {
@@ -171,7 +169,6 @@ func TestParse_SelectStmt(t *testing.T) {
 			assert.Equal(t, next.expect, actual)
 		})
 	}
-
 }
 
 func TestParse_DeleteStmt(t *testing.T) {
@@ -252,7 +249,6 @@ func TestParse_ShowStatement(t *testing.T) {
 			assert.Equal(t, it.expect, actual)
 		})
 	}
-
 }
 
 func TestParse_ExplainStmt(t *testing.T) {
@@ -316,7 +312,6 @@ func TestParse_UpdateStmt(t *testing.T) {
 			assert.NoError(t, err, "should restore ok")
 			assert.Equal(t, it.expect, actual)
 		})
-
 	}
 }
 
@@ -380,7 +375,6 @@ func TestParse_InsertStmt(t *testing.T) {
 			assert.Equal(t, it.expect, actual)
 		})
 	}
-
 }
 
 func TestRestoreCount(t *testing.T) {
@@ -446,7 +440,6 @@ func TestParse_AlterTableStmt(t *testing.T) {
 			assert.Equal(t, it.expect, actual)
 		})
 	}
-
 }
 
 func TestParse_DescStmt(t *testing.T) {

@@ -108,22 +108,22 @@ func TestShardingRuleConf(t *testing.T) {
 
 func TestUnmarshalTextForProtocolTypeNil(t *testing.T) {
 	var protocolType ProtocolType
-	var text = []byte("http")
+	text := []byte("http")
 	err := protocolType.UnmarshalText(text)
 	assert.Nil(t, err)
 	assert.Equal(t, Http, protocolType)
 }
 
 func TestUnmarshalTextForUnrecognizedProtocolType(t *testing.T) {
-	var protocolType = Http
-	var text = []byte("PostgreSQL")
+	protocolType := Http
+	text := []byte("PostgreSQL")
 	err := protocolType.UnmarshalText(text)
 	assert.Error(t, err)
 }
 
 func TestUnmarshalText(t *testing.T) {
-	var protocolType = Http
-	var text = []byte("mysql")
+	protocolType := Http
+	text := []byte("mysql")
 	err := protocolType.UnmarshalText(text)
 	assert.Nil(t, err)
 	assert.Equal(t, MySQL, protocolType)

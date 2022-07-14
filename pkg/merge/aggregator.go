@@ -23,6 +23,5 @@ import (
 
 type Aggregator interface {
 	Aggregate(values []interface{})
-
 	GetResult() (*gxbig.Decimal, bool)
 }

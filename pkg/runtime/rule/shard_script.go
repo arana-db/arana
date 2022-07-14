@@ -100,9 +100,7 @@ func (j *jsShardComputer) putVM(vm *goja.Runtime) {
 }
 
 func wrapScript(script string) string {
-	var (
-		sb strings.Builder
-	)
+	var sb strings.Builder
 
 	sb.Grow(32 + len(_jsEntrypoint) + len(_jsValueName) + len(script))
 

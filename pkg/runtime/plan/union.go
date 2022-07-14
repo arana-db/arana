@@ -152,7 +152,6 @@ func (u UnionPlan) execOne(ctx context.Context, conn proto.VConn, p proto.Plan) 
 	defer resultx.Drain(res)
 
 	id, err := res.LastInsertId()
-
 	if err != nil {
 		return 0, 0, errors.WithStack(err)
 	}

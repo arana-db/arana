@@ -71,6 +71,7 @@ func (bs *baseShow) Like() (string, bool) {
 	v, ok := bs.filter.(string)
 	return v, ok
 }
+
 func (bs *baseShow) Where() (ExpressionNode, bool) {
 	v, ok := bs.filter.(ExpressionNode)
 	return v, ok

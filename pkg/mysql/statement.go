@@ -323,7 +323,7 @@ func (stmt *BackendStatement) writeExecutePacket(args []interface{}) error {
 				paramTypes[i+i+1] = 0x00
 
 				var a [64]byte
-				var b = a[:0]
+				b := a[:0]
 
 				if v.IsZero() {
 					b = append(b, "0000-00-00"...)

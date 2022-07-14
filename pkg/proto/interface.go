@@ -46,9 +46,7 @@ type (
 
 	Listener interface {
 		SetExecutor(executor Executor)
-
 		Listen()
-
 		Close()
 	}
 
@@ -75,35 +73,22 @@ type (
 	// Executor
 	Executor interface {
 		AddPreFilter(filter PreFilter)
-
 		AddPostFilter(filter PostFilter)
-
 		GetPreFilters() []PreFilter
-
 		GetPostFilters() []PostFilter
-
 		ProcessDistributedTransaction() bool
-
 		InLocalTransaction(ctx *Context) bool
-
 		InGlobalTransaction(ctx *Context) bool
-
 		ExecuteUseDB(ctx *Context) error
-
 		ExecuteFieldList(ctx *Context) ([]Field, error)
-
 		ExecutorComQuery(ctx *Context) (Result, uint16, error)
-
 		ExecutorComStmtExecute(ctx *Context) (Result, uint16, error)
-
 		ConnectionClose(ctx *Context)
 	}
 
 	ResourceManager interface {
 		GetMasterResourcePool(name string) *pools.ResourcePool
-
 		GetSlaveResourcePool(name string) *pools.ResourcePool
-
 		GetMetaResourcePool(name string) *pools.ResourcePool
 	}
 )

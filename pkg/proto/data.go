@@ -26,7 +26,6 @@ import (
 type (
 	// Field contains the name and type of column, it follows sql.ColumnType.
 	Field interface {
-
 		// Name returns the name or alias of the column.
 		Name() string
 
@@ -65,7 +64,6 @@ type (
 	// Row represents a row data from a result set.
 	Row interface {
 		io.WriterTo
-
 		IsBinary() bool
 
 		// Length returns the length of Row.
@@ -96,7 +94,6 @@ type (
 
 	// Result is the result of a query execution.
 	Result interface {
-
 		// Dataset returns the Dataset.
 		Dataset() (Dataset, error)
 

@@ -37,7 +37,7 @@ func TestStepper_Date_After(t *testing.T) {
 		U: Uday,
 	}
 	t.Log(daySt.String())
-	testTime := time.Date(2021, 1, 17, 17, 45, 04, 0, time.UTC)
+	testTime := time.Date(2021, 1, 17, 17, 45, 0o4, 0, time.UTC)
 	hour, err := hourSt.After(testTime)
 	assert.NoError(t, err)
 	assert.Equal(t, 19, hour.(time.Time).Hour())

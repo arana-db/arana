@@ -33,7 +33,7 @@ type lexer struct {
 
 func (lex *lexer) move() {
 	lex.token = lex.scan.Scan()
-	//fmt.Printf("after move, current token %q\n", lex.text())
+	// fmt.Printf("after move, current token %q\n", lex.text())
 }
 
 func (lex *lexer) text() string { return lex.scan.TokenText() }
@@ -174,10 +174,9 @@ func parsePrimary(lex *lexer, s *stack) (*stack, Expr, error) {
 		}
 
 		lex.move() // consume '('
-		var (
-			//vars []Var
-			args []Expr
-		)
+
+		// vars []Var
+		var args []Expr
 
 		if lex.token != ')' {
 			if s == (*stack)(nil) {
@@ -215,7 +214,7 @@ func parsePrimary(lex *lexer, s *stack) (*stack, Expr, error) {
 				c, ok := e.(function)
 				if ok {
 					c.args = append(c.args, args...)
-					//c.vars = append(c.vars, vars...)
+					// c.vars = append(c.vars, vars...)
 					return s, c, nil
 				} else {
 					return s, nil, fmt.Errorf("illegal stack element %#v, type %T", e, e) // impossible

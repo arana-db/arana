@@ -67,6 +67,7 @@ func (m *mockConn) Read(b []byte) (n int, err error) {
 	m.read += n
 	return
 }
+
 func (m *mockConn) Write(b []byte) (n int, err error) {
 	if m.closed {
 		return 0, errConnClosed
@@ -86,22 +87,28 @@ func (m *mockConn) Write(b []byte) (n int, err error) {
 	}
 	return
 }
+
 func (m *mockConn) Close() error {
 	m.closed = true
 	return nil
 }
+
 func (m *mockConn) LocalAddr() net.Addr {
 	return m.laddr
 }
+
 func (m *mockConn) RemoteAddr() net.Addr {
 	return m.raddr
 }
+
 func (m *mockConn) SetDeadline(t time.Time) error {
 	return nil
 }
+
 func (m *mockConn) SetReadDeadline(t time.Time) error {
 	return nil
 }
+
 func (m *mockConn) SetWriteDeadline(t time.Time) error {
 	return nil
 }

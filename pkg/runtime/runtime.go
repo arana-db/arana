@@ -325,9 +325,7 @@ func (tx *atomTx) Commit(ctx context.Context) (res proto.Result, warn uint16, er
 		return
 	}
 
-	var (
-		affected, lastInsertId uint64
-	)
+	var affected, lastInsertId uint64
 
 	if affected, err = res.RowsAffected(); err != nil {
 		return
@@ -556,7 +554,7 @@ func (db *AtomDB) borrowConnection(ctx context.Context) (*mysql.BackendConnectio
 	//	active0, available0 = db.pool.Active(), db.pool.Available()
 	//)
 	res, err := bcp.Get(ctx)
-	//log.Infof("^^^^^ borrow conn: %d/%d => %d/%d", available0, active0, db.pool.Active(), db.pool.Available())
+	// log.Infof("^^^^^ borrow conn: %d/%d => %d/%d", available0, active0, db.pool.Active(), db.pool.Available())
 	if err != nil {
 		return nil, perrors.WithStack(err)
 	}
@@ -565,7 +563,7 @@ func (db *AtomDB) borrowConnection(ctx context.Context) (*mysql.BackendConnectio
 
 func (db *AtomDB) returnConnection(bc *mysql.BackendConnection) {
 	db.pool.Put(bc)
-	//log.Infof("^^^^^ return conn: active=%d, available=%d", db.pool.Active(), db.pool.Available())
+	// log.Infof("^^^^^ return conn: active=%d, available=%d", db.pool.Active(), db.pool.Available())
 }
 
 type defaultRuntime namespace.Namespace

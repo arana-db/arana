@@ -146,15 +146,15 @@ func TestCheck(t *testing.T) {
 		t.Fatalf("function %#v check() result %v should be nil", c, err)
 	}
 	c.args = append(c.args, sc)
-	//c.args = append(c.args, sc)
-	//c.args = append(c.args, sc)
+	// c.args = append(c.args, sc)
+	// c.args = append(c.args, sc)
 	err = c.Check(nil)
 	if err == nil {
 		t.Fatalf("function %#v check() result %v should not be nil", c, err)
 	}
 
 	piStr := fmt.Sprintf("%f", math.Pi)
-	var tests = []struct {
+	tests := []struct {
 		input string
 		env   Env
 		want  string // expected error from Parse/Check or result from Eval
@@ -184,7 +184,7 @@ func TestCheck(t *testing.T) {
 		}
 
 		if test.want != "" {
-			//got := fmt.Sprintf("%.6g", expr.Eval(test.env))
+			// got := fmt.Sprintf("%.6g", expr.Eval(test.env))
 			evalRes, _ := expr.Eval(test.env)
 			evalResFloat, _ := strconv.ParseFloat(evalRes.String(), 64)
 			got := fmt.Sprintf("%.6g", evalResFloat)
