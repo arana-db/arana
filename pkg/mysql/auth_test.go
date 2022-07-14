@@ -39,12 +39,12 @@ func TestBackendConnection_auth(t *testing.T) {
 		want    []byte
 		wantErr assert.ErrorAssertionFunc
 	}{
-		{"a", fields{&Config{Passwd: "123456"}}, args{[]byte("9761AD4D3BFD97B86287FC7A4A136D38"), "caching_sha2_password"}, nil, nil},
-		{"a", fields{&Config{Passwd: "123456"}}, args{[]byte("9761AD4D3BFD97B86287FC7A4A136D38"), "mysql_old_password"}, nil, nil},
-		{"a", fields{&Config{Passwd: "123456"}}, args{[]byte("9761AD4D3BFD97B86287FC7A4A136D38"), "mysql_clear_password"}, nil, nil},
-		{"a", fields{&Config{Passwd: "123456"}}, args{[]byte("9761AD4D3BFD97B86287FC7A4A136D38"), "mysql_native_password"}, nil, nil},
-		{"a", fields{&Config{Passwd: "123456"}}, args{[]byte("9761AD4D3BFD97B86287FC7A4A136D38"), "sha256_password"}, nil, nil},
-		{"a", fields{&Config{Passwd: "123456"}}, args{[]byte("9761AD4D3BFD97B86287FC7A4A136D38"), "default"}, nil, nil},
+		{"caching_sha2_password", fields{&Config{Passwd: "123456"}}, args{[]byte("9761AD4D3BFD97B86287FC7A4A136D38"), "caching_sha2_password"}, []byte{0xcd, 0xb8, 0xda, 0xf1, 0xb7, 0x4f, 0xd, 0x91, 0x96, 0xde, 0x1b, 0x8f, 0xd8, 0xf5, 0x91, 0x1d, 0xda, 0x6c, 0x27, 0xef, 0xc6, 0x8b, 0x4a, 0xde, 0x56, 0xc9, 0x54, 0xb1, 0xe3, 0x84, 0xf3, 0x7d}, assert.NoError},
+		{"mysql_old_password", fields{&Config{Passwd: "123456"}}, args{[]byte("9761AD4D3BFD97B86287FC7A4A136D38"), "mysql_old_password"}, []byte{0x58, 0x5f, 0x40, 0x52, 0x56, 0x42, 0x59, 0x4a, 0x0}, assert.NoError},
+		{"mysql_clear_password", fields{&Config{Passwd: "123456"}}, args{[]byte("9761AD4D3BFD97B86287FC7A4A136D38"), "mysql_clear_password"}, []byte{0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x0}, assert.NoError},
+		{"mysql_native_password", fields{&Config{Passwd: "123456"}}, args{[]byte("9761AD4D3BFD97B86287FC7A4A136D38"), "mysql_native_password"}, []byte{0x48, 0x9c, 0x9e, 0x5e, 0x9, 0x2d, 0x5a, 0x82, 0x80, 0xbc, 0xb3, 0x4f, 0xf1, 0xb0, 0xec, 0x19, 0xce, 0x71, 0xb9, 0x5}, assert.NoError},
+		{"sha256_password", fields{&Config{Passwd: "123456"}}, args{[]byte("9761AD4D3BFD97B86287FC7A4A136D38"), "sha256_password"}, []byte{1}, assert.NoError},
+		{"default", fields{&Config{Passwd: "123456"}}, args{[]byte("9761AD4D3BFD97B86287FC7A4A136D38"), "default"}, nil, assert.Error},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -61,34 +61,20 @@ func TestBackendConnection_auth(t *testing.T) {
 }
 
 func TestBackendConnection_handleAuthResult(t *testing.T) {
-	type fields struct {
-		c             *Conn
-		conf          *Config
-		capabilities  uint32
-		serverVersion string
-		characterSet  uint8
-	}
 	type args struct {
 		oldAuthData []byte
 		plugin      string
 	}
 	tests := []struct {
 		name    string
-		fields  fields
 		args    args
 		wantErr assert.ErrorAssertionFunc
 	}{
-		// TODO: Add test cases.
+		{"caching_sha2_password", args{[]byte("9761AD4D3BFD97B86287FC7A4A136D38"), "caching_sha2_password"}, assert.Error},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			conn := &BackendConnection{
-				c:             tt.fields.c,
-				conf:          tt.fields.conf,
-				capabilities:  tt.fields.capabilities,
-				serverVersion: tt.fields.serverVersion,
-				characterSet:  tt.fields.characterSet,
-			}
+			conn := createBackendConnection()
 			tt.wantErr(t, conn.handleAuthResult(tt.args.oldAuthData, tt.args.plugin), fmt.Sprintf("handleAuthResult(%v, %v)", tt.args.oldAuthData, tt.args.plugin))
 		})
 	}
@@ -419,4 +405,45 @@ func Test_scrambleSHA256Password(t *testing.T) {
 			assert.Equalf(t, tt.want, scrambleSHA256Password(tt.args.scramble, tt.args.password), "scrambleSHA256Password(%v, %v)", tt.args.scramble, tt.args.password)
 		})
 	}
+}
+
+func createBackendConnection() *BackendConnection {
+	dsn := "admin:123456@tcp(127.0.0.1:3306)/pass?allowAllFiles=true&allowCleartextPasswords=true"
+	cfg, _ := ParseDSN(dsn)
+	conn := &BackendConnection{conf: cfg}
+	conn.c = newConn(new(mockConn))
+	buf := make([]byte, 100)
+	buf[0] = 96
+	buf[4] = 3
+	buf[5] = 'd'
+	buf[6] = 'e'
+	buf[7] = 'f'
+	buf[8] = 8
+	buf[9] = 't'
+	buf[10] = 'e'
+	buf[11] = 's'
+	buf[12] = 't'
+	buf[13] = 'b'
+	buf[14] = 'a'
+	buf[15] = 's'
+	buf[16] = 'e'
+	buf[17] = 9
+	buf[18] = 't'
+	buf[19] = 'e'
+	buf[20] = 's'
+	buf[21] = 't'
+	buf[22] = 't'
+	buf[23] = 'a'
+	buf[24] = 'b'
+	buf[25] = 'l'
+	buf[26] = 'e'
+	buf[28] = 4
+	buf[29] = 'n'
+	buf[30] = 'a'
+	buf[31] = 'm'
+	buf[32] = 'e'
+	buf[37] = 255
+	buf[41] = 15
+	conn.c.conn.(*mockConn).data = buf
+	return conn
 }
