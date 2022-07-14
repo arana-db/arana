@@ -29,7 +29,6 @@ import (
 
 import (
 	"github.com/bwmarrin/snowflake"
-
 	perrors "github.com/pkg/errors"
 
 	"go.opentelemetry.io/otel"
@@ -45,6 +44,7 @@ import (
 	"github.com/arana-db/arana/pkg/metrics"
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/proto/hint"
 	"github.com/arana-db/arana/pkg/resultx"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/runtime/namespace"
@@ -165,9 +165,13 @@ func (tx *compositeTx) begin(ctx context.Context, group string) (*atomTx, error)
 
 	// force use writeable node
 	ctx = rcontext.WithWrite(ctx)
+	db := selectDB(ctx, group, tx.rt.Namespace())
+	if db == nil {
+		return nil, perrors.Errorf("cannot get upstream database %s", group)
+	}
 
 	// begin atom tx
-	newborn, err := tx.rt.Namespace().DB(ctx, group).(*AtomDB).begin(ctx)
+	newborn, err := db.(*AtomDB).begin(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -216,6 +220,7 @@ func (tx *compositeTx) Execute(ctx *proto.Context) (res proto.Result, warn uint1
 	)
 
 	c = rcontext.WithSQL(c, ctx.GetQuery())
+	c = rcontext.WithHints(c, ctx.Stmt.Hints)
 
 	var opt proto.Optimizer
 	if opt, err = optimize.NewOptimizer(ru, ctx.Stmt.Hints, ctx.Stmt.StmtNode, args); err != nil {
@@ -627,6 +632,7 @@ func (pi *defaultRuntime) Execute(ctx *proto.Context) (res proto.Result, warn ui
 	c = rcontext.WithSQL(c, ctx.GetQuery())
 	c = rcontext.WithSchema(c, ctx.Schema)
 	c = rcontext.WithTenant(c, ctx.Tenant)
+	c = rcontext.WithHints(c, ctx.Stmt.Hints)
 
 	start := time.Now()
 
@@ -661,22 +667,50 @@ func (pi *defaultRuntime) callDirect(ctx *proto.Context, args []interface{}) (re
 }
 
 func (pi *defaultRuntime) call(ctx context.Context, group, query string, args ...interface{}) (proto.Result, error) {
-	if len(group) < 1 { // empty db, select first
-		if groups := pi.Namespace().DBGroups(); len(groups) > 0 {
-			group = groups[0]
-		}
-	}
-
-	db := pi.Namespace().DB(ctx, group)
+	db := selectDB(ctx, group, pi.Namespace())
 	if db == nil {
 		return nil, perrors.Errorf("cannot get upstream database %s", group)
 	}
-
-	log.Debugf("call upstream: db=%s, sql=\"%s\", args=%v", group, query, args)
+	log.Debugf("call upstream: db=%s, id=%s, sql=\"%s\", args=%v", group, db.ID(), query, args)
 	// TODO: how to pass warn???
 	res, _, err := db.Call(ctx, query, args...)
 
 	return res, err
+}
+
+// select db by group
+func selectDB(ctx context.Context, group string, ns *namespace.Namespace) proto.DB {
+	if len(group) < 1 { // empty db, select first
+		if groups := ns.DBGroups(); len(groups) > 0 {
+			group = groups[0]
+		}
+	}
+
+	var (
+		db       proto.DB
+		hintType hint.Type
+	)
+	// write request
+	if !rcontext.IsRead(ctx) {
+		return ns.DBMaster(ctx, group)
+	}
+	// extracts hints
+	hints := rcontext.Hints(ctx)
+	for _, v := range hints {
+		if v.Type == hint.TypeMaster || v.Type == hint.TypeSlave {
+			hintType = v.Type
+			break
+		}
+	}
+	switch hintType {
+	case hint.TypeMaster:
+		db = ns.DBMaster(ctx, group)
+	case hint.TypeSlave:
+		db = ns.DBSlave(ctx, group)
+	default:
+		db = ns.DB(ctx, group)
+	}
+	return db
 }
 
 var (

@@ -575,3 +575,34 @@ func (s *IntegrationSuite) TestDropTrigger() {
 		})
 	}
 }
+
+func (s *IntegrationSuite) TestHints() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql       string
+		args      []interface{}
+		expectLen int
+	}
+
+	for _, it := range []tt{
+		{"/*A! master */ SELECT * FROM student WHERE uid = 42 AND 1=2", nil, 0},
+		{"/*A! slave */  SELECT * FROM student WHERE uid = ?", []interface{}{1}, 0},
+		{"/*A! master */ SELECT * FROM student WHERE uid = ?", []interface{}{1}, 1},
+		{"/*A! master */ SELECT * FROM student WHERE uid in (?)", []interface{}{1}, 1},
+		{"/*A! master */ SELECT * FROM student where uid between 1 and 10", nil, 1},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			// select from logical table
+			rows, err := db.Query(it.sql, it.args...)
+			assert.NoError(t, err, "should query from sharding table successfully")
+			defer rows.Close()
+			data, _ := utils.PrintTable(rows)
+			assert.Equal(t, it.expectLen, len(data))
+		})
+	}
+
+}

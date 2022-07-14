@@ -163,6 +163,56 @@ func (ns *Namespace) DB(ctx context.Context, group string) proto.DB {
 	return exist[target]
 }
 
+// DBMaster returns a master DB, returns nil if nothing selected.
+func (ns *Namespace) DBMaster(_ context.Context, group string) proto.DB {
+	// use weight manager to select datasource
+	dss := ns.dss.Load().(map[string][]proto.DB)
+	exist, ok := dss[group]
+	if !ok {
+		return nil
+	}
+	// master weight w>0 && r>0
+	for _, db := range exist {
+		if db.Weight().W > 0 && db.Weight().R > 0 {
+			return db
+		}
+	}
+	return nil
+}
+
+// DBSlave returns a slave DB, returns nil if nothing selected.
+func (ns *Namespace) DBSlave(_ context.Context, group string) proto.DB {
+	// use weight manager to select datasource
+	dss := ns.dss.Load().(map[string][]proto.DB)
+	exist, ok := dss[group]
+	if !ok {
+		return nil
+	}
+	var (
+		target     = 0
+		wrList     = make([]int, 0, len(exist))
+		readDBList = make([]proto.DB, 0, len(exist))
+	)
+	// slave weight w==0 && r>=0
+	for _, db := range exist {
+		if db.Weight().W != 0 {
+			continue
+		}
+		// r==0 has high priority
+		if db.Weight().R == 0 {
+			return db
+		}
+		if db.Weight().R > 0 {
+			wrList = append(wrList, int(db.Weight().R))
+			readDBList = append(readDBList, db)
+		}
+	}
+	if len(wrList) != 0 {
+		target = selector.NewWeightRandomSelector(wrList).GetDataSourceNo()
+	}
+	return readDBList[target]
+}
+
 // Rule returns the sharding rule.
 func (ns *Namespace) Rule() *rule.Rule {
 	ru, ok := ns.rule.Load().(*rule.Rule)
