@@ -177,27 +177,8 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 			OrderByItems: orderByItems,
 		}
 	}
-
-	convertOrderByItems := func(origins []*ast.OrderByItem) []dataset.OrderByItem {
-		var result = make([]dataset.OrderByItem, 0, len(origins))
-		for _, origin := range origins {
-			var columnName string
-			if cn, ok := origin.Expr.(ast.ColumnNameExpressionAtom); ok {
-				columnName = cn.Suffix()
-			}
-			result = append(result, dataset.OrderByItem{
-				Column: columnName,
-				Desc:   origin.Desc,
-			})
-		}
-		return result
-	}
 	if stmt.GroupBy != nil {
-		return &dml.GroupPlan{
-			Plan:         tmpPlan,
-			AggItems:     aggregator.LoadAggs(stmt.Select),
-			OrderByItems: convertOrderByItems(stmt.OrderBy),
-		}, nil
+		return handleGroupBy(tmpPlan, stmt)
 	} else {
 		// TODO: refactor groupby/orderby/aggregate plan to a unified plan
 		return &dml.AggregatePlan{
@@ -206,6 +187,76 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 			AggrLoader: transformer.LoadAggrs(stmt.Select),
 		}, nil
 	}
+}
+
+// handleGroupBy exp: `select max(score) group by id order by name` will be convert to
+// `select max(score), id group by id order by id, name`
+func handleGroupBy(parentPlan proto.Plan, stmt *ast.SelectStatement) (proto.Plan, error) {
+	groupPlan := &dml.GroupPlan{
+		Plan:              parentPlan,
+		AggItems:          aggregator.LoadAggs(stmt.Select),
+		OriginColumnCount: len(stmt.Select),
+	}
+
+	var (
+		items = stmt.GroupBy.Items
+		lens  = len(items) + len(stmt.Select)
+
+		selectItemsMap = make(map[string]ast.SelectElement)
+		newSelectItems = make([]ast.SelectElement, 0, lens)
+
+		orderItemMap    = make(map[string]*ast.OrderByItem)
+		newOrderByItems = make([]*ast.OrderByItem, 0, lens)
+
+		groupItems = make([]dataset.OrderByItem, 0, len(items))
+	)
+
+	for _, si := range stmt.Select {
+		if sec, ok := si.(*ast.SelectElementColumn); ok {
+			cn := sec.Name[len(sec.Name)-1]
+			selectItemsMap[cn] = si
+		}
+	}
+
+	for _, obi := range stmt.OrderBy {
+		if cn, ok := obi.Expr.(*ast.ColumnNameExpressionAtom); ok {
+			orderItemMap[cn.Suffix()] = obi
+		}
+	}
+
+	newSelectItems = append(newSelectItems, stmt.Select...)
+	for _, item := range items {
+		if pen, ok := item.Expr().(*ast.PredicateExpressionNode); ok {
+			if apn, ok := pen.P.(*ast.AtomPredicateNode); ok {
+				if cn, ok := apn.Column(); ok {
+					if _, ok := selectItemsMap[cn.Suffix()]; !ok {
+						newSelectItems = append(newSelectItems, ast.NewSelectElementColumn(cn, cn.Suffix()))
+					}
+					if _, ok := orderItemMap[cn.Suffix()]; !ok {
+						newOrderByItems = append(newOrderByItems, &ast.OrderByItem{
+							Alias: cn.Suffix(),
+							Expr:  cn,
+							Desc:  false,
+						})
+					}
+					groupItems = append(groupItems, dataset.OrderByItem{
+						Column: cn.Suffix(),
+						Desc:   item.IsOrderDesc(),
+					})
+				}
+			}
+		}
+	}
+
+	if stmt.OrderBy != nil {
+		newOrderByItems = append(newOrderByItems, stmt.OrderBy...)
+	}
+
+	stmt.Select = newSelectItems
+	stmt.OrderBy = newOrderByItems
+	groupPlan.GroupItems = groupItems
+
+	return groupPlan, nil
 }
 
 //optimizeJoin ony support  a join b in one db

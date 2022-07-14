@@ -862,7 +862,7 @@ func (cc *convCtx) convFieldList(node *ast.FieldList) []SelectElement {
 			switch a := t.A.(type) {
 			case ColumnNameExpressionAtom:
 				ret = append(ret, &SelectElementColumn{
-					name:  a,
+					Name:  a,
 					alias: alias,
 				})
 			case *FunctionCallExpressionAtom:
