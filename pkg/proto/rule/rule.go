@@ -218,3 +218,15 @@ func (ru *Rule) MustVTable(name string) *VTable {
 	}
 	return v
 }
+
+// Range ranges each VTable
+func (ru *Rule) Range(f func(table string, vt *VTable) bool) {
+	ru.mu.RLock()
+	defer ru.mu.RUnlock()
+
+	for k, v := range ru.vtabs {
+		if !f(k, v) {
+			break
+		}
+	}
+}

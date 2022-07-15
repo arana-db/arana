@@ -91,7 +91,7 @@ type (
 )
 
 // New creates a Namespace.
-func New(name string, optimizer proto.Optimizer, commands ...Command) *Namespace {
+func New(name string, optimizer proto.Optimizer, commands ...Command) (*Namespace, error) {
 	ns := &Namespace{
 		name:      name,
 		optimizer: optimizer,
@@ -105,9 +105,29 @@ func New(name string, optimizer proto.Optimizer, commands ...Command) *Namespace
 		cmd(ns)
 	}
 
+	if err := ns.initSequence(); err != nil {
+		return nil, err
+	}
+
 	go ns.loopCmds()
 
-	return ns
+	return ns, nil
+}
+
+func (ns *Namespace) initSequence() error {
+	ctx := rcontext.WithDirect(context.Background())
+	ctx = rcontext.WithWrite(ctx)
+
+	zeroGroup := ns.DB0(ctx)
+	mgr := ns.optimizer.GetSequenceManager()
+
+	var err error
+
+	ns.Rule().Range(func(table string, vt *rule.VTable) bool {
+		return true
+	})
+
+	return err
 }
 
 // Name returns the name of namespace.

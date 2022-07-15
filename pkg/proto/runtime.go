@@ -55,6 +55,8 @@ type (
 
 	// Optimizer represents a sql statement optimizer which can be used to create QueryPlan or ExecPlan.
 	Optimizer interface {
+		// GetSequenceManager get sequence manager
+		GetSequenceManager() SequenceManager
 		// Optimize optimizes the sql with arguments then returns a Plan.
 		Optimize(ctx context.Context, conn VConn, stmt ast.StmtNode, args ...interface{}) (Plan, error)
 	}
@@ -95,6 +97,8 @@ type (
 		SetIdleTimeout(idleTimeout time.Duration) error
 		// SetWeight sets the weight.
 		SetWeight(weight Weight) error
+		// VConn
+		//VConn() VConn
 	}
 
 	// Executable represents an executor which can send sql request.

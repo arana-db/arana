@@ -91,6 +91,10 @@ func (o *optimizer) SchemaLoader() proto.SchemaLoader {
 	return o.schemaLoader
 }
 
+func (o optimizer) GetSequenceManager() proto.SequenceManager {
+	return o.sequenceManager
+}
+
 func (o optimizer) Optimize(ctx context.Context, conn proto.VConn, stmt ast.StmtNode, args ...interface{}) (plan proto.Plan, err error) {
 	ctx, span := runtime.Tracer.Start(ctx, "Optimize")
 	defer func() {

@@ -129,5 +129,5 @@ func buildNamespace(ctx context.Context, provider Discovery, cluster string) (*n
 	}
 	initCmds = append(initCmds, namespace.UpdateRule(&ru))
 
-	return namespace.New(cluster, optimize.GetOptimizer(), initCmds...), nil
+	return namespace.New(cluster, optimize.GetOptimizer(), initCmds...)
 }
