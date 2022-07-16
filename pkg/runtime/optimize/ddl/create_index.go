@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package plan
+package ddl
 
 import (
 	"context"
@@ -23,18 +23,25 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/resultx"
+	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/runtime/optimize"
+	"github.com/arana-db/arana/pkg/runtime/plan/ddl"
 )
 
-var _ proto.Plan = (*AlwaysEmptyExecPlan)(nil)
-
-// AlwaysEmptyExecPlan represents an exec plan which affects nothing.
-type AlwaysEmptyExecPlan struct{}
-
-func (a AlwaysEmptyExecPlan) Type() proto.PlanType {
-	return proto.PlanTypeExec
+func init() {
+	optimize.Register(ast.SQLTypeCreateIndex, optimizeCreateIndex)
 }
 
-func (a AlwaysEmptyExecPlan) ExecIn(_ context.Context, _ proto.VConn) (proto.Result, error) {
-	return resultx.New(), nil
+func optimizeCreateIndex(_ context.Context, o *optimize.Optimizer) (proto.Plan, error) {
+	stmt := o.Stmt.(*ast.CreateIndexStatement)
+	ret := ddl.NewCreateIndexPlan(stmt)
+	vt, ok := o.Rule.VTable(stmt.Table.Suffix())
+
+	// table shard
+	if !ok {
+		return ret, nil
+	}
+
+	ret.SetShard(vt.Topology().Enumerate())
+	return ret, nil
 }

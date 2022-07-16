@@ -23,6 +23,8 @@ import (
 )
 
 import (
+	"github.com/arana-db/parser/ast"
+
 	perrors "github.com/pkg/errors"
 
 	"go.opentelemetry.io/otel"
@@ -35,40 +37,49 @@ import (
 	rast "github.com/arana-db/arana/pkg/runtime/ast"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/util/log"
-	"github.com/arana-db/parser/ast"
 )
 
-var _ proto.Optimizer = (*optimizer)(nil)
+var _ proto.Optimizer = (*Optimizer)(nil)
 
 var Tracer = otel.Tracer("optimize")
 
 // errors group
 var (
-	errNoRuleFound     = errors.New("optimize: no rule found")
-	errDenyFullScan    = errors.New("optimize: the full-scan query is not allowed")
-	errNoShardKeyFound = errors.New("optimize: no shard key found")
+	ErrNoRuleFound     = errors.New("optimize: no rule found")
+	ErrDenyFullScan    = errors.New("optimize: the full-scan query is not allowed")
+	ErrNoShardKeyFound = errors.New("optimize: no shard key found")
 )
 
 // IsNoShardKeyFoundErr returns true if target error is caused by NO-SHARD-KEY-FOUND
 func IsNoShardKeyFoundErr(err error) bool {
-	return perrors.Is(err, errNoShardKeyFound)
+	return perrors.Is(err, ErrNoShardKeyFound)
 }
 
 // IsNoRuleFoundErr returns true if target error is caused by NO-RULE-FOUND.
 func IsNoRuleFoundErr(err error) bool {
-	return perrors.Is(err, errNoRuleFound)
+	return perrors.Is(err, ErrNoRuleFound)
 }
 
 // IsDenyFullScanErr returns true if target error is caused by DENY-FULL-SCAN.
 func IsDenyFullScanErr(err error) bool {
-	return perrors.Is(err, errDenyFullScan)
+	return perrors.Is(err, ErrDenyFullScan)
 }
 
-type optimizer struct {
-	rule  *rule.Rule
-	hints []*hint.Hint
-	stmt  rast.Statement
-	args  []interface{}
+var (
+	_handlers = make(map[rast.SQLType]Processor)
+)
+
+func Register(t rast.SQLType, h Processor) {
+	_handlers[t] = h
+}
+
+type Processor = func(ctx context.Context, o *Optimizer) (proto.Plan, error)
+
+type Optimizer struct {
+	Rule  *rule.Rule
+	Hints []*hint.Hint
+	Stmt  rast.Statement
+	Args  []interface{}
 }
 
 func NewOptimizer(rule *rule.Rule, hints []*hint.Hint, stmt ast.StmtNode, args []interface{}) (proto.Optimizer, error) {
@@ -80,29 +91,15 @@ func NewOptimizer(rule *rule.Rule, hints []*hint.Hint, stmt ast.StmtNode, args [
 		return nil, perrors.Wrap(err, "optimize failed")
 	}
 
-	return &optimizer{
-		rule:  rule,
-		hints: hints,
-		stmt:  rstmt,
-		args:  args,
+	return &Optimizer{
+		Rule:  rule,
+		Hints: hints,
+		Stmt:  rstmt,
+		Args:  args,
 	}, nil
 }
 
-type optimizeHandler func(ctx context.Context, o *optimizer) (proto.Plan, error)
-
-var (
-	_handlers = make(map[rast.SQLType]optimizeHandler)
-)
-
-func registerOptimizeHandler(t rast.SQLType, h optimizeHandler) {
-	_handlers[t] = h
-}
-
-func init() {
-	registerOptimizeHandler(rast.SQLTypeAlterTable, optimizeAlterTable)
-}
-
-func (o *optimizer) Optimize(ctx context.Context) (plan proto.Plan, err error) {
+func (o *Optimizer) Optimize(ctx context.Context) (plan proto.Plan, err error) {
 	ctx, span := Tracer.Start(ctx, "Optimize")
 	defer func() {
 		span.End()
@@ -112,16 +109,16 @@ func (o *optimizer) Optimize(ctx context.Context) (plan proto.Plan, err error) {
 		}
 	}()
 
-	h, ok := _handlers[o.stmt.Mode()]
+	h, ok := _handlers[o.Stmt.Mode()]
 	if !ok {
-		return nil, perrors.Errorf("optimize: no handler found for '%s'", o.stmt.Mode())
+		return nil, perrors.Errorf("optimize: no handler found for '%s'", o.Stmt.Mode())
 	}
 
 	return h(ctx, o)
 }
 
-func (o optimizer) computeShards(table rast.TableName, where rast.ExpressionNode, args []interface{}) (rule.DatabaseTables, error) {
-	ru := o.rule
+func (o *Optimizer) ComputeShards(table rast.TableName, where rast.ExpressionNode, args []interface{}) (rule.DatabaseTables, error) {
+	ru := o.Rule
 	vt, ok := ru.VTable(table.Suffix())
 	if !ok {
 		return nil, nil
@@ -129,14 +126,14 @@ func (o optimizer) computeShards(table rast.TableName, where rast.ExpressionNode
 
 	shards, fullScan, err := (*Sharder)(ru).Shard(table, where, args...)
 	if err != nil {
-		return nil, perrors.Wrap(err, "calculate shards failed")
+		return nil, perrors.Wrapf(err, "optimize: cannot calculate shards of table '%s'", table.Suffix())
 	}
 
-	log.Debugf("compute shards: result=%s, isFullScan=%v", shards, fullScan)
+	//log.Debugf("compute shards: result=%s, isFullScan=%v", shards, fullScan)
 
 	// return error if full-scan is disabled
 	if fullScan && !vt.AllowFullScan() {
-		return nil, perrors.WithStack(errDenyFullScan)
+		return nil, perrors.WithStack(ErrDenyFullScan)
 	}
 
 	if shards.IsEmpty() {

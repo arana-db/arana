@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package plan
+package dal
 
 import (
 	"context"
@@ -23,18 +23,17 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/resultx"
+	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/runtime/optimize"
+	"github.com/arana-db/arana/pkg/runtime/plan/dal"
 )
 
-var _ proto.Plan = (*AlwaysEmptyExecPlan)(nil)
-
-// AlwaysEmptyExecPlan represents an exec plan which affects nothing.
-type AlwaysEmptyExecPlan struct{}
-
-func (a AlwaysEmptyExecPlan) Type() proto.PlanType {
-	return proto.PlanTypeExec
+func init() {
+	optimize.Register(ast.SQLTypeShowDatabases, optimizeShowDatabases)
 }
 
-func (a AlwaysEmptyExecPlan) ExecIn(_ context.Context, _ proto.VConn) (proto.Result, error) {
-	return resultx.New(), nil
+func optimizeShowDatabases(_ context.Context, o *optimize.Optimizer) (proto.Plan, error) {
+	ret := &dal.ShowDatabasesPlan{Stmt: o.Stmt.(*ast.ShowDatabases)}
+	ret.BindArgs(o.Args)
+	return ret, nil
 }
