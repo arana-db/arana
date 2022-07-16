@@ -24,9 +24,9 @@ import (
 
 // Environments
 const (
-	EnvBootstrapPath      = "ARANA_BOOTSTRAP_PATH"      // bootstrap file path, eg: /etc/arana/bootstrap.yaml
-	EnvConfigPath         = "ARANA_CONFIG_PATH"         // config file path, eg: /etc/arana/config.yaml
-	EnvDevelopEnvironment = "ARANA_DEVELOP_ENVIRONMENT" // config dev environment
+	EnvBootstrapPath      = "ARANA_BOOTSTRAP_PATH" // bootstrap file path, eg: /etc/arana/bootstrap.yaml
+	EnvConfigPath         = "ARANA_CONFIG_PATH"    // config file path, eg: /etc/arana/config.yaml
+	EnvDevelopEnvironment = "ARANA_DEV"            // config dev environment
 )
 
 // GetConfigSearchPathList returns the default search path list of configuration.
