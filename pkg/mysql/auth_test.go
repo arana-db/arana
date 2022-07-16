@@ -20,8 +20,11 @@ package mysql
 import (
 	"crypto/rsa"
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"testing"
+)
+
+import (
+	"github.com/stretchr/testify/assert"
 )
 
 func TestBackendConnection_auth(t *testing.T) {
