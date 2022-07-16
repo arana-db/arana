@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package optimize
+package optimize_test
 
 import (
 	"context"
@@ -36,6 +36,11 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/resultx"
+	. "github.com/arana-db/arana/pkg/runtime/optimize"
+	_ "github.com/arana-db/arana/pkg/runtime/optimize/dal"
+	_ "github.com/arana-db/arana/pkg/runtime/optimize/ddl"
+	_ "github.com/arana-db/arana/pkg/runtime/optimize/dml"
+	_ "github.com/arana-db/arana/pkg/runtime/optimize/utility"
 	"github.com/arana-db/arana/testdata"
 )
 
