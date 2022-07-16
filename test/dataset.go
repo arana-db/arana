@@ -29,13 +29,15 @@ import (
 )
 
 import (
+	"github.com/pkg/errors"
+
 	"go.uber.org/zap"
+
 	"gopkg.in/yaml.v3"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/util/log"
-	"github.com/pkg/errors"
 )
 
 const (

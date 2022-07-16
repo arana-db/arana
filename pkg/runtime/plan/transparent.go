@@ -35,7 +35,7 @@ var _ proto.Plan = (*TransparentPlan)(nil)
 
 // TransparentPlan represents a transparent plan.
 type TransparentPlan struct {
-	basePlan
+	BasePlan
 	stmt rast.Statement
 	db   string
 	typ  proto.PlanType
@@ -86,9 +86,9 @@ func (tp *TransparentPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.
 
 	switch tp.typ {
 	case proto.PlanTypeQuery:
-		return conn.Query(ctx, tp.db, sb.String(), tp.toArgs(args)...)
+		return conn.Query(ctx, tp.db, sb.String(), tp.ToArgs(args)...)
 	case proto.PlanTypeExec:
-		return conn.Exec(ctx, tp.db, sb.String(), tp.toArgs(args)...)
+		return conn.Exec(ctx, tp.db, sb.String(), tp.ToArgs(args)...)
 	default:
 		panic("unreachable")
 	}

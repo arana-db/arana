@@ -15,26 +15,39 @@
  * limitations under the License.
  */
 
-package plan
+package dml
 
 import (
 	"context"
 )
 
 import (
-	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/resultx"
+	"github.com/pkg/errors"
 )
 
-var _ proto.Plan = (*AlwaysEmptyExecPlan)(nil)
+import (
+	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/runtime/plan"
+	"github.com/arana-db/arana/pkg/transformer"
+)
 
-// AlwaysEmptyExecPlan represents an exec plan which affects nothing.
-type AlwaysEmptyExecPlan struct{}
-
-func (a AlwaysEmptyExecPlan) Type() proto.PlanType {
-	return proto.PlanTypeExec
+type AggregatePlan struct {
+	transformer.Combiner
+	AggrLoader *transformer.AggrLoader
+	Plan       proto.Plan
 }
 
-func (a AlwaysEmptyExecPlan) ExecIn(_ context.Context, _ proto.VConn) (proto.Result, error) {
-	return resultx.New(), nil
+func (a *AggregatePlan) Type() proto.PlanType {
+	return proto.PlanTypeQuery
+}
+
+func (a *AggregatePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+	ctx, span := plan.Tracer.Start(ctx, "AggregatePlan.ExecIn")
+	defer span.End()
+	res, err := a.Plan.ExecIn(ctx, conn)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	return a.Combiner.Merge(res, a.AggrLoader)
 }

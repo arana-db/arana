@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package plan
+package ddl
 
 import (
 	"context"
@@ -23,18 +23,39 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/resultx"
+	"github.com/arana-db/arana/pkg/proto/rule"
+	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/runtime/optimize"
+	"github.com/arana-db/arana/pkg/runtime/plan/ddl"
 )
 
-var _ proto.Plan = (*AlwaysEmptyExecPlan)(nil)
-
-// AlwaysEmptyExecPlan represents an exec plan which affects nothing.
-type AlwaysEmptyExecPlan struct{}
-
-func (a AlwaysEmptyExecPlan) Type() proto.PlanType {
-	return proto.PlanTypeExec
+func init() {
+	optimize.Register(ast.SQLTypeAlterTable, optimizeAlterTable)
 }
 
-func (a AlwaysEmptyExecPlan) ExecIn(_ context.Context, _ proto.VConn) (proto.Result, error) {
-	return resultx.New(), nil
+func optimizeAlterTable(_ context.Context, o *optimize.Optimizer) (proto.Plan, error) {
+	var (
+		stmt  = o.Stmt.(*ast.AlterTableStatement)
+		ret   = ddl.NewAlterTablePlan(stmt)
+		table = stmt.Table
+		vt    *rule.VTable
+		ok    bool
+	)
+	ret.BindArgs(o.Args)
+
+	// non-sharding update
+	if vt, ok = o.Rule.VTable(table.Suffix()); !ok {
+		return ret, nil
+	}
+
+	//TODO alter table table or column to new name , should update sharding info
+
+	// exit if full-scan is disabled
+	if !vt.AllowFullScan() {
+		return nil, optimize.ErrDenyFullScan
+	}
+
+	// sharding
+	ret.Shards = vt.Topology().Enumerate()
+	return ret, nil
 }

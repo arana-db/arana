@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package plan
+package dal
 
 import (
 	"context"
@@ -23,18 +23,33 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/resultx"
+	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/runtime/optimize"
+	"github.com/arana-db/arana/pkg/runtime/plan/dal"
 )
 
-var _ proto.Plan = (*AlwaysEmptyExecPlan)(nil)
-
-// AlwaysEmptyExecPlan represents an exec plan which affects nothing.
-type AlwaysEmptyExecPlan struct{}
-
-func (a AlwaysEmptyExecPlan) Type() proto.PlanType {
-	return proto.PlanTypeExec
+func init() {
+	optimize.Register(ast.SQLTypeShowTables, optimizeShowTables)
 }
 
-func (a AlwaysEmptyExecPlan) ExecIn(_ context.Context, _ proto.VConn) (proto.Result, error) {
-	return resultx.New(), nil
+func optimizeShowTables(_ context.Context, o *optimize.Optimizer) (proto.Plan, error) {
+	stmt := o.Stmt.(*ast.ShowTables)
+	var invertedIndex map[string]string
+	for logicalTable, v := range o.Rule.VTables() {
+		t := v.Topology()
+		t.Each(func(x, y int) bool {
+			if _, phyTable, ok := t.Render(x, y); ok {
+				if invertedIndex == nil {
+					invertedIndex = make(map[string]string)
+				}
+				invertedIndex[phyTable] = logicalTable
+			}
+			return true
+		})
+	}
+
+	ret := dal.NewShowTablesPlan(stmt)
+	ret.BindArgs(o.Args)
+	ret.SetInvertedShards(invertedIndex)
+	return ret, nil
 }

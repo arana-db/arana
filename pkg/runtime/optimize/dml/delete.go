@@ -15,26 +15,47 @@
  * limitations under the License.
  */
 
-package plan
+package dml
 
 import (
 	"context"
 )
 
 import (
-	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/resultx"
+	"github.com/pkg/errors"
 )
 
-var _ proto.Plan = (*AlwaysEmptyExecPlan)(nil)
+import (
+	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/runtime/optimize"
+	"github.com/arana-db/arana/pkg/runtime/plan"
+	"github.com/arana-db/arana/pkg/runtime/plan/dml"
+)
 
-// AlwaysEmptyExecPlan represents an exec plan which affects nothing.
-type AlwaysEmptyExecPlan struct{}
-
-func (a AlwaysEmptyExecPlan) Type() proto.PlanType {
-	return proto.PlanTypeExec
+func init() {
+	optimize.Register(ast.SQLTypeDelete, optimizeDelete)
 }
 
-func (a AlwaysEmptyExecPlan) ExecIn(_ context.Context, _ proto.VConn) (proto.Result, error) {
-	return resultx.New(), nil
+func optimizeDelete(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error) {
+	var (
+		stmt = o.Stmt.(*ast.DeleteStatement)
+	)
+
+	shards, err := o.ComputeShards(stmt.Table, stmt.Where, o.Args)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to optimize DELETE statement")
+	}
+
+	// TODO: delete from a child sharding-table directly
+
+	if shards == nil {
+		return plan.Transparent(stmt, o.Args), nil
+	}
+
+	ret := dml.NewSimpleDeletePlan(stmt)
+	ret.BindArgs(o.Args)
+	ret.SetShards(shards)
+
+	return ret, nil
 }
