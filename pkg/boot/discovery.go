@@ -89,6 +89,8 @@ type Discovery interface {
 
 	// ListClusters lists the cluster names.
 	ListClusters(ctx context.Context) ([]string, error)
+	// GetClusterObject returns the dataSourceCluster object
+	GetDataSourceCluster(ctx context.Context, cluster string) (*config.DataSourceCluster, error)
 	// GetCluster returns the cluster info
 	GetCluster(ctx context.Context, cluster string) (*Cluster, error)
 	// ListGroups lists the group names.
@@ -161,6 +163,14 @@ func (fp *discovery) initConfigCenter() error {
 
 func (fp *discovery) GetConfigCenter() *config.Center {
 	return fp.c
+}
+
+func (fp *discovery) GetDataSourceCluster(ctx context.Context, cluster string) (*config.DataSourceCluster, error) {
+	dataSourceCluster, ok := fp.loadCluster(cluster)
+	if !ok {
+		return nil, nil
+	}
+	return dataSourceCluster, nil
 }
 
 func (fp *discovery) GetCluster(ctx context.Context, cluster string) (*Cluster, error) {
