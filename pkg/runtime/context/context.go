@@ -23,6 +23,7 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/proto/hint"
 )
 
 const (
@@ -32,12 +33,14 @@ const (
 )
 
 type (
-	keyFlag      struct{}
-	keySequence  struct{}
-	keySql       struct{}
-	keyNodeLabel struct{}
-	keySchema    struct{}
-	keyTenant    struct{}
+	keyFlag           struct{}
+	keySequence       struct{}
+	keySql            struct{}
+	keyNodeLabel      struct{}
+	keySchema         struct{}
+	keyDefaultDBGroup struct{}
+	keyTenant         struct{}
+	keyHints          struct{}
 )
 
 type cFlag uint8
@@ -80,6 +83,11 @@ func WithWrite(ctx context.Context) context.Context {
 // WithRead marked as read operation
 func WithRead(ctx context.Context) context.Context {
 	return context.WithValue(ctx, keyFlag{}, _flagRead|getFlag(ctx))
+}
+
+// WithHints binds the hints.
+func WithHints(ctx context.Context, hints []*hint.Hint) context.Context {
+	return context.WithValue(ctx, keyHints{}, hints)
 }
 
 // Sequencer extracts the sequencer.
@@ -136,6 +144,15 @@ func NodeLabel(ctx context.Context) string {
 		return label
 	}
 	return ""
+}
+
+// Hints extracts the hints.
+func Hints(ctx context.Context) []*hint.Hint {
+	hints, ok := ctx.Value(keyHints{}).([]*hint.Hint)
+	if !ok {
+		return nil
+	}
+	return hints
 }
 
 func hasFlag(ctx context.Context, flag cFlag) bool {
