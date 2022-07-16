@@ -240,9 +240,9 @@ func (c *Conn) readHeaderFrom(r io.Reader) (int, error) {
 
 	sequence := uint8(header[3])
 	if sequence != c.sequence {
-		return 0, errors.Errorf("invalid sequence, expected %v got %v", c.sequence, sequence)
+		return 0, errors.Errorf("conn-id=%v invalid sequence, expected %v got %v",
+			c.ConnectionID, c.sequence, sequence)
 	}
-
 	c.sequence++
 
 	return int(uint32(header[0]) | uint32(header[1])<<8 | uint32(header[2])<<16), nil
@@ -466,7 +466,7 @@ func (c *Conn) writePacketForFieldList(data []byte) error {
 				if n, err := w.Write(data[index : index+toBeSent+packetHeaderSize]); err != nil {
 					return errors.Wrapf(err, "Write(header) failed")
 				} else if n != (toBeSent + packetHeaderSize) {
-					return errors.Wrapf(err, "Write(packet) returned a short write: %v < %v", n, (toBeSent + packetHeaderSize))
+					return errors.Wrapf(err, "Write(packet) returned a short write: %v < %v", n, toBeSent+packetHeaderSize)
 				}
 				c.sequence++
 			}
@@ -572,7 +572,7 @@ func (c *Conn) writeEphemeralPacket() error {
 	return nil
 }
 
-// recycleWritePacket recycles the write packet. It needs to be called
+// recycleWritePacket recycles write packet. It needs to be called
 // after writeEphemeralPacket was called.
 func (c *Conn) recycleWritePacket() {
 	if c.currentEphemeralPolicy != ephemeralWrite {
@@ -739,7 +739,7 @@ func (c *Conn) writeEOFPacket(flags uint16, warnings uint16) error {
 // Packet parsing methods, for generic packets.
 //
 
-// isEOFPacket determines whether or not a Content packet is a "true" EOF. DO NOT blindly compare the
+// isEOFPacket determines whether a Content packet is a "true" EOF. DO NOT blindly compare the
 // first byte of a packet to EOFPacket as you might do for other packet types, as 0xfe is overloaded
 // as a first byte.
 //

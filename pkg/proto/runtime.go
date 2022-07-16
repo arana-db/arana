@@ -15,17 +15,13 @@
  * limitations under the License.
  */
 
-//go:generate mockgen -destination=../../testdata/mock_runtime.go -package=testdata . VConn,Plan,Optimizer,DB,SchemaLoader
+//go:generate mockgen -destination=../../testdata/mock_runtime.go -package=testdata . VConn,Plan,Optimizer,DB
 package proto
 
 import (
 	"context"
 	"io"
 	"time"
-)
-
-import (
-	"github.com/arana-db/parser/ast"
 )
 
 const (
@@ -55,10 +51,8 @@ type (
 
 	// Optimizer represents a sql statement optimizer which can be used to create QueryPlan or ExecPlan.
 	Optimizer interface {
-		// GetSequenceManager get sequence manager
-		GetSequenceManager() SequenceManager
 		// Optimize optimizes the sql with arguments then returns a Plan.
-		Optimize(ctx context.Context, conn VConn, stmt ast.StmtNode, args ...interface{}) (Plan, error)
+		Optimize(ctx context.Context) (Plan, error)
 	}
 
 	// Weight represents the read/write weight info.
@@ -97,8 +91,6 @@ type (
 		SetIdleTimeout(idleTimeout time.Duration) error
 		// SetWeight sets the weight.
 		SetWeight(weight Weight) error
-		// VConn
-		//VConn() VConn
 	}
 
 	// Executable represents an executor which can send sql request.
@@ -110,23 +102,12 @@ type (
 	// Tx represents transaction.
 	Tx interface {
 		Executable
+		VConn
 		// ID returns the unique transaction id.
 		ID() int64
 		// Commit commits current transaction.
 		Commit(ctx context.Context) (Result, uint16, error)
 		// Rollback rollbacks current transaction.
 		Rollback(ctx context.Context) (Result, uint16, error)
-	}
-
-	SchemaLoader interface {
-		Load(ctx context.Context, conn VConn, schema string, tables []string) map[string]*TableMetadata
-	}
-
-	// Sequence represents a global unique id generator.
-	Sequence interface {
-		// Acquire generates a next value in int64.
-		Acquire(ctx context.Context) (int64, error)
-		Reset() error
-		Update() error
 	}
 )

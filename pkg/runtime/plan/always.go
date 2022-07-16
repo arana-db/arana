@@ -29,8 +29,7 @@ import (
 var _ proto.Plan = (*AlwaysEmptyExecPlan)(nil)
 
 // AlwaysEmptyExecPlan represents an exec plan which affects nothing.
-type AlwaysEmptyExecPlan struct {
-}
+type AlwaysEmptyExecPlan struct{}
 
 func (a AlwaysEmptyExecPlan) Type() proto.PlanType {
 	return proto.PlanTypeExec

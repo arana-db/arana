@@ -34,20 +34,19 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/proto/hint"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
 	"github.com/arana-db/arana/pkg/runtime/logical"
 )
 
-var (
-	_opcode2comparison = map[opcode.Op]cmp.Comparison{
-		opcode.EQ: cmp.Ceq,
-		opcode.NE: cmp.Cne,
-		opcode.LT: cmp.Clt,
-		opcode.GT: cmp.Cgt,
-		opcode.LE: cmp.Clte,
-		opcode.GE: cmp.Cgte,
-	}
-)
+var _opcode2comparison = map[opcode.Op]cmp.Comparison{
+	opcode.EQ: cmp.Ceq,
+	opcode.NE: cmp.Cne,
+	opcode.LT: cmp.Clt,
+	opcode.GT: cmp.Cgt,
+	opcode.LE: cmp.Clte,
+	opcode.GE: cmp.Cgte,
+}
 
 type (
 	parseOption struct {
@@ -110,6 +109,10 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		return cc.convAlterTableStmt(stmt), nil
 	case *ast.DropIndexStmt:
 		return cc.convDropIndexStmt(stmt), nil
+	case *ast.DropTriggerStmt:
+		return cc.convDropTrigger(stmt), nil
+	case *ast.CreateIndexStmt:
+		return cc.convCreateIndexStmt(stmt), nil
 	default:
 		return nil, errors.Errorf("unimplement: stmt type %T!", stmt)
 	}
@@ -125,6 +128,28 @@ func (cc *convCtx) convDropIndexStmt(stmt *ast.DropIndexStmt) *DropIndexStatemen
 		IfExists:  stmt.IfExists,
 		IndexName: stmt.IndexName,
 		Table:     tableName,
+	}
+}
+
+func (cc *convCtx) convCreateIndexStmt(stmt *ast.CreateIndexStmt) *CreateIndexStatement {
+	var tableName TableName
+	if db := stmt.Table.Schema.O; len(db) > 0 {
+		tableName = append(tableName, db)
+	}
+	tableName = append(tableName, stmt.Table.Name.O)
+
+	keys := make([]*IndexPartSpec, len(stmt.IndexPartSpecifications))
+	for i, k := range stmt.IndexPartSpecifications {
+		keys[i] = &IndexPartSpec{
+			Column: cc.convColumn(k.Column),
+			Expr:   toExpressionNode(cc.convExpr(k.Expr)),
+		}
+	}
+
+	return &CreateIndexStatement{
+		Table:     tableName,
+		IndexName: stmt.IndexName,
+		Keys:      keys,
 	}
 }
 
@@ -297,7 +322,7 @@ func (cc *convCtx) convConstraint(c *ast.Constraint) *Constraint {
 }
 
 func (cc *convCtx) convDropTableStmt(stmt *ast.DropTableStmt) *DropTableStatement {
-	var tables = make([]*TableName, len(stmt.Tables))
+	tables := make([]*TableName, len(stmt.Tables))
 	for i, table := range stmt.Tables {
 		tables[i] = &TableName{
 			table.Name.String(),
@@ -558,6 +583,12 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 		}
 		return node.DBName, true
 	}
+	toFrom := func(node *ast.ShowStmt) (FromTable, bool) {
+		if node.Table == nil {
+			return "", false
+		}
+		return FromTable(node.Table.Name.String()), true
+	}
 	toWhere := func(node *ast.ShowStmt) (ExpressionNode, bool) {
 		if node.Where == nil {
 			return nil, false
@@ -585,11 +616,15 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 			bs.filter = where
 		} else if in, ok := toIn(node); ok {
 			bs.filter = in
+		} else if from, ok := toFrom(node); ok {
+			bs.filter = from
 		}
 		return &bs
 	}
 
 	switch node.Tp {
+	case ast.ShowTopology:
+		return &ShowTopology{baseShow: toBaseShow()}
 	case ast.ShowOpenTables:
 		return &ShowOpenTables{baseShow: toBaseShow()}
 	case ast.ShowTables:
@@ -603,7 +638,7 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 		}
 	case ast.ShowIndex:
 		ret := &ShowIndex{
-			tableName: []string{node.Table.Name.O},
+			TableName: []string{node.Table.Name.O},
 		}
 		if where, ok := toWhere(node); ok {
 			ret.where = where
@@ -650,28 +685,46 @@ func convInsertColumns(columnNames []*ast.ColumnName) []string {
 }
 
 // Parse parses the SQL string to Statement.
-func Parse(sql string, options ...ParseOption) (Statement, error) {
+func Parse(sql string, options ...ParseOption) ([]*hint.Hint, Statement, error) {
 	var o parseOption
 	for _, it := range options {
 		it(&o)
 	}
 
 	p := parser.New()
-	s, err := p.ParseOneStmt(sql, o.charset, o.collation)
+	s, hintStrs, err := p.ParseOneStmtHints(sql, o.charset, o.collation)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return FromStmtNode(s)
+	stmt, err := FromStmtNode(s)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if len(hintStrs) < 1 {
+		return nil, stmt, nil
+	}
+
+	hints := make([]*hint.Hint, 0, len(hintStrs))
+	for _, it := range hintStrs {
+		var h *hint.Hint
+		if h, err = hint.Parse(it); err != nil {
+			return nil, nil, errors.WithStack(err)
+		}
+		hints = append(hints, h)
+	}
+
+	return hints, stmt, nil
 }
 
 // MustParse parses the SQL string to Statement, panic if failed.
-func MustParse(sql string) Statement {
-	stmt, err := Parse(sql)
+func MustParse(sql string) ([]*hint.Hint, Statement) {
+	hints, stmt, err := Parse(sql)
 	if err != nil {
 		panic(err.Error())
 	}
-	return stmt
+	return hints, stmt
 }
 
 type convCtx struct {
@@ -1032,9 +1085,7 @@ func (cc *convCtx) convAggregateFuncExpr(node *ast.AggregateFuncExpr) PredicateN
 }
 
 func (cc *convCtx) convFuncCallExpr(expr *ast.FuncCallExpr) PredicateNode {
-	var (
-		fnName = strings.ToUpper(expr.FnName.O)
-	)
+	fnName := strings.ToUpper(expr.FnName.O)
 
 	// NOTICE: tidb-parser cannot process CONVERT('foobar' USING utf8).
 	// It should be a CastFunc, but now will be parsed as a FuncCall.
@@ -1250,7 +1301,6 @@ func (cc *convCtx) convValueExpr(expr ast.ValueExpr) PredicateNode {
 		default:
 			if val == nil {
 				atom = &ConstantExpressionAtom{Inner: Null{}}
-
 			} else {
 				atom = &ConstantExpressionAtom{Inner: val}
 			}
@@ -1334,9 +1384,7 @@ func (cc *convCtx) convBinaryOperationExpr(expr *ast.BinaryOperationExpr) interf
 			Right:    right.(*AtomPredicateNode).A,
 		}}
 	case opcode.EQ, opcode.NE, opcode.GT, opcode.GE, opcode.LT, opcode.LE:
-		var (
-			op = _opcode2comparison[expr.Op]
-		)
+		op := _opcode2comparison[expr.Op]
 
 		if !isColumnAtom(left.(PredicateNode)) && isColumnAtom(right.(PredicateNode)) {
 			// do reverse:
@@ -1438,6 +1486,15 @@ func (cc *convCtx) convTableName(val *ast.TableName, tgt *TableSourceNode) {
 	tgt.source = tableName
 	tgt.indexHints = indexHints
 	tgt.partitions = partitions
+}
+
+func (cc *convCtx) convDropTrigger(stmt *ast.DropTriggerStmt) *DropTriggerStatement {
+	var tableName TableName
+	if db := stmt.Trigger.Schema.O; len(db) > 0 {
+		tableName = append(tableName, db)
+	}
+	tableName = append(tableName, stmt.Trigger.Name.O)
+	return &DropTriggerStatement{Table: tableName, IfExists: stmt.IfExists}
 }
 
 func toExpressionNode(src interface{}) ExpressionNode {

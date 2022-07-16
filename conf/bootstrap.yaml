@@ -18,6 +18,7 @@
 config:
   name: file
   options:
+    path: 
 
   # name: etcd
   # options:

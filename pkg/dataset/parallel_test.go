@@ -187,9 +187,9 @@ func TestParallelDataset_SortBy(t *testing.T) {
 	}
 
 	var (
-		d    = generateFakeParallelDataset(ctrl, pairs...)
-		pojo fakePojo
-		ids  sort.IntSlice
+		d = generateFakeParallelDataset(ctrl, pairs...)
+
+		ids sort.IntSlice
 	)
 
 	for {
@@ -214,6 +214,7 @@ func TestParallelDataset_SortBy(t *testing.T) {
 					return
 				}
 
+				var pojo fakePojo
 				err = scanPojo(r, &pojo)
 				assert.NoError(t, err)
 
@@ -234,6 +235,8 @@ func TestParallelDataset_SortBy(t *testing.T) {
 
 		err := d.SetNextN(bingo)
 		assert.NoError(t, err)
+
+		var pojo fakePojo
 
 		r, err := d.Next()
 		assert.NoError(t, err)

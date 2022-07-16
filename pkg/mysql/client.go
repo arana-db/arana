@@ -28,7 +28,6 @@ import (
 	"math/big"
 	"net"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -37,6 +36,7 @@ import (
 	"github.com/arana-db/arana/pkg/constants/mysql"
 	err2 "github.com/arana-db/arana/pkg/mysql/errors"
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/util/bytefmt"
 	"github.com/arana-db/arana/pkg/util/log"
 	"github.com/arana-db/arana/third_party/pools"
 )
@@ -414,10 +414,11 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 				return
 			}
 		case "maxAllowedPacket":
-			cfg.MaxAllowedPacket, err = strconv.Atoi(value)
+			byteSize, err := bytefmt.ToBytes(value)
 			if err != nil {
-				return
+				return err
 			}
+			cfg.MaxAllowedPacket = int(byteSize)
 		default:
 			// lazy init
 			if cfg.Params == nil {
@@ -642,7 +643,7 @@ func (conn *BackendConnection) parseInitialHandshakePacket(data []byte) (uint32,
 	if !ok {
 		return 0, nil, "", err2.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "parseInitialHandshakePacket: packet has no capability flags (lower 2 bytes)")
 	}
-	var capabilities = uint32(capLower)
+	capabilities := uint32(capLower)
 
 	// The packet can end here.
 	if pos == len(data) {
@@ -727,7 +728,7 @@ func (conn *BackendConnection) parseInitialHandshakePacket(data []byte) (uint32,
 // Returns a SQLError.
 func (conn *BackendConnection) writeHandshakeResponse41(capabilities uint32, scrambledPassword []byte, plugin string) error {
 	// Build our flags.
-	var flags = mysql.CapabilityClientLongPassword |
+	flags := mysql.CapabilityClientLongPassword |
 		mysql.CapabilityClientLongFlag |
 		mysql.CapabilityClientProtocol41 |
 		mysql.CapabilityClientTransactions |
@@ -747,16 +748,15 @@ func (conn *BackendConnection) writeHandshakeResponse41(capabilities uint32, scr
 
 	// FIXME(alainjobart) add multi statement.
 
-	length :=
-		4 + // Client capability flags.
-			4 + // Max-packet size.
-			1 + // Character set.
-			23 + // Reserved.
-			lenNullString(conn.conf.User) +
-			// length of scrambled password is handled below.
-			len(scrambledPassword) +
-			21 + // "mysql_native_password" string.
-			1 // terminating zero.
+	length := 4 + // Client capability flags.
+		4 + // Max-packet size.
+		1 + // Character set.
+		23 + // Reserved.
+		lenNullString(conn.conf.User) +
+		// length of scrambled password is handled below.
+		len(scrambledPassword) +
+		21 + // "mysql_native_password" string.
+		1 // terminating zero.
 
 	// Add the DB name if the server supports it.
 	if conn.conf.DBName != "" && (capabilities&mysql.CapabilityClientConnectWithDB != 0) {
@@ -1032,19 +1032,19 @@ func (conn *BackendConnection) ReadColumnDefinition(field *Field, index int) err
 	}
 	field.decimals = decimals
 
-	//filter [0x00][0x00]
+	// filter [0x00][0x00]
 	pos += 2
 
-	//if more Content, command was field list
+	// if more Content, command was field list
 	if len(colDef) > pos {
-		//length of default value lenenc-int
+		// length of default value lenenc-int
 		field.defaultValueLength, pos = readComFieldListDefaultValueLength(colDef, pos)
 
 		if pos+int(field.defaultValueLength) > len(colDef) {
 			return err2.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "extracting col %v default value failed", index)
 		}
 
-		//default value string[$len]
+		// default value string[$len]
 		field.defaultValue = append(field.defaultValue, colDef[pos:(pos+int(field.defaultValueLength))]...)
 	}
 	return nil

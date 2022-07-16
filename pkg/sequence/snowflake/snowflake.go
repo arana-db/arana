@@ -19,21 +19,28 @@ package snowflake
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"github.com/arana-db/arana/pkg/util/identity"
-	"github.com/arana-db/arana/pkg/util/log"
-	"go.uber.org/zap"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 import (
+	bsnowflake "github.com/bwmarrin/snowflake"
+
+	"go.uber.org/zap"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/runtime"
+	rcontext "github.com/arana-db/arana/pkg/runtime/context"
+	"github.com/arana-db/arana/pkg/util/identity"
+	"github.com/arana-db/arana/pkg/util/log"
 )
 
 func init() {
-	proto.RegisterSequence(SequencePluginName, func() proto.EnchanceSequence {
+	proto.RegisterSequence(SequencePluginName, func() proto.EnhanceSequence {
 		return &snowflakeSequence{}
 	})
 }
@@ -51,15 +58,27 @@ const (
 		table_name varchar(255) NOT NULL COMMENT 'arana logic table name',
 	    renew_time datetime NOT NULL COMMENT 'node renew time',
 		PRIMARY KEY (id),
-	    KEY (node_id),
+        UNIQUE KEY(work_id, table_name),
 		UNIQUE KEY(node_id, table_name)
 	) ENGINE = InnoDB;
 	`
 
-	_setWorkId = `INSERT IGNORE INTO __arana_snowflake_sequence(work_id, node_id, table_name, renew_time) VALUE (?, ?, ?, ?)`
+	//_setWorkId 插入一条新的 work_id
+	_setWorkId = `REPLACE INTO __arana_snowflake_sequence(work_id, node_id, table_name, renew_time) VALUE (?, ?, ?, now())`
 
-	_getWorkIdWithXLock = `SELECT MAX(work_id) FROM __arana_snowflake_sequence WHERE table_name = ? FOR UPDATE`
+	//_selectSelfWorkIdWithXLock 查询下自己是否已经有一个 work-id 申请到了
+	_selectSelfWorkIdWithXLock = `SELECT work_id FROM __arana_snowflake_sequence WHERE table_name = ? AND node_id = ? FOR UPDATE`
 
+	//_selectMaxWorkIdWithXLock 选出当前最大的 work_id
+	_selectMaxWorkIdWithXLock = `SELECT MAX(work_id) FROM __arana_snowflake_sequence WHERE table_name = ? FOR UPDATE`
+
+	//_selectFreeWorkIdWithXLock 查询一个空闲的 workid，主要判断依据为 renew_time 超过 10 min 没有更新了，
+	_selectFreeWorkIdWithXLock = `SELECT MAX(work_id) FROM __arana_snowflake_sequence WHERE table_name = ? AND renew_time < DATE_SUB(NOW(), INTERVAL 10 MINUTE) FOR UPDATE`
+
+	//_updateWorkIdOwner 更新 workid 对应的 node_id 信息，进行 workid 复用
+	_updateWorkIdOwner = `UPDATE __arana_snowflake_sequence SET node_id = ?, renew_time = now() WHERE table_name = ? AND work_id = ?`
+
+	//_keepaliveNode 对 node 做续约保活动作
 	_keepaliveNode = `UPDATE __arana_snowflake_sequence SET renew_time=now() WHERE node_id = ?`
 )
 
@@ -69,22 +88,14 @@ var (
 
 	finishInitTable = false
 
-	_defaultEpoch    int64 = 1533429240000
-	_defaultNodeBits uint8 = 10
-	_defaultStepBits uint8 = 12
-
-	workIdMax     int64 = 1024
-	stepMask      int64 = -1 ^ (-1 << _defaultStepBits)
-	timeShift           = _defaultNodeBits + _defaultNodeBits
-	workIdShift         = _defaultStepBits
-	startWallTime       = time.Now()
-
-	_nodeId string
+	workIdMax int64 = 1024
+	_nodeId   string
 )
 
 type snowflakeSequence struct {
 	mu sync.Mutex
 
+	idGenerate *bsnowflake.Node
 	epoch      time.Time
 	lastTime   int64
 	step       int64
@@ -94,35 +105,29 @@ type snowflakeSequence struct {
 
 // Start sequence and do some initialization operations
 func (seq *snowflakeSequence) Start(ctx context.Context, conf proto.SequenceConfig) error {
-	if err := seq.doInit(ctx, conf); err != nil {
+	rt := ctx.Value(proto.RuntimeCtxKey{}).(runtime.Runtime)
+	ctx = rcontext.WithRead(rcontext.WithDirect(ctx))
+
+	if err := seq.initTableAndKeepalive(ctx, rt); err != nil {
 		return err
-	}
-
-	return nil
-}
-
-func (seq *snowflakeSequence) doInit(ctx context.Context, conf proto.SequenceConfig) error {
-	vconn, ok := ctx.Value(proto.VConnCtxKey{}).(proto.VConn)
-	if !ok {
-		return errors.New("snowflake init need proto.VConn")
 	}
 
 	// get work-id
-	if err := seq.initTableAndKeepalive(ctx, vconn); err != nil {
+	if err := seq.initWorkerID(ctx, rt, conf); err != nil {
 		return err
 	}
 
-	if err := seq.initWorkerID(ctx, vconn, conf); err != nil {
+	node, err := bsnowflake.NewNode(seq.workdId)
+	if err != nil {
 		return err
 	}
 
-	curTime := startWallTime
-	seq.epoch = curTime.Add(time.Unix(_defaultEpoch/1000, (_defaultEpoch%1000)*1000000).Sub(curTime))
+	seq.idGenerate = node
 
 	return nil
 }
 
-func (seq *snowflakeSequence) initTableAndKeepalive(ctx context.Context, conn proto.VConn) error {
+func (seq *snowflakeSequence) initTableAndKeepalive(ctx context.Context, rt runtime.Runtime) error {
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -130,7 +135,7 @@ func (seq *snowflakeSequence) initTableAndKeepalive(ctx context.Context, conn pr
 		return nil
 	}
 
-	if _, err := conn.Exec(ctx, "", _initTableSql); err != nil {
+	if _, err := rt.Exec(ctx, "", _initTableSql); err != nil {
 		return err
 	}
 
@@ -140,25 +145,38 @@ func (seq *snowflakeSequence) initTableAndKeepalive(ctx context.Context, conn pr
 	}
 	_nodeId = nodeId
 
-	k := &nodeKeepLive{conn: conn}
+	k := &nodeKeepLive{rt: rt}
 	go k.keepalive()
 
 	finishInitTable = true
 	return nil
 }
 
-func (seq *snowflakeSequence) initWorkerID(ctx context.Context, conn proto.VConn, conf proto.SequenceConfig) error {
-	ret, err := conn.Query(ctx, "", _getWorkIdWithXLock, _nodeId, conf.Name)
+func (seq *snowflakeSequence) initWorkerID(ctx context.Context, rt runtime.Runtime, conf proto.SequenceConfig) error {
+	tx, err := rt.Begin(ctx)
 	if err != nil {
 		return err
 	}
 
-	lastInsertId, err := ret.LastInsertId()
+	defer tx.Rollback(ctx)
+
+	workId, err := seq.findWorkID(ctx, tx, conf.Name)
 	if err != nil {
 		return err
 	}
 
-	seq.workdId = int64(lastInsertId)
+	ret, err := tx.Exec(ctx, "", _setWorkId, workId, _nodeId, conf.Name)
+	if err != nil {
+		return err
+	}
+
+	_, _ = ret.RowsAffected()
+
+	if _, _, err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	seq.workdId = workId
 
 	if seq.workdId < 0 || seq.workdId > workIdMax {
 		return fmt.Errorf("node worker-id must in [0, %d]", workIdMax)
@@ -169,27 +187,19 @@ func (seq *snowflakeSequence) initWorkerID(ctx context.Context, conn proto.VConn
 // Acquire Apply for a self-increase ID
 func (seq *snowflakeSequence) Acquire(ctx context.Context) (int64, error) {
 
-	seq.mu.Lock()
-	defer seq.mu.Unlock()
+	id := seq.idGenerate.Generate()
 
-	timestamp := time.Since(seq.epoch).Nanoseconds() / 1000000
-
-	if timestamp == seq.lastTime {
-		seq.step = (seq.step + 1) & stepMask
-
-		if seq.step == 0 {
-			for timestamp <= seq.lastTime {
-				timestamp = time.Since(seq.epoch).Nanoseconds() / 1000000
+	//无锁更新当前 sequence 的 id 信息
+	for {
+		cur := seq.CurrentVal()
+		if id.Int64() > cur {
+			if atomic.CompareAndSwapInt64(&seq.currentVal, cur, id.Int64()) {
+				break
 			}
 		}
-	} else {
-		seq.step = 0
 	}
 
-	seq.lastTime = timestamp
-	seq.currentVal = (timestamp)<<timeShift | (seq.workdId << workIdShift) | (seq.step)
-
-	return seq.currentVal, nil
+	return id.Int64(), nil
 }
 
 func (seq *snowflakeSequence) Reset() error {
@@ -207,19 +217,92 @@ func (seq *snowflakeSequence) Stop() error {
 
 // CurrentVal get this sequence current val
 func (seq *snowflakeSequence) CurrentVal() int64 {
-	return seq.currentVal
+	return atomic.LoadInt64(&seq.currentVal)
+}
+
+func (seq *snowflakeSequence) findWorkID(ctx context.Context, tx proto.Tx, seqName string) (int64, error) {
+	ret, err := tx.Query(ctx, "", _selectSelfWorkIdWithXLock, seqName, _nodeId)
+	if err != nil {
+		return 0, err
+	}
+	ds, err := ret.Dataset()
+	if err != nil {
+		return 0, err
+	}
+
+	val := make([]proto.Value, 1)
+	row, err := ds.Next()
+	_, _ = ds.Next()
+	if err == nil {
+		if err := row.Scan(val); err != nil {
+			return 0, err
+		}
+
+		if val[0] != nil {
+			return val[0].(int64), nil
+		}
+	}
+
+	ret, err = tx.Query(ctx, "", _selectMaxWorkIdWithXLock, seqName)
+	if err != nil {
+		return 0, err
+	}
+	ds, err = ret.Dataset()
+	if err != nil {
+		return 0, err
+	}
+
+	row, err = ds.Next()
+	if err != nil {
+		return 0, err
+	}
+	_, _ = ds.Next()
+
+	if err := row.Scan(val); err != nil {
+		return 0, err
+	}
+
+	if val[0] == nil {
+		return 1, nil
+	}
+
+	curId := val[0].(int64) + 1
+	if curId > workIdMax {
+		ret, err := tx.Query(ctx, "", _selectFreeWorkIdWithXLock, seqName)
+		if err != nil {
+			return 0, err
+		}
+		ret2, err := ret.Dataset()
+		if err != nil {
+			return 0, err
+		}
+
+		row, err := ret2.Next()
+		if err != nil {
+			return 0, err
+		}
+		_, _ = ret2.Next()
+
+		if err := row.Scan(val); err != nil {
+			return 0, err
+		}
+
+		curId = val[0].(int64) + 1
+	}
+
+	return curId, nil
 }
 
 // nodeKeepLive do update renew time to keep work-id still belong to self
 type nodeKeepLive struct {
-	conn proto.VConn
+	rt runtime.Runtime
 }
 
 func (n *nodeKeepLive) keepalive() {
 	ticker := time.NewTicker(1 * time.Minute)
 
 	for range ticker.C {
-		_, err := n.conn.Exec(context.Background(), "", _keepaliveNode, _nodeId)
+		_, err := n.rt.Exec(context.Background(), "", _keepaliveNode, _nodeId)
 
 		if err != nil {
 			log.Error("[Sequence][Snowflake] keepalive fail", zap.String("node-id", _nodeId), zap.Error(err))

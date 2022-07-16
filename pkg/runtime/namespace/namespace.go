@@ -38,11 +38,18 @@ import (
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
-var _namespaces sync.Map
+var (
+	_namespaces sync.Map
+	_tmpns      sync.Map
+)
 
 // Load loads a namespace, return nil if no namespace found.
 func Load(namespace string) *Namespace {
-	exist, ok := _namespaces.Load(namespace)
+	exist, ok := _tmpns.Load(namespace)
+	if ok {
+		return exist.(*Namespace)
+	}
+	exist, ok = _namespaces.Load(namespace)
 	if !ok {
 		return nil
 	}
@@ -76,8 +83,7 @@ type (
 
 		name string // the name of Namespace
 
-		rule      atomic.Value // *rule.Rule
-		optimizer proto.Optimizer
+		rule atomic.Value // *rule.Rule
 
 		// datasource map, eg: employee_0001 -> [mysql-a,mysql-b,mysql-c], ... employee_0007 -> [mysql-x,mysql-y,mysql-z]
 		dss atomic.Value // map[string][]proto.DB
@@ -87,47 +93,31 @@ type (
 	}
 
 	// Command represents the command to control Namespace.
-	Command func(ns *Namespace)
+	Command func(ns *Namespace) error
 )
 
 // New creates a Namespace.
-func New(name string, optimizer proto.Optimizer, commands ...Command) (*Namespace, error) {
+func New(name string, commands ...Command) (*Namespace, error) {
 	ns := &Namespace{
-		name:      name,
-		optimizer: optimizer,
-		cmds:      make(chan Command, 1),
-		done:      make(chan struct{}),
+		name: name,
+		cmds: make(chan Command, 1),
+		done: make(chan struct{}),
 	}
 	ns.dss.Store(make(map[string][]proto.DB)) // init empty map
 	ns.rule.Store(&rule.Rule{})               // init empty rule
 
-	for _, cmd := range commands {
-		cmd(ns)
-	}
+	_tmpns.Store(ns.Name(), ns)
+	defer _tmpns.Delete(ns.Name())
 
-	if err := ns.initSequence(); err != nil {
-		return nil, err
+	for _, cmd := range commands {
+		if err := cmd(ns); err != nil {
+			return nil, err
+		}
 	}
 
 	go ns.loopCmds()
 
 	return ns, nil
-}
-
-func (ns *Namespace) initSequence() error {
-	ctx := rcontext.WithDirect(context.Background())
-	ctx = rcontext.WithWrite(ctx)
-
-	zeroGroup := ns.DB0(ctx)
-	mgr := ns.optimizer.GetSequenceManager()
-
-	var err error
-
-	ns.Rule().Range(func(table string, vt *rule.VTable) bool {
-		return true
-	})
-
-	return err
 }
 
 // Name returns the name of namespace.
@@ -173,7 +163,6 @@ func (ns *Namespace) DB(ctx context.Context, group string) proto.DB {
 		for _, db := range exist {
 			wrList = append(wrList, int(db.Weight().R))
 		}
-
 	} else if rcontext.IsWrite(ctx) {
 		for _, db := range exist {
 			wrList = append(wrList, int(db.Weight().W))
@@ -184,11 +173,6 @@ func (ns *Namespace) DB(ctx context.Context, group string) proto.DB {
 	}
 
 	return exist[target]
-}
-
-// Optimizer returns the optimizer.
-func (ns *Namespace) Optimizer() proto.Optimizer {
-	return ns.optimizer
 }
 
 // Rule returns the sharding rule.

@@ -55,5 +55,5 @@ func (d DropTableStatement) Validate() error {
 }
 
 func (d DropTableStatement) Mode() SQLType {
-	return SdropTable
+	return SQLTypeDropTable
 }

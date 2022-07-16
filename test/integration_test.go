@@ -18,7 +18,6 @@
 package test
 
 import (
-	"database/sql"
 	"fmt"
 	"testing"
 	"time"
@@ -46,7 +45,7 @@ func TestSuite(t *testing.T) {
 		WithMySQLDatabase("employees"),
 		WithConfig("../integration_test/config/db_tbl/config.yaml"),
 		WithScriptPath("../scripts"),
-		//WithDevMode(), // NOTICE: UNCOMMENT IF YOU WANT TO DEBUG LOCAL ARANA SERVER!!!
+		// WithDevMode(), // NOTICE: UNCOMMENT IF YOU WANT TO DEBUG LOCAL ARANA SERVER!!!
 	)
 	suite.Run(t, &IntegrationSuite{su})
 }
@@ -211,8 +210,8 @@ func (s *IntegrationSuite) TestInsertOnDuplicateKey() {
 	_, err = db.Exec(`INSERT IGNORE INTO student(id,uid,score,name,nickname,gender,birth_year) 
      values (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE uid=32 `, 1654008174496657000, i, 3.14, fmt.Sprintf("fake_name_%d", i), fmt.Sprintf("fake_nickname_%d", i), 1, 2022)
 	assert.Error(t, err, "insert row error: %v", err)
-
 }
+
 func (s *IntegrationSuite) TestSelect() {
 	var (
 		db = s.DB()
@@ -220,7 +219,7 @@ func (s *IntegrationSuite) TestSelect() {
 	)
 
 	rows, err := db.Query(`SELECT emp_no, birth_date, first_name, last_name, gender, hire_date FROM employees 
-		WHERE emp_no = ?`, 100001)
+		WHERE emp_no = ?`, "100001")
 	assert.NoErrorf(t, err, "select row error: %v", err)
 
 	defer rows.Close()
@@ -324,7 +323,7 @@ func (s *IntegrationSuite) TestDropTable() {
 
 	t.Skip()
 
-	//drop table  physical name != logical name  and  physical name = logical name
+	// drop table  physical name != logical name  and  physical name = logical name
 	result, err := db.Exec(`DROP TABLE student,salaries`)
 
 	assert.NoErrorf(t, err, "drop table error:%v", err)
@@ -332,7 +331,7 @@ func (s *IntegrationSuite) TestDropTable() {
 	assert.Equal(t, int64(0), affected)
 	assert.NoErrorf(t, err, "drop table  error: %v", err)
 
-	//drop again, return error
+	// drop again, return error
 	result, err = db.Exec(`DROP TABLE student,salaries`)
 	assert.Error(t, err, "drop table error: %v", err)
 	assert.Nil(t, result)
@@ -347,7 +346,7 @@ func (s *IntegrationSuite) TestJoinTable() {
 	t.Skip()
 
 	sqls := []string{
-		//shard  & no shard
+		// shard  & no shard
 		`select * from student  join titles on student.id=titles.emp_no`,
 		// shard  & no shard with alias
 		`select * from student  join titles as b on student.id=b.emp_no`,
@@ -361,7 +360,7 @@ func (s *IntegrationSuite) TestJoinTable() {
 		_, err := db.Query(sql)
 		assert.NoErrorf(t, err, "join table error:%v", err)
 	}
-	//with where
+	// with where
 	_, err := db.Query(`select * from student  join titles on student.id=titles.emp_no where student.id=? and titles.emp_no=?`, 1, 2)
 	assert.NoErrorf(t, err, "join table error:%v", err)
 }
@@ -372,42 +371,20 @@ func (s *IntegrationSuite) TestShardingAgg() {
 		t  = s.T()
 	)
 
-	if _, err := db.Exec("DELETE FROM student"); err != nil {
-		t.Fatal(err)
-	}
-
 	const total = 100
 
 	// insert into logical table
 	for i := 1; i <= total; i++ {
-
-		var (
-			result sql.Result
-			err    error
+		result, err := db.Exec(
+			`INSERT IGNORE INTO student(id,uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?,?)`,
+			time.Now().UnixNano(),
+			i,
+			3.14,
+			fmt.Sprintf("fake_name_%d", i),
+			fmt.Sprintf("fake_nickname_%d", i),
+			1,
+			2022,
 		)
-
-		if i == 1 {
-			result, err = db.Exec(
-				`INSERT IGNORE INTO student(uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?)`,
-				i,
-				95,
-				fmt.Sprintf("fake_name_%d", i),
-				fmt.Sprintf("fake_nickname_%d", i),
-				1,
-				2022,
-			)
-		} else {
-			result, err = db.Exec(
-				`INSERT IGNORE INTO student(uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?)`,
-				i,
-				10,
-				fmt.Sprintf("fake_name_%d", i),
-				fmt.Sprintf("fake_nickname_%d", i),
-				1,
-				2022,
-			)
-		}
-
 		assert.NoErrorf(t, err, "insert row error: %v", err)
 		affected, err := result.RowsAffected()
 		assert.NoErrorf(t, err, "insert row error: %v", err)
@@ -432,18 +409,19 @@ func (s *IntegrationSuite) TestShardingAgg() {
 		row := db.QueryRow("select min(score) as ttt from student")
 		var cnt float64
 		assert.NoError(t, row.Scan(&cnt))
-		assert.Equal(t, float64(10), cnt)
+		assert.Equal(t, 3.14, cnt)
 	})
 
 	t.Run("SUM", func(t *testing.T) {
 		row := db.QueryRow("select sum(score) as ttt from student")
 		var cnt float64
 		assert.NoError(t, row.Scan(&cnt))
-		assert.Equal(t, int64(1085), int64(cnt))
+		assert.Equal(t, int64(405), int64(cnt))
 	})
 
 	result, err := db.Exec(
-		`INSERT IGNORE INTO student(uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?)`,
+		`INSERT IGNORE INTO student(id,uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?,?)`,
+		time.Now().UnixNano(),
 		9527,
 		100,
 		"jason",
@@ -520,35 +498,17 @@ func (s *IntegrationSuite) TestAlterTable() {
 	assert.Equal(t, int64(0), affected)
 }
 
-func (s *IntegrationSuite) TestInsertAutoIncrement() {
-
+func (s *IntegrationSuite) TestCreateIndex() {
 	var (
 		db = s.DB()
 		t  = s.T()
 	)
 
-	result, err := db.Exec(
-		`INSERT INTO student(uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?)`,
-		time.Now().Unix(),
-		100,
-		"auto_increment",
-		"auto_increment",
-		1,
-		2022,
-	)
-	assert.NoErrorf(t, err, "insert row error: %+v", err)
+	result, err := db.Exec("create index `name` on student (name)")
+	assert.NoErrorf(t, err, "create index error: %v", err)
 	affected, err := result.RowsAffected()
-	assert.NoErrorf(t, err, "insert row error: %+v", err)
-	assert.True(t, affected == 1)
-
-	lastId, err := result.LastInsertId()
-	assert.NoErrorf(t, err, "insert row error: %+v", err)
-	assert.True(t, lastId != 0, fmt.Sprintf("LastInsertId : %d", lastId))
-	t.Log("LastInsertId", lastId)
-
-	if _, err := db.Exec("DELETE FROM student"); err != nil {
-		t.Fatal(err)
-	}
+	assert.NoErrorf(t, err, "create index error: %v", err)
+	assert.Equal(t, int64(0), affected)
 }
 
 func (s *IntegrationSuite) TestDropIndex() {
@@ -563,77 +523,6 @@ func (s *IntegrationSuite) TestDropIndex() {
 	assert.NoErrorf(t, err, "drop index error: %v", err)
 
 	assert.Equal(t, int64(0), affected)
-
-	schemas := map[string]string{"employees_0000": "student_0000", "employees_0001": "student_0012", "employees_0002": "student_0020", "employees_0003": "student_0024"}
-
-	for schema := range schemas {
-		table := schemas[schema]
-
-		func(schema string) {
-			mysqlDb, err := s.MySQLDB(schema)
-			assert.NoErrorf(t, err, "connect mysql error: %v", err)
-
-			defer mysqlDb.Close()
-			rows, err := mysqlDb.Query(fmt.Sprintf("show index from %s", table))
-			assert.NoErrorf(t, err, "show create error: %v", err)
-
-			defer rows.Close()
-
-			ret, err := convertRowsToMapSlice(rows)
-			assert.NoErrorf(t, err, "connect mysql error: %v", err)
-
-			newRet := make([]map[string]string, len(ret), len(ret))
-			for i := range ret {
-				newRet[i] = make(map[string]string)
-				for k, v := range ret[i] {
-					if (*v.(*interface{})) == nil {
-						newRet[i][k] = ""
-						continue
-					}
-					newRet[i][k] = string((*v.(*interface{})).([]uint8))
-				}
-			}
-			t.Logf("ret : %#v", newRet)
-
-			for i := range ret {
-				keyName := string((*ret[i]["Key_name"].(*interface{})).([]uint8))
-				t.Logf("Key_name : %s", keyName)
-				if keyName == "nickname" {
-					t.Fatal("drop index `nickname` fail")
-				}
-			}
-
-		}(schema)
-
-	}
-
-}
-
-func convertRowsToMapSlice(rows *sql.Rows) ([]map[string]interface{}, error) {
-	ret := make([]map[string]interface{}, 0, 4)
-
-	columns, _ := rows.Columns()
-
-	cache := make([]interface{}, len(columns))
-	for index := range cache {
-		var placeholder interface{}
-		cache[index] = &placeholder
-	}
-
-	for rows.Next() {
-		if err := rows.Scan(cache...); err != nil {
-			return nil, err
-		}
-
-		record := make(map[string]interface{})
-		for i, d := range cache {
-			record[columns[i]] = d
-		}
-
-		ret = append(ret, record)
-	}
-
-	return ret, nil
 }
 
 func (s *IntegrationSuite) TestShowColumns() {
@@ -662,4 +551,27 @@ func (s *IntegrationSuite) TestShowCreate() {
 	var table, createStr string
 	assert.NoError(t, row.Scan(&table, &createStr))
 	assert.Equal(t, "student", table)
+}
+
+func (s *IntegrationSuite) TestDropTrigger() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql string
+	}
+
+	for _, it := range []tt{
+		{"DROP TRIGGER arana"},
+		{"DROP TRIGGER employees_0000.arana"},
+		{"DROP TRIGGER IF EXISTS arana"},
+		{"DROP TRIGGER IF EXISTS employees_0000.arana"},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			_, err := db.Exec(it.sql)
+			assert.NoError(t, err)
+		})
+	}
 }

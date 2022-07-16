@@ -33,24 +33,18 @@ func TestLen(t *testing.T) {
 	assert.Equal(t, 6, tblLen)
 }
 
-func TestSetTopologyForIdxNil(t *testing.T) {
-	topology := &Topology{
-		idx: nil,
-	}
+func TestSetTopology(t *testing.T) {
+	var topology Topology
+
 	topology.SetTopology(2, 2, 3, 4)
-	for each := range topology.idx {
-		assert.Equal(t, 2, each)
-		assert.Equal(t, 3, len(topology.idx[each]))
-	}
 	dbLen, tblLen := topology.Len()
 	assert.Equal(t, 1, dbLen)
 	assert.Equal(t, 3, tblLen)
 }
 
-func TestSetTopologyForIdxNotNil(t *testing.T) {
-	topology := &Topology{
-		idx: map[int][]int{0: []int{1, 2, 3}},
-	}
+func TestSetTopologyNoConflict(t *testing.T) {
+	var topology Topology
+	topology.SetTopology(0, 1, 2, 3)
 	topology.SetTopology(1, 4, 5, 6)
 	dbLen, tblLen := topology.Len()
 	assert.Equal(t, 2, dbLen)
@@ -58,14 +52,12 @@ func TestSetTopologyForIdxNotNil(t *testing.T) {
 }
 
 func TestSetTopologyForTablesLessThanOne(t *testing.T) {
-	topology := &Topology{
-		idx: map[int][]int{0: []int{1, 2, 3}, 1: []int{4, 5, 6}},
-	}
+	var topology Topology
+
+	topology.SetTopology(0, 1, 2, 3)
+	topology.SetTopology(1, 4, 5, 6)
 	topology.SetTopology(1)
-	for each := range topology.idx {
-		assert.Equal(t, 0, each)
-		assert.Equal(t, 3, len(topology.idx[each]))
-	}
+
 	dbLen, tblLen := topology.Len()
 	assert.Equal(t, 1, dbLen)
 	assert.Equal(t, 3, tblLen)
@@ -104,6 +96,36 @@ func TestTopology_Each(t *testing.T) {
 		t.Logf("on each: %d,%d\n", dbIdx, tbIdx)
 		return true
 	})
+
+	assert.False(t, topology.Each(func(dbIdx, tbIdx int) bool {
+		return false
+	}))
+}
+
+func TestTopology_Enumerate(t *testing.T) {
+	topology := createTopology()
+	shards := topology.Enumerate()
+	assert.Greater(t, shards.Len(), 0)
+}
+
+func TestTopology_EnumerateDatabases(t *testing.T) {
+	topology := createTopology()
+	dbs := topology.EnumerateDatabases()
+	assert.Greater(t, len(dbs), 0)
+}
+
+func TestTopology_Largest(t *testing.T) {
+	topology := createTopology()
+	db, tb, ok := topology.Largest()
+	assert.True(t, ok)
+	t.Logf("largest: %s.%s\n", db, tb)
+}
+
+func TestTopology_Smallest(t *testing.T) {
+	topology := createTopology()
+	db, tb, ok := topology.Smallest()
+	assert.True(t, ok)
+	t.Logf("smallest: %s.%s\n", db, tb)
 }
 
 func createTopology() *Topology {
@@ -114,7 +136,10 @@ func createTopology() *Topology {
 		tbRender: func(i int) string {
 			return fmt.Sprintf("%s:%d", "tbRender", i)
 		},
-		idx: map[int][]int{0: []int{1, 2, 3}, 1: []int{4, 5, 6}},
 	}
+
+	result.SetTopology(0, 1, 2, 3)
+	result.SetTopology(1, 4, 5, 6)
+
 	return result
 }

@@ -20,24 +20,30 @@ package proto
 
 import (
 	"context"
+	"fmt"
 )
+
+var _defaultSequenceManager SequenceManager
+
+func RegisterSequenceManager(l SequenceManager) {
+	_defaultSequenceManager = l
+}
+
+func LoadSequenceManager() SequenceManager {
+	cur := _defaultSequenceManager
+	if cur == nil {
+		return nil
+	}
+	return cur
+}
+
+func BuildAutoIncrementName(table string) string {
+	return fmt.Sprintf("__arana_incr_%s", table)
+}
 
 type (
-	VConnCtxKey = struct{}
+	RuntimeCtxKey = struct{}
 )
-
-// SequenceSupplier Create the creator of Sequence
-type SequenceSupplier func() EnchanceSequence
-
-var (
-	// Record the list of Sequence plug -in through the registered self -registered
-	suppliersRegistry map[string]SequenceSupplier = map[string]SequenceSupplier{}
-)
-
-// RegisterSequence Register a Sequence plugin
-func RegisterSequence(name string, supplier SequenceSupplier) {
-	suppliersRegistry[name] = supplier
-}
 
 type SequenceConfig struct {
 	Name   string
@@ -46,22 +52,43 @@ type SequenceConfig struct {
 }
 
 // Sequence represents a global unique id generator.
-type EnchanceSequence interface {
+type Sequence interface {
+	// Acquire generates a next value in int64.
+	Acquire(ctx context.Context) (int64, error)
+	Reset() error
+	Update() error
+}
+
+// EnhanceSequence represents a global unique id generator.
+type EnhanceSequence interface {
 	Sequence
 	// Start start sequence instance
 	Start(ctx context.Context, option SequenceConfig) error
 	// CurrentVal get sequence current id
 	CurrentVal() int64
-	// Stop stop sequence
+	// Stop sequence
 	Stop() error
 }
 
-// Sequencer represents the factory to create a Sequence by table name.
+// SequenceManager represents the factory to create a Sequence by table name.
 type SequenceManager interface {
 	// CreateSequence creates one sequence instance
-	CreateSequence(ctx context.Context, conn VConn, opt SequenceConfig) (Sequence, error)
+	CreateSequence(ctx context.Context, tenant, schema string, opt SequenceConfig) (Sequence, error)
 	// GetSequence gets sequence instance by name
-	GetSequence(ctx context.Context, name string) (Sequence, error)
+	GetSequence(ctx context.Context, tenant, namespace, name string) (Sequence, error)
+}
+
+// SequenceSupplier Create the creator of Sequence
+type SequenceSupplier func() EnhanceSequence
+
+var (
+	// Record the list of Sequence plug -in through the registered self -registered
+	suppliersRegistry = map[string]SequenceSupplier{}
+)
+
+// RegisterSequence Register a Sequence plugin
+func RegisterSequence(name string, supplier SequenceSupplier) {
+	suppliersRegistry[name] = supplier
 }
 
 // GetSequenceSupplier

@@ -28,11 +28,19 @@ import (
 
 var (
 	_ Statement = (*ShowTables)(nil)
+	_ Statement = (*ShowOpenTables)(nil)
 	_ Statement = (*ShowCreate)(nil)
 	_ Statement = (*ShowDatabases)(nil)
 	_ Statement = (*ShowColumns)(nil)
 	_ Statement = (*ShowIndex)(nil)
+	_ Statement = (*ShowTopology)(nil)
 )
+
+type FromTable string
+
+func (f FromTable) String() string {
+	return string(f)
+}
 
 type baseShow struct {
 	filter interface{} // ExpressionNode or string
@@ -45,6 +53,9 @@ func (bs *baseShow) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) 
 		sb.WriteByte('`')
 		sb.WriteString(val)
 		sb.WriteByte('`')
+		return nil
+	case FromTable:
+		sb.WriteString(val.String())
 		return nil
 	case PredicateNode:
 		return val.Restore(flag, sb, nil)
@@ -60,6 +71,7 @@ func (bs *baseShow) Like() (string, bool) {
 	v, ok := bs.filter.(string)
 	return v, ok
 }
+
 func (bs *baseShow) Where() (ExpressionNode, bool) {
 	v, ok := bs.filter.(ExpressionNode)
 	return v, ok
@@ -69,12 +81,12 @@ func (bs *baseShow) CntParams() int {
 	return 0
 }
 
-func (bs *baseShow) Mode() SQLType {
-	return Squery
-}
-
 type ShowDatabases struct {
 	*baseShow
+}
+
+func (s ShowDatabases) Mode() SQLType {
+	return SQLTypeShowDatabases
 }
 
 func (s ShowDatabases) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -93,6 +105,10 @@ type ShowTables struct {
 	*baseShow
 }
 
+func (s ShowTables) Mode() SQLType {
+	return SQLTypeShowTables
+}
+
 func (s ShowTables) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("SHOW TABLES")
 	if err := s.baseShow.Restore(flag, sb, args); err != nil {
@@ -105,8 +121,28 @@ func (s ShowTables) Validate() error {
 	return nil
 }
 
+type ShowTopology struct {
+	*baseShow
+}
+
+func (s ShowTopology) Mode() SQLType {
+	return SQLTypeShowTopology
+}
+
+func (s ShowTopology) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	return s.baseShow.Restore(flag, sb, args)
+}
+
+func (s ShowTopology) Validate() error {
+	return nil
+}
+
 type ShowOpenTables struct {
 	*baseShow
+}
+
+func (s ShowOpenTables) Mode() SQLType {
+	return SQLTypeShowOpenTables
 }
 
 func (s ShowOpenTables) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -189,11 +225,11 @@ func (s *ShowCreate) CntParams() int {
 }
 
 func (s *ShowCreate) Mode() SQLType {
-	return Squery
+	return SQLTypeShowCreate
 }
 
 type ShowIndex struct {
-	tableName TableName
+	TableName TableName
 	where     ExpressionNode
 }
 
@@ -204,7 +240,7 @@ func (s *ShowIndex) Validate() error {
 func (s *ShowIndex) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("SHOW INDEXES FROM ")
 
-	_ = s.tableName.Restore(flag, sb, args)
+	_ = s.TableName.Restore(flag, sb, args)
 
 	if where, ok := s.Where(); ok {
 		sb.WriteString(" WHERE ")
@@ -214,10 +250,6 @@ func (s *ShowIndex) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) 
 	}
 
 	return nil
-}
-
-func (s *ShowIndex) TableName() TableName {
-	return s.tableName
 }
 
 func (s *ShowIndex) Where() (ExpressionNode, bool) {
@@ -235,7 +267,7 @@ func (s *ShowIndex) CntParams() int {
 }
 
 func (s *ShowIndex) Mode() SQLType {
-	return Squery
+	return SQLTypeShowIndex
 }
 
 type showColumnsFlag uint8
@@ -308,7 +340,7 @@ func (sh *ShowColumns) CntParams() int {
 }
 
 func (sh *ShowColumns) Mode() SQLType {
-	return Squery
+	return SQLTypeShowColumns
 }
 
 func (sh *ShowColumns) Full() bool {
@@ -368,5 +400,5 @@ func (s *ShowVariables) CntParams() int {
 }
 
 func (s *ShowVariables) Mode() SQLType {
-	return Squery
+	return SQLTypeShowVariables
 }

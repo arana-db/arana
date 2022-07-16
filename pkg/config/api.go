@@ -66,7 +66,6 @@ func GetStoreOperate() (StoreOperate, error) {
 }
 
 func Init(name string, options map[string]interface{}) error {
-
 	s, exist := slots[name]
 	if !exist {
 		return fmt.Errorf("StoreOperate solt=[%s] not exist", name)
@@ -77,7 +76,7 @@ func Init(name string, options map[string]interface{}) error {
 	return storeOperate.Init(options)
 }
 
-//Register register store plugin
+// Register register store plugin
 func Register(s StoreOperate) {
 	if _, ok := slots[s.Name()]; ok {
 		panic(fmt.Errorf("StoreOperate=[%s] already exist", s.Name()))
@@ -86,22 +85,22 @@ func Register(s StoreOperate) {
 	slots[s.Name()] = s
 }
 
-//StoreOperate config storage related plugins
+// StoreOperate config storage related plugins
 type StoreOperate interface {
 	io.Closer
 
-	//Init plugin initialization
+	// Init plugin initialization
 	Init(options map[string]interface{}) error
 
-	//Save save a configuration data
+	// Save save a configuration data
 	Save(key PathKey, val []byte) error
 
-	//Get get a configuration
+	// Get get a configuration
 	Get(key PathKey) ([]byte, error)
 
-	//Watch Monitor changes of the key
+	// Watch Monitor changes of the key
 	Watch(key PathKey) (<-chan []byte, error)
 
-	//Name plugin name
+	// Name plugin name
 	Name() string
 }

@@ -110,5 +110,4 @@ func TestNew(t *testing.T) {
 		assert.Equal(t, int64(1), uid.Int64)
 		assert.Equal(t, now, createdAt.Time)
 	})
-
 }

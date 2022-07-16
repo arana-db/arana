@@ -94,8 +94,8 @@ github.com/aliyun/alibaba-cloud-sdk-go v1.61.18/go.mod h1:v8ESoHo4SyHmuB4b1tJqDH
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
 github.com/apache/thrift v0.12.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
 github.com/apache/thrift v0.13.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
-github.com/arana-db/parser v0.2.1 h1:a885V+OIABmqYHYbLP2QWZbn+/TE0mZJd8dafWY7F6Y=
-github.com/arana-db/parser v0.2.1/go.mod h1:y4hxIPieC5T26aoNd44XiWXNunC03kUQW0CI3NKaYTk=
+github.com/arana-db/parser v0.2.3 h1:zLZcx0/oidlHnw/GZYE78NuvwQkHUv2Xtrm2IwyZasA=
+github.com/arana-db/parser v0.2.3/go.mod h1:/XA29bplweWSEAjgoM557ZCzhBilSawUlHcZFjOeDAc=
 github.com/armon/circbuf v0.0.0-20150827004946-bbbad097214e/go.mod h1:3U/XgcO3hCbHZ8TKRvWD2dDTCfh9M9ya+I9JpbB7O8o=
 github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da/go.mod h1:Q73ZrmVTwzkszR9V5SSuryQ31EELlFMUz1kKyl939pY=
 github.com/armon/go-radix v0.0.0-20180808171621-7fddfc383310/go.mod h1:ufUuZ+zHj4x4TnLV4JWEpy2hxWSpsRywHrMgIH9cCH8=

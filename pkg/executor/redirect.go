@@ -39,6 +39,7 @@ import (
 	"github.com/arana-db/arana/pkg/metrics"
 	mysqlErrors "github.com/arana-db/arana/pkg/mysql/errors"
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/proto/hint"
 	"github.com/arana-db/arana/pkg/resultx"
 	"github.com/arana-db/arana/pkg/runtime"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
@@ -153,10 +154,20 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 	p := parser.New()
 	query := ctx.GetQuery()
 	start := time.Now()
-	act, err := p.ParseOneStmt(query, "", "")
+	act, hts, err := p.ParseOneStmtHints(query, "", "")
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, errors.WithStack(err)
 	}
+
+	var hints []*hint.Hint
+	for _, next := range hts {
+		var h *hint.Hint
+		if h, err = hint.Parse(next); err != nil {
+			return nil, 0, err
+		}
+		hints = append(hints, h)
+	}
+
 	metrics.ParserDuration.Observe(time.Since(start).Seconds())
 	log.Debugf("ComQuery: %s", query)
 
@@ -172,6 +183,7 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 	}
 
 	ctx.Stmt = &proto.Stmt{
+		Hints:    hints,
 		StmtNode: act,
 	}
 
@@ -246,14 +258,12 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 		}
 	case *ast.ShowStmt:
 		allowSchemaless := func(stmt *ast.ShowStmt) bool {
-			if stmt.Tp == ast.ShowDatabases {
+			switch stmt.Tp {
+			case ast.ShowDatabases, ast.ShowVariables, ast.ShowTopology:
 				return true
+			default:
+				return false
 			}
-			if stmt.Tp == ast.ShowVariables {
-				return true
-			}
-
-			return false
 		}
 
 		if !schemaless || allowSchemaless(stmt) { // only SHOW DATABASES is allowed in schemaless mode
@@ -261,30 +271,10 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 		} else {
 			err = errNoDatabaseSelected
 		}
-	case *ast.TruncateTableStmt:
-		if schemaless {
-			err = errNoDatabaseSelected
-		} else {
-			res, warn, err = rt.Execute(ctx)
-		}
-	case *ast.DropTableStmt:
-		if schemaless {
-			err = errNoDatabaseSelected
-		} else {
-			res, warn, err = rt.Execute(ctx)
-		}
-	case *ast.ExplainStmt:
-		if schemaless {
-			err = errNoDatabaseSelected
-		} else {
-			res, warn, err = rt.Execute(ctx)
-		}
-	case *ast.DropIndexStmt:
-		if schemaless {
-			err = errNoDatabaseSelected
-		} else {
-			res, warn, err = rt.Execute(ctx)
-		}
+	case *ast.TruncateTableStmt, *ast.DropTableStmt, *ast.ExplainStmt, *ast.DropIndexStmt, *ast.CreateIndexStmt:
+		res, warn, err = executeStmt(ctx, schemaless, rt)
+	case *ast.DropTriggerStmt:
+		res, warn, err = rt.Execute(ctx)
 	default:
 		if schemaless {
 			err = errNoDatabaseSelected
@@ -297,12 +287,18 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 				res, warn, err = rt.Execute(ctx)
 			}
 		}
-
 	}
 
 	executor.doPostFilter(ctx, res)
 
 	return res, warn, err
+}
+
+func executeStmt(ctx *proto.Context, schemaless bool, rt runtime.Runtime) (proto.Result, uint16, error) {
+	if schemaless {
+		return nil, 0, errNoDatabaseSelected
+	}
+	return rt.Execute(ctx)
 }
 
 func (executor *RedirectExecutor) ExecutorComStmtExecute(ctx *proto.Context) (proto.Result, uint16, error) {

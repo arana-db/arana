@@ -54,5 +54,5 @@ func (d *DropIndexStatement) Validate() error {
 }
 
 func (d *DropIndexStatement) Mode() SQLType {
-	return DropIndex
+	return SQLTypeDropIndex
 }

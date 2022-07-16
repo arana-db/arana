@@ -179,5 +179,5 @@ func (at *AlterTableStatement) CntParams() int {
 }
 
 func (at *AlterTableStatement) Mode() SQLType {
-	return SalterTable
+	return SQLTypeAlterTable
 }

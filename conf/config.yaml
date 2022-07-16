@@ -50,6 +50,8 @@ data:
               password: "123456"
               database: employees_0000
               weight: r10w10
+              parameters:
+                maxAllowedPacket: 256M
         - name: employees_0001
           nodes:
             - name: node1
@@ -59,6 +61,8 @@ data:
               password: "123456"
               database: employees_0001
               weight: r10w10
+              parameters:
+                maxAllowedPacket: 256M
         - name: employees_0002
           nodes:
             - name: node2
@@ -68,6 +72,8 @@ data:
               password: "123456"
               database: employees_0002
               weight: r10w10
+              parameters:
+                maxAllowedPacket: 256M
         - name: employees_0003
           nodes:
             - name: node3
@@ -77,7 +83,8 @@ data:
               password: "123456"
               database: employees_0003
               weight: r10w10
-
+              parameters:
+                maxAllowedPacket: 256M
   sharding_rule:
     tables:
       - name: employees.student
@@ -93,6 +100,7 @@ data:
           - column: uid
             type: scriptExpr
             expr: $value % 32
+            step: 32
         topology:
           db_pattern: employees_${0000..0003}
           tbl_pattern: student_${0000..0031}

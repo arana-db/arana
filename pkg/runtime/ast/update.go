@@ -143,5 +143,5 @@ func (u *UpdateStatement) CntParams() int {
 }
 
 func (u *UpdateStatement) Mode() SQLType {
-	return Supdate
+	return SQLTypeUpdate
 }

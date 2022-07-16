@@ -23,7 +23,6 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/proto/rule"
 )
 
 const (
@@ -33,14 +32,12 @@ const (
 )
 
 type (
-	keyFlag           struct{}
-	keyRule           struct{}
-	keySequence       struct{}
-	keySql            struct{}
-	keyNodeLabel      struct{}
-	keySchema         struct{}
-	keyDefaultDBGroup struct{}
-	keyTenant         struct{}
+	keyFlag      struct{}
+	keySequence  struct{}
+	keySql       struct{}
+	keyNodeLabel struct{}
+	keySchema    struct{}
+	keyTenant    struct{}
 )
 
 type cFlag uint8
@@ -64,16 +61,6 @@ func WithSQL(ctx context.Context, sql string) context.Context {
 // WithTenant binds the tenant.
 func WithTenant(ctx context.Context, tenant string) context.Context {
 	return context.WithValue(ctx, keyTenant{}, tenant)
-}
-
-// WithDBGroup binds the default db.
-func WithDBGroup(ctx context.Context, group string) context.Context {
-	return context.WithValue(ctx, keyDefaultDBGroup{}, group)
-}
-
-// WithRule binds a rule.
-func WithRule(ctx context.Context, ru *rule.Rule) context.Context {
-	return context.WithValue(ctx, keyRule{}, ru)
 }
 
 func WithSchema(ctx context.Context, data string) context.Context {
@@ -111,24 +98,6 @@ func Tenant(ctx context.Context) string {
 		return ""
 	}
 	return db
-}
-
-// DBGroup extracts the db.
-func DBGroup(ctx context.Context) string {
-	db, ok := ctx.Value(keyDefaultDBGroup{}).(string)
-	if !ok {
-		return ""
-	}
-	return db
-}
-
-// Rule extracts the rule.
-func Rule(ctx context.Context) *rule.Rule {
-	ru, ok := ctx.Value(keyRule{}).(*rule.Rule)
-	if !ok {
-		return nil
-	}
-	return ru
 }
 
 // IsRead returns true if this is a read operation

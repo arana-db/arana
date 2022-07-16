@@ -176,7 +176,6 @@ func (fp *discovery) GetCluster(ctx context.Context, cluster string) (*Cluster, 
 }
 
 func (fp *discovery) ListTenants(ctx context.Context) ([]string, error) {
-
 	cfg, err := fp.c.Load()
 	if err != nil {
 		return nil, err
@@ -269,7 +268,7 @@ func (fp *discovery) ListTables(ctx context.Context, cluster string) ([]string, 
 	}
 
 	var tables []string
-	for tb, _ := range fp.loadTables(cfg, cluster) {
+	for tb := range fp.loadTables(cfg, cluster) {
 		tables = append(tables, tb)
 	}
 	sort.Strings(tables)
@@ -301,8 +300,6 @@ func (fp *discovery) GetTable(ctx context.Context, cluster, tableName string) (*
 	}
 	var vt rule.VTable
 
-	vt.SetDefaultAutoIncrement()
-
 	var (
 		topology           rule.Topology
 		dbFormat, tbFormat string
@@ -327,6 +324,7 @@ func (fp *discovery) GetTable(ctx context.Context, cluster, tableName string) (*
 	var (
 		keys                 map[string]struct{}
 		dbSharder, tbSharder map[string]rule.ShardComputer
+		dbSteps, tbSteps     map[string]int
 	)
 	for _, it := range table.DbRules {
 		var shd rule.ShardComputer
@@ -339,8 +337,12 @@ func (fp *discovery) GetTable(ctx context.Context, cluster, tableName string) (*
 		if keys == nil {
 			keys = make(map[string]struct{})
 		}
+		if dbSteps == nil {
+			dbSteps = make(map[string]int)
+		}
 		dbSharder[it.Column] = shd
 		keys[it.Column] = struct{}{}
+		dbSteps[it.Column] = it.Step
 	}
 
 	for _, it := range table.TblRules {
@@ -354,8 +356,12 @@ func (fp *discovery) GetTable(ctx context.Context, cluster, tableName string) (*
 		if keys == nil {
 			keys = make(map[string]struct{})
 		}
+		if tbSteps == nil {
+			tbSteps = make(map[string]int)
+		}
 		tbSharder[it.Column] = shd
 		keys[it.Column] = struct{}{}
+		tbSteps[it.Column] = it.Step
 	}
 
 	for k := range keys {
@@ -368,7 +374,9 @@ func (fp *discovery) GetTable(ctx context.Context, cluster, tableName string) (*
 				Computer: shd,
 				Stepper:  rule.DefaultNumberStepper,
 			}
-			if dbBegin >= 0 && dbEnd >= 0 {
+			if s, ok := dbSteps[k]; ok && s > 0 {
+				dbMetadata.Steps = s
+			} else if dbBegin >= 0 && dbEnd >= 0 {
 				dbMetadata.Steps = 1 + dbEnd - dbBegin
 			}
 		}
@@ -377,14 +385,20 @@ func (fp *discovery) GetTable(ctx context.Context, cluster, tableName string) (*
 				Computer: shd,
 				Stepper:  rule.DefaultNumberStepper,
 			}
-			if tbBegin >= 0 && tbEnd >= 0 {
+			if s, ok := tbSteps[k]; ok && s > 0 {
+				tbMetadata.Steps = s
+			} else if tbBegin >= 0 && tbEnd >= 0 {
 				tbMetadata.Steps = 1 + tbEnd - tbBegin
 			}
 		}
 		vt.SetShardMetadata(k, dbMetadata, tbMetadata)
 
 		tpRes := make(map[int][]int)
-		rng, _ := tbMetadata.Stepper.Ascend(0, tbMetadata.Steps)
+		step := tbMetadata.Steps
+		if dbMetadata.Steps > step {
+			step = dbMetadata.Steps
+		}
+		rng, _ := tbMetadata.Stepper.Ascend(0, step)
 		for rng.HasNext() {
 			var (
 				seed  = rng.Next()
@@ -494,9 +508,7 @@ func parseTopology(input string) (format string, begin, end int, err error) {
 		return
 	}
 
-	var (
-		beginStr, endStr string
-	)
+	var beginStr, endStr string
 	for i := 1; i < len(mats[0]); i++ {
 		switch getTopologyRegexp().SubexpNames()[i] {
 		case "begin":

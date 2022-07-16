@@ -42,9 +42,7 @@ const (
 	Ustr
 )
 
-var (
-	DefaultNumberStepper = Stepper{U: Unum, N: 1}
-)
+var DefaultNumberStepper = Stepper{U: Unum, N: 1}
 
 // Range represents a value range.
 type Range interface {

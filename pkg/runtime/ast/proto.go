@@ -22,16 +22,29 @@ import (
 )
 
 const (
-	_           SQLType = iota
-	Squery              // QUERY
-	Sdelete             // DELETE
-	Supdate             // UPDATE
-	Sinsert             // INSERT
-	Sreplace            // REPLACE
-	Struncate           // TRUNCATE
-	SdropTable          // DROP TABLE
-	SalterTable         // ALTER TABLE
-	DropIndex           // DROP INDEX
+	_                     SQLType = iota
+	SQLTypeSelect                 // SELECT
+	SQLTypeDelete                 // DELETE
+	SQLTypeUpdate                 // UPDATE
+	SQLTypeInsert                 // INSERT
+	SQLTypeInsertSelect           // INSERT SELECT
+	SQLTypeReplace                // REPLACE
+	SQLTypeTruncate               // TRUNCATE
+	SQLTypeDropTable              // DROP TABLE
+	SQLTypeAlterTable             // ALTER TABLE
+	SQLTypeDropIndex              // DROP INDEX
+	SQLTypeShowDatabases          // SHOW DATABASES
+	SQLTypeShowTables             // SHOW TABLES
+	SQLTypeShowOpenTables         // SHOW OPEN TABLES
+	SQLTypeShowIndex              // SHOW INDEX
+	SQLTypeShowColumns            // SHOW COLUMNS
+	SQLTypeShowCreate             // SHOW CREATE
+	SQLTypeShowVariables          // SHOW VARIABLES
+	SQLTypeShowTopology           // SHOW TOPOLOGY
+	SQLTypeDescribe               // DESCRIBE
+	SQLTypeUnion                  // UNION
+	SQLTypeDropTrigger            // DROP TRIGGER
+	SQLTypeCreateIndex            // CREATE INDEX
 )
 
 type RestoreFlag uint32
@@ -46,15 +59,27 @@ type Restorer interface {
 }
 
 var _sqlTypeNames = [...]string{
-	Squery:      "QUERY",
-	Sdelete:     "DELETE",
-	Supdate:     "UPDATE",
-	Sinsert:     "INSERT",
-	Sreplace:    "REPLACE",
-	Struncate:   "TRUNCATE",
-	SdropTable:  "DROP TABLE",
-	SalterTable: "ALTER TABLE",
-	DropIndex:   "DROP INDEX",
+	SQLTypeSelect:         "SELECT",
+	SQLTypeDelete:         "DELETE",
+	SQLTypeUpdate:         "UPDATE",
+	SQLTypeInsert:         "INSERT",
+	SQLTypeInsertSelect:   "INSERT SELECT",
+	SQLTypeReplace:        "REPLACE",
+	SQLTypeTruncate:       "TRUNCATE",
+	SQLTypeDropTable:      "DROP TABLE",
+	SQLTypeAlterTable:     "ALTER TABLE",
+	SQLTypeDropIndex:      "DROP INDEX",
+	SQLTypeShowDatabases:  "SHOW DATABASES",
+	SQLTypeShowTables:     "SHOW TABLES",
+	SQLTypeShowOpenTables: "SHOW OPEN TABLES",
+	SQLTypeShowIndex:      "SHOW INDEX",
+	SQLTypeShowColumns:    "SHOW COLUMNS",
+	SQLTypeShowCreate:     "SHOW CREATE",
+	SQLTypeShowVariables:  "SHOW VARIABLES",
+	SQLTypeDescribe:       "DESCRIBE",
+	SQLTypeUnion:          "UNION",
+	SQLTypeDropTrigger:    "DROP TRIGGER",
+	SQLTypeCreateIndex:    "CREATE INDEX",
 }
 
 // SQLType represents the type of SQL.

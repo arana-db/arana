@@ -27,10 +27,11 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/config"
+	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime"
 	"github.com/arana-db/arana/pkg/runtime/namespace"
-	"github.com/arana-db/arana/pkg/runtime/optimize"
+	_ "github.com/arana-db/arana/pkg/schema"
 	"github.com/arana-db/arana/pkg/security"
 	"github.com/arana-db/arana/pkg/util/log"
 )
@@ -129,5 +130,28 @@ func buildNamespace(ctx context.Context, provider Discovery, cluster string) (*n
 	}
 	initCmds = append(initCmds, namespace.UpdateRule(&ru))
 
-	return namespace.New(cluster, optimize.GetOptimizer(), initCmds...)
+	initCmds = append(initCmds, func(ns *namespace.Namespace) error {
+		mgr := proto.LoadSequenceManager()
+
+		var err error
+
+		ns.Rule().Range(func(table string, vt *rule.VTable) bool {
+			increment := vt.GetAutoIncrement()
+			if increment == nil {
+				return true
+			}
+
+			_, err = mgr.CreateSequence(context.Background(), ns.Name(), ns.Name(), proto.SequenceConfig{
+				Name:   proto.BuildAutoIncrementName(table),
+				Type:   increment.Type,
+				Option: increment.Option,
+			})
+
+			return err == nil
+		})
+
+		return err
+	})
+
+	return namespace.New(cluster, initCmds...)
 }

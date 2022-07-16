@@ -25,9 +25,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-var (
-	_ Statement = (*TruncateStatement)(nil)
-)
+var _ Statement = (*TruncateStatement)(nil)
 
 // TruncateStatement represents mysql describe statement. see https://dev.mysql.com/doc/refman/8.0/en/truncate-table.html
 type TruncateStatement struct {
@@ -64,5 +62,5 @@ func (stmt *TruncateStatement) CntParams() int {
 }
 
 func (stmt *TruncateStatement) Mode() SQLType {
-	return Struncate
+	return SQLTypeTruncate
 }

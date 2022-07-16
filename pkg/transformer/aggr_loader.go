@@ -22,7 +22,7 @@ import (
 )
 
 type AggrLoader struct {
-	Aggrs [][]string
+	Aggrs []string
 	Alias []string
 	Name  []string
 }
@@ -37,9 +37,8 @@ func LoadAggrs(fields []ast2.SelectElement) *AggrLoader {
 		if n == nil {
 			return
 		}
-		fieldAggr := make([]string, 0, 10)
-		fieldAggr = append(fieldAggr, n.Name())
-		aggrLoader.Aggrs = append(aggrLoader.Aggrs, fieldAggr)
+
+		aggrLoader.Aggrs = append(aggrLoader.Aggrs, n.Name())
 		for _, arg := range n.Args() {
 			switch arg.Value().(type) {
 			case ast2.ColumnNameExpressionAtom:
@@ -52,11 +51,11 @@ func LoadAggrs(fields []ast2.SelectElement) *AggrLoader {
 	}
 
 	for i, field := range fields {
-		aggrLoader.Alias[i] = field.Alias()
 		if field == nil {
 			continue
 		}
 		if f, ok := field.(*ast2.SelectElementFunction); ok {
+			aggrLoader.Alias[i] = field.Alias()
 			enter(f.Function().(*ast2.AggrFunction))
 		}
 	}

@@ -47,19 +47,13 @@ func (s *ShowColumnsPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 	var (
 		sb      strings.Builder
 		indexes []int
-		err     error
 	)
 
-	if err = s.generate(&sb, &indexes); err != nil {
+	if err := s.generate(&sb, &indexes); err != nil {
 		return nil, errors.Wrap(err, "failed to generate show columns sql")
 	}
 
-	var (
-		query = sb.String()
-		args  = s.toArgs(indexes)
-	)
-
-	return conn.Query(ctx, "", query, args...)
+	return conn.Query(ctx, "", sb.String(), s.toArgs(indexes)...)
 }
 
 func (s *ShowColumnsPlan) generate(sb *strings.Builder, args *[]int) error {
@@ -82,6 +76,6 @@ func (s *ShowColumnsPlan) generate(sb *strings.Builder, args *[]int) error {
 	return nil
 }
 
-func (d *ShowColumnsPlan) resetTable(dstmt *ast.ShowColumns, table string) {
+func (s *ShowColumnsPlan) resetTable(dstmt *ast.ShowColumns, table string) {
 	dstmt.TableName = dstmt.TableName.ResetSuffix(table)
 }

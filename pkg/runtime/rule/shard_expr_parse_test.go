@@ -24,7 +24,7 @@ import (
 )
 
 func TestParse(t *testing.T) {
-	//assert.True(t, preParse(expString) == expression)
+	// assert.True(t, preParse(expString) == expression)
 	tests := []struct {
 		expr string
 		env  Env

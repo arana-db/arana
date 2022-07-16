@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package schema_manager
+package schema_test
 
 import (
 	"context"
@@ -23,10 +23,14 @@ import (
 )
 
 import (
+	"github.com/stretchr/testify/assert"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/config"
-	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime"
 	"github.com/arana-db/arana/pkg/runtime/namespace"
+	"github.com/arana-db/arana/pkg/schema"
 )
 
 func TestLoader(t *testing.T) {
@@ -46,15 +50,12 @@ func TestLoader(t *testing.T) {
 	cmds := make([]namespace.Command, 0)
 	cmds = append(cmds, namespace.UpsertDB(groupName, runtime.NewAtomDB(node)))
 	namespaceName := "dongjianhui"
-	ns := namespace.New(namespaceName, nil, cmds...)
-	namespace.Register(ns)
-	rt, err := runtime.Load(namespaceName)
-	if err != nil {
-		panic(err)
-	}
+	ns, err := namespace.New(namespaceName, cmds...)
+	assert.NoError(t, err)
+	_ = namespace.Register(ns)
 	schemeName := "employees"
 	tableName := "employees"
-	s := NewSimpleSchemaLoader()
+	s := schema.NewSimpleSchemaLoader()
 
-	s.Load(context.Background(), rt.(proto.VConn), schemeName, []string{tableName})
+	s.Load(context.Background(), schemeName, []string{tableName})
 }

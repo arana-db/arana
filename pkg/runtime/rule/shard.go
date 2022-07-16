@@ -61,8 +61,10 @@ func ShardFactory(shardType ShardType, shardNum int) (shardStrategy rule.ShardCo
 	return nil, errors.New("do not have this shardType")
 }
 
-type ShardType string
-type ShardComputerFunc func(shardNum int) rule.ShardComputer
+type (
+	ShardType         string
+	ShardComputerFunc func(shardNum int) rule.ShardComputer
+)
 
 type modShard struct {
 	shardNum int

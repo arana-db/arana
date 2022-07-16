@@ -37,9 +37,7 @@ import (
 	rrule "github.com/arana-db/arana/pkg/runtime/rule"
 )
 
-var (
-	errArgumentOutOfRange = stdErrors.New("argument is out of bounds")
-)
+var errArgumentOutOfRange = stdErrors.New("argument is out of bounds")
 
 // IsErrArgumentOutOfRange returns true if target error is caused by argument out of range.
 func IsErrArgumentOutOfRange(err error) bool {

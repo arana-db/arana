@@ -20,7 +20,6 @@ package test
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -40,6 +39,12 @@ import (
 	"github.com/arana-db/arana/pkg/constants"
 	"github.com/arana-db/arana/pkg/util/rand2"
 	"github.com/arana-db/arana/testdata"
+)
+
+const (
+	timeout      = "1s"
+	readTimeout  = "3s"
+	writeTimeout = "5s"
 )
 
 type Option func(*MySuite)
@@ -81,6 +86,37 @@ func WithScriptPath(path string) Option {
 	}
 }
 
+func (ms *MySuite) LoadActualDataSetPath(path string) error {
+	var msg *Message
+	err := LoadYamlConfig(path, &msg)
+	if err != nil {
+		return err
+	}
+	ms.actualDataset = msg
+	return nil
+}
+
+func (ms *MySuite) LoadExpectedDataSetPath(path string) error {
+	var msg *Message
+	err := LoadYamlConfig(path, &msg)
+	if err != nil {
+		return err
+	}
+	ms.expectedDataset = msg
+	return nil
+}
+
+func WithTestCasePath(path string) Option {
+	return func(mySuite *MySuite) {
+		var ts *Cases
+		err := LoadYamlConfig(path, &ts)
+		if err != nil {
+			return
+		}
+		mySuite.cases = ts
+	}
+}
+
 type MySuite struct {
 	suite.Suite
 
@@ -91,11 +127,14 @@ type MySuite struct {
 
 	container *MySQLContainer
 
-	mysqlDb *sql.DB
-	db      *sql.DB
-	dbSync  sync.Once
+	db     *sql.DB
+	dbSync sync.Once
 
 	tmpFile, bootstrapConfig, configPath, scriptPath string
+
+	cases           *Cases
+	actualDataset   *Message
+	expectedDataset *Message
 }
 
 func NewMySuite(options ...Option) *MySuite {
@@ -108,6 +147,18 @@ func NewMySuite(options ...Option) *MySuite {
 	return ms
 }
 
+func (ms *MySuite) ActualDataset() *Message {
+	return ms.actualDataset
+}
+
+func (ms *MySuite) ExpectedDataset() *Message {
+	return ms.expectedDataset
+}
+
+func (ms *MySuite) TestCases() *Cases {
+	return ms.cases
+}
+
 func (ms *MySuite) DB() *sql.DB {
 	ms.dbSync.Do(func() {
 		if ms.port < 1 {
@@ -115,7 +166,15 @@ func (ms *MySuite) DB() *sql.DB {
 		}
 
 		var (
-			dsn = fmt.Sprintf("arana:123456@tcp(127.0.0.1:%d)/employees?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8", ms.port)
+			dsn = fmt.Sprintf(
+				"arana:123456@tcp(127.0.0.1:%d)/employees?"+
+					"timeout=%s&"+
+					"readTimeout=%s&"+
+					"writeTimeout=%s&"+
+					"parseTime=true&"+
+					"loc=Local&"+
+					"charset=utf8mb4,utf8",
+				ms.port, timeout, readTimeout, writeTimeout)
 			err error
 		)
 
@@ -131,25 +190,6 @@ func (ms *MySuite) DB() *sql.DB {
 	}
 
 	return ms.db
-}
-
-func (ms *MySuite) MySQLDB(schema string) (*sql.DB, error) {
-	var (
-		mysqlDsn = fmt.Sprintf("root:123456@tcp(127.0.0.1:%d)/%s?timeout=1s&readTimeout=1s&writeTimeout=1s&parseTime=true&loc=Local&charset=utf8mb4,utf8", ms.container.Port, schema)
-		err      error
-	)
-	ms.T().Logf("====== connecting %s ======\n", mysqlDsn)
-
-	if ms.mysqlDb, err = sql.Open("mysql", mysqlDsn); err != nil {
-		ms.T().Log("connect mysql failed:", err.Error())
-		return nil, err
-	}
-
-	if ms.mysqlDb == nil {
-		return nil, errors.New("connect mysql failed")
-	}
-
-	return ms.mysqlDb, nil
 }
 
 func (ms *MySuite) SetupSuite() {

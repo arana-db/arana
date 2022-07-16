@@ -36,7 +36,6 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/resultx"
-	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/testdata"
 )
 
@@ -58,16 +57,16 @@ func TestOptimizer_OptimizeSelect(t *testing.T) {
 		AnyTimes()
 
 	var (
-		sql  = "select id, uid from student where uid in (?,?,?)"
-		ctx  = context.Background()
-		rule = makeFakeRule(ctrl, 8)
-		opt  optimizer
+		sql = "select id, uid from student where uid in (?,?,?)"
+		ctx = context.Background()
+		ru  = makeFakeRule(ctrl, 8)
 	)
 
 	p := parser.New()
 	stmt, _ := p.ParseOneStmt(sql, "", "")
-
-	plan, err := opt.Optimize(rcontext.WithRule(ctx, rule), conn, stmt, 1, 2, 3)
+	opt, err := NewOptimizer(ru, nil, stmt, []interface{}{1, 2, 3})
+	assert.NoError(t, err)
+	plan, err := opt.Optimize(ctx)
 	assert.NoError(t, err)
 
 	_, _ = plan.ExecIn(ctx, conn)
@@ -127,21 +126,28 @@ func TestOptimizer_OptimizeInsert(t *testing.T) {
 			), nil
 		}).
 		AnyTimes()
-	loader.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fakeStudentMetadata).Times(2)
+	loader.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any()).Return(fakeStudentMetadata, nil).Times(2)
+
+	oldLoader := proto.LoadSchemaLoader()
+	proto.RegisterSchemaLoader(loader)
+	defer proto.RegisterSchemaLoader(oldLoader)
 
 	var (
-		ctx  = context.Background()
-		rule = makeFakeRule(ctrl, 8)
-		opt  = optimizer{schemaLoader: loader}
+		ctx = context.Background()
+		ru  = makeFakeRule(ctrl, 8)
 	)
 
 	t.Run("sharding", func(t *testing.T) {
+
 		sql := "insert into student(name,uid,age) values('foo',?,18),('bar',?,19),('qux',?,17)"
 
 		p := parser.New()
 		stmt, _ := p.ParseOneStmt(sql, "", "")
 
-		plan, err := opt.Optimize(rcontext.WithRule(ctx, rule), conn, stmt, 8, 9, 16) // 8,16 -> fake_db_0000, 9 -> fake_db_0001
+		opt, err := NewOptimizer(ru, nil, stmt, []interface{}{8, 9, 16})
+		assert.NoError(t, err)
+
+		plan, err := opt.Optimize(ctx) // 8,16 -> fake_db_0000, 9 -> fake_db_0001
 		assert.NoError(t, err)
 
 		res, err := plan.ExecIn(ctx, conn)
@@ -159,7 +165,10 @@ func TestOptimizer_OptimizeInsert(t *testing.T) {
 		p := parser.New()
 		stmt, _ := p.ParseOneStmt(sql, "", "")
 
-		plan, err := opt.Optimize(rcontext.WithRule(ctx, rule), conn, stmt, 1)
+		opt, err := NewOptimizer(ru, nil, stmt, []interface{}{1})
+		assert.NoError(t, err)
+
+		plan, err := opt.Optimize(ctx)
 		assert.NoError(t, err)
 
 		res, err := plan.ExecIn(ctx, conn)
@@ -170,7 +179,6 @@ func TestOptimizer_OptimizeInsert(t *testing.T) {
 		lastInsertId, _ := res.LastInsertId()
 		assert.Equal(t, fakeId, lastInsertId)
 	})
-
 }
 
 func TestOptimizer_OptimizeAlterTable(t *testing.T) {
@@ -178,7 +186,6 @@ func TestOptimizer_OptimizeAlterTable(t *testing.T) {
 	defer ctrl.Finish()
 
 	conn := testdata.NewMockVConn(ctrl)
-	loader := testdata.NewMockSchemaLoader(ctrl)
 
 	conn.EXPECT().Exec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, db string, sql string, args ...interface{}) (proto.Result, error) {
@@ -187,14 +194,13 @@ func TestOptimizer_OptimizeAlterTable(t *testing.T) {
 		}).AnyTimes()
 
 	var (
-		ctx  = context.Background()
-		opt  = optimizer{schemaLoader: loader}
-		ru   rule.Rule
-		tab  rule.VTable
-		topo rule.Topology
+		ctx      = context.Background()
+		ru       rule.Rule
+		tab      rule.VTable
+		topology rule.Topology
 	)
 
-	topo.SetRender(func(_ int) string {
+	topology.SetRender(func(_ int) string {
 		return "fake_db"
 	}, func(i int) string {
 		return fmt.Sprintf("student_%04d", i)
@@ -203,8 +209,8 @@ func TestOptimizer_OptimizeAlterTable(t *testing.T) {
 	for i := 0; i < 8; i++ {
 		tables = append(tables, i)
 	}
-	topo.SetTopology(0, tables...)
-	tab.SetTopology(&topo)
+	topology.SetTopology(0, tables...)
+	tab.SetTopology(&topology)
 	tab.SetAllowFullScan(true)
 	ru.SetVTable("student", &tab)
 
@@ -214,12 +220,14 @@ func TestOptimizer_OptimizeAlterTable(t *testing.T) {
 		p := parser.New()
 		stmt, _ := p.ParseOneStmt(sql, "", "")
 
-		plan, err := opt.Optimize(rcontext.WithRule(ctx, &ru), conn, stmt)
+		opt, err := NewOptimizer(&ru, nil, stmt, nil)
+		assert.NoError(t, err)
+
+		plan, err := opt.Optimize(ctx)
 		assert.NoError(t, err)
 
 		_, err = plan.ExecIn(ctx, conn)
 		assert.NoError(t, err)
-
 	})
 
 	t.Run("non-sharding", func(t *testing.T) {
@@ -228,7 +236,10 @@ func TestOptimizer_OptimizeAlterTable(t *testing.T) {
 		p := parser.New()
 		stmt, _ := p.ParseOneStmt(sql, "", "")
 
-		plan, err := opt.Optimize(rcontext.WithRule(ctx, &ru), conn, stmt)
+		opt, err := NewOptimizer(&ru, nil, stmt, nil)
+		assert.NoError(t, err)
+
+		plan, err := opt.Optimize(ctx)
 		assert.NoError(t, err)
 
 		_, err = plan.ExecIn(ctx, conn)
@@ -241,7 +252,6 @@ func TestOptimizer_OptimizeInsertSelect(t *testing.T) {
 	defer ctrl.Finish()
 
 	conn := testdata.NewMockVConn(ctrl)
-	loader := testdata.NewMockSchemaLoader(ctrl)
 
 	var fakeId uint64
 	conn.EXPECT().Exec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
@@ -259,8 +269,9 @@ func TestOptimizer_OptimizeInsertSelect(t *testing.T) {
 	var (
 		ctx = context.Background()
 		ru  rule.Rule
-		opt = optimizer{schemaLoader: loader}
 	)
+
+	ru.SetVTable("student", nil)
 
 	t.Run("non-sharding", func(t *testing.T) {
 		sql := "insert into employees(name, age) select name,age from employees_tmp limit 10,2"
@@ -268,8 +279,10 @@ func TestOptimizer_OptimizeInsertSelect(t *testing.T) {
 		p := parser.New()
 		stmt, _ := p.ParseOneStmt(sql, "", "")
 
-		ru.SetVTable("student", nil)
-		plan, err := opt.Optimize(rcontext.WithRule(ctx, &ru), conn, stmt, 1)
+		opt, err := NewOptimizer(&ru, nil, stmt, []interface{}{1})
+		assert.NoError(t, err)
+
+		plan, err := opt.Optimize(ctx)
 		assert.NoError(t, err)
 
 		res, err := plan.ExecIn(ctx, conn)
@@ -280,5 +293,4 @@ func TestOptimizer_OptimizeInsertSelect(t *testing.T) {
 		lastInsertId, _ := res.LastInsertId()
 		assert.Equal(t, fakeId, lastInsertId)
 	})
-
 }

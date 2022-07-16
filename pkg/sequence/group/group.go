@@ -26,7 +26,7 @@ import (
 )
 
 func init() {
-	proto.RegisterSequence(SequencePluginName, func() proto.EnchanceSequence {
+	proto.RegisterSequence(SequencePluginName, func() proto.EnhanceSequence {
 		return &groupSequence{}
 	})
 }
@@ -36,12 +36,12 @@ const (
 )
 
 type groupSequence struct {
-	workdId      int32
+	workId       int32
 	currentVal   int64
 	preTimestamp int64
 }
 
-// Start Start sequence and do some initialization operations
+// Start sequence and do some initialization operations
 func (seq *groupSequence) Start(ctx context.Context, option proto.SequenceConfig) error {
 	return nil
 }
@@ -51,22 +51,22 @@ func (seq *groupSequence) Acquire(ctx context.Context) (int64, error) {
 	return 0, nil
 }
 
-// Reset reset sequence info
+// Reset resets sequence info
 func (seq *groupSequence) Reset() error {
 	return nil
 }
 
-// Update update sequence info
+// Update updates sequence info
 func (seq *groupSequence) Update() error {
 	return nil
 }
 
-// Stop stop sequence
+// Stop stops sequence
 func (seq *groupSequence) Stop() error {
 	return nil
 }
 
-// CurrentVal get this sequence current val
+// CurrentVal gets this sequence current val
 func (seq *groupSequence) CurrentVal() int64 {
 	return seq.currentVal
 }
