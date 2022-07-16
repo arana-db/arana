@@ -15,27 +15,26 @@
  * limitations under the License.
  */
 
-package constants
+// Copyright 2020 Gin Core Team. All rights reserved.
+// Use of this source code is governed by a MIT style
+// license that can be found in the LICENSE file.
+
+package env
 
 import (
 	"os"
-	"path/filepath"
 )
 
-// Environments
-const (
-	EnvBootstrapPath      = "ARANA_BOOTSTRAP_PATH" // bootstrap file path, eg: /etc/arana/bootstrap.yaml
-	EnvConfigPath         = "ARANA_CONFIG_PATH"    // config file path, eg: /etc/arana/config.yaml
-	EnvDevelopEnvironment = "ARANA_DEV"            // config dev environment
+import (
+	"github.com/arana-db/arana/pkg/constants"
 )
 
-// GetConfigSearchPathList returns the default search path list of configuration.
-func GetConfigSearchPathList() []string {
-	var dirs []string
-	dirs = append(dirs, ".", "./conf")
-	if home, err := os.UserHomeDir(); err == nil {
-		dirs = append(dirs, filepath.Join(home, ".arana"))
+// IsDevelopEnvironment check is the develop environment
+func IsDevelopEnvironment() bool {
+	dev := os.Getenv(constants.EnvDevelopEnvironment)
+	if dev == "1" {
+		return true
 	}
-	dirs = append(dirs, "/etc/arana")
-	return dirs
+
+	return false
 }

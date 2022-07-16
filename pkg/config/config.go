@@ -36,6 +36,7 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/util/env"
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
@@ -136,7 +137,9 @@ func (c *Center) LoadContext(ctx context.Context) (*Configuration, error) {
 		c.confHolder.Store(cfg)
 
 		out, _ := yaml.Marshal(cfg)
-		log.Debugf("load configuration:\n%s", string(out))
+		if env.IsDevelopEnvironment() {
+			log.Infof("load configuration:\n%s", string(out))
+		}
 	}
 
 	val = c.confHolder.Load()

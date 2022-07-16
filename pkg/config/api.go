@@ -53,7 +53,7 @@ const (
 )
 
 var (
-	slots        map[string]StoreOperate = make(map[string]StoreOperate)
+	slots        = make(map[string]StoreOperate)
 	storeOperate StoreOperate
 )
 
