@@ -34,6 +34,8 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/config"
+	"github.com/arana-db/arana/pkg/util/env"
+	"github.com/arana-db/arana/pkg/util/log"
 )
 
 const (
@@ -186,6 +188,10 @@ func (s *storeOperate) Get(key config.PathKey) ([]byte, error) {
 	s.cfgLock.RLock()
 
 	val := []byte(s.confMap[key])
+
+	if env.IsDevelopEnvironment() {
+		log.Infof("[ConfigCenter][nacos] load config content : %#v", string(val))
+	}
 	return val, nil
 }
 

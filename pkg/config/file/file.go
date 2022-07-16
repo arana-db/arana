@@ -27,15 +27,14 @@ import (
 
 import (
 	"github.com/pkg/errors"
-
 	"github.com/tidwall/gjson"
-
 	"gopkg.in/yaml.v3"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/constants"
+	"github.com/arana-db/arana/pkg/util/env"
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
@@ -98,7 +97,9 @@ func (s *storeOperate) initCfgJsonMap(val string) {
 		s.cfgJson[k] = gjson.Get(val, v).String()
 	}
 
-	log.Debugf("[ConfigCenter][File] load config content : %#v", s.cfgJson)
+	if env.IsDevelopEnvironment() {
+		log.Infof("[ConfigCenter][File] load config content : %#v", s.cfgJson)
+	}
 }
 
 func (s *storeOperate) Save(key config.PathKey, val []byte) error {
