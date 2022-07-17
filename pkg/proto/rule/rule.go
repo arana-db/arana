@@ -65,18 +65,12 @@ func (vt *VTable) Name() string {
 	return vt.name
 }
 
-func (vt *VTable) SetDefaultAutoIncrement() {
-	if vt == nil {
-		return
-	}
-	vt.autoIncrement = &AutoIncrement{
-		Type:   "snowflake",
-		Option: make(map[string]string),
-	}
+func (vt *VTable) GetAutoIncrement() *AutoIncrement {
+	return vt.autoIncrement
 }
 
-func (vt *VTable) GetAutoIncrement() AutoIncrement {
-	return *vt.autoIncrement
+func (vt *VTable) SetAutoIncrement(seq *AutoIncrement) {
+	vt.autoIncrement = seq
 }
 
 func (vt *VTable) SetAllowFullScan(allow bool) {
@@ -226,4 +220,16 @@ func (ru *Rule) MustVTable(name string) *VTable {
 		panic(fmt.Sprintf("no such VTable %s!", name))
 	}
 	return v
+}
+
+// Range ranges each VTable
+func (ru *Rule) Range(f func(table string, vt *VTable) bool) {
+	ru.mu.RLock()
+	defer ru.mu.RUnlock()
+
+	for k, v := range ru.vtabs {
+		if !f(k, v) {
+			break
+		}
+	}
 }

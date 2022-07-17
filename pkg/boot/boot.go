@@ -19,6 +19,7 @@ package boot
 
 import (
 	"context"
+	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 )
 
 import (
@@ -27,6 +28,7 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/config"
+	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime"
 	"github.com/arana-db/arana/pkg/runtime/namespace"
@@ -54,6 +56,9 @@ func Boot(ctx context.Context, provider Discovery) error {
 		if c, err = provider.GetCluster(ctx, cluster); err != nil {
 			continue
 		}
+
+		ctx = rcontext.WithTenant(ctx, c.Tenant)
+
 		if ns, err = buildNamespace(ctx, provider, cluster); err != nil {
 			log.Errorf("build namespace %s failed: %v", cluster, err)
 			continue
@@ -128,6 +133,28 @@ func buildNamespace(ctx context.Context, provider Discovery, cluster string) (*n
 		ru.SetVTable(table, vt)
 	}
 	initCmds = append(initCmds, namespace.UpdateRule(&ru))
+	initCmds = append(initCmds, func(ns *namespace.Namespace) error {
+		mgr := proto.LoadSequenceManager()
 
-	return namespace.New(cluster, initCmds...), nil
+		var err error
+
+		ns.Rule().Range(func(table string, vt *rule.VTable) bool {
+			increment := vt.GetAutoIncrement()
+			if increment == nil {
+				return true
+			}
+
+			_, err = mgr.CreateSequence(ctx, rcontext.Tenant(ctx), ns.Name(), proto.SequenceConfig{
+				Name:   proto.BuildAutoIncrementName(table),
+				Type:   increment.Type,
+				Option: increment.Option,
+			})
+
+			return err == nil
+		})
+
+		return err
+	})
+
+	return namespace.New(cluster, initCmds...)
 }

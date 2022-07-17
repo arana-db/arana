@@ -25,7 +25,7 @@ import (
 
 // UpdateWeight returns a command to update the weight of DB.
 func UpdateWeight(group, id string, weight proto.Weight) Command {
-	return func(ns *Namespace) {
+	return func(ns *Namespace) error {
 		ns.Lock()
 		defer ns.Unlock()
 
@@ -45,21 +45,23 @@ func UpdateWeight(group, id string, weight proto.Weight) Command {
 
 		if bingo == nil {
 			log.Errorf("[%s] failed to update weight: no such datasource %s.%s", ns.name, group, id)
-			return
+			return nil
 		}
 
 		if err := bingo.SetWeight(weight); err != nil {
 			log.Errorf("[%s] failed to update weight of datasource %s.%s: %v", ns.name, group, id, err)
-			return
+			return nil
 		}
 
 		log.Infof("[%s] update weight of datasource %s.%s successfully", ns.name, group, id)
+
+		return nil
 	}
 }
 
 // RemoveDB returns a command to remove an existing DB.
 func RemoveDB(group, id string) Command {
-	return func(ns *Namespace) {
+	return func(ns *Namespace) error {
 		ns.Lock()
 		defer ns.Unlock()
 
@@ -81,7 +83,7 @@ func RemoveDB(group, id string) Command {
 		}
 
 		if expired == nil {
-			return
+			return nil
 		}
 
 		newborn := make(map[string][]proto.DB)
@@ -94,12 +96,14 @@ func RemoveDB(group, id string) Command {
 
 		ns.dss.Store(newborn)
 		log.Infof("[%s] remove datasource %s.%s successfully", ns.name, group, id)
+
+		return nil
 	}
 }
 
 // UpsertDB appends a new DB.
 func UpsertDB(group string, ds proto.DB) Command {
-	return func(ns *Namespace) {
+	return func(ns *Namespace) error {
 		ns.Lock()
 		defer ns.Unlock()
 
@@ -135,14 +139,18 @@ func UpsertDB(group string, ds proto.DB) Command {
 		ns.dss.Store(newborn)
 
 		log.Infof("[%s] upsert db %s.%s successfully", ns.name, group, id)
+
+		return nil
 	}
 }
 
 // UpdateRule updates the rule.
 func UpdateRule(rule *rule.Rule) Command {
-	return func(ns *Namespace) {
+	return func(ns *Namespace) error {
 		ns.Lock()
 		defer ns.Unlock()
 		ns.rule.Store(rule)
+
+		return nil
 	}
 }

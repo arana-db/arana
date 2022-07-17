@@ -54,7 +54,9 @@ func TestRegister(t *testing.T) {
 		return db
 	}
 
-	err := Register(New(name, UpsertDB(getGroup(0), getDB(1))))
+	ns, err := New(name, UpsertDB(getGroup(0), getDB(1)))
+	assert.NoError(t, err, "should new namespace ok")
+	err = Register(ns)
 	assert.NoError(t, err, "should register namespace ok")
 
 	defer func() {
@@ -62,7 +64,7 @@ func TestRegister(t *testing.T) {
 		assert.NoError(t, err, "should unregister ok")
 	}()
 
-	ns := Load(name)
+	ns = Load(name)
 	assert.NotNil(t, ns, "should load namespace")
 
 	db := ns.DB(context.Background(), getGroup(0))
@@ -98,18 +100,20 @@ func TestGetDBByWeight(t *testing.T) {
 	}
 	// when doing read operation, db 3 is the max
 	// when doing write operation, db 2 is the max
-	err := Register(New(name,
+	ns, err := New(name,
 		UpsertDB(getGroup(0), getDB(1, 9, 1)),
 		UpsertDB(getGroup(0), getDB(2, 10, 5)),
 		UpsertDB(getGroup(0), getDB(3, 3, 10)),
-	))
+	)
+	assert.NoError(t, err, "should new namespace ok")
+	err = Register(ns)
 	assert.NoError(t, err, "should register namespace ok")
 	defer func() {
 		err := Unregister(name)
 		assert.NoError(t, err, "should unregister ok")
 	}()
 	time.Sleep(5 * time.Millisecond)
-	ns := Load(name)
+	ns = Load(name)
 	assert.NotNil(t, ns, "should load namespace")
 	ctx := rcontext.WithRead(context.Background())
 	assert.NotNil(t, ns.DB(ctx, getGroup(0)))

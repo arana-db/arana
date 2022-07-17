@@ -23,6 +23,10 @@ import (
 )
 
 import (
+	"github.com/stretchr/testify/assert"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/runtime"
 	"github.com/arana-db/arana/pkg/runtime/namespace"
@@ -46,7 +50,8 @@ func TestLoader(t *testing.T) {
 	cmds := make([]namespace.Command, 0)
 	cmds = append(cmds, namespace.UpsertDB(groupName, runtime.NewAtomDB(node)))
 	namespaceName := "dongjianhui"
-	ns := namespace.New(namespaceName, cmds...)
+	ns, err := namespace.New(namespaceName, cmds...)
+	assert.NoError(t, err)
 	_ = namespace.Register(ns)
 	schemeName := "employees"
 	tableName := "employees"

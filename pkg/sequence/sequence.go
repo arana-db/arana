@@ -20,83 +20,158 @@ package sequence
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 )
 
 import (
-	perrors "github.com/pkg/errors"
-
-	"go.uber.org/zap"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/runtime"
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
 var (
-	ErrorNotSequenceType  = errors.New("sequence type not found")
-	ErrorNotFoundSequence = errors.New("sequence instance not found")
+	Error_NotSequenceType  = errors.New("sequence type not found")
+	Error_NotFoundSequence = errors.New("sequence instance not found")
 )
 
-func NewSequenceManager() proto.SequenceManager {
+func init() {
+	proto.RegisterSequenceManager(newSequenceManager())
+}
+
+func newSequenceManager() proto.SequenceManager {
 	return &sequenceManager{
-		sequenceOptions:  make(map[string]proto.SequenceConfig),
-		sequenceRegistry: make(map[string]proto.EnhancedSequence),
+		lock:    sync.RWMutex{},
+		tenants: map[string]*tenantBucket{},
 	}
 }
 
-// SequenceManager Uniform management of sequence manager
+// SequenceManager Uniform management of seqneuce manager
 type sequenceManager struct {
+	lock    sync.RWMutex
+	tenants map[string]*tenantBucket
+}
+
+type tenantBucket struct {
+	lock    sync.RWMutex
+	schemas map[string]*schemaBucket
+}
+
+func (t *tenantBucket) getSchema(schema string) *schemaBucket {
+	t.lock.RLock()
+	defer t.lock.RUnlock()
+
+	return t.schemas[schema]
+}
+
+func (t *tenantBucket) getOrCreate(schema string) *schemaBucket {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	if _, ok := t.schemas[schema]; !ok {
+		t.schemas[schema] = &schemaBucket{
+			lock:             sync.RWMutex{},
+			sequenceRegistry: map[string]proto.EnhanceSequence{},
+		}
+	}
+
+	return t.schemas[schema]
+}
+
+type schemaBucket struct {
 	lock             sync.RWMutex
-	sequenceOptions  map[string]proto.SequenceConfig
-	sequenceRegistry map[string]proto.EnhancedSequence
+	sequenceRegistry map[string]proto.EnhanceSequence
+}
+
+func (t *schemaBucket) getSequence(name string) (proto.Sequence, error) {
+	t.lock.RLock()
+	defer t.lock.RUnlock()
+
+	val, ok := t.sequenceRegistry[name]
+	if !ok {
+		return nil, Error_NotFoundSequence
+	}
+
+	return val, nil
+}
+
+func (t *schemaBucket) createIfAbsent(name string, f func() (proto.EnhanceSequence, error)) error {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	_, ok := t.sequenceRegistry[name]
+	if !ok {
+		val, err := f()
+		if err != nil {
+			return err
+		}
+
+		t.sequenceRegistry[name] = val
+	}
+
+	return nil
 }
 
 // CreateSequence creates one sequence instance
-func (m *sequenceManager) CreateSequence(ctx context.Context, conf proto.SequenceConfig) (proto.Sequence, error) {
+func (m *sequenceManager) CreateSequence(ctx context.Context, tenant, schema string, conf proto.SequenceConfig) (proto.Sequence, error) {
 	m.lock.Lock()
-	defer m.lock.Unlock()
-	if seq, exist := m.sequenceRegistry[conf.Name]; exist {
-		return seq, nil
+	if _, ok := m.tenants[tenant]; !ok {
+		m.tenants[tenant] = &tenantBucket{
+			lock:    sync.RWMutex{},
+			schemas: map[string]*schemaBucket{},
+		}
 	}
 
-	seqType := conf.Type
+	tbucket := m.tenants[tenant]
+	m.lock.Unlock()
 
-	builder, ok := proto.GetSequenceSupplier(seqType)
+	sbucket := tbucket.getOrCreate(schema)
+	if val, _ := sbucket.getSequence(conf.Name); val != nil {
+		return val, nil
+	}
+
+	builder, ok := proto.GetSequenceSupplier(conf.Type)
 	if !ok {
-		log.Errorf("sequence=[%s] not exist", seqType)
-		return nil, ErrorNotSequenceType
+		log.Errorf("[sequence] name=%s not exist", conf.Type)
+		return nil, Error_NotSequenceType
 	}
 
-	sequence := builder()
-	if err := sequence.Start(ctx, conf); err != nil {
-		log.Errorf("sequence: start failed: %v", err)
-		return nil, perrors.WithStack(err)
+	if err := sbucket.createIfAbsent(conf.Name, func() (proto.EnhanceSequence, error) {
+		rt, err := runtime.Load(schema)
+		if err != nil {
+			log.Errorf("[sequence] load runtime.Runtime from schema=%s fail, %s", schema, err.Error())
+			return nil, err
+		}
+
+		sequence := builder()
+
+		ctx := context.WithValue(ctx, proto.RuntimeCtxKey{}, rt)
+
+		if err := sequence.Start(ctx, conf); err != nil {
+			log.Errorf("[sequence] type=%s name=%s start fail, %s", conf.Type, conf.Name, err.Error())
+			return nil, err
+		}
+
+		return sequence, nil
+	}); err != nil {
+		return nil, err
 	}
 
-	m.sequenceOptions[conf.Name] = conf
-	m.sequenceRegistry[conf.Name] = sequence
-
-	return sequence, nil
+	return sbucket.getSequence(conf.Name)
 }
 
 // GetSequence gets sequence instance by name
-func (m *sequenceManager) GetSequence(ctx context.Context, name string) (proto.Sequence, error) {
+func (m *sequenceManager) GetSequence(ctx context.Context, tenant, schema, name string) (proto.Sequence, error) {
 	m.lock.RLock()
-	defer m.lock.RUnlock()
-
-	seq, ok := m.sequenceRegistry[name]
+	tbucket, ok := m.tenants[tenant]
+	m.lock.RUnlock()
 
 	if !ok {
-		log.Warn("sequence not found", zap.String("name", name))
-		return nil, ErrorNotFoundSequence
+		return nil, Error_NotFoundSequence
 	}
 
-	return seq, nil
-}
-
-func BuildAutoIncrementName(table string) string {
-	return fmt.Sprintf("__arana_incr_%s", table)
+	sbucket := tbucket.getSchema(schema)
+	if sbucket == nil {
+		return nil, Error_NotFoundSequence
+	}
+	return sbucket.getSequence(name)
 }

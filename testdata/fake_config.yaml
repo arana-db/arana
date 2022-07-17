@@ -48,6 +48,9 @@ data:
     tables:
       - name: employee.student
         allow_full_scan: true
+        sequence:
+          type: snowflake
+          option:
         db_rules:
           - column: student_id
             type: modShard

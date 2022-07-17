@@ -20,10 +20,66 @@ package proto
 
 import (
 	"context"
+	"fmt"
 )
 
-// SequenceSupplier Create the creator of Sequence
-type SequenceSupplier func() EnhancedSequence
+var _defaultSequenceManager SequenceManager
+
+func RegisterSequenceManager(l SequenceManager) {
+	_defaultSequenceManager = l
+}
+
+func LoadSequenceManager() SequenceManager {
+	cur := _defaultSequenceManager
+	if cur == nil {
+		return nil
+	}
+	return cur
+}
+
+func BuildAutoIncrementName(table string) string {
+	return fmt.Sprintf("__arana_incr_%s", table)
+}
+
+type (
+	RuntimeCtxKey = struct{}
+
+	// SequenceSupplier Create the creator of Sequence
+	SequenceSupplier func() EnhanceSequence
+
+	SequenceConfig struct {
+		Name   string
+		Type   string
+		Option map[string]string
+	}
+
+	// Sequence represents a global unique id generator.
+	Sequence interface {
+		// Acquire generates a next value in int64.
+		Acquire(ctx context.Context) (int64, error)
+		Reset() error
+		Update() error
+	}
+
+	// EnhanceSequence represents a global unique id generator.
+	EnhanceSequence interface {
+		Sequence
+		// Start start sequence instance.
+		Start(ctx context.Context, option SequenceConfig) error
+		// CurrentVal get sequence current id.
+		CurrentVal() int64
+		// Stop stops sequence.
+		Stop() error
+	}
+
+	// SequenceManager represents the factory to create a Sequence by table name.
+	SequenceManager interface {
+		// CreateSequence creates one sequence instance
+		CreateSequence(ctx context.Context, tenant, schema string, opt SequenceConfig) (Sequence, error)
+		// GetSequence gets sequence instance by name
+		GetSequence(ctx context.Context, tenant, namespace, name string) (Sequence, error)
+	}
+)
 
 var (
 	// Record the list of Sequence plug -in through the registered self -registered
@@ -33,31 +89,6 @@ var (
 // RegisterSequence Register a Sequence plugin
 func RegisterSequence(name string, supplier SequenceSupplier) {
 	suppliersRegistry[name] = supplier
-}
-
-type SequenceConfig struct {
-	Name   string
-	Type   string
-	Option map[string]string
-}
-
-// EnhancedSequence represents a global unique id generator.
-type EnhancedSequence interface {
-	Sequence
-	// Start start sequence instance.
-	Start(ctx context.Context, option SequenceConfig) error
-	// CurrentVal get sequence current id.
-	CurrentVal() int64
-	// Stop stops sequence.
-	Stop() error
-}
-
-// SequenceManager represents the factory to create a Sequence by table name.
-type SequenceManager interface {
-	// CreateSequence creates one sequence instance
-	CreateSequence(ctx context.Context, opt SequenceConfig) (Sequence, error)
-	// GetSequence gets sequence instance by name
-	GetSequence(ctx context.Context, name string) (Sequence, error)
 }
 
 // GetSequenceSupplier returns SequenceSupplier.

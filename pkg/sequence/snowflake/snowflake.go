@@ -28,8 +28,6 @@ import (
 import (
 	bsnowflake "github.com/bwmarrin/snowflake"
 
-	"github.com/pkg/errors"
-
 	"go.uber.org/zap"
 )
 
@@ -41,13 +39,15 @@ import (
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
-const SequencePluginName = "snowflake"
-
 func init() {
-	proto.RegisterSequence(SequencePluginName, func() proto.EnhancedSequence {
+	proto.RegisterSequence(SequencePluginName, func() proto.EnhanceSequence {
 		return &snowflakeSequence{}
 	})
 }
+
+const (
+	SequencePluginName = "snowflake"
+)
 
 const (
 	_initTableSql = `
@@ -105,12 +105,7 @@ type snowflakeSequence struct {
 
 // Start sequence and do some initialization operations
 func (seq *snowflakeSequence) Start(ctx context.Context, conf proto.SequenceConfig) error {
-	schema := rcontext.Schema(ctx)
-	rt, err := runtime.Load(schema)
-	if err != nil {
-		return errors.Wrapf(err, "snowflake: no runtime found for namespace '%s'", schema)
-	}
-
+	rt := ctx.Value(proto.RuntimeCtxKey{}).(runtime.Runtime)
 	ctx = rcontext.WithRead(rcontext.WithDirect(ctx))
 
 	if err := seq.initTableAndKeepalive(ctx, rt); err != nil {
@@ -119,7 +114,7 @@ func (seq *snowflakeSequence) Start(ctx context.Context, conf proto.SequenceConf
 
 	// get work-id
 	if err := seq.initWorkerID(ctx, rt, conf); err != nil {
-		return errors.WithStack(err)
+		return err
 	}
 
 	node, err := bsnowflake.NewNode(seq.workdId)
@@ -160,25 +155,25 @@ func (seq *snowflakeSequence) initTableAndKeepalive(ctx context.Context, rt runt
 func (seq *snowflakeSequence) initWorkerID(ctx context.Context, rt runtime.Runtime, conf proto.SequenceConfig) error {
 	tx, err := rt.Begin(ctx)
 	if err != nil {
-		return errors.WithStack(err)
+		return err
 	}
 
 	defer tx.Rollback(ctx)
 
 	workId, err := seq.findWorkID(ctx, tx, conf.Name)
 	if err != nil {
-		return errors.WithStack(err)
+		return err
 	}
 
 	ret, err := tx.Exec(ctx, "", _setWorkId, workId, _nodeId, conf.Name)
 	if err != nil {
-		return errors.WithStack(err)
+		return err
 	}
 
 	_, _ = ret.RowsAffected()
 
 	if _, _, err := tx.Commit(ctx); err != nil {
-		return errors.WithStack(err)
+		return err
 	}
 
 	seq.workdId = workId
