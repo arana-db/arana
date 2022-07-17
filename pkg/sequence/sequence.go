@@ -25,6 +25,8 @@ import (
 )
 
 import (
+	perrors "github.com/pkg/errors"
+
 	"go.uber.org/zap"
 )
 
@@ -34,26 +36,26 @@ import (
 )
 
 var (
-	ErrorNotSequenceType  error = errors.New("sequence type not found")
-	ErrorNotFoundSequence error = errors.New("sequence instance not found")
+	ErrorNotSequenceType  = errors.New("sequence type not found")
+	ErrorNotFoundSequence = errors.New("sequence instance not found")
 )
 
 func NewSequenceManager() proto.SequenceManager {
 	return &sequenceManager{
 		sequenceOptions:  make(map[string]proto.SequenceConfig),
-		sequenceRegistry: make(map[string]proto.EnchanceSequence),
+		sequenceRegistry: make(map[string]proto.EnhancedSequence),
 	}
 }
 
-// SequenceManager Uniform management of seqneuce manager
+// SequenceManager Uniform management of sequence manager
 type sequenceManager struct {
 	lock             sync.RWMutex
 	sequenceOptions  map[string]proto.SequenceConfig
-	sequenceRegistry map[string]proto.EnchanceSequence
+	sequenceRegistry map[string]proto.EnhancedSequence
 }
 
 // CreateSequence creates one sequence instance
-func (m *sequenceManager) CreateSequence(ctx context.Context, conn proto.VConn, conf proto.SequenceConfig) (proto.Sequence, error) {
+func (m *sequenceManager) CreateSequence(ctx context.Context, conf proto.SequenceConfig) (proto.Sequence, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	if seq, exist := m.sequenceRegistry[conf.Name]; exist {
@@ -68,11 +70,10 @@ func (m *sequenceManager) CreateSequence(ctx context.Context, conn proto.VConn, 
 		return nil, ErrorNotSequenceType
 	}
 
-	ctx = context.WithValue(ctx, proto.VConnCtxKey{}, conn)
-
 	sequence := builder()
 	if err := sequence.Start(ctx, conf); err != nil {
-		return nil, err
+		log.Errorf("sequence: start failed: %v", err)
+		return nil, perrors.WithStack(err)
 	}
 
 	m.sequenceOptions[conf.Name] = conf

@@ -25,23 +25,21 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
+const SequencePluginName = "group"
+
 func init() {
-	proto.RegisterSequence(SequencePluginName, func() proto.EnchanceSequence {
+	proto.RegisterSequence(SequencePluginName, func() proto.EnhancedSequence {
 		return &groupSequence{}
 	})
 }
 
-const (
-	SequencePluginName = "group"
-)
-
 type groupSequence struct {
-	workdId      int32
+	workerId     int32
 	currentVal   int64
 	preTimestamp int64
 }
 
-// Start Start sequence and do some initialization operations
+// Start Starts sequence and do some initialization operations
 func (seq *groupSequence) Start(ctx context.Context, option proto.SequenceConfig) error {
 	return nil
 }
@@ -61,7 +59,7 @@ func (seq *groupSequence) Update() error {
 	return nil
 }
 
-// Stop stop sequence
+// Stop stops sequence
 func (seq *groupSequence) Stop() error {
 	return nil
 }

@@ -33,7 +33,14 @@ import (
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/runtime/optimize"
 	"github.com/arana-db/arana/pkg/runtime/plan/dml"
+	"github.com/arana-db/arana/pkg/sequence"
 )
+
+var _sequenceManager proto.SequenceManager
+
+func init() {
+	_sequenceManager = sequence.NewSequenceManager()
+}
 
 func init() {
 	optimize.Register(ast.SQLTypeInsert, optimizeInsert)
@@ -128,7 +135,10 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		slots[db][table] = append(slots[db][table], i)
 	}
 
-	_, tb0, _ := vt.Topology().Smallest()
+	metadata, err := getMetadata(ctx, vt)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
 
 	for db, slot := range slots {
 		for table, indexes := range slot {
@@ -144,7 +154,9 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 			}
 			newborn.SetValues(values)
 
-			rewriteInsertStatement(ctx, newborn, tb0)
+			if err := rewriteInsertStatement(ctx, vt, metadata, newborn); err != nil {
+				return nil, errors.Wrap(err, "cannot rewrite insert statement")
+			}
 			ret.Put(db, newborn)
 		}
 	}
@@ -169,16 +181,20 @@ func optimizeInsertSelect(_ context.Context, o *optimize.Optimizer) (proto.Plan,
 	return nil, errors.New("not support insert-select into sharding table")
 }
 
-func rewriteInsertStatement(ctx context.Context, stmt *ast.InsertStatement, tb string) error {
-	metadatas, err := proto.LoadSchemaLoader().Load(ctx, rcontext.Schema(ctx), []string{tb})
+func getMetadata(ctx context.Context, vtab *rule.VTable) (*proto.TableMetadata, error) {
+	_, tb0, _ := vtab.Topology().Smallest()
+	metadatas, err := proto.LoadSchemaLoader().Load(ctx, rcontext.Schema(ctx), []string{tb0})
 	if err != nil {
-		return errors.WithStack(err)
+		return nil, errors.WithStack(err)
 	}
-	metadata := metadatas[tb]
+	metadata := metadatas[tb0]
 	if metadata == nil || len(metadata.ColumnNames) == 0 {
-		return errors.Errorf("optimize: cannot get metadata of `%s`.`%s`", rcontext.Schema(ctx), tb)
+		return nil, errors.Errorf("optimize: cannot get metadata of `%s`.`%s`", rcontext.Schema(ctx), tb0)
 	}
+	return metadata, nil
+}
 
+func rewriteInsertStatement(ctx context.Context, vtab *rule.VTable, metadata *proto.TableMetadata, stmt *ast.InsertStatement) error {
 	if len(metadata.ColumnNames) == len(stmt.Columns()) {
 		// User had explicitly specified every value
 		return nil
@@ -190,6 +206,10 @@ func rewriteInsertStatement(ctx context.Context, stmt *ast.InsertStatement, tb s
 			// User had explicitly specified auto-generated primary key column
 			return nil
 		}
+	}
+
+	if err := createSequenceIfAbsent(ctx, vtab, metadata); err != nil {
+		return err
 	}
 
 	pkColName := ""
@@ -204,12 +224,62 @@ func rewriteInsertStatement(ctx context.Context, stmt *ast.InsertStatement, tb s
 		return nil
 	}
 
+	seqName := sequence.BuildAutoIncrementName(vtab.Name())
+
+	seq, err := _sequenceManager.GetSequence(ctx, seqName)
+	if err != nil {
+		return err
+	}
+
+	val, err := seq.Acquire(ctx)
+	if err != nil {
+		return err
+	}
+
 	// TODO rewrite columns and add distributed primary key
-	//stmt.SetColumns(append(stmt.Columns(), pkColName))
+	stmt.SetColumns(append(stmt.Columns(), pkColName))
 	// append value of distributed primary key
-	//newValues := stmt.Values()
-	//for _, newValue := range newValues {
-	//	newValue = append(newValue, )
-	//}
+	newValues := stmt.Values()
+	for i := range newValues {
+		newValues[i] = append(newValues[i], &ast.PredicateExpressionNode{
+			P: &ast.AtomPredicateNode{
+				A: &ast.ConstantExpressionAtom{Inner: val},
+			},
+		})
+	}
+	return nil
+}
+
+func createSequenceIfAbsent(ctx context.Context, vtab *rule.VTable, metadata *proto.TableMetadata) error {
+	seqName := sequence.BuildAutoIncrementName(vtab.Name())
+
+	seq, err := _sequenceManager.GetSequence(ctx, seqName)
+	if err != nil && !errors.Is(err, sequence.ErrorNotFoundSequence) {
+		return errors.WithStack(err)
+	}
+
+	if seq != nil {
+		return nil
+	}
+
+	columns := metadata.Columns
+	for i := range columns {
+		if columns[i].Generated {
+			autoIncr := vtab.GetAutoIncrement()
+
+			c := proto.SequenceConfig{
+				Name:   seqName,
+				Type:   autoIncr.Type,
+				Option: autoIncr.Option,
+			}
+
+			if _, err := _sequenceManager.CreateSequence(ctx, c); err != nil {
+				return errors.WithStack(err)
+			}
+
+			break
+		}
+	}
+
 	return nil
 }
