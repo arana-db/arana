@@ -55,9 +55,14 @@ const (
 // VTable represents a virtual/logical table.
 type VTable struct {
 	attributes
+	name          string // TODO: set name
 	autoIncrement *AutoIncrement
 	topology      *Topology
 	shards        map[string][2]*ShardMetadata // column -> [db shard metadata,table shard metadata]
+}
+
+func (vt *VTable) Name() string {
+	return vt.name
 }
 
 func (vt *VTable) SetDefaultAutoIncrement() {
@@ -149,6 +154,10 @@ func (vt *VTable) SetShardMetadata(column string, dbShardMetadata, tblShardMetad
 // SetTopology sets the topology.
 func (vt *VTable) SetTopology(topology *Topology) {
 	vt.topology = topology
+}
+
+func (vt *VTable) SetName(name string) {
+	vt.name = name
 }
 
 // Rule represents sharding rule, a Rule contains multiple logical tables.
