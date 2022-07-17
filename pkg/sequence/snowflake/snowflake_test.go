@@ -15,13 +15,36 @@
  * limitations under the License.
  */
 
-package boot
+package snowflake
 
 import (
-	_ "github.com/arana-db/arana/pkg/config/etcd"
-	_ "github.com/arana-db/arana/pkg/config/file"
-	_ "github.com/arana-db/arana/pkg/config/nacos"
-	_ "github.com/arana-db/arana/pkg/sequence"
-	_ "github.com/arana-db/arana/pkg/sequence/group"
-	_ "github.com/arana-db/arana/pkg/sequence/snowflake"
+	"context"
+	"fmt"
+	"sync"
+	"testing"
+	"time"
 )
+
+import (
+	"github.com/stretchr/testify/assert"
+)
+
+func Test_snowflakeSequence_Acquire(t *testing.T) {
+
+	seq := &snowflakeSequence{
+		mu:         sync.Mutex{},
+		epoch:      time.Time{},
+		lastTime:   0,
+		step:       0,
+		workdId:    1,
+		currentVal: 0,
+	}
+
+	val, err := seq.Acquire(context.Background())
+
+	assert.NoError(t, err, fmt.Sprintf("acquire err : %v", err))
+
+	curVal := seq.CurrentVal()
+
+	assert.Equal(t, val, curVal, fmt.Sprintf("acquire val: %d, cur val: %d", val, curVal))
+}
