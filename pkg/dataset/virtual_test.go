@@ -69,7 +69,12 @@ func TestVirtualDataset_Fields(t *testing.T) {
 		want    []proto.Field
 		wantErr assert.ErrorAssertionFunc
 	}{
-		{"TestVirtualDataset_Fields", fields{createFields(), nil}, createFields(), assert.NoError},
+		{
+			"TestVirtualDataset_Fields",
+			fields{createFields(), nil},
+			createFields(),
+			assert.NoError,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
