@@ -66,19 +66,19 @@ const (
 	//_setWorkId 插入一条新的 work_id
 	_setWorkId = `REPLACE INTO __arana_snowflake_sequence(work_id, node_id, table_name, renew_time) VALUE (?, ?, ?, now())`
 
-	//_selectSelfWorkIdWithXLock 查询下自己是否已经有一个 work-id 申请到了
+	//_selectSelfWorkIdWithXLock find self already has work-id
 	_selectSelfWorkIdWithXLock = `SELECT work_id FROM __arana_snowflake_sequence WHERE table_name = ? AND node_id = ? FOR UPDATE`
 
-	//_selectMaxWorkIdWithXLock 选出当前最大的 work_id
+	//_selectMaxWorkIdWithXLock select MAX(work_id) this table
 	_selectMaxWorkIdWithXLock = `SELECT MAX(work_id) FROM __arana_snowflake_sequence WHERE table_name = ? FOR UPDATE`
 
-	//_selectFreeWorkIdWithXLock 查询一个空闲的 workid，主要判断依据为 renew_time 超过 10 min 没有更新了，
+	//_selectFreeWorkIdWithXLock find one free work-id depend on renew_time over 10 min not update，
 	_selectFreeWorkIdWithXLock = `SELECT MAX(work_id) FROM __arana_snowflake_sequence WHERE table_name = ? AND renew_time < DATE_SUB(NOW(), INTERVAL 10 MINUTE) FOR UPDATE`
 
-	//_updateWorkIdOwner 更新 workid 对应的 node_id 信息，进行 workid 复用
+	//_updateWorkIdOwner update work-id relation node_id info and reuse work-id
 	_updateWorkIdOwner = `UPDATE __arana_snowflake_sequence SET node_id = ?, renew_time = now() WHERE table_name = ? AND work_id = ?`
 
-	//_keepaliveNode 对 node 做续约保活动作
+	//_keepaliveNode do keep alive for node
 	_keepaliveNode = `UPDATE __arana_snowflake_sequence SET renew_time=now() WHERE node_id = ?`
 )
 
