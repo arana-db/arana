@@ -22,7 +22,7 @@ import (
 )
 
 type MaxAggregator struct {
-	//max  decimal.Decimal
+	// max  decimal.Decimal
 	max  *gxbig.Decimal
 	init bool
 }

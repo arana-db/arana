@@ -145,7 +145,7 @@ func (s *GroupByStreamMergeRows) aggregate(aggrMap map[string]merge.Aggregator, 
 }
 
 func (s *GroupByStreamMergeRows) hasNext() bool {
-	//s.currentMergedRow = nil
+	// s.currentMergedRow = nil
 	s.currentRow = nil
 	if s.queue.Len() == 0 {
 		return false

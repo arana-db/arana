@@ -39,16 +39,14 @@ import (
 	"github.com/arana-db/arana/pkg/runtime/logical"
 )
 
-var (
-	_opcode2comparison = map[opcode.Op]cmp.Comparison{
-		opcode.EQ: cmp.Ceq,
-		opcode.NE: cmp.Cne,
-		opcode.LT: cmp.Clt,
-		opcode.GT: cmp.Cgt,
-		opcode.LE: cmp.Clte,
-		opcode.GE: cmp.Cgte,
-	}
-)
+var _opcode2comparison = map[opcode.Op]cmp.Comparison{
+	opcode.EQ: cmp.Ceq,
+	opcode.NE: cmp.Cne,
+	opcode.LT: cmp.Clt,
+	opcode.GT: cmp.Cgt,
+	opcode.LE: cmp.Clte,
+	opcode.GE: cmp.Cgte,
+}
 
 type (
 	parseOption struct {
@@ -324,7 +322,7 @@ func (cc *convCtx) convConstraint(c *ast.Constraint) *Constraint {
 }
 
 func (cc *convCtx) convDropTableStmt(stmt *ast.DropTableStmt) *DropTableStatement {
-	var tables = make([]*TableName, len(stmt.Tables))
+	tables := make([]*TableName, len(stmt.Tables))
 	for i, table := range stmt.Tables {
 		tables[i] = &TableName{
 			table.Name.String(),
@@ -1087,9 +1085,7 @@ func (cc *convCtx) convAggregateFuncExpr(node *ast.AggregateFuncExpr) PredicateN
 }
 
 func (cc *convCtx) convFuncCallExpr(expr *ast.FuncCallExpr) PredicateNode {
-	var (
-		fnName = strings.ToUpper(expr.FnName.O)
-	)
+	fnName := strings.ToUpper(expr.FnName.O)
 
 	// NOTICE: tidb-parser cannot process CONVERT('foobar' USING utf8).
 	// It should be a CastFunc, but now will be parsed as a FuncCall.
@@ -1305,7 +1301,6 @@ func (cc *convCtx) convValueExpr(expr ast.ValueExpr) PredicateNode {
 		default:
 			if val == nil {
 				atom = &ConstantExpressionAtom{Inner: Null{}}
-
 			} else {
 				atom = &ConstantExpressionAtom{Inner: val}
 			}
@@ -1389,9 +1384,7 @@ func (cc *convCtx) convBinaryOperationExpr(expr *ast.BinaryOperationExpr) interf
 			Right:    right.(*AtomPredicateNode).A,
 		}}
 	case opcode.EQ, opcode.NE, opcode.GT, opcode.GE, opcode.LT, opcode.LE:
-		var (
-			op = _opcode2comparison[expr.Op]
-		)
+		op := _opcode2comparison[expr.Op]
 
 		if !isColumnAtom(left.(PredicateNode)) && isColumnAtom(right.(PredicateNode)) {
 			// do reverse:

@@ -75,5 +75,4 @@ func TestFilter(t *testing.T) {
 
 		t.Logf("id=%v, name=%v, gender=%v\n", dest[0], dest[1], dest[2])
 	}
-
 }

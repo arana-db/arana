@@ -27,21 +27,18 @@ import (
 
 import (
 	"github.com/pkg/errors"
-
 	"github.com/tidwall/gjson"
-
 	"gopkg.in/yaml.v3"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/constants"
+	"github.com/arana-db/arana/pkg/util/env"
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
-var (
-	configFilenameList = []string{"config.yaml", "config.yml"}
-)
+var configFilenameList = []string{"config.yaml", "config.yml"}
 
 func init() {
 	config.Register(&storeOperate{})
@@ -100,7 +97,9 @@ func (s *storeOperate) initCfgJsonMap(val string) {
 		s.cfgJson[k] = gjson.Get(val, v).String()
 	}
 
-	log.Debugf("[ConfigCenter][File] load config content : %#v", s.cfgJson)
+	if env.IsDevelopEnvironment() {
+		log.Infof("[ConfigCenter][File] load config content : %#v", s.cfgJson)
+	}
 }
 
 func (s *storeOperate) Save(key config.PathKey, val []byte) error {
@@ -112,7 +111,7 @@ func (s *storeOperate) Get(key config.PathKey) ([]byte, error) {
 	return val, nil
 }
 
-//Watch TODO change notification through file inotify mechanism
+// Watch TODO change notification through file inotify mechanism
 func (s *storeOperate) Watch(key config.PathKey) (<-chan []byte, error) {
 	defer s.lock.Unlock()
 

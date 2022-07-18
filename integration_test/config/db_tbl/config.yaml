@@ -50,6 +50,13 @@ data:
               password: "123456"
               database: employees_0000
               weight: r10w10
+            - name: node0_r_0
+              host: arana-mysql
+              port: 3306
+              username: root
+              password: "123456"
+              database: employees_0000_r
+              weight: r0w0
         - name: employees_0001
           nodes:
             - name: node1

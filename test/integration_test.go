@@ -45,7 +45,7 @@ func TestSuite(t *testing.T) {
 		WithMySQLDatabase("employees"),
 		WithConfig("../integration_test/config/db_tbl/config.yaml"),
 		WithScriptPath("../scripts"),
-		//WithDevMode(), // NOTICE: UNCOMMENT IF YOU WANT TO DEBUG LOCAL ARANA SERVER!!!
+		// WithDevMode(), // NOTICE: UNCOMMENT IF YOU WANT TO DEBUG LOCAL ARANA SERVER!!!
 	)
 	suite.Run(t, &IntegrationSuite{su})
 }
@@ -210,8 +210,8 @@ func (s *IntegrationSuite) TestInsertOnDuplicateKey() {
 	_, err = db.Exec(`INSERT IGNORE INTO student(id,uid,score,name,nickname,gender,birth_year) 
      values (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE uid=32 `, 1654008174496657000, i, 3.14, fmt.Sprintf("fake_name_%d", i), fmt.Sprintf("fake_nickname_%d", i), 1, 2022)
 	assert.Error(t, err, "insert row error: %v", err)
-
 }
+
 func (s *IntegrationSuite) TestSelect() {
 	var (
 		db = s.DB()
@@ -219,7 +219,7 @@ func (s *IntegrationSuite) TestSelect() {
 	)
 
 	rows, err := db.Query(`SELECT emp_no, birth_date, first_name, last_name, gender, hire_date FROM employees 
-		WHERE emp_no = ?`, 100001)
+		WHERE emp_no = ?`, "100001")
 	assert.NoErrorf(t, err, "select row error: %v", err)
 
 	defer rows.Close()
@@ -323,7 +323,7 @@ func (s *IntegrationSuite) TestDropTable() {
 
 	t.Skip()
 
-	//drop table  physical name != logical name  and  physical name = logical name
+	// drop table  physical name != logical name  and  physical name = logical name
 	result, err := db.Exec(`DROP TABLE student,salaries`)
 
 	assert.NoErrorf(t, err, "drop table error:%v", err)
@@ -331,7 +331,7 @@ func (s *IntegrationSuite) TestDropTable() {
 	assert.Equal(t, int64(0), affected)
 	assert.NoErrorf(t, err, "drop table  error: %v", err)
 
-	//drop again, return error
+	// drop again, return error
 	result, err = db.Exec(`DROP TABLE student,salaries`)
 	assert.Error(t, err, "drop table error: %v", err)
 	assert.Nil(t, result)
@@ -346,7 +346,7 @@ func (s *IntegrationSuite) TestJoinTable() {
 	t.Skip()
 
 	sqls := []string{
-		//shard  & no shard
+		// shard  & no shard
 		`select * from student  join titles on student.id=titles.emp_no`,
 		// shard  & no shard with alias
 		`select * from student  join titles as b on student.id=b.emp_no`,
@@ -360,7 +360,7 @@ func (s *IntegrationSuite) TestJoinTable() {
 		_, err := db.Query(sql)
 		assert.NoErrorf(t, err, "join table error:%v", err)
 	}
-	//with where
+	// with where
 	_, err := db.Query(`select * from student  join titles on student.id=titles.emp_no where student.id=? and titles.emp_no=?`, 1, 2)
 	assert.NoErrorf(t, err, "join table error:%v", err)
 }
@@ -574,4 +574,35 @@ func (s *IntegrationSuite) TestDropTrigger() {
 			assert.NoError(t, err)
 		})
 	}
+}
+
+func (s *IntegrationSuite) TestHints() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql       string
+		args      []interface{}
+		expectLen int
+	}
+
+	for _, it := range []tt{
+		{"/*A! master */ SELECT * FROM student WHERE uid = 42 AND 1=2", nil, 0},
+		{"/*A! slave */  SELECT * FROM student WHERE uid = ?", []interface{}{1}, 0},
+		{"/*A! master */ SELECT * FROM student WHERE uid = ?", []interface{}{1}, 1},
+		{"/*A! master */ SELECT * FROM student WHERE uid in (?)", []interface{}{1}, 1},
+		{"/*A! master */ SELECT * FROM student where uid between 1 and 10", nil, 1},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			// select from logical table
+			rows, err := db.Query(it.sql, it.args...)
+			assert.NoError(t, err, "should query from sharding table successfully")
+			defer rows.Close()
+			data, _ := utils.PrintTable(rows)
+			assert.Equal(t, it.expectLen, len(data))
+		})
+	}
+
 }

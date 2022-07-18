@@ -278,20 +278,19 @@ func (l *Listener) writeHandshakeV10(c *Conn, enableTLS bool, salt []byte) error
 		capabilities |= mysql.CapabilityClientSSL
 	}
 
-	length :=
-		1 + // protocol version
-			lenNullString(l.conf.ServerVersion) +
-			4 + // connection ID
-			8 + // first part of salt Content
-			1 + // filler byte
-			2 + // capability flags (lower 2 bytes)
-			1 + // character set
-			2 + // status flag
-			2 + // capability flags (upper 2 bytes)
-			1 + // length of auth plugin Content
-			10 + // reserved (0)
-			13 + // auth-plugin-Content
-			lenNullString(mysql.MysqlNativePassword) // auth-plugin-name
+	length := 1 + // protocol version
+		lenNullString(l.conf.ServerVersion) +
+		4 + // connection ID
+		8 + // first part of salt Content
+		1 + // filler byte
+		2 + // capability flags (lower 2 bytes)
+		1 + // character set
+		2 + // status flag
+		2 + // capability flags (upper 2 bytes)
+		1 + // length of auth plugin Content
+		10 + // reserved (0)
+		13 + // auth-plugin-Content
+		lenNullString(mysql.MysqlNativePassword) // auth-plugin-name
 
 	data := c.startEphemeralPacket(length)
 	pos := 0
@@ -662,7 +661,7 @@ func (c *Conn) parseComStmtExecute(stmts *sync.Map, data []byte) (uint32, byte, 
 	if !ok {
 		return 0, 0, errors.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "reading statement ID failed")
 	}
-	//prepare, ok := stmts[stmtID]
+	// prepare, ok := stmts[stmtID]
 	prepare, ok := stmts.Load(stmtID)
 	if !ok {
 		return 0, 0, errors.NewSQLError(mysql.CRCommandsOutOfSync, mysql.SSUnknownSQLState, "statement ID is not found from record")

@@ -83,7 +83,6 @@ func TestPriorityQueue(t *testing.T) {
 		id:    int64(3),
 		score: int64(85),
 	}, heap.Pop(pq).(*RowItem).row)
-
 }
 
 func assertScorePojoEquals(t *testing.T, expected fakeScorePojo, actual proto.Row) {

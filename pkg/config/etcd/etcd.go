@@ -35,6 +35,7 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/config"
+	"github.com/arana-db/arana/pkg/util/env"
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
@@ -77,6 +78,10 @@ func (c *storeOperate) Get(key config.PathKey) ([]byte, error) {
 	v, err := c.client.Get(string(key))
 	if err != nil {
 		return nil, err
+	}
+
+	if env.IsDevelopEnvironment() {
+		log.Infof("[ConfigCenter][etcd] load config content : %#v", v)
 	}
 
 	return []byte(v), nil

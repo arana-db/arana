@@ -72,7 +72,6 @@ type TestNacosClient struct {
 }
 
 func newNacosClient() *TestNacosClient {
-
 	client := &TestNacosClient{
 		listeners: make(map[string][]vo.Listener),
 		ch:        make(chan vo.ConfigParam, 16),
@@ -82,7 +81,6 @@ func newNacosClient() *TestNacosClient {
 	go client.doLongPoll()
 
 	return client
-
 }
 
 func (client *TestNacosClient) doLongPoll() {
@@ -151,7 +149,7 @@ func (client *TestNacosClient) ListenConfig(params vo.ConfigParam) (err error) {
 	return nil
 }
 
-//CancelListenConfig use to cancel listen config change
+// CancelListenConfig use to cancel listen config change
 // dataId  require
 // group   require
 // tenant ==>nacos.namespace optional

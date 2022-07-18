@@ -52,9 +52,7 @@ var scripts embed.FS
 
 var _decimalRegex = regexp.MustCompile(`^(?P<sign>[+\-])?(?P<l>[0-9])+(?P<r>\.[0-9]+)$`)
 
-var (
-	freeList = make(chan *VM, 16)
-)
+var freeList = make(chan *VM, 16)
 
 const FuncUnary = "__unary"
 

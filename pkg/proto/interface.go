@@ -20,6 +20,7 @@ package proto
 import (
 	"context"
 	"encoding/json"
+	"sort"
 )
 
 import (
@@ -45,9 +46,7 @@ type (
 
 	Listener interface {
 		SetExecutor(executor Executor)
-
 		Listen()
-
 		Close()
 	}
 
@@ -74,35 +73,22 @@ type (
 	// Executor
 	Executor interface {
 		AddPreFilter(filter PreFilter)
-
 		AddPostFilter(filter PostFilter)
-
 		GetPreFilters() []PreFilter
-
 		GetPostFilters() []PostFilter
-
 		ProcessDistributedTransaction() bool
-
 		InLocalTransaction(ctx *Context) bool
-
 		InGlobalTransaction(ctx *Context) bool
-
 		ExecuteUseDB(ctx *Context) error
-
 		ExecuteFieldList(ctx *Context) ([]Field, error)
-
 		ExecutorComQuery(ctx *Context) (Result, uint16, error)
-
 		ExecutorComStmtExecute(ctx *Context) (Result, uint16, error)
-
 		ConnectionClose(ctx *Context)
 	}
 
 	ResourceManager interface {
 		GetMasterResourcePool(name string) *pools.ResourcePool
-
 		GetSlaveResourcePool(name string) *pools.ResourcePool
-
 		GetMetaResourcePool(name string) *pools.ResourcePool
 	}
 )
@@ -117,4 +103,24 @@ func (c Context) GetQuery() string {
 		}
 	}
 	return bytesconv.BytesToString(c.Data[1:])
+}
+
+func (c Context) GetArgs() []interface{} {
+	if c.Stmt == nil || len(c.Stmt.BindVars) < 1 {
+		return nil
+	}
+
+	var (
+		keys = make([]string, 0, len(c.Stmt.BindVars))
+		args = make([]interface{}, 0, len(c.Stmt.BindVars))
+	)
+
+	for k := range c.Stmt.BindVars {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		args = append(args, c.Stmt.BindVars[k])
+	}
+	return args
 }

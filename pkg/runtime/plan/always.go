@@ -29,13 +29,12 @@ import (
 var _ proto.Plan = (*AlwaysEmptyExecPlan)(nil)
 
 // AlwaysEmptyExecPlan represents an exec plan which affects nothing.
-type AlwaysEmptyExecPlan struct {
-}
+type AlwaysEmptyExecPlan struct{}
 
 func (a AlwaysEmptyExecPlan) Type() proto.PlanType {
 	return proto.PlanTypeExec
 }
 
-func (a AlwaysEmptyExecPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+func (a AlwaysEmptyExecPlan) ExecIn(_ context.Context, _ proto.VConn) (proto.Result, error) {
 	return resultx.New(), nil
 }

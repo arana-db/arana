@@ -17,21 +17,27 @@
 
 package plan
 
-type basePlan struct {
-	args []interface{}
+import (
+	"go.opentelemetry.io/otel"
+)
+
+var Tracer = otel.Tracer("ExecPlan")
+
+type BasePlan struct {
+	Args []interface{}
 }
 
-func (bp *basePlan) BindArgs(args []interface{}) {
-	bp.args = args
+func (bp *BasePlan) BindArgs(args []interface{}) {
+	bp.Args = args
 }
 
-func (bp basePlan) toArgs(indexes []int) []interface{} {
-	if len(indexes) < 1 || len(bp.args) < 1 {
+func (bp *BasePlan) ToArgs(indexes []int) []interface{} {
+	if len(indexes) < 1 || len(bp.Args) < 1 {
 		return nil
 	}
 	ret := make([]interface{}, 0, len(indexes))
 	for _, idx := range indexes {
-		ret = append(ret, bp.args[idx])
+		ret = append(ret, bp.Args[idx])
 	}
 	return ret
 }

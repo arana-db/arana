@@ -206,8 +206,8 @@ func Sample(population []interface{}, k int) (res []interface{}, err error) {
 // Same as 'Sample' except it returns both the 'picked' sample set and the
 // 'remaining' elements.
 func PickN(population []interface{}, n int) (
-	picked []interface{}, remaining []interface{}, err error) {
-
+	picked []interface{}, remaining []interface{}, err error,
+) {
 	total := len(population)
 	idxs, err := SampleInts(total, n)
 	if err != nil {

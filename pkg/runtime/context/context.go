@@ -23,6 +23,7 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/proto/hint"
 )
 
 const (
@@ -39,6 +40,7 @@ type (
 	keySchema         struct{}
 	keyDefaultDBGroup struct{}
 	keyTenant         struct{}
+	keyHints          struct{}
 )
 
 type cFlag uint8
@@ -64,11 +66,6 @@ func WithTenant(ctx context.Context, tenant string) context.Context {
 	return context.WithValue(ctx, keyTenant{}, tenant)
 }
 
-// WithDBGroup binds the default db.
-func WithDBGroup(ctx context.Context, group string) context.Context {
-	return context.WithValue(ctx, keyDefaultDBGroup{}, group)
-}
-
 func WithSchema(ctx context.Context, data string) context.Context {
 	return context.WithValue(ctx, keySchema{}, data)
 }
@@ -88,6 +85,11 @@ func WithRead(ctx context.Context) context.Context {
 	return context.WithValue(ctx, keyFlag{}, _flagRead|getFlag(ctx))
 }
 
+// WithHints binds the hints.
+func WithHints(ctx context.Context, hints []*hint.Hint) context.Context {
+	return context.WithValue(ctx, keyHints{}, hints)
+}
+
 // Sequencer extracts the sequencer.
 func Sequencer(ctx context.Context) proto.Sequencer {
 	s, ok := ctx.Value(keySequence{}).(proto.Sequencer)
@@ -100,15 +102,6 @@ func Sequencer(ctx context.Context) proto.Sequencer {
 // Tenant extracts the tenant.
 func Tenant(ctx context.Context) string {
 	db, ok := ctx.Value(keyTenant{}).(string)
-	if !ok {
-		return ""
-	}
-	return db
-}
-
-// DBGroup extracts the db.
-func DBGroup(ctx context.Context) string {
-	db, ok := ctx.Value(keyDefaultDBGroup{}).(string)
 	if !ok {
 		return ""
 	}
@@ -151,6 +144,15 @@ func NodeLabel(ctx context.Context) string {
 		return label
 	}
 	return ""
+}
+
+// Hints extracts the hints.
+func Hints(ctx context.Context) []*hint.Hint {
+	hints, ok := ctx.Value(keyHints{}).([]*hint.Hint)
+	if !ok {
+		return nil
+	}
+	return hints
 }
 
 func hasFlag(ctx context.Context, flag cFlag) bool {
