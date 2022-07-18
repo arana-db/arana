@@ -18,6 +18,7 @@
 package mysql
 
 import (
+	"crypto/rand"
 	"crypto/rsa"
 	"fmt"
 	"testing"
@@ -84,31 +85,18 @@ func TestBackendConnection_handleAuthResult(t *testing.T) {
 }
 
 func TestBackendConnection_readAuthResult(t *testing.T) {
-	type fields struct {
-		c             *Conn
-		conf          *Config
-		capabilities  uint32
-		serverVersion string
-		characterSet  uint8
-	}
 	tests := []struct {
 		name    string
-		fields  fields
 		want    []byte
 		want1   string
 		wantErr assert.ErrorAssertionFunc
 	}{
 		// TODO: Add test cases.
+		{"readAuthResult", nil, "", assert.Error},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			conn := &BackendConnection{
-				c:             tt.fields.c,
-				conf:          tt.fields.conf,
-				capabilities:  tt.fields.capabilities,
-				serverVersion: tt.fields.serverVersion,
-				characterSet:  tt.fields.characterSet,
-			}
+			conn := createBackendConnection()
 			got, got1, err := conn.readAuthResult()
 			if !tt.wantErr(t, err, fmt.Sprintf("readAuthResult()")) {
 				return
@@ -120,96 +108,57 @@ func TestBackendConnection_readAuthResult(t *testing.T) {
 }
 
 func TestBackendConnection_readResultOK(t *testing.T) {
-	type fields struct {
-		c             *Conn
-		conf          *Config
-		capabilities  uint32
-		serverVersion string
-		characterSet  uint8
-	}
 	tests := []struct {
 		name    string
-		fields  fields
 		wantErr assert.ErrorAssertionFunc
 	}{
 		// TODO: Add test cases.
+		{"readResultOK", assert.Error},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			conn := &BackendConnection{
-				c:             tt.fields.c,
-				conf:          tt.fields.conf,
-				capabilities:  tt.fields.capabilities,
-				serverVersion: tt.fields.serverVersion,
-				characterSet:  tt.fields.characterSet,
-			}
+			conn := createBackendConnection()
 			tt.wantErr(t, conn.readResultOK(), fmt.Sprintf("readResultOK()"))
 		})
 	}
 }
 
 func TestBackendConnection_sendEncryptedPassword(t *testing.T) {
-	type fields struct {
-		c             *Conn
-		conf          *Config
-		capabilities  uint32
-		serverVersion string
-		characterSet  uint8
-	}
+	key, _ := rsa.GenerateKey(rand.Reader, 2048)
 	type args struct {
 		seed []byte
 		pub  *rsa.PublicKey
 	}
 	tests := []struct {
 		name    string
-		fields  fields
 		args    args
 		wantErr assert.ErrorAssertionFunc
 	}{
-		// TODO: Add test cases.
+		{"sendEncryptedPassword", args{[]byte("arana"), &key.PublicKey}, assert.NoError},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			conn := &BackendConnection{
-				c:             tt.fields.c,
-				conf:          tt.fields.conf,
-				capabilities:  tt.fields.capabilities,
-				serverVersion: tt.fields.serverVersion,
-				characterSet:  tt.fields.characterSet,
-			}
+			conn := createBackendConnection()
 			tt.wantErr(t, conn.sendEncryptedPassword(tt.args.seed, tt.args.pub), fmt.Sprintf("sendEncryptedPassword(%v, %v)", tt.args.seed, tt.args.pub))
 		})
 	}
 }
 
 func TestBackendConnection_writeAuthSwitchPacket(t *testing.T) {
-	type fields struct {
-		c             *Conn
-		conf          *Config
-		capabilities  uint32
-		serverVersion string
-		characterSet  uint8
-	}
 	type args struct {
 		authData []byte
 	}
 	tests := []struct {
 		name    string
-		fields  fields
 		args    args
 		wantErr assert.ErrorAssertionFunc
 	}{
 		// TODO: Add test cases.
+		{"writeAuthSwitchPacket", args{[]byte("123456")}, assert.NoError},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			conn := &BackendConnection{
-				c:             tt.fields.c,
-				conf:          tt.fields.conf,
-				capabilities:  tt.fields.capabilities,
-				serverVersion: tt.fields.serverVersion,
-				characterSet:  tt.fields.characterSet,
-			}
+			conn := createBackendConnection()
 			tt.wantErr(t, conn.writeAuthSwitchPacket(tt.args.authData), fmt.Sprintf("writeAuthSwitchPacket(%v)", tt.args.authData))
 		})
 	}
@@ -223,7 +172,7 @@ func TestDeregisterServerPubKey(t *testing.T) {
 		name string
 		args args
 	}{
-		// TODO: Add test cases.
+		{"DeregisterServerPubKey", args{"arana"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -233,6 +182,7 @@ func TestDeregisterServerPubKey(t *testing.T) {
 }
 
 func TestRegisterServerPubKey(t *testing.T) {
+	key, _ := rsa.GenerateKey(rand.Reader, 2048)
 	type args struct {
 		name   string
 		pubKey *rsa.PublicKey
@@ -241,7 +191,7 @@ func TestRegisterServerPubKey(t *testing.T) {
 		name string
 		args args
 	}{
-		// TODO: Add test cases.
+		{"RegisterServerPubKey", args{"arana", &key.PublicKey}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -251,6 +201,7 @@ func TestRegisterServerPubKey(t *testing.T) {
 }
 
 func Test_encryptPassword(t *testing.T) {
+	key, _ := rsa.GenerateKey(rand.Reader, 1024)
 	type args struct {
 		password string
 		seed     []byte
@@ -259,18 +210,16 @@ func Test_encryptPassword(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    []byte
 		wantErr assert.ErrorAssertionFunc
 	}{
-		// TODO: Add test cases.
+		{"encryptPassword", args{"123456", []byte{0x61, 0x72, 0x61, 0x6e, 0x61}, &key.PublicKey}, assert.NoError},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := encryptPassword(tt.args.password, tt.args.seed, tt.args.pub)
+			_, err := encryptPassword(tt.args.password, tt.args.seed, tt.args.pub)
 			if !tt.wantErr(t, err, fmt.Sprintf("encryptPassword(%v, %v, %v)", tt.args.password, tt.args.seed, tt.args.pub)) {
 				return
 			}
-			assert.Equalf(t, tt.want, got, "encryptPassword(%v, %v, %v)", tt.args.password, tt.args.seed, tt.args.pub)
 		})
 	}
 }
@@ -284,7 +233,7 @@ func Test_getServerPubKey(t *testing.T) {
 		args       args
 		wantPubKey *rsa.PublicKey
 	}{
-		// TODO: Add test cases.
+		{"getServerPubKey", args{"key"}, nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -303,7 +252,7 @@ func Test_myRnd_NextByte(t *testing.T) {
 		fields fields
 		want   byte
 	}{
-		// TODO: Add test cases.
+		{"NextByte", fields{uint32(11), uint32(22)}, byte(0)},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -326,7 +275,7 @@ func Test_newMyRnd(t *testing.T) {
 		args args
 		want *myRnd
 	}{
-		// TODO: Add test cases.
+		{"newMyRnd", args{uint32(1), uint32(2)}, &myRnd{uint32(1), uint32(2)}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -344,7 +293,7 @@ func Test_pwHash(t *testing.T) {
 		args       args
 		wantResult [2]uint32
 	}{
-		// TODO: Add test cases.
+		{"pwHash", args{[]byte("123456")}, [2]uint32{0x565491d7, 0x4013245}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -363,7 +312,7 @@ func Test_scrambleOldPassword(t *testing.T) {
 		args args
 		want []byte
 	}{
-		// TODO: Add test cases.
+		{"scrambleOldPassword", args{[]byte{0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39}, "123456"}, []byte{0x4d, 0x44, 0x5b, 0x4b, 0x56, 0x5e, 0x41, 0x5e}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -382,7 +331,7 @@ func Test_scramblePassword(t *testing.T) {
 		args args
 		want []byte
 	}{
-		// TODO: Add test cases.
+		{"scramblePassword", args{[]byte{0x61, 0x72, 0x61, 0x6e, 0x61}, "123456"}, []byte{0xb3, 0x7e, 0x9f, 0x58, 0xbf, 0xc3, 0x99, 0x64, 0xee, 0xb7, 0x57, 0x4e, 0x3f, 0xcc, 0x8d, 0xed, 0x6d, 0x9e, 0x94, 0x3b}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -401,7 +350,7 @@ func Test_scrambleSHA256Password(t *testing.T) {
 		args args
 		want []byte
 	}{
-		// TODO: Add test cases.
+		{"scrambleSHA256Password", args{[]byte{0x61, 0x72, 0x61, 0x6e, 0x61}, "123456"}, []byte{0x50, 0xa9, 0x42, 0x87, 0xc9, 0x8b, 0x2f, 0xe6, 0xdc, 0xfc, 0x71, 0x9, 0xad, 0x2a, 0xf1, 0xb9, 0x1e, 0x13, 0x27, 0x33, 0x6b, 0xac, 0x88, 0x97, 0xd7, 0xde, 0x25, 0x51, 0x40, 0xb0, 0x51, 0xa0}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
