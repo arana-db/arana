@@ -47,11 +47,11 @@ func Test_sequenceManager(t *testing.T) {
 
 	conn.EXPECT().Exec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(ret, nil)
 
-	manager := NewSequenceManager()
+	manager := newSequenceManager()
 
-	name := BuildAutoIncrementName("student")
+	name := proto.BuildAutoIncrementName("student")
 
-	seq, err := manager.CreateSequence(context.Background(), conn, proto.SequenceConfig{
+	seq, err := manager.CreateSequence(context.Background(), "conn", "conn", proto.SequenceConfig{
 		Name: name,
 		Type: "snowflake",
 		Option: map[string]string{
@@ -63,7 +63,7 @@ func Test_sequenceManager(t *testing.T) {
 
 	assert.NotNil(t, seq)
 
-	s, err := manager.GetSequence(context.Background(), name)
+	s, err := manager.GetSequence(context.Background(), "conn", "conn", name)
 
 	assert.NoError(t, err, fmt.Sprintf("create sequence err: %v", err))
 

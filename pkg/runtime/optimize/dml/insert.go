@@ -208,6 +208,11 @@ func rewriteInsertStatement(ctx context.Context, o *optimize.Optimizer, vtab *ru
 			break
 		}
 	}
+
+	if err := createSequenceIfAbsent(ctx, vtab, metadata); err != nil {
+		return err
+	}
+
 	if len(pkColName) < 1 {
 		// There's no auto-generated primary key column
 		return nil
@@ -235,6 +240,39 @@ func rewriteInsertStatement(ctx context.Context, o *optimize.Optimizer, vtab *ru
 				A: &ast.ConstantExpressionAtom{Inner: val},
 			},
 		})
+	}
+	return nil
+}
+
+func createSequenceIfAbsent(ctx context.Context, vtab *rule.VTable, metadata *proto.TableMetadata) error {
+	seqName := proto.BuildAutoIncrementName(vtab.Name())
+
+	seq, err := proto.LoadSequenceManager().GetSequence(ctx, rcontext.Tenant(ctx), rcontext.Schema(ctx), seqName)
+	if err != nil && !errors.Is(err, proto.Error_NotFoundSequence) {
+		return errors.WithStack(err)
+	}
+
+	if seq != nil {
+		return nil
+	}
+
+	columns := metadata.Columns
+	for i := range columns {
+		if columns[i].Generated {
+			autoIncr := vtab.GetAutoIncrement()
+
+			c := proto.SequenceConfig{
+				Name:   seqName,
+				Type:   autoIncr.Type,
+				Option: autoIncr.Option,
+			}
+
+			if _, err := proto.LoadSequenceManager().CreateSequence(ctx, rcontext.Tenant(ctx), rcontext.Schema(ctx), c); err != nil {
+				return errors.WithStack(err)
+			}
+
+			break
+		}
 	}
 	return nil
 }

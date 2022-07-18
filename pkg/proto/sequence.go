@@ -20,10 +20,16 @@ package proto
 
 import (
 	"context"
+	"errors"
 	"fmt"
 )
 
-var _defaultSequenceManager SequenceManager
+var (
+	Error_NotSequenceType  = errors.New("sequence type not found")
+	Error_NotFoundSequence = errors.New("sequence instance not found")
+
+	_defaultSequenceManager SequenceManager
+)
 
 func RegisterSequenceManager(l SequenceManager) {
 	_defaultSequenceManager = l
@@ -77,7 +83,7 @@ type (
 		// CreateSequence creates one sequence instance
 		CreateSequence(ctx context.Context, tenant, schema string, opt SequenceConfig) (Sequence, error)
 		// GetSequence gets sequence instance by name
-		GetSequence(ctx context.Context, tenant, namespace, name string) (Sequence, error)
+		GetSequence(ctx context.Context, tenant, schema, name string) (Sequence, error)
 	}
 )
 

@@ -19,7 +19,6 @@ package sequence
 
 import (
 	"context"
-	"errors"
 	"sync"
 )
 
@@ -27,11 +26,6 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime"
 	"github.com/arana-db/arana/pkg/util/log"
-)
-
-var (
-	Error_NotSequenceType  = errors.New("sequence type not found")
-	Error_NotFoundSequence = errors.New("sequence instance not found")
 )
 
 func init() {
@@ -88,7 +82,7 @@ func (t *schemaBucket) getSequence(name string) (proto.Sequence, error) {
 
 	val, ok := t.sequenceRegistry[name]
 	if !ok {
-		return nil, Error_NotFoundSequence
+		return nil, proto.Error_NotFoundSequence
 	}
 
 	return val, nil
@@ -132,7 +126,7 @@ func (m *sequenceManager) CreateSequence(ctx context.Context, tenant, schema str
 	builder, ok := proto.GetSequenceSupplier(conf.Type)
 	if !ok {
 		log.Errorf("[sequence] name=%s not exist", conf.Type)
-		return nil, Error_NotSequenceType
+		return nil, proto.Error_NotSequenceType
 	}
 
 	if err := sbucket.createIfAbsent(conf.Name, func() (proto.EnhanceSequence, error) {
@@ -166,12 +160,12 @@ func (m *sequenceManager) GetSequence(ctx context.Context, tenant, schema, name 
 	m.lock.RUnlock()
 
 	if !ok {
-		return nil, Error_NotFoundSequence
+		return nil, proto.Error_NotFoundSequence
 	}
 
 	sbucket := tbucket.getSchema(schema)
 	if sbucket == nil {
-		return nil, Error_NotFoundSequence
+		return nil, proto.Error_NotFoundSequence
 	}
 	return sbucket.getSequence(name)
 }
