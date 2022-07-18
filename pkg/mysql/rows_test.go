@@ -377,9 +377,7 @@ func TestTextRow_Scan(t *testing.T) {
 		args    args
 		wantErr assert.ErrorAssertionFunc
 	}{
-		{"Scan", fields{createTestFields(), []byte{
-			0x01, 0x31, 0x05, 0x73, 0x63, 0x6f, 0x74, 0x74, 0x01, 0x31,
-		}}, args{make([]proto.Value, 3)}, assert.NoError},
+		{"Scan", fields{createTestFields(), []byte{0x01, 0x31, 0x05, 0x73, 0x63, 0x6f, 0x74, 0x74, 0x01, 0x31}}, args{make([]proto.Value, 3)}, assert.NoError},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -404,9 +402,7 @@ func TestTextRow_WriteTo(t *testing.T) {
 		wantN   int64
 		wantErr assert.ErrorAssertionFunc
 	}{
-		{"WriteTo", fields{createTestFields(), []byte{
-			0x01, 0x31, 0x05, 0x73, 0x63, 0x6f, 0x74, 0x74, 0x01, 0x31,
-		}}, "\x011\x05scott\x011", 10, assert.NoError},
+		{"WriteTo", fields{createTestFields(), []byte{0x01, 0x31, 0x05, 0x73, 0x63, 0x6f, 0x74, 0x74, 0x01, 0x31}}, "\x011\x05scott\x011", 10, assert.NoError},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
