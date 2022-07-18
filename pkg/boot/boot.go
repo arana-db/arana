@@ -19,7 +19,6 @@ package boot
 
 import (
 	"context"
-	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 )
 
 import (
@@ -30,6 +29,7 @@ import (
 	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime"
+	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/runtime/namespace"
 	_ "github.com/arana-db/arana/pkg/schema"
 	"github.com/arana-db/arana/pkg/security"
