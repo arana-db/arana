@@ -619,11 +619,11 @@ func (s *IntegrationSuite) TestHintsRoute() {
 
 	for _, it := range []tt{
 		//use route hint
-		{"/*A! route(employees_0000=student_0000,employees_0000=student_0000) */ SELECT * FROM student", 6},
+		{"/*A! route(employees_0000=student_0000,employees_0000=student_0007) */ SELECT * FROM student", 6},
 		//not use route hint, one shard
-		{"/*A! route(employees_0000=student_0000,employees_0000=student_0000) */ SELECT * FROM student where uid=1", 1},
+		{"/*A! route(employees_0000=student_0000,employees_0000=student_0007) */ SELECT * FROM student where uid=1", 1},
 		//not use route hint, fullScan
-		{"/*A! route(employees_0000=student_0000,employees_0000=student_0000) */ SELECT * FROM student  where uid>=1", 98},
+		{"/*A! route(employees_0000=student_0000,employees_0000=student_0007) */ SELECT * FROM student  where uid>=1", 98},
 	} {
 		t.Run(it.sql, func(t *testing.T) {
 			// select from logical table
