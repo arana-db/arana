@@ -606,3 +606,33 @@ func (s *IntegrationSuite) TestHints() {
 	}
 
 }
+
+func (s *IntegrationSuite) TestHintsRoute() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+	type tt struct {
+		sql       string
+		expectLen int
+	}
+
+	for _, it := range []tt{
+		//use route hint
+		{"/*A! route(employees_0000=student_0000,employees_0000=student_0000) */ SELECT * FROM student", 6},
+		//not use route hint, one shard
+		{"/*A! route(employees_0000=student_0000,employees_0000=student_0000) */ SELECT * FROM student where uid=1", 1},
+		//not use route hint, fullScan
+		{"/*A! route(employees_0000=student_0000,employees_0000=student_0000) */ SELECT * FROM student  where uid>=1", 98},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			// select from logical table
+			rows, err := db.Query(it.sql)
+			assert.NoError(t, err, "should query from sharding table successfully")
+			defer rows.Close()
+			data, _ := utils.PrintTable(rows)
+			assert.Equal(t, it.expectLen, len(data))
+		})
+	}
+
+}
