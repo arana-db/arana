@@ -36,9 +36,6 @@ func TestFilter(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mockRange := testdata.NewMockRange(ctrl)
-	predicate := func(interface{}) bool {
-		return true
-	}
 	type args struct {
 		src       rule.Range
 		predicate func(interface{}) bool
@@ -50,8 +47,8 @@ func TestFilter(t *testing.T) {
 	}{
 		{
 			"TestFilter",
-			args{mockRange, predicate},
-			&filterRange{inner: mockRange, filter: predicate},
+			args{mockRange, nil},
+			&filterRange{inner: mockRange, filter: nil},
 		},
 	}
 	for _, tt := range tests {
