@@ -52,20 +52,22 @@ type AggregateItem struct {
 }
 
 type AggregateReducer struct {
-	AggItems   map[int]merge.Aggregator
-	currentRow proto.Row
-	Fields     []proto.Field
+	AggItems          map[int]merge.Aggregator
+	currentRow        proto.Row
+	Fields            []proto.Field
+	OriginColumnCount int
 }
 
-func NewGroupReducer(aggFuncMap map[int]func() merge.Aggregator, fields []proto.Field) *AggregateReducer {
+func NewGroupReducer(aggFuncMap map[int]func() merge.Aggregator, fields []proto.Field, originColumnCount int) *AggregateReducer {
 	aggItems := make(map[int]merge.Aggregator)
 	for idx, f := range aggFuncMap {
 		aggItems[idx] = f()
 	}
 	return &AggregateReducer{
-		AggItems:   aggItems,
-		currentRow: nil,
-		Fields:     fields,
+		AggItems:          aggItems,
+		currentRow:        nil,
+		Fields:            fields,
+		OriginColumnCount: originColumnCount,
 	}
 }
 
@@ -96,9 +98,9 @@ func (gr *AggregateReducer) Reduce(next proto.Row) error {
 	}
 
 	if next.IsBinary() {
-		gr.currentRow = rows.NewBinaryVirtualRow(gr.Fields, result)
+		gr.currentRow = rows.NewBinaryVirtualRow(gr.Fields[0:gr.OriginColumnCount], result[0:gr.OriginColumnCount])
 	} else {
-		gr.currentRow = rows.NewTextVirtualRow(gr.Fields, result)
+		gr.currentRow = rows.NewTextVirtualRow(gr.Fields[0:gr.OriginColumnCount], result[0:gr.OriginColumnCount])
 	}
 	return nil
 }

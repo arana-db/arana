@@ -264,13 +264,13 @@ func (s *SelectElementFunction) Mode() SelMode {
 }
 
 type SelectElementColumn struct {
-	name   []string
+	Name   []string
 	alias  string
 	hacked bool
 }
 
 func (s *SelectElementColumn) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
-	if err := ColumnNameExpressionAtom(s.Name()).Restore(flag, sb, args); err != nil {
+	if err := ColumnNameExpressionAtom(s.Name).Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
 	if len(s.alias) > 0 {
@@ -281,10 +281,10 @@ func (s *SelectElementColumn) Restore(flag RestoreFlag, sb *strings.Builder, arg
 }
 
 func (s *SelectElementColumn) InTables(tables map[string]struct{}) error {
-	if len(s.name) < 2 {
+	if len(s.Name) < 2 {
 		return nil
 	}
-	if _, ok := tables[s.name[0]]; ok {
+	if _, ok := tables[s.Name[0]]; ok {
 		return nil
 	}
 	return errors.Errorf("unknown column '%s'", s.ToSelectString())
@@ -299,11 +299,7 @@ func (s *SelectElementColumn) SetHacked(hacked bool) {
 }
 
 func (s *SelectElementColumn) ToSelectString() string {
-	return ColumnNameExpressionAtom(s.name).String()
-}
-
-func (s *SelectElementColumn) Name() []string {
-	return s.name
+	return ColumnNameExpressionAtom(s.Name).String()
 }
 
 func (s *SelectElementColumn) Alias() string {
@@ -316,7 +312,7 @@ func (s *SelectElementColumn) Mode() SelMode {
 
 func NewSelectElementColumn(name []string, alias string) *SelectElementColumn {
 	return &SelectElementColumn{
-		name:  name,
+		Name:  name,
 		alias: alias,
 	}
 }
