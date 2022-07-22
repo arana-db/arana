@@ -82,6 +82,20 @@ func Test_exprShardComputer_Compute(t *testing.T) {
 			61,
 			assert.NoError,
 		},
+		{
+			"Compute_3",
+			fields{"hash(concat(#uid#, '1'), 100)", "name"},
+			args{87616},
+			0,
+			assert.Error,
+		},
+		{
+			"Compute_4",
+			fields{"hash(concat(#uid#, '1'), 100)", "uid"},
+			args{"a"},
+			0,
+			assert.Error,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
