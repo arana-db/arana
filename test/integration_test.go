@@ -629,6 +629,22 @@ func (s *IntegrationSuite) TestHints() {
 
 }
 
+func (s *IntegrationSuite) TestShowCollation() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	result, err := db.Query("SHOW COLLATION")
+	assert.NoErrorf(t, err, "show collation error: %v", err)
+
+	defer result.Close()
+
+	affected, err := result.ColumnTypes()
+	assert.NoErrorf(t, err, "show collation: %v", err)
+	assert.Equal(t, affected[0].DatabaseTypeName(), "VARCHAR")
+}
+
 func (s *IntegrationSuite) TestShowStatus() {
 	var (
 		db = s.DB()
