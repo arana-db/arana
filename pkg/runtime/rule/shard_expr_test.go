@@ -19,9 +19,15 @@ package rule
 
 import (
 	"fmt"
-	"github.com/arana-db/arana/pkg/proto/rule"
-	"github.com/stretchr/testify/assert"
 	"testing"
+)
+
+import (
+	"github.com/stretchr/testify/assert"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/proto/rule"
 )
 
 func TestNewExprShardComputer(t *testing.T) {
