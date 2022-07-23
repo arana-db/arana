@@ -26,18 +26,23 @@ import (
 )
 
 import (
+	bsnowflake "github.com/bwmarrin/snowflake"
+
 	"github.com/stretchr/testify/assert"
 )
 
 func Test_snowflakeSequence_Acquire(t *testing.T) {
 
+	node, err := bsnowflake.NewNode(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	seq := &snowflakeSequence{
 		mu:         sync.Mutex{},
 		epoch:      time.Time{},
-		lastTime:   0,
-		step:       0,
 		workdId:    1,
-		currentVal: 0,
+		idGenerate: node,
 	}
 
 	val, err := seq.Acquire(context.Background())
@@ -47,4 +52,20 @@ func Test_snowflakeSequence_Acquire(t *testing.T) {
 	curVal := seq.CurrentVal()
 
 	assert.Equal(t, val, curVal, fmt.Sprintf("acquire val: %d, cur val: %d", val, curVal))
+
+	bucket := []int64{0, 0}
+
+	total := int64(100000)
+	for i := int64(0); i < total; i++ {
+		ret, _ := seq.Acquire(context.Background())
+
+		if ret%2 == 0 {
+			bucket[0] = bucket[0] + 1
+		} else {
+			bucket[1] = bucket[1] + 1
+		}
+	}
+
+	t.Logf("odd number : %0.3f", float64(bucket[1]*1.0)/float64(total))
+	t.Logf("even number : %0.3f", float64(bucket[0]*1.0)/float64(total))
 }
