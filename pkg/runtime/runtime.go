@@ -29,6 +29,7 @@ import (
 
 import (
 	"github.com/bwmarrin/snowflake"
+
 	perrors "github.com/pkg/errors"
 
 	"go.opentelemetry.io/otel"

@@ -45,6 +45,7 @@ const (
 	SQLTypeUnion                  // UNION
 	SQLTypeDropTrigger            // DROP TRIGGER
 	SQLTypeCreateIndex            // CREATE INDEX
+	SQLTypeShowStatus             // SHOW STATUS
 )
 
 type RestoreFlag uint32
@@ -80,6 +81,7 @@ var _sqlTypeNames = [...]string{
 	SQLTypeUnion:          "UNION",
 	SQLTypeDropTrigger:    "DROP TRIGGER",
 	SQLTypeCreateIndex:    "CREATE INDEX",
+	SQLTypeShowStatus:     "SHOW STATUS",
 }
 
 // SQLType represents the type of SQL.

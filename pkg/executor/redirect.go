@@ -259,7 +259,7 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 	case *ast.ShowStmt:
 		allowSchemaless := func(stmt *ast.ShowStmt) bool {
 			switch stmt.Tp {
-			case ast.ShowDatabases, ast.ShowVariables, ast.ShowTopology:
+			case ast.ShowDatabases, ast.ShowVariables, ast.ShowTopology, ast.ShowStatus:
 				return true
 			default:
 				return false
