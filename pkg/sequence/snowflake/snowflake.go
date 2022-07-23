@@ -40,7 +40,7 @@ import (
 )
 
 func init() {
-	proto.RegisterSequence(SequencePluginName, func() proto.EnhanceSequence {
+	proto.RegisterSequence(SequencePluginName, func() proto.EnhancedSequence {
 		return &snowflakeSequence{}
 	})
 }
@@ -63,7 +63,7 @@ const (
 	) ENGINE = InnoDB;
 	`
 
-	//_setWorkId 插入一条新的 work_id
+	//_setWorkId inserts new work_id
 	_setWorkId = `REPLACE INTO __arana_snowflake_sequence(work_id, node_id, table_name, renew_time) VALUE (?, ?, ?, now())`
 
 	//_selectSelfWorkIdWithXLock find self already has work-id
@@ -189,7 +189,6 @@ func (seq *snowflakeSequence) Acquire(ctx context.Context) (int64, error) {
 
 	id := seq.idGenerate.Generate()
 
-	//无锁更新当前 sequence 的 id 信息
 	for {
 		cur := seq.CurrentVal()
 		if id.Int64() > cur {

@@ -248,7 +248,7 @@ func createSequenceIfAbsent(ctx context.Context, vtab *rule.VTable, metadata *pr
 	seqName := proto.BuildAutoIncrementName(vtab.Name())
 
 	seq, err := proto.LoadSequenceManager().GetSequence(ctx, rcontext.Tenant(ctx), rcontext.Schema(ctx), seqName)
-	if err != nil && !errors.Is(err, proto.Error_NotFoundSequence) {
+	if err != nil && !errors.Is(err, proto.ErrorNotFoundSequence) {
 		return errors.WithStack(err)
 	}
 

@@ -40,16 +40,11 @@ import (
 
 var (
 	_namespaces sync.Map
-	_tmpns      sync.Map
 )
 
 // Load loads a namespace, return nil if no namespace found.
 func Load(namespace string) *Namespace {
-	exist, ok := _tmpns.Load(namespace)
-	if ok {
-		return exist.(*Namespace)
-	}
-	exist, ok = _namespaces.Load(namespace)
+	exist, ok := _namespaces.Load(namespace)
 	if !ok {
 		return nil
 	}
@@ -105,9 +100,6 @@ func New(name string, commands ...Command) (*Namespace, error) {
 	}
 	ns.dss.Store(make(map[string][]proto.DB)) // init empty map
 	ns.rule.Store(&rule.Rule{})               // init empty rule
-
-	_tmpns.Store(ns.Name(), ns)
-	defer _tmpns.Delete(ns.Name())
 
 	for _, cmd := range commands {
 		if err := cmd(ns); err != nil {

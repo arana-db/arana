@@ -34,7 +34,6 @@ func init() {
 
 func newSequenceManager() proto.SequenceManager {
 	return &sequenceManager{
-		lock:    sync.RWMutex{},
 		tenants: map[string]*tenantBucket{},
 	}
 }
@@ -63,8 +62,7 @@ func (t *tenantBucket) getOrCreate(schema string) *schemaBucket {
 
 	if _, ok := t.schemas[schema]; !ok {
 		t.schemas[schema] = &schemaBucket{
-			lock:             sync.RWMutex{},
-			sequenceRegistry: map[string]proto.EnhanceSequence{},
+			sequenceRegistry: map[string]proto.EnhancedSequence{},
 		}
 	}
 
@@ -73,7 +71,7 @@ func (t *tenantBucket) getOrCreate(schema string) *schemaBucket {
 
 type schemaBucket struct {
 	lock             sync.RWMutex
-	sequenceRegistry map[string]proto.EnhanceSequence
+	sequenceRegistry map[string]proto.EnhancedSequence
 }
 
 func (t *schemaBucket) getSequence(name string) (proto.Sequence, error) {
@@ -82,13 +80,13 @@ func (t *schemaBucket) getSequence(name string) (proto.Sequence, error) {
 
 	val, ok := t.sequenceRegistry[name]
 	if !ok {
-		return nil, proto.Error_NotFoundSequence
+		return nil, proto.ErrorNotFoundSequence
 	}
 
 	return val, nil
 }
 
-func (t *schemaBucket) createIfAbsent(name string, f func() (proto.EnhanceSequence, error)) error {
+func (t *schemaBucket) createIfAbsent(name string, f func() (proto.EnhancedSequence, error)) error {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
@@ -110,7 +108,6 @@ func (m *sequenceManager) CreateSequence(ctx context.Context, tenant, schema str
 	m.lock.Lock()
 	if _, ok := m.tenants[tenant]; !ok {
 		m.tenants[tenant] = &tenantBucket{
-			lock:    sync.RWMutex{},
 			schemas: map[string]*schemaBucket{},
 		}
 	}
@@ -126,10 +123,10 @@ func (m *sequenceManager) CreateSequence(ctx context.Context, tenant, schema str
 	builder, ok := proto.GetSequenceSupplier(conf.Type)
 	if !ok {
 		log.Errorf("[sequence] name=%s not exist", conf.Type)
-		return nil, proto.Error_NotSequenceType
+		return nil, proto.ErrorNotSequenceType
 	}
 
-	if err := sbucket.createIfAbsent(conf.Name, func() (proto.EnhanceSequence, error) {
+	if err := sbucket.createIfAbsent(conf.Name, func() (proto.EnhancedSequence, error) {
 		rt, err := runtime.Load(schema)
 		if err != nil {
 			log.Errorf("[sequence] load runtime.Runtime from schema=%s fail, %s", schema, err.Error())
@@ -160,12 +157,12 @@ func (m *sequenceManager) GetSequence(ctx context.Context, tenant, schema, name 
 	m.lock.RUnlock()
 
 	if !ok {
-		return nil, proto.Error_NotFoundSequence
+		return nil, proto.ErrorNotFoundSequence
 	}
 
 	sbucket := tbucket.getSchema(schema)
 	if sbucket == nil {
-		return nil, proto.Error_NotFoundSequence
+		return nil, proto.ErrorNotFoundSequence
 	}
 	return sbucket.getSequence(name)
 }

@@ -26,7 +26,7 @@ import (
 )
 
 func init() {
-	proto.RegisterSequence(SequencePluginName, func() proto.EnhanceSequence {
+	proto.RegisterSequence(SequencePluginName, func() proto.EnhancedSequence {
 		return &groupSequence{}
 	})
 }

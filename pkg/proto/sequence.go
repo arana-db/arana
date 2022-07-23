@@ -25,8 +25,8 @@ import (
 )
 
 var (
-	Error_NotSequenceType  = errors.New("sequence type not found")
-	Error_NotFoundSequence = errors.New("sequence instance not found")
+	ErrorNotSequenceType  = errors.New("sequence type not found")
+	ErrorNotFoundSequence = errors.New("sequence instance not found")
 
 	_defaultSequenceManager SequenceManager
 )
@@ -38,7 +38,7 @@ func RegisterSequenceManager(l SequenceManager) {
 func LoadSequenceManager() SequenceManager {
 	cur := _defaultSequenceManager
 	if cur == nil {
-		return nil
+		return noopSequenceManager{}
 	}
 	return cur
 }
@@ -51,7 +51,7 @@ type (
 	RuntimeCtxKey = struct{}
 
 	// SequenceSupplier Create the creator of Sequence
-	SequenceSupplier func() EnhanceSequence
+	SequenceSupplier func() EnhancedSequence
 
 	SequenceConfig struct {
 		Name   string
@@ -67,8 +67,8 @@ type (
 		Update() error
 	}
 
-	// EnhanceSequence represents a global unique id generator.
-	EnhanceSequence interface {
+	// EnhancedSequence represents a global unique id generator.
+	EnhancedSequence interface {
 		Sequence
 		// Start start sequence instance.
 		Start(ctx context.Context, option SequenceConfig) error
@@ -101,4 +101,17 @@ func RegisterSequence(name string, supplier SequenceSupplier) {
 func GetSequenceSupplier(name string) (SequenceSupplier, bool) {
 	val, ok := suppliersRegistry[name]
 	return val, ok
+}
+
+type noopSequenceManager struct {
+}
+
+// CreateSequence creates one sequence instance
+func (n noopSequenceManager) CreateSequence(ctx context.Context, tenant, schema string, opt SequenceConfig) (Sequence, error) {
+	return nil, nil
+}
+
+// GetSequence gets sequence instance by name
+func (n noopSequenceManager) GetSequence(ctx context.Context, tenant, schema, name string) (Sequence, error) {
+	return nil, nil
 }
