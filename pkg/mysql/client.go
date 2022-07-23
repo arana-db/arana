@@ -28,17 +28,23 @@ import (
 	"math/big"
 	"net"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
 
 import (
+	"github.com/arana-db/arana/pkg/constants"
 	"github.com/arana-db/arana/pkg/constants/mysql"
 	err2 "github.com/arana-db/arana/pkg/mysql/errors"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/util/bytefmt"
 	"github.com/arana-db/arana/pkg/util/log"
 	"github.com/arana-db/arana/third_party/pools"
+)
+
+const (
+	UserMaxAllowedPacket uint32 = 1 << iota
 )
 
 type Config struct {
@@ -48,6 +54,7 @@ type Config struct {
 	Addr             string            // Network address (requires Net)
 	DBName           string            // Database name
 	Params           map[string]string // Connection parameters
+	ParamsStatus     ParamsStatus      // Whether user set
 	Collation        string            // Connection collation
 	Loc              *time.Location    // Location for time.Time values
 	MaxAllowedPacket int               // Max packet size allowed
@@ -238,7 +245,7 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 }
 
 // parseDSNParams parses the DSN "query string"
-// Values must be url.QueryEscape'ed
+// Values must be url.QueryEscaped
 func parseDSNParams(cfg *Config, params string) (err error) {
 	for _, v := range strings.Split(params, "&") {
 		param := strings.SplitN(v, "=", 2)
@@ -419,6 +426,7 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 				return err
 			}
 			cfg.MaxAllowedPacket = int(byteSize)
+			cfg.ParamsStatus.SetMaxAllowedPacketUserConf()
 		default:
 			// lazy init
 			if cfg.Params == nil {
@@ -462,8 +470,80 @@ func NewConnector(config json.RawMessage) (*Connector, error) {
 
 func (c *Connector) NewBackendConnection(ctx context.Context) (pools.Resource, error) {
 	conn := &BackendConnection{conf: c.conf}
-	err := conn.Connect(ctx)
-	return conn, err
+	if err := conn.Connect(ctx); err != nil {
+		return conn, err
+	}
+	if err := conn.Ping(); err != nil {
+		return conn, err
+	}
+	// If it is set by the user, you do not need to search for it in the atomic library.
+	if c.conf.ParamsStatus.MaxAllowedPacketUserConf() {
+		return conn, nil
+	}
+	if err := c.handleParams(conn); err != nil {
+		log.Errorf("conn:%s iter VARIABLES data set error:%v", conn.c.ConnectionID, err)
+	}
+	return conn, nil
+}
+
+func (c *Connector) getVariables(conn *BackendConnection) (proto.Dataset, error) {
+	// If there are other configurations, modify them.
+	if err := conn.WriteComQuery(fmt.Sprintf(constants.SQLShowVariables, constants.VariableNameMaxAllowedPacket)); err != nil {
+		log.Errorf("conn:%s get VARIABLES WriteComQuery error:%v", conn.c.ConnectionID, err)
+		return nil, err
+	}
+	res := conn.ReadQueryRow()
+	res.setTextProtocol()
+	res.setWantFields(true)
+
+	ds, err := res.Dataset()
+	if err != nil {
+		log.Errorf("conn:%s get VARIABLES data set error:%v", conn.c.ConnectionID, err)
+		return nil, err
+	}
+	return ds, nil
+}
+
+func (c *Connector) handleParams(conn *BackendConnection) error {
+	ds, err := c.getVariables(conn)
+	if err != nil {
+		return err
+	}
+	fields, err := ds.Fields()
+	if err != nil {
+		log.Errorf("conn:%s get VARIABLES get fields error:%v", conn.c.ConnectionID, err)
+		return err
+	}
+	for {
+		row, err := ds.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			log.Errorf("conn:%s get VARIABLES data set next error:%v", conn.c.ConnectionID, err)
+			return err
+		}
+
+		cells := make([]proto.Value, len(fields))
+		err = row.Scan(cells)
+		if err != nil {
+			log.Errorf("conn:%s get VARIABLES MaxAllowedPacket error:%v", conn.c.ConnectionID, err)
+			return err
+		}
+
+		variableName := cells[0]
+		variableVal := cells[1]
+		switch variableName {
+		case constants.VariableNameMaxAllowedPacket:
+			mVal, err := strconv.Atoi(variableVal.(string))
+			if err != nil {
+				log.Errorf("conn:%s get VARIABLES MaxAllowedPacket error:%v", conn.c.ConnectionID, err)
+				return err
+			}
+			c.conf.MaxAllowedPacket = mVal
+		}
+	}
+	return nil
 }
 
 type BackendConnection struct {
@@ -510,11 +590,11 @@ func (conn *BackendConnection) Connect(ctx context.Context) error {
 	// SetNoDelay controls whether the operating system should delay packet transmission
 	// in hopes of sending fewer packets (Nagle's algorithm).
 	// The default is true (no delay),
-	// meaning that Content is sent as soon as possible after a Write.
-	if err := tcpConn.SetNoDelay(true); err != nil {
+	// meaning that Content is sent as soon as possible after Write.
+	if err = tcpConn.SetNoDelay(true); err != nil {
 		return err
 	}
-	if err := tcpConn.SetKeepAlive(true); err != nil {
+	if err = tcpConn.SetKeepAlive(true); err != nil {
 		return err
 	}
 
@@ -1164,7 +1244,7 @@ func (conn *BackendConnection) ReadColumnDefinitions() ([]proto.Field, error) {
 }
 
 // ExecuteWithWarningCountIterRow is for fetching results and a warning count
-// Note: In a future iteration this should be abolished and merged into the Execute API.
+// Note: In a future iteration this should be abolished and merged into Execute API.
 func (conn *BackendConnection) ExecuteWithWarningCountIterRow(query string) (result proto.Result, err error) {
 	defer func() {
 		if err != nil {
@@ -1190,7 +1270,7 @@ func (conn *BackendConnection) ExecuteWithWarningCountIterRow(query string) (res
 
 // ExecuteWithWarningCount is for fetching results and a warning count
 // Note: In a future iteration this should be abolished and merged into the
-// Execute API.
+// Executed API.
 func (conn *BackendConnection) ExecuteWithWarningCount(query string, wantFields bool) (result proto.Result, err error) {
 	defer func() {
 		if err != nil {
@@ -1281,4 +1361,47 @@ func (conn *BackendConnection) Close() {
 
 func (conn *BackendConnection) GetDatabaseConn() *Conn {
 	return conn.c
+}
+
+// Ping implements mysql ping command.
+func (conn *BackendConnection) Ping() error {
+	c := conn.GetDatabaseConn()
+	// This is a new command, need to reset the sequence.
+	c.sequence = 0
+	if c.currentEphemeralPolicy != ephemeralUnused {
+		panic("startEphemeralPacketWithHeader cannot be used while a packet is already started.")
+	}
+
+	c.currentEphemeralPolicy = ephemeralWrite
+	// get buffer from pool, or it'll be allocated if length is too big
+	c.currentEphemeralBuffer = bufPool.Get(1)
+
+	(*c.currentEphemeralBuffer)[0] = mysql.ComPing
+
+	if err := c.writeEphemeralPacket(); err != nil {
+		return err2.NewSQLError(mysql.CRServerGone, mysql.SSUnknownSQLState, "%v", err)
+	}
+	data, err := c.readEphemeralPacket()
+	if err != nil {
+		return err2.NewSQLError(mysql.CRServerLost, mysql.SSUnknownSQLState, "%v", err)
+	}
+	defer c.recycleReadPacket()
+	switch data[0] {
+	case mysql.OKPacket:
+		return nil
+	case mysql.ErrPacket:
+		return ParseErrorPacket(data)
+	}
+	return fmt.Errorf("unexpected packet type: %d", data[0])
+}
+
+// ParamsStatus record whether the user is configured
+type ParamsStatus uint32
+
+func (p *ParamsStatus) SetMaxAllowedPacketUserConf() {
+	*p |= ParamsStatus(UserMaxAllowedPacket)
+}
+
+func (p *ParamsStatus) MaxAllowedPacketUserConf() bool {
+	return *p&ParamsStatus(UserMaxAllowedPacket) == 1
 }

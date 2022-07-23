@@ -27,12 +27,16 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 )
 
 import (
 	"github.com/go-playground/validator/v10"
 
 	"github.com/pkg/errors"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 
 	"gopkg.in/yaml.v3"
 )
@@ -80,6 +84,7 @@ type (
 		Type        DataSourceType `yaml:"type" json:"type"`
 		SqlMaxLimit int            `default:"-1" yaml:"sql_max_limit" json:"sql_max_limit,omitempty"`
 		Tenant      string         `yaml:"tenant" json:"tenant"`
+		Parameters  ParametersMap  `yaml:"parameters" json:"parameters"`
 		Groups      []*Group       `yaml:"groups" json:"groups"`
 	}
 
@@ -141,15 +146,35 @@ type (
 
 type ParametersMap map[string]string
 
+func (pm *ParametersMap) Merge(parametersMap ParametersMap) {
+	for key, val := range parametersMap {
+		if _, ok := (*pm)[key]; !ok {
+			(*pm)[key] = val
+		}
+	}
+}
+
 func (pm *ParametersMap) String() string {
 	sBuff := strings.Builder{}
 	for k, v := range *pm {
-		sBuff.WriteString(k)
+		sBuff.WriteString(pm.LowerCaseFirstLetter(pm.Camel(k)))
 		sBuff.WriteString("=")
 		sBuff.WriteString(v)
 		sBuff.WriteString("&")
 	}
 	return strings.TrimRight(sBuff.String(), "&")
+}
+
+// Camel underline to camel
+func (pm *ParametersMap) Camel(name string) string {
+	name = strings.Replace(name, "_", " ", -1)
+	name = cases.Title(language.English, cases.NoLower).String(name)
+	return strings.Replace(name, " ", "", -1)
+}
+
+// LowerCaseFirstLetter lowercase letter
+func (pm *ParametersMap) LowerCaseFirstLetter(str string) string {
+	return string(unicode.ToLower(rune(str[0]))) + str[1:]
 }
 
 // Decoder decodes configuration.
