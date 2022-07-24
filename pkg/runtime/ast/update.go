@@ -103,10 +103,6 @@ func (u *UpdateStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[
 	return nil
 }
 
-func (u *UpdateStatement) Validate() error {
-	return nil
-}
-
 func (u *UpdateStatement) IsEnableLowPriority() bool {
 	return u.flag&_flagUpdateLowPriority != 0
 }

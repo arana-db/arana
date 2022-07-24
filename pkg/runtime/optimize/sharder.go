@@ -333,7 +333,7 @@ func (sh *Sharder) processInPredicate(sc *shardCtx, n *ast.InPredicateNode) (log
 					if err != nil {
 						return nil, err
 					}
-					if n.IsNot() {
+					if n.Not {
 						// convert: f NOT IN (a,b,c) -> f <> a AND f <> b AND f <> c
 						ke := rrule.NewKeyed(key.Suffix(), cmp.Cne, actualValue)
 						if ret == nil {

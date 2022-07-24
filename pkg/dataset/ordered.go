@@ -23,6 +23,10 @@ import (
 )
 
 import (
+	"github.com/pkg/errors"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
@@ -50,9 +54,10 @@ func (or *orderedDataset) Fields() ([]proto.Field, error) {
 
 func (or *orderedDataset) Next() (proto.Row, error) {
 	if or.firstRow {
+		or.firstRow = false
 		n := or.dataset.Len()
 		for i := 0; i < n; i++ {
-			or.dataset.SetNextN(i)
+			_ = or.dataset.SetNextN(i)
 			row, err := or.dataset.Next()
 			if err == io.EOF {
 				continue
@@ -64,21 +69,23 @@ func (or *orderedDataset) Next() (proto.Row, error) {
 				streamIdx: i,
 			})
 		}
-		or.firstRow = false
 	}
+
 	if or.queue.Len() == 0 {
 		return nil, io.EOF
 	}
 	data := heap.Pop(or.queue)
 
 	item := data.(*RowItem)
-	or.dataset.SetNextN(item.streamIdx)
+	_ = or.dataset.SetNextN(item.streamIdx)
 	nextRow, err := or.dataset.Next()
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		return item.row, nil
-	} else if err != nil {
+	}
+	if err != nil {
 		return nil, err
 	}
+
 	heap.Push(or.queue, &RowItem{
 		row:       nextRow.(proto.KeyedRow),
 		streamIdx: item.streamIdx,

@@ -497,4 +497,4 @@ CREATE TABLE IF NOT EXISTS `employees_0000`.`student_0031`
     UNIQUE KEY `uk_uid` (`uid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-INSERT INTO employees_0000.student_0001 VALUES (1, 1, 'scott', 95, 'nc_scott', 0, 16, NOW(), NOW());
+INSERT INTO employees_0000.student_0001(id,uid,name,score,nickname,gender,birth_year,created_at,modified_at) VALUES (1, 1, 'arana', 95, 'Awesome Arana', 0, 2021, NOW(), NOW());

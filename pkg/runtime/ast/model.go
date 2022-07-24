@@ -26,13 +26,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-var (
-	_ inTablesChecker = (OrderByNode)(nil)
-	_ inTablesChecker = (*OrderByItem)(nil)
-	_ inTablesChecker = (*GroupByNode)(nil)
-	_ inTablesChecker = (*GroupByItem)(nil)
-)
-
 type TableName []string
 
 func (t TableName) ResetSuffix(suffix string) TableName {
@@ -167,18 +160,8 @@ func (ih *IndexHint) Restore(flag RestoreFlag, sb *strings.Builder, _ *[]int) er
 }
 
 type OrderByItem struct {
-	Alias string
-	Expr  ExpressionAtom
-	Desc  bool
-}
-
-func (o OrderByItem) InTables(tables map[string]struct{}) error {
-	if o.Expr != nil {
-		if err := o.Expr.InTables(tables); err != nil {
-			return err
-		}
-	}
-	return nil
+	Expr ExpressionAtom
+	Desc bool
 }
 
 func (o OrderByItem) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -218,10 +201,6 @@ func (gb *GroupByItem) Restore(flag RestoreFlag, sb *strings.Builder, args *[]in
 	return nil
 }
 
-func (gb *GroupByItem) InTables(tables map[string]struct{}) error {
-	return gb.expr.InTables(tables)
-}
-
 func (gb *GroupByItem) Expr() ExpressionNode {
 	return gb.expr
 }
@@ -238,15 +217,6 @@ type OrderByNode []*OrderByItem
 
 func (o OrderByNode) String() string {
 	return MustRestoreToString(RestoreDefault, o)
-}
-
-func (o OrderByNode) InTables(tables map[string]struct{}) error {
-	for _, it := range o {
-		if err := it.InTables(tables); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (o OrderByNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -361,15 +331,6 @@ type SelectNode = []SelectElement
 type GroupByNode struct {
 	RollUp bool
 	Items  []*GroupByItem
-}
-
-func (g *GroupByNode) InTables(tables map[string]struct{}) error {
-	for _, it := range g.Items {
-		if err := it.InTables(tables); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 type UpdateElement struct {

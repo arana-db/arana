@@ -65,9 +65,7 @@ func IsDenyFullScanErr(err error) bool {
 	return perrors.Is(err, ErrDenyFullScan)
 }
 
-var (
-	_handlers = make(map[rast.SQLType]Processor)
-)
+var _handlers = make(map[rast.SQLType]Processor)
 
 func Register(t rast.SQLType, h Processor) {
 	_handlers[t] = h
@@ -129,7 +127,7 @@ func (o *Optimizer) ComputeShards(table rast.TableName, where rast.ExpressionNod
 		return nil, perrors.Wrapf(err, "optimize: cannot calculate shards of table '%s'", table.Suffix())
 	}
 
-	//log.Debugf("compute shards: result=%s, isFullScan=%v", shards, fullScan)
+	// log.Debugf("compute shards: result=%s, isFullScan=%v", shards, fullScan)
 
 	// return error if full-scan is disabled
 	if fullScan && !vt.AllowFullScan() {

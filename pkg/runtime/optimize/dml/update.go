@@ -53,7 +53,7 @@ func optimizeUpdate(_ context.Context, o *optimize.Optimizer) (proto.Plan, error
 		return ret, nil
 	}
 
-	//check update sharding key
+	// check update sharding key
 	for _, element := range stmt.Updated {
 		if _, _, ok := vt.GetShardMetadata(element.Column.Suffix()); ok {
 			return nil, errors.New("do not support update sharding key")

@@ -25,16 +25,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-type SelMode uint8
-
-const (
-	_ SelMode = iota
-	SelAll
-	SelCol
-	SelFunc
-	SelExpr
-)
-
 var (
 	_ SelectElement = (*SelectElementAll)(nil)
 	_ SelectElement = (*SelectElementExpr)(nil)
@@ -42,25 +32,20 @@ var (
 	_ SelectElement = (*SelectElementColumn)(nil)
 )
 
+type selectElementPhantom struct{}
+
 // SelectElement represents a select element.
 type SelectElement interface {
 	Restorer
-	inTablesChecker
 	// Alias returns the alias if available.
 	Alias() string
-	// Mode returns the SelMode.
-	Mode() SelMode
 	// ToSelectString converts current SelectElement to SQL SELECT string and return it.
 	ToSelectString() string
-	// Hacked returns true if current SelectElement is hacked by optimizer.
-	Hacked() bool
-	// SetHacked sets hacked in bool.
-	SetHacked(hacked bool)
+	phantom() selectElementPhantom
 }
 
 type SelectElementAll struct {
 	prefix string
-	hacked bool
 }
 
 func (s *SelectElementAll) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -70,24 +55,6 @@ func (s *SelectElementAll) Restore(flag RestoreFlag, sb *strings.Builder, args *
 	}
 	sb.WriteByte('*')
 	return nil
-}
-
-func (s *SelectElementAll) InTables(tables map[string]struct{}) error {
-	if len(s.prefix) < 1 {
-		return nil
-	}
-	if _, ok := tables[s.prefix]; ok {
-		return nil
-	}
-	return errors.Errorf("unknown column '%s'", s.ToSelectString())
-}
-
-func (s *SelectElementAll) Hacked() bool {
-	return s.hacked
-}
-
-func (s *SelectElementAll) SetHacked(hacked bool) {
-	s.hacked = hacked
 }
 
 func (s *SelectElementAll) ToSelectString() string {
@@ -108,14 +75,13 @@ func (s *SelectElementAll) Prefix() string {
 	return s.prefix
 }
 
-func (s SelectElementAll) Mode() SelMode {
-	return SelAll
+func (s *SelectElementAll) phantom() selectElementPhantom {
+	return selectElementPhantom{}
 }
 
 type SelectElementExpr struct {
-	inner  ExpressionNode
-	alias  string
-	hacked bool
+	inner ExpressionNode
+	alias string
 }
 
 func (s *SelectElementExpr) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -123,24 +89,12 @@ func (s *SelectElementExpr) Restore(flag RestoreFlag, sb *strings.Builder, args 
 		return errors.WithStack(err)
 	}
 
-	if len(s.alias) > 0 {
+	if len(s.alias) > 0 && !flag.Has(RestoreWithoutAlias) {
 		sb.WriteString(" AS ")
 		WriteID(sb, s.alias)
 	}
 
 	return nil
-}
-
-func (s *SelectElementExpr) InTables(tables map[string]struct{}) error {
-	return s.inner.InTables(tables)
-}
-
-func (s *SelectElementExpr) Hacked() bool {
-	return s.hacked
-}
-
-func (s *SelectElementExpr) SetHacked(hacked bool) {
-	s.hacked = hacked
 }
 
 func (s *SelectElementExpr) ToSelectString() string {
@@ -155,14 +109,17 @@ func (s *SelectElementExpr) Alias() string {
 	return s.alias
 }
 
-func (s *SelectElementExpr) Mode() SelMode {
-	return SelExpr
+func (s *SelectElementExpr) phantom() selectElementPhantom {
+	return selectElementPhantom{}
 }
 
 type SelectElementFunction struct {
-	inner  interface{} // *Function or *AggrFunction
-	alias  string
-	hacked bool
+	inner interface{} // *Function or *AggrFunction
+	alias string
+}
+
+func (s *SelectElementFunction) phantom() selectElementPhantom {
+	return selectElementPhantom{}
 }
 
 func (s *SelectElementFunction) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -183,29 +140,12 @@ func (s *SelectElementFunction) Restore(flag RestoreFlag, sb *strings.Builder, a
 		return errors.WithStack(err)
 	}
 
-	if len(s.alias) > 0 {
+	if len(s.alias) > 0 && !flag.Has(RestoreWithoutAlias) {
 		sb.WriteString(" AS ")
 		WriteID(sb, s.alias)
 	}
 
 	return nil
-}
-
-func (s *SelectElementFunction) InTables(tables map[string]struct{}) error {
-	switch val := s.inner.(type) {
-	case inTablesChecker:
-		return val.InTables(tables)
-	default:
-		return nil
-	}
-}
-
-func (s *SelectElementFunction) Hacked() bool {
-	return s.hacked
-}
-
-func (s *SelectElementFunction) SetHacked(hacked bool) {
-	s.hacked = hacked
 }
 
 func (s *SelectElementFunction) ToSelectString() string {
@@ -259,43 +199,28 @@ func (s *SelectElementFunction) Alias() string {
 	return s.alias
 }
 
-func (s *SelectElementFunction) Mode() SelMode {
-	return SelFunc
+type SelectElementColumn struct {
+	Name  []string
+	alias string
 }
 
-type SelectElementColumn struct {
-	Name   []string
-	alias  string
-	hacked bool
+func (s *SelectElementColumn) Suffix() string {
+	if len(s.Name) < 1 {
+		return ""
+	}
+	return s.Name[len(s.Name)-1]
 }
 
 func (s *SelectElementColumn) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	if err := ColumnNameExpressionAtom(s.Name).Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
-	if len(s.alias) > 0 {
+
+	if len(s.alias) > 0 && !flag.Has(RestoreWithoutAlias) {
 		sb.WriteString(" AS ")
 		WriteID(sb, s.alias)
 	}
 	return nil
-}
-
-func (s *SelectElementColumn) InTables(tables map[string]struct{}) error {
-	if len(s.Name) < 2 {
-		return nil
-	}
-	if _, ok := tables[s.Name[0]]; ok {
-		return nil
-	}
-	return errors.Errorf("unknown column '%s'", s.ToSelectString())
-}
-
-func (s *SelectElementColumn) Hacked() bool {
-	return s.hacked
-}
-
-func (s *SelectElementColumn) SetHacked(hacked bool) {
-	s.hacked = hacked
 }
 
 func (s *SelectElementColumn) ToSelectString() string {
@@ -306,8 +231,8 @@ func (s *SelectElementColumn) Alias() string {
 	return s.alias
 }
 
-func (s *SelectElementColumn) Mode() SelMode {
-	return SelCol
+func (s *SelectElementColumn) phantom() selectElementPhantom {
+	return selectElementPhantom{}
 }
 
 func NewSelectElementColumn(name []string, alias string) *SelectElementColumn {

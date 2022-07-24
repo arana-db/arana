@@ -38,9 +38,7 @@ import (
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
-var (
-	_namespaces sync.Map
-)
+var _namespaces sync.Map
 
 // Load loads a namespace, return nil if no namespace found.
 func Load(namespace string) *Namespace {

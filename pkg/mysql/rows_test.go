@@ -81,8 +81,10 @@ func TestBinaryRow_Get(t *testing.T) {
 		want    proto.Value
 		wantErr assert.ErrorAssertionFunc
 	}{
-		{"Get",
-			fields{createTestFields(), createTestData()}, args{"name"},
+		{
+			"Get",
+			fields{createTestFields(), createTestData()},
+			args{"name"},
 			[]byte("scott"),
 			assert.NoError,
 		},
@@ -310,7 +312,8 @@ func TestTextRow_Get(t *testing.T) {
 	}{
 		{
 			"Get",
-			fields{createTestFields(), []byte{0x01, 0x31, 0x05, 0x73, 0x63, 0x6f, 0x74, 0x74, 0x01, 0x31}}, args{"name"},
+			fields{createTestFields(), []byte{0x01, 0x31, 0x05, 0x73, 0x63, 0x6f, 0x74, 0x74, 0x01, 0x31}},
+			args{"name"},
 			"scott",
 			assert.NoError,
 		},
@@ -392,7 +395,8 @@ func TestTextRow_Scan(t *testing.T) {
 	}{
 		{
 			"Scan",
-			fields{createTestFields(), []byte{0x01, 0x31, 0x05, 0x73, 0x63, 0x6f, 0x74, 0x74, 0x01, 0x31}}, args{make([]proto.Value, 3)},
+			fields{createTestFields(), []byte{0x01, 0x31, 0x05, 0x73, 0x63, 0x6f, 0x74, 0x74, 0x01, 0x31}},
+			args{make([]proto.Value, 3)},
 			assert.NoError,
 		},
 	}

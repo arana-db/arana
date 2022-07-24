@@ -21,35 +21,19 @@ import (
 	"strings"
 )
 
-import (
-	"github.com/pkg/errors"
+const (
+	RestoreDefault RestoreFlag = 0
+
+	RestoreLowerKeyword RestoreFlag = 1 << iota // force use lower-case keyword
+	RestoreWithoutAlias
 )
 
-type DropTableStatement struct {
-	Tables []*TableName
+type RestoreFlag uint32
+
+func (rf RestoreFlag) Has(flag RestoreFlag) bool {
+	return rf&flag != 0
 }
 
-func NewDropTableStatement() *DropTableStatement {
-	return &DropTableStatement{}
-}
-
-func (d DropTableStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
-	sb.WriteString("DROP TABLE ")
-	for index, table := range d.Tables {
-		if index != 0 {
-			sb.WriteString(", ")
-		}
-		if err := table.Restore(flag, sb, args); err != nil {
-			return errors.Errorf("An error occurred while restore DropTableStatement.Tables[%d],error:%s", index, err)
-		}
-	}
-	return nil
-}
-
-func (d DropTableStatement) CntParams() int {
-	return 0
-}
-
-func (d DropTableStatement) Mode() SQLType {
-	return SQLTypeDropTable
+type Restorer interface {
+	Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error
 }

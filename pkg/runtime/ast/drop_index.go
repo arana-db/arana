@@ -49,10 +49,6 @@ func (d *DropIndexStatement) Restore(flag RestoreFlag, sb *strings.Builder, args
 	return d.Table.Restore(flag, sb, args)
 }
 
-func (d *DropIndexStatement) Validate() error {
-	return nil
-}
-
 func (d *DropIndexStatement) Mode() SQLType {
 	return SQLTypeDropIndex
 }

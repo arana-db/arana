@@ -1189,10 +1189,10 @@ func (c *Conn) writeDatasetBinary(result proto.Dataset) error {
 			return nil
 		}
 		if err != nil {
-			return err
+			return perrors.WithStack(err)
 		}
 		if err = c.writeRow(row); err != nil {
-			return err
+			return perrors.WithStack(err)
 		}
 	}
 }

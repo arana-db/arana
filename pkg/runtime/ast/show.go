@@ -97,10 +97,6 @@ func (s ShowDatabases) Restore(flag RestoreFlag, sb *strings.Builder, args *[]in
 	return nil
 }
 
-func (s ShowDatabases) Validate() error {
-	return nil
-}
-
 type ShowCollation struct {
 	*baseShow
 }
@@ -114,10 +110,6 @@ func (s ShowCollation) Restore(flag RestoreFlag, sb *strings.Builder, args *[]in
 	if err := s.baseShow.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
-	return nil
-}
-
-func (s ShowCollation) Validate() error {
 	return nil
 }
 
@@ -137,10 +129,6 @@ func (s ShowTables) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) 
 	return nil
 }
 
-func (s ShowTables) Validate() error {
-	return nil
-}
-
 type ShowTopology struct {
 	*baseShow
 }
@@ -151,10 +139,6 @@ func (s ShowTopology) Mode() SQLType {
 
 func (s ShowTopology) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	return s.baseShow.Restore(flag, sb, args)
-}
-
-func (s ShowTopology) Validate() error {
-	return nil
 }
 
 type ShowOpenTables struct {
@@ -173,10 +157,6 @@ func (s ShowOpenTables) Restore(flag RestoreFlag, sb *strings.Builder, args *[]i
 	return nil
 }
 
-func (s ShowOpenTables) Validate() error {
-	return nil
-}
-
 const (
 	_ ShowCreateType = iota
 	ShowCreateTypeTable
@@ -187,25 +167,19 @@ const (
 	ShowCreateTypeView
 )
 
+var _showCreateTypes = [...]string{
+	ShowCreateTypeEvent:   "EVENT",
+	ShowCreateTypeTable:   "TABLE",
+	ShowCreateTypeFunc:    "FUNCTION",
+	ShowCreateTypeProc:    "PROCEDURE",
+	ShowCreateTypeTrigger: "TRIGGER",
+	ShowCreateTypeView:    "VIEW",
+}
+
 type ShowCreateType uint8
 
 func (s ShowCreateType) String() string {
-	switch s {
-	case ShowCreateTypeEvent:
-		return "EVENT"
-	case ShowCreateTypeTable:
-		return "TABLE"
-	case ShowCreateTypeFunc:
-		return "FUNCTION"
-	case ShowCreateTypeProc:
-		return "PROCEDURE"
-	case ShowCreateTypeTrigger:
-		return "TRIGGER"
-	case ShowCreateTypeView:
-		return "VIEW"
-	default:
-		return ""
-	}
+	return _showCreateTypes[s]
 }
 
 type ShowCreate struct {
@@ -228,10 +202,6 @@ func (s *ShowCreate) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int)
 	return nil
 }
 
-func (s *ShowCreate) Validate() error {
-	return nil
-}
-
 func (s *ShowCreate) Type() ShowCreateType {
 	return s.typ
 }
@@ -251,10 +221,6 @@ func (s *ShowCreate) Mode() SQLType {
 type ShowIndex struct {
 	TableName TableName
 	where     ExpressionNode
-}
-
-func (s *ShowIndex) Validate() error {
-	return nil
 }
 
 func (s *ShowIndex) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -347,10 +313,6 @@ func (sh *ShowColumns) Like() (string, bool) {
 	return "", false
 }
 
-func (sh *ShowColumns) Validate() error {
-	return nil
-}
-
 func (sh *ShowColumns) Table() TableName {
 	return sh.TableName
 }
@@ -388,10 +350,6 @@ func (sh *ShowColumns) TableFormat() string {
 type ShowVariables struct {
 	flag showColumnsFlag
 	like sql.NullString
-}
-
-func (s *ShowVariables) Validate() error {
-	return nil
 }
 
 func (s *ShowVariables) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {

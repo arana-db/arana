@@ -93,5 +93,4 @@ func (s *IntegrationSuite) TestDBTBLScene() {
 			}
 		}
 	}
-
 }

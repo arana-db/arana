@@ -49,17 +49,17 @@ func (u UnionType) String() string {
 }
 
 type UnionSelectStatement struct {
-	first   *SelectStatement
-	others  []*UnionStatementItem
-	orderBy OrderByNode
+	First               *SelectStatement
+	UnionStatementItems []*UnionStatementItem
+	OrderBy             OrderByNode
 }
 
 func (u *UnionSelectStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
-	if err := u.first.Restore(flag, sb, args); err != nil {
+	if err := u.First.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
-	for _, it := range u.others {
-		switch it.unionType {
+	for _, it := range u.UnionStatementItems {
+		switch it.Type {
 		case UnionTypeDistinct:
 			sb.WriteString(" UNION ")
 		case UnionTypeAll:
@@ -67,29 +67,15 @@ func (u *UnionSelectStatement) Restore(flag RestoreFlag, sb *strings.Builder, ar
 		default:
 			panic("unreachable")
 		}
-		if err := it.ss.Restore(flag, sb, args); err != nil {
+		if err := it.Stmt.Restore(flag, sb, args); err != nil {
 			return errors.WithStack(err)
 		}
 	}
 
-	if u.orderBy != nil {
+	if u.OrderBy != nil {
 		sb.WriteString(" ORDER BY ")
-		if err := u.orderBy.Restore(flag, sb, args); err != nil {
+		if err := u.OrderBy.Restore(flag, sb, args); err != nil {
 			return errors.WithStack(err)
-		}
-	}
-
-	return nil
-}
-
-func (u *UnionSelectStatement) Validate() error {
-	if err := u.first.Validate(); err != nil {
-		return err
-	}
-
-	for _, next := range u.others {
-		if err := next.SelectStatement().Validate(); err != nil {
-			return err
 		}
 	}
 
@@ -99,39 +85,19 @@ func (u *UnionSelectStatement) Validate() error {
 func (u *UnionSelectStatement) CntParams() int {
 	var cnt int
 
-	cnt += u.first.CntParams()
-	for _, it := range u.others {
-		cnt += it.ss.CntParams()
+	cnt += u.First.CntParams()
+	for _, it := range u.UnionStatementItems {
+		cnt += it.Stmt.CntParams()
 	}
 
 	return cnt
-}
-
-func (u *UnionSelectStatement) OrderBy() OrderByNode {
-	return u.orderBy
 }
 
 func (u *UnionSelectStatement) Mode() SQLType {
 	return SQLTypeUnion
 }
 
-func (u *UnionSelectStatement) First() *SelectStatement {
-	return u.first
-}
-
-func (u *UnionSelectStatement) UnionStatementItems() []*UnionStatementItem {
-	return u.others
-}
-
 type UnionStatementItem struct {
-	unionType UnionType
-	ss        *SelectStatement
-}
-
-func (u UnionStatementItem) Type() UnionType {
-	return u.unionType
-}
-
-func (u UnionStatementItem) SelectStatement() *SelectStatement {
-	return u.ss
+	Type UnionType
+	Stmt *SelectStatement
 }

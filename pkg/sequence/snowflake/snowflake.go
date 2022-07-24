@@ -20,11 +20,12 @@ package snowflake
 import (
 	"context"
 	"fmt"
-	"github.com/arana-db/arana/pkg/util/log"
-	"go.uber.org/zap"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/arana-db/arana/pkg/util/log"
+	"go.uber.org/zap"
 )
 
 import (

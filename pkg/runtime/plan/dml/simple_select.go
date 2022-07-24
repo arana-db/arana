@@ -196,8 +196,8 @@ func (s *SimpleQueryPlan) resetOrderBy(tgt *ast.SelectStatement, sb *strings.Bui
 	builder.WriteString("SELECT * FROM (")
 	builder.WriteString(sb.String())
 	builder.WriteString(") ")
-	if len(tgt.From[0].Alias()) > 0 {
-		builder.WriteString(tgt.From[0].Alias())
+	if len(tgt.From[0].Alias) > 0 {
+		builder.WriteString(tgt.From[0].Alias)
 	} else {
 		builder.WriteString(" T ")
 	}

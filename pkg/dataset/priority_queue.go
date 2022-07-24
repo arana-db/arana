@@ -132,9 +132,9 @@ func compareTo(a, b interface{}, desc bool) int {
 		return 1
 	}
 	// TODO Deal with case sensitive.
-	var (
-		result = 0
-	)
+
+	result := 0
+
 	switch a.(type) {
 	case string:
 		result = compareValue(fmt.Sprintf("%v", a), fmt.Sprintf("%v", b))

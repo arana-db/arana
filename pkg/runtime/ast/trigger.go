@@ -21,9 +21,7 @@ import (
 	"strings"
 )
 
-var (
-	_ Statement = (*DropTriggerStatement)(nil)
-)
+var _ Statement = (*DropTriggerStatement)(nil)
 
 type DropTriggerStatement struct {
 	IfExists bool
@@ -45,5 +43,3 @@ func (d DropTriggerStatement) Restore(flag RestoreFlag, sb *strings.Builder, arg
 	}
 	return d.Table.Restore(flag, sb, args)
 }
-
-func (d DropTriggerStatement) Validate() error { return nil }

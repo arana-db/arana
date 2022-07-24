@@ -24,7 +24,6 @@ import (
 )
 
 func FindSelfIP() (string, error) {
-
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
 		return "", err
@@ -65,5 +64,4 @@ func FindSelfIP() (string, error) {
 	}
 
 	return expectIP.String(), nil
-
 }

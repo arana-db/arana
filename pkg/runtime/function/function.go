@@ -184,9 +184,9 @@ func (c *calculator) build(node interface{}) (string, error) {
 func exprAtom2script(sb *strings.Builder, node ast.ExpressionAtom) error {
 	switch v := node.(type) {
 	case *ast.IntervalExpressionAtom:
-		atom, ok := v.Value().(*ast.AtomPredicateNode)
+		atom, ok := v.Value.(*ast.AtomPredicateNode)
 		if !ok {
-			return errors.Errorf("invalid expr %T for interval expression", v.Value())
+			return errors.Errorf("invalid expr %T for interval expression", v.Value)
 		}
 		if err := exprAtom2script(sb, atom.A); err != nil {
 			return errors.WithStack(err)
@@ -415,13 +415,13 @@ func handleCompareAtom(sb *strings.Builder, node ast.PredicateNode) error {
 }
 
 func handleArg(sb *strings.Builder, arg *ast.FunctionArg) error {
-	switch arg.Type() {
+	switch arg.Type {
 	case ast.FunctionArgColumn:
 		return ErrCannotEvalWithColumnName
 	case ast.FunctionArgConstant:
 		_ = arg.Restore(ast.RestoreDefault, sb, nil)
 	case ast.FunctionArgExpression:
-		pn := arg.Value().(*ast.PredicateExpressionNode).P
+		pn := arg.Value.(*ast.PredicateExpressionNode).P
 		switch p := pn.(type) {
 		case *ast.AtomPredicateNode:
 			next := p.A
@@ -453,15 +453,15 @@ func handleArg(sb *strings.Builder, arg *ast.FunctionArg) error {
 		}
 
 	case ast.FunctionArgFunction:
-		if err := function2script(sb, arg.Value().(*ast.Function)); err != nil {
+		if err := function2script(sb, arg.Value.(*ast.Function)); err != nil {
 			return err
 		}
 	case ast.FunctionArgCastFunction:
-		if err := castFunction2script(sb, arg.Value().(*ast.CastFunction)); err != nil {
+		if err := castFunction2script(sb, arg.Value.(*ast.CastFunction)); err != nil {
 			return err
 		}
 	case ast.FunctionArgCaseWhenElseFunction:
-		if err := caseWhenFunction2script(sb, arg.Value().(*ast.CaseWhenElseFunction)); err != nil {
+		if err := caseWhenFunction2script(sb, arg.Value.(*ast.CaseWhenElseFunction)); err != nil {
 			return err
 		}
 	}
