@@ -155,6 +155,19 @@ func Hints(ctx context.Context) []*hint.Hint {
 	return hints
 }
 
+// RouteHints returns the route hints.
+func RouteHints(ctx context.Context) []*hint.Hint {
+	var routehints []*hint.Hint
+	hints := Hints(ctx)
+	for _, h := range hints {
+		if h.Type != hint.TypeRoute {
+			continue
+		}
+		routehints = append(routehints, h)
+	}
+	return routehints
+}
+
 func hasFlag(ctx context.Context, flag cFlag) bool {
 	return getFlag(ctx)&flag != 0
 }
