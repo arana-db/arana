@@ -84,7 +84,7 @@ func (l *Listener) handleQuery(c *Conn, ctx *proto.Context) error {
 	)
 
 	if result, warn, err = l.executor.ExecutorComQuery(ctx); err != nil {
-		log.Errorf("executor com_query error %v: %v", ctx.ConnectionID, err)
+		log.Errorf("executor com_query error %v: %+v", ctx.ConnectionID, err)
 		if wErr := c.writeErrorPacketFromError(err); wErr != nil {
 			log.Errorf("Error writing query error to client %v: %v", ctx.ConnectionID, wErr)
 			return wErr
