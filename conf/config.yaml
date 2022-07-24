@@ -41,7 +41,7 @@ data:
       sql_max_limit: -1
       tenant: arana
       parameters:
-        maxAllowedPacket: 256M
+        max_allowed_packet: 256M
       groups:
         - name: employees_0000
           nodes:
@@ -81,7 +81,6 @@ data:
               database: employees_0002
               weight: r10w10
               parameters:
-                maxAllowedPacket: 256M
         - name: employees_0003
           nodes:
             - name: node3
@@ -92,7 +91,6 @@ data:
               database: employees_0003
               weight: r10w10
               parameters:
-                max_allowed_packet: 256M
   sharding_rule:
     tables:
       - name: employees.student
