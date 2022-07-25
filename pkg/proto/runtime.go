@@ -110,12 +110,4 @@ type (
 		// Rollback rollbacks current transaction.
 		Rollback(ctx context.Context) (Result, uint16, error)
 	}
-
-	// Sequence represents a global unique id generator.
-	Sequence interface {
-		// Acquire generates a next value in int64.
-		Acquire(ctx context.Context) (int64, error)
-		Reset() error
-		Update() error
-	}
 )

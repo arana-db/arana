@@ -33,14 +33,7 @@ import (
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/runtime/optimize"
 	"github.com/arana-db/arana/pkg/runtime/plan/dml"
-	"github.com/arana-db/arana/pkg/sequence"
 )
-
-var _sequenceManager proto.SequenceManager
-
-func init() {
-	_sequenceManager = sequence.NewSequenceManager()
-}
 
 func init() {
 	optimize.Register(ast.SQLTypeInsert, optimizeInsert)
@@ -154,7 +147,7 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 			}
 			newborn.SetValues(values)
 
-			if err := rewriteInsertStatement(ctx, vt, metadata, newborn); err != nil {
+			if err := rewriteInsertStatement(ctx, o, vt, metadata, newborn); err != nil {
 				return nil, errors.Wrap(err, "cannot rewrite insert statement")
 			}
 			ret.Put(db, newborn)
@@ -194,7 +187,7 @@ func getMetadata(ctx context.Context, vtab *rule.VTable) (*proto.TableMetadata, 
 	return metadata, nil
 }
 
-func rewriteInsertStatement(ctx context.Context, vtab *rule.VTable, metadata *proto.TableMetadata, stmt *ast.InsertStatement) error {
+func rewriteInsertStatement(ctx context.Context, o *optimize.Optimizer, vtab *rule.VTable, metadata *proto.TableMetadata, stmt *ast.InsertStatement) error {
 	if len(metadata.ColumnNames) == len(stmt.Columns()) {
 		// User had explicitly specified every value
 		return nil
@@ -208,10 +201,6 @@ func rewriteInsertStatement(ctx context.Context, vtab *rule.VTable, metadata *pr
 		}
 	}
 
-	if err := createSequenceIfAbsent(ctx, vtab, metadata); err != nil {
-		return err
-	}
-
 	pkColName := ""
 	for name, column := range columnsMetadata {
 		if column.PrimaryKey && column.Generated {
@@ -219,14 +208,19 @@ func rewriteInsertStatement(ctx context.Context, vtab *rule.VTable, metadata *pr
 			break
 		}
 	}
+
+	if err := createSequenceIfAbsent(ctx, vtab, metadata); err != nil {
+		return err
+	}
+
 	if len(pkColName) < 1 {
 		// There's no auto-generated primary key column
 		return nil
 	}
 
-	seqName := sequence.BuildAutoIncrementName(vtab.Name())
+	mgr := proto.LoadSequenceManager()
 
-	seq, err := _sequenceManager.GetSequence(ctx, seqName)
+	seq, err := mgr.GetSequence(ctx, rcontext.Tenant(ctx), rcontext.Schema(ctx), proto.BuildAutoIncrementName(vtab.Name()))
 	if err != nil {
 		return err
 	}
@@ -251,10 +245,10 @@ func rewriteInsertStatement(ctx context.Context, vtab *rule.VTable, metadata *pr
 }
 
 func createSequenceIfAbsent(ctx context.Context, vtab *rule.VTable, metadata *proto.TableMetadata) error {
-	seqName := sequence.BuildAutoIncrementName(vtab.Name())
+	seqName := proto.BuildAutoIncrementName(vtab.Name())
 
-	seq, err := _sequenceManager.GetSequence(ctx, seqName)
-	if err != nil && !errors.Is(err, sequence.ErrorNotFoundSequence) {
+	seq, err := proto.LoadSequenceManager().GetSequence(ctx, rcontext.Tenant(ctx), rcontext.Schema(ctx), seqName)
+	if err != nil && !errors.Is(err, proto.ErrorNotFoundSequence) {
 		return errors.WithStack(err)
 	}
 
@@ -273,13 +267,12 @@ func createSequenceIfAbsent(ctx context.Context, vtab *rule.VTable, metadata *pr
 				Option: autoIncr.Option,
 			}
 
-			if _, err := _sequenceManager.CreateSequence(ctx, c); err != nil {
+			if _, err := proto.LoadSequenceManager().CreateSequence(ctx, rcontext.Tenant(ctx), rcontext.Schema(ctx), c); err != nil {
 				return errors.WithStack(err)
 			}
 
 			break
 		}
 	}
-
 	return nil
 }

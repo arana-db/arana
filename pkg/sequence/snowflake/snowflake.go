@@ -28,8 +28,6 @@ import (
 import (
 	bsnowflake "github.com/bwmarrin/snowflake"
 
-	"github.com/pkg/errors"
-
 	"go.uber.org/zap"
 )
 
@@ -41,13 +39,15 @@ import (
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
-const SequencePluginName = "snowflake"
-
 func init() {
 	proto.RegisterSequence(SequencePluginName, func() proto.EnhancedSequence {
 		return &snowflakeSequence{}
 	})
 }
+
+const (
+	SequencePluginName = "snowflake"
+)
 
 const (
 	_initTableSql = `
@@ -63,22 +63,22 @@ const (
 	) ENGINE = InnoDB;
 	`
 
-	//_setWorkId 插入一条新的 work_id
+	//_setWorkId inserts new work_id
 	_setWorkId = `REPLACE INTO __arana_snowflake_sequence(work_id, node_id, table_name, renew_time) VALUE (?, ?, ?, now())`
 
-	//_selectSelfWorkIdWithXLock 查询下自己是否已经有一个 work-id 申请到了
+	//_selectSelfWorkIdWithXLock find self already has work-id
 	_selectSelfWorkIdWithXLock = `SELECT work_id FROM __arana_snowflake_sequence WHERE table_name = ? AND node_id = ? FOR UPDATE`
 
-	//_selectMaxWorkIdWithXLock 选出当前最大的 work_id
+	//_selectMaxWorkIdWithXLock select MAX(work_id) this table
 	_selectMaxWorkIdWithXLock = `SELECT MAX(work_id) FROM __arana_snowflake_sequence WHERE table_name = ? FOR UPDATE`
 
-	//_selectFreeWorkIdWithXLock 查询一个空闲的 workid，主要判断依据为 renew_time 超过 10 min 没有更新了，
+	//_selectFreeWorkIdWithXLock find one free work-id depend on renew_time over 10 min not update，
 	_selectFreeWorkIdWithXLock = `SELECT MAX(work_id) FROM __arana_snowflake_sequence WHERE table_name = ? AND renew_time < DATE_SUB(NOW(), INTERVAL 10 MINUTE) FOR UPDATE`
 
-	//_updateWorkIdOwner 更新 workid 对应的 node_id 信息，进行 workid 复用
+	//_updateWorkIdOwner update work-id relation node_id info and reuse work-id
 	_updateWorkIdOwner = `UPDATE __arana_snowflake_sequence SET node_id = ?, renew_time = now() WHERE table_name = ? AND work_id = ?`
 
-	//_keepaliveNode 对 node 做续约保活动作
+	//_keepaliveNode do keep alive for node
 	_keepaliveNode = `UPDATE __arana_snowflake_sequence SET renew_time=now() WHERE node_id = ?`
 )
 
@@ -105,12 +105,7 @@ type snowflakeSequence struct {
 
 // Start sequence and do some initialization operations
 func (seq *snowflakeSequence) Start(ctx context.Context, conf proto.SequenceConfig) error {
-	schema := rcontext.Schema(ctx)
-	rt, err := runtime.Load(schema)
-	if err != nil {
-		return errors.Wrapf(err, "snowflake: no runtime found for namespace '%s'", schema)
-	}
-
+	rt := ctx.Value(proto.RuntimeCtxKey{}).(runtime.Runtime)
 	ctx = rcontext.WithRead(rcontext.WithDirect(ctx))
 
 	if err := seq.initTableAndKeepalive(ctx, rt); err != nil {
@@ -119,7 +114,7 @@ func (seq *snowflakeSequence) Start(ctx context.Context, conf proto.SequenceConf
 
 	// get work-id
 	if err := seq.initWorkerID(ctx, rt, conf); err != nil {
-		return errors.WithStack(err)
+		return err
 	}
 
 	node, err := bsnowflake.NewNode(seq.workdId)
@@ -160,25 +155,25 @@ func (seq *snowflakeSequence) initTableAndKeepalive(ctx context.Context, rt runt
 func (seq *snowflakeSequence) initWorkerID(ctx context.Context, rt runtime.Runtime, conf proto.SequenceConfig) error {
 	tx, err := rt.Begin(ctx)
 	if err != nil {
-		return errors.WithStack(err)
+		return err
 	}
 
 	defer tx.Rollback(ctx)
 
 	workId, err := seq.findWorkID(ctx, tx, conf.Name)
 	if err != nil {
-		return errors.WithStack(err)
+		return err
 	}
 
 	ret, err := tx.Exec(ctx, "", _setWorkId, workId, _nodeId, conf.Name)
 	if err != nil {
-		return errors.WithStack(err)
+		return err
 	}
 
 	_, _ = ret.RowsAffected()
 
 	if _, _, err := tx.Commit(ctx); err != nil {
-		return errors.WithStack(err)
+		return err
 	}
 
 	seq.workdId = workId
@@ -194,7 +189,6 @@ func (seq *snowflakeSequence) Acquire(ctx context.Context) (int64, error) {
 
 	id := seq.idGenerate.Generate()
 
-	//无锁更新当前 sequence 的 id 信息
 	for {
 		cur := seq.CurrentVal()
 		if id.Int64() > cur {

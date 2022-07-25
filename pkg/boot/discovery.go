@@ -298,11 +298,9 @@ func (fp *discovery) GetTable(ctx context.Context, cluster, tableName string) (*
 	if !ok {
 		return nil, nil
 	}
-	var vt rule.VTable
-
-	vt.SetDefaultAutoIncrement()
 
 	var (
+		vt                 rule.VTable
 		topology           rule.Topology
 		dbFormat, tbFormat string
 		dbBegin, tbBegin   int
@@ -427,6 +425,12 @@ func (fp *discovery) GetTable(ctx context.Context, cluster, tableName string) (*
 
 	if table.AllowFullScan {
 		vt.SetAllowFullScan(true)
+	}
+	if table.Sequence != nil {
+		vt.SetAutoIncrement(&rule.AutoIncrement{
+			Type:   table.Sequence.Type,
+			Option: table.Sequence.Option,
+		})
 	}
 
 	// TODO: process attributes
