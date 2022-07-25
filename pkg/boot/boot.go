@@ -29,6 +29,7 @@ import (
 	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime"
+	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/runtime/namespace"
 	_ "github.com/arana-db/arana/pkg/schema"
 	"github.com/arana-db/arana/pkg/security"
@@ -54,6 +55,9 @@ func Boot(ctx context.Context, provider Discovery) error {
 		if c, err = provider.GetCluster(ctx, cluster); err != nil {
 			continue
 		}
+
+		ctx = rcontext.WithTenant(ctx, c.Tenant)
+
 		if ns, err = buildNamespace(ctx, provider, cluster); err != nil {
 			log.Errorf("build namespace %s failed: %v", cluster, err)
 			continue
@@ -143,5 +147,5 @@ func buildNamespace(ctx context.Context, provider Discovery, clusterName string)
 	}
 	initCmds = append(initCmds, namespace.UpdateRule(&ru))
 
-	return namespace.New(clusterName, initCmds...), nil
+	return namespace.New(clusterName, initCmds...)
 }
