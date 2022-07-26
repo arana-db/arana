@@ -613,25 +613,34 @@ func (s *IntegrationSuite) TestHintsRoute() {
 		t  = s.T()
 	)
 	type tt struct {
-		sql       string
-		expectLen int
+		sqlHint string
+		sql     string
+		same    bool
 	}
 
 	for _, it := range []tt{
 		//use route hint
-		{"/*A! route(employees_0000=student_0000,employees_0000=student_0007) */ SELECT * FROM student", 6},
+		{"/*A! route(employees_0000.student_0000,employees_0000.student_0007) */ SELECT * FROM student",
+			"SELECT * FROM student", false},
 		//not use route hint, one shard
-		{"/*A! route(employees_0000=student_0000,employees_0000=student_0007) */ SELECT * FROM student where uid=1", 1},
+		{"/*A! route(employees_0000.student_0000,employees_0000.student_0007) */ SELECT * FROM student where uid=1",
+			"SELECT * FROM student where uid=1", true},
 		//not use route hint, fullScan
-		{"/*A! route(employees_0000=student_0000,employees_0000=student_0007) */ SELECT * FROM student  where uid>=1", 98},
+		{"/*A! route(employees_0000.student_0000,employees_0000.student_0007) */ SELECT * FROM student  where uid>=1",
+			"SELECT * FROM student  where uid>=1", true},
 	} {
 		t.Run(it.sql, func(t *testing.T) {
 			// select from logical table
-			rows, err := db.Query(it.sql)
+			rows, err := db.Query(it.sqlHint)
 			assert.NoError(t, err, "should query from sharding table successfully")
 			defer rows.Close()
 			data, _ := utils.PrintTable(rows)
-			assert.Equal(t, it.expectLen, len(data))
+
+			rows, err = db.Query(it.sql)
+			assert.NoError(t, err, "should query from sharding table successfully")
+			defer rows.Close()
+			data2, _ := utils.PrintTable(rows)
+			assert.Equal(t, it.same, len(data) == len(data2))
 		})
 	}
 

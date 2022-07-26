@@ -93,11 +93,12 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		hintRoute := make(map[string][]string)
 		for _, h := range hints {
 			for _, i := range h.Inputs {
-				if _, ok := hintRoute[i.K]; !ok {
-					hintRoute[i.K] = []string{i.V}
-				} else {
-					hintRoute[i.K] = append(hintRoute[i.K], i.V)
+				tb := strings.Split(i.V, ".")
+				if len(tb) != 2 {
+					return nil, errors.New("route hint format error")
 				}
+
+				hintRoute[tb[0]] = append(hintRoute[tb[0]], tb[1])
 			}
 		}
 		shards = hintRoute
