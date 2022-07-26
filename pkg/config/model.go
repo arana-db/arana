@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -42,6 +43,10 @@ import (
 )
 
 type (
+	DataRevision interface {
+		Revision() string
+	}
+
 	// Configuration represents an Arana configuration.
 	Configuration struct {
 		Kind       string                 `yaml:"kind" json:"kind,omitempty"`
@@ -356,4 +361,130 @@ func GetConnPropIdleTime(connProps map[string]interface{}, defaultValue time.Dur
 	}
 
 	return time.Duration(n) * time.Second
+}
+
+type (
+	Clusters []*DataSourceCluster
+	Tenants  []*Tenant
+	Nodes    []*Node
+	Groups   []*Group
+	Users    []*User
+	Rules    []*Rule
+)
+
+func (r Rules) Compare(o Rules) bool {
+	if len(r) == 0 && len(o) == 0 {
+		return true
+	}
+
+	if len(r) != len(o) {
+		return false
+	}
+
+	newT := make([]*Rule, 0, 4)
+	updateT := make([]*Rule, 0, 4)
+	deleteT := make([]*Rule, 0, 4)
+
+	newTmp := map[string]*Rule{}
+	oldTmp := map[string]*Rule{}
+
+	for i := range r {
+		newTmp[r[i].Column] = r[i]
+	}
+	for i := range o {
+		oldTmp[o[i].Column] = o[i]
+	}
+
+	for i := range r {
+		if _, ok := oldTmp[o[i].Column]; !ok {
+			newT = append(newT, o[i])
+		}
+	}
+
+	for i := range o {
+		val, ok := newTmp[o[i].Column]
+		if !ok {
+			deleteT = append(deleteT, o[i])
+			continue
+		}
+
+		if !reflect.DeepEqual(val, o[i]) {
+			updateT = append(updateT, val)
+			continue
+		}
+	}
+
+	return len(newT) == 0 && len(updateT) == 0 && len(deleteT) == 0
+}
+
+func (t *Table) Compare(o *Table) bool {
+	if len(t.DbRules) != len(o.DbRules) {
+		return false
+	}
+
+	if len(t.TblRules) != len(o.TblRules) {
+		return false
+	}
+
+	if !Rules(t.DbRules).Compare(o.DbRules) {
+		return false
+	}
+	if !Rules(t.TblRules).Compare(o.TblRules) {
+		return false
+	}
+
+	if !reflect.DeepEqual(t.Topology, o.Topology) || !reflect.DeepEqual(t.ShadowTopology, o.ShadowTopology) {
+		return false
+	}
+
+	if t.AllowFullScan == o.AllowFullScan {
+		return false
+	}
+
+	if !reflect.DeepEqual(t.Attributes, o.Attributes) {
+		return false
+	}
+
+	return true
+}
+
+func (s *ShardingRule) Diff(old *ShardingRule) *ShardingRuleEvent {
+	newT := make([]*Table, 0, 4)
+	updateT := make([]*Table, 0, 4)
+	deleteT := make([]*Table, 0, 4)
+
+	newTmp := map[string]*Table{}
+	oldTmp := map[string]*Table{}
+
+	for i := range s.Tables {
+		newTmp[s.Tables[i].Name] = s.Tables[i]
+	}
+	for i := range old.Tables {
+		oldTmp[old.Tables[i].Name] = old.Tables[i]
+	}
+
+	for i := range s.Tables {
+		if _, ok := oldTmp[s.Tables[i].Name]; !ok {
+			newT = append(newT, s.Tables[i])
+		}
+	}
+
+	for i := range old.Tables {
+		val, ok := newTmp[old.Tables[i].Name]
+		if !ok {
+			deleteT = append(deleteT, old.Tables[i])
+			continue
+		}
+
+		if !reflect.DeepEqual(val, old.Tables[i]) {
+			updateT = append(updateT, val)
+			continue
+		}
+	}
+
+	return &ShardingRuleEvent{
+		AddTables:    newT,
+		UpdateTables: updateT,
+		DeleteTables: deleteT,
+	}
 }
