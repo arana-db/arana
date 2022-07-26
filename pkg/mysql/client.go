@@ -28,13 +28,11 @@ import (
 	"math/big"
 	"net"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 )
 
 import (
-	"github.com/arana-db/arana/pkg/constants"
 	"github.com/arana-db/arana/pkg/constants/mysql"
 	err2 "github.com/arana-db/arana/pkg/mysql/errors"
 	"github.com/arana-db/arana/pkg/proto"
@@ -54,7 +52,6 @@ type Config struct {
 	Addr             string            // Network address (requires Net)
 	DBName           string            // Database name
 	Params           map[string]string // Connection parameters
-	ParamsStatus     ParamsStatus      // Whether user set
 	Collation        string            // Connection collation
 	Loc              *time.Location    // Location for time.Time values
 	MaxAllowedPacket int               // Max packet size allowed
@@ -426,7 +423,6 @@ func parseDSNParams(cfg *Config, params string) (err error) {
 				return err
 			}
 			cfg.MaxAllowedPacket = int(byteSize)
-			cfg.ParamsStatus.SetMaxAllowedPacketUserConf()
 		default:
 			// lazy init
 			if cfg.Params == nil {
@@ -473,77 +469,7 @@ func (c *Connector) NewBackendConnection(ctx context.Context) (pools.Resource, e
 	if err := conn.Connect(ctx); err != nil {
 		return conn, err
 	}
-	if err := conn.Ping(); err != nil {
-		return conn, err
-	}
-	// If it is set by the user, you do not need to search for it in the atomic library.
-	if c.conf.ParamsStatus.MaxAllowedPacketUserConf() {
-		return conn, nil
-	}
-	if err := c.handleParams(conn); err != nil {
-		log.Errorf("conn:%s iter VARIABLES data set error:%v", conn.c.ConnectionID, err)
-	}
-	return conn, nil
-}
-
-func (c *Connector) getVariables(conn *BackendConnection) (proto.Dataset, error) {
-	// If there are other configurations, modify them.
-	if err := conn.WriteComQuery(fmt.Sprintf(constants.SQLShowVariables, constants.VariableNameMaxAllowedPacket)); err != nil {
-		log.Errorf("conn:%s get VARIABLES WriteComQuery error:%v", conn.c.ConnectionID, err)
-		return nil, err
-	}
-	res := conn.ReadQueryRow()
-	res.setTextProtocol()
-	res.setWantFields(true)
-
-	ds, err := res.Dataset()
-	if err != nil {
-		log.Errorf("conn:%s get VARIABLES data set error:%v", conn.c.ConnectionID, err)
-		return nil, err
-	}
-	return ds, nil
-}
-
-func (c *Connector) handleParams(conn *BackendConnection) error {
-	ds, err := c.getVariables(conn)
-	if err != nil {
-		return err
-	}
-	fields, err := ds.Fields()
-	if err != nil {
-		log.Errorf("conn:%s get VARIABLES get fields error:%v", conn.c.ConnectionID, err)
-		return err
-	}
-	for {
-		row, err := ds.Next()
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			log.Errorf("conn:%s get VARIABLES data set next error:%v", conn.c.ConnectionID, err)
-			return err
-		}
-
-		cells := make([]proto.Value, len(fields))
-		err = row.Scan(cells)
-		if err != nil {
-			log.Errorf("conn:%s get VARIABLES MaxAllowedPacket error:%v", conn.c.ConnectionID, err)
-			return err
-		}
-
-		variableName := cells[0]
-		variableVal := cells[1]
-		switch variableName {
-		case constants.VariableNameMaxAllowedPacket:
-			mVal, err := strconv.Atoi(variableVal.(string))
-			if err != nil {
-				log.Errorf("conn:%s get VARIABLES MaxAllowedPacket error:%v", conn.c.ConnectionID, err)
-				return err
-			}
-			c.conf.MaxAllowedPacket = mVal
-		}
-	}
-	return nil
+	return conn, conn.Ping()
 }
 
 type BackendConnection struct {
@@ -1393,15 +1319,4 @@ func (conn *BackendConnection) Ping() error {
 		return ParseErrorPacket(data)
 	}
 	return fmt.Errorf("unexpected packet type: %d", data[0])
-}
-
-// ParamsStatus record whether the user is configured
-type ParamsStatus uint32
-
-func (p *ParamsStatus) SetMaxAllowedPacketUserConf() {
-	*p |= ParamsStatus(UserMaxAllowedPacket)
-}
-
-func (p *ParamsStatus) MaxAllowedPacketUserConf() bool {
-	return *p&ParamsStatus(UserMaxAllowedPacket) == 1
 }
