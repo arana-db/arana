@@ -46,7 +46,7 @@ func TestSuite(t *testing.T) {
 		WithMySQLDatabase("employees"),
 		WithConfig("../integration_test/config/db_tbl/config.yaml"),
 		WithScriptPath("../scripts"),
-		//WithDevMode(), // NOTICE: UNCOMMENT IF YOU WANT TO DEBUG LOCAL ARANA SERVER!!!
+		// WithDevMode(), // NOTICE: UNCOMMENT IF YOU WANT TO DEBUG LOCAL ARANA SERVER!!!
 	)
 	suite.Run(t, &IntegrationSuite{su})
 }
@@ -668,26 +668,41 @@ func (s *IntegrationSuite) TestInsertAutoIncrement() {
 		t  = s.T()
 	)
 
-	result, err := db.Exec(
-		`INSERT INTO student(uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?)`,
-		time.Now().Unix(),
-		100,
-		"auto_increment",
-		"auto_increment",
-		1,
-		2022,
-	)
-	assert.NoErrorf(t, err, "insert row error: %+v", err)
-	affected, err := result.RowsAffected()
-	assert.NoErrorf(t, err, "insert row error: %+v", err)
-	assert.True(t, affected == 1)
+	defer func() {
+		if _, err := db.Exec("DELETE FROM student"); err != nil {
+			t.Fatal(err)
+		}
+	}()
 
-	lastId, err := result.LastInsertId()
-	assert.NoErrorf(t, err, "insert row error: %+v", err)
-	assert.True(t, lastId != 0, fmt.Sprintf("LastInsertId : %d", lastId))
-	t.Log("LastInsertId", lastId)
+	odd := 0
+	even := 0
 
-	if _, err := db.Exec("DELETE FROM student"); err != nil {
-		t.Fatal(err)
+	for i := 0; i < 1000; i++ {
+		result, err := db.Exec(
+			`INSERT INTO student(uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?)`,
+			100+i,
+			rand2.Int31n(100),
+			fmt.Sprintf("auto_increment_%d", i),
+			fmt.Sprintf("auto_increment_%d", i),
+			1,
+			2022+i,
+		)
+		assert.NoErrorf(t, err, "insert row error: %+v", err)
+		affected, err := result.RowsAffected()
+		assert.NoErrorf(t, err, "insert row error: %+v", err)
+		assert.True(t, affected == 1)
+
+		lastId, err := result.LastInsertId()
+		assert.NoErrorf(t, err, "insert row error: %+v", err)
+		assert.True(t, lastId != 0, fmt.Sprintf("LastInsertId : %d", lastId))
+		t.Log("LastInsertId", lastId)
+
+		if lastId%2 == 0 {
+			even++
+		} else {
+			odd++
+		}
+
+		assert.False(t, odd == 0, "sequence val all even number")
 	}
 }
