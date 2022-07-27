@@ -629,6 +629,40 @@ func (s *IntegrationSuite) TestHints() {
 
 }
 
+func (s *IntegrationSuite) TestShowStatus() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql     string
+		expectF func(t *testing.T, data [][]string) bool
+	}
+
+	for _, it := range []tt{
+		{"SHOW STATUS", func(t *testing.T, data [][]string) bool {
+			t.Logf("%+v", data)
+			return len(data) > 0
+		}},
+		{"SHOW STATUS LIKE 'Key%';", func(t *testing.T, data [][]string) bool {
+			t.Logf("%+v", data)
+			return len(data) >= 5
+		}},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			// show table status
+			rows, err := db.Query(it.sql)
+			assert.NoError(t, err, "should query status successfully")
+			defer rows.Close()
+			data, _ := utils.PrintTable(rows)
+			assert.True(t, it.expectF(t, data))
+		})
+	}
+
+}
+
+
 func (s *IntegrationSuite) TestInsertAutoIncrement() {
 	var (
 		db = s.DB()
@@ -673,3 +707,4 @@ func (s *IntegrationSuite) TestInsertAutoIncrement() {
 		assert.False(t, odd == 0, "sequence val all even number")
 	}
 }
+

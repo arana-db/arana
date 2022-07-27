@@ -671,6 +671,12 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 			ret.like.String = like
 		}
 		return ret
+	case ast.ShowStatus:
+		ret := &ShowStatus{
+			baseShow: toBaseShow(),
+			global:   node.GlobalScope,
+		}
+		return ret
 	default:
 		panic(fmt.Sprintf("unimplement: show type %v!", node.Tp))
 	}

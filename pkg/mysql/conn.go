@@ -833,7 +833,7 @@ func ParseErrorPacket(data []byte) error {
 		return err2.NewSQLError(mysql.CRUnknownError, mysql.SSUnknownSQLState, "invalid error packet sqlState: %v", data)
 	}
 
-	// Human readable error message is the rest.
+	// Human-readable error message is the rest.
 	msg := string(data[pos:])
 
 	return err2.NewSQLError(int(code), string(sqlState), "%v", msg)

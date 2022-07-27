@@ -41,6 +41,10 @@ import (
 	"github.com/arana-db/arana/third_party/pools"
 )
 
+const (
+	UserMaxAllowedPacket uint32 = 1 << iota
+)
+
 type Config struct {
 	User             string            // Username
 	Passwd           string            // Password (requires User)
@@ -238,7 +242,7 @@ func ParseDSN(dsn string) (cfg *Config, err error) {
 }
 
 // parseDSNParams parses the DSN "query string"
-// Values must be url.QueryEscape'ed
+// Values must be url.QueryEscaped
 func parseDSNParams(cfg *Config, params string) (err error) {
 	for _, v := range strings.Split(params, "&") {
 		param := strings.SplitN(v, "=", 2)
@@ -462,8 +466,10 @@ func NewConnector(config json.RawMessage) (*Connector, error) {
 
 func (c *Connector) NewBackendConnection(ctx context.Context) (pools.Resource, error) {
 	conn := &BackendConnection{conf: c.conf}
-	err := conn.Connect(ctx)
-	return conn, err
+	if err := conn.Connect(ctx); err != nil {
+		return conn, err
+	}
+	return conn, conn.Ping()
 }
 
 type BackendConnection struct {
@@ -510,11 +516,11 @@ func (conn *BackendConnection) Connect(ctx context.Context) error {
 	// SetNoDelay controls whether the operating system should delay packet transmission
 	// in hopes of sending fewer packets (Nagle's algorithm).
 	// The default is true (no delay),
-	// meaning that Content is sent as soon as possible after a Write.
-	if err := tcpConn.SetNoDelay(true); err != nil {
+	// meaning that Content is sent as soon as possible after Write.
+	if err = tcpConn.SetNoDelay(true); err != nil {
 		return err
 	}
-	if err := tcpConn.SetKeepAlive(true); err != nil {
+	if err = tcpConn.SetKeepAlive(true); err != nil {
 		return err
 	}
 
@@ -1164,7 +1170,7 @@ func (conn *BackendConnection) ReadColumnDefinitions() ([]proto.Field, error) {
 }
 
 // ExecuteWithWarningCountIterRow is for fetching results and a warning count
-// Note: In a future iteration this should be abolished and merged into the Execute API.
+// Note: In a future iteration this should be abolished and merged into Execute API.
 func (conn *BackendConnection) ExecuteWithWarningCountIterRow(query string) (result proto.Result, err error) {
 	defer func() {
 		if err != nil {
@@ -1190,7 +1196,7 @@ func (conn *BackendConnection) ExecuteWithWarningCountIterRow(query string) (res
 
 // ExecuteWithWarningCount is for fetching results and a warning count
 // Note: In a future iteration this should be abolished and merged into the
-// Execute API.
+// Executed API.
 func (conn *BackendConnection) ExecuteWithWarningCount(query string, wantFields bool) (result proto.Result, err error) {
 	defer func() {
 		if err != nil {
@@ -1281,4 +1287,36 @@ func (conn *BackendConnection) Close() {
 
 func (conn *BackendConnection) GetDatabaseConn() *Conn {
 	return conn.c
+}
+
+// Ping implements mysql ping command.
+func (conn *BackendConnection) Ping() error {
+	c := conn.GetDatabaseConn()
+	// This is a new command, need to reset the sequence.
+	c.sequence = 0
+	if c.currentEphemeralPolicy != ephemeralUnused {
+		panic("startEphemeralPacketWithHeader cannot be used while a packet is already started.")
+	}
+
+	c.currentEphemeralPolicy = ephemeralWrite
+	// get buffer from pool, or it'll be allocated if length is too big
+	c.currentEphemeralBuffer = bufPool.Get(1)
+
+	(*c.currentEphemeralBuffer)[0] = mysql.ComPing
+
+	if err := c.writeEphemeralPacket(); err != nil {
+		return err2.NewSQLError(mysql.CRServerGone, mysql.SSUnknownSQLState, "%v", err)
+	}
+	data, err := c.readEphemeralPacket()
+	if err != nil {
+		return err2.NewSQLError(mysql.CRServerLost, mysql.SSUnknownSQLState, "%v", err)
+	}
+	defer c.recycleReadPacket()
+	switch data[0] {
+	case mysql.OKPacket:
+		return nil
+	case mysql.ErrPacket:
+		return ParseErrorPacket(data)
+	}
+	return fmt.Errorf("unexpected packet type: %d", data[0])
 }
