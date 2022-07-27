@@ -380,7 +380,6 @@ func (s *IntegrationSuite) TestShardingAgg() {
 
 	// insert into logical table
 	for i := 1; i <= total; i++ {
-
 		var (
 			result sql.Result
 			err    error
@@ -407,7 +406,6 @@ func (s *IntegrationSuite) TestShardingAgg() {
 				2022,
 			)
 		}
-
 		assert.NoErrorf(t, err, "insert row error: %v", err)
 		affected, err := result.RowsAffected()
 		assert.NoErrorf(t, err, "insert row error: %v", err)
@@ -443,7 +441,8 @@ func (s *IntegrationSuite) TestShardingAgg() {
 	})
 
 	result, err := db.Exec(
-		`INSERT IGNORE INTO student(uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?)`,
+		`INSERT IGNORE INTO student(id,uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?,?)`,
+		time.Now().UnixNano(),
 		9527,
 		100,
 		"jason",
@@ -624,6 +623,39 @@ func (s *IntegrationSuite) TestHints() {
 			defer rows.Close()
 			data, _ := utils.PrintTable(rows)
 			assert.Equal(t, it.expectLen, len(data))
+		})
+	}
+
+}
+
+func (s *IntegrationSuite) TestShowStatus() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql     string
+		expectF func(t *testing.T, data [][]string) bool
+	}
+
+	for _, it := range []tt{
+		{"SHOW STATUS", func(t *testing.T, data [][]string) bool {
+			t.Logf("%+v", data)
+			return len(data) > 0
+		}},
+		{"SHOW STATUS LIKE 'Key%';", func(t *testing.T, data [][]string) bool {
+			t.Logf("%+v", data)
+			return len(data) >= 5
+		}},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			// show table status
+			rows, err := db.Query(it.sql)
+			assert.NoError(t, err, "should query status successfully")
+			defer rows.Close()
+			data, _ := utils.PrintTable(rows)
+			assert.True(t, it.expectF(t, data))
 		})
 	}
 

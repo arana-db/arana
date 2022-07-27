@@ -402,3 +402,34 @@ func (s *ShowVariables) CntParams() int {
 func (s *ShowVariables) Mode() SQLType {
 	return SQLTypeShowVariables
 }
+
+type ShowStatus struct {
+	*baseShow
+	flag   showColumnsFlag
+	global bool
+}
+
+func (s *ShowStatus) Validate() error {
+	return nil
+}
+
+func (s *ShowStatus) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	sb.WriteString("SHOW ")
+
+	if s.global {
+		sb.WriteString(" GLOBAL ")
+	} else {
+		sb.WriteString(" SESSION ")
+	}
+	sb.WriteString(" STATUS ")
+
+	if err := s.baseShow.Restore(flag, sb, args); err != nil {
+		return errors.WithStack(err)
+	}
+
+	return nil
+}
+
+func (s *ShowStatus) Mode() SQLType {
+	return SQLTypeShowStatus
+}
