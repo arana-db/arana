@@ -89,40 +89,54 @@ func Boot(ctx context.Context, provider Discovery) error {
 	return nil
 }
 
-func buildNamespace(ctx context.Context, provider Discovery, cluster string) (*namespace.Namespace, error) {
+func buildNamespace(ctx context.Context, provider Discovery, clusterName string) (*namespace.Namespace, error) {
 	var (
-		groups []string
-		err    error
+		cluster *config.DataSourceCluster
+		groups  []string
+		err     error
 	)
 
-	if groups, err = provider.ListGroups(ctx, cluster); err != nil {
+	cluster, err = provider.GetDataSourceCluster(ctx, clusterName)
+	if err != nil {
+		return nil, err
+	}
+	parameters := config.ParametersMap{}
+	if cluster != nil {
+		parameters = cluster.Parameters
+	}
+
+	if groups, err = provider.ListGroups(ctx, clusterName); err != nil {
 		return nil, err
 	}
 
 	var initCmds []namespace.Command
 	for _, group := range groups {
 		var nodes []string
-		if nodes, err = provider.ListNodes(ctx, cluster, group); err != nil {
+		if nodes, err = provider.ListNodes(ctx, clusterName, group); err != nil {
 			return nil, err
 		}
 		for _, it := range nodes {
 			var node *config.Node
-			if node, err = provider.GetNode(ctx, cluster, group, it); err != nil {
+			if node, err = provider.GetNode(ctx, clusterName, group, it); err != nil {
 				return nil, errors.WithStack(err)
 			}
+			if node.Parameters == nil {
+				node.Parameters = config.ParametersMap{}
+			}
+			node.Parameters.Merge(parameters)
 			initCmds = append(initCmds, namespace.UpsertDB(group, runtime.NewAtomDB(node)))
 		}
 	}
 
 	var tables []string
-	if tables, err = provider.ListTables(ctx, cluster); err != nil {
+	if tables, err = provider.ListTables(ctx, clusterName); err != nil {
 		return nil, errors.WithStack(err)
 	}
 
 	var ru rule.Rule
 	for _, table := range tables {
 		var vt *rule.VTable
-		if vt, err = provider.GetTable(ctx, cluster, table); err != nil {
+		if vt, err = provider.GetTable(ctx, clusterName, table); err != nil {
 			return nil, err
 		}
 		if vt == nil {
@@ -133,5 +147,5 @@ func buildNamespace(ctx context.Context, provider Discovery, cluster string) (*n
 	}
 	initCmds = append(initCmds, namespace.UpdateRule(&ru))
 
-	return namespace.New(cluster, initCmds...)
+	return namespace.New(clusterName, initCmds...)
 }

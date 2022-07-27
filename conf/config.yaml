@@ -40,6 +40,8 @@ data:
       type: mysql
       sql_max_limit: -1
       tenant: arana
+      parameters:
+        max_allowed_packet: 256M
       groups:
         - name: employees_0000
           nodes:
@@ -51,7 +53,6 @@ data:
               database: employees_0000
               weight: r10w10
               parameters:
-                maxAllowedPacket: 256M
             - name: node0_r_0
               host: arana-mysql
               port: 3306
@@ -60,7 +61,6 @@ data:
               database: employees_0000_r
               weight: r0w0
               parameters:
-                maxAllowedPacket: 256M
         - name: employees_0001
           nodes:
             - name: node1
@@ -71,7 +71,6 @@ data:
               database: employees_0001
               weight: r10w10
               parameters:
-                maxAllowedPacket: 256M
         - name: employees_0002
           nodes:
             - name: node2
@@ -82,7 +81,6 @@ data:
               database: employees_0002
               weight: r10w10
               parameters:
-                maxAllowedPacket: 256M
         - name: employees_0003
           nodes:
             - name: node3
@@ -93,7 +91,6 @@ data:
               database: employees_0003
               weight: r10w10
               parameters:
-                maxAllowedPacket: 256M
   sharding_rule:
     tables:
       - name: employees.student

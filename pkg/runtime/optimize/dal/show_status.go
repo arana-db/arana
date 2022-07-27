@@ -13,17 +13,31 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
-package constants
+package dal
 
-const (
-	ConfigPathKey       = "config"
-	ImportConfigPathKey = "source"
+import (
+	"context"
 )
 
-const (
-	SQLShowVariables = "SHOW VARIABLES WHERE Variable_name = '%s'"
-
-	VariableNameMaxAllowedPacket = "max_allowed_packet"
+import (
+	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/runtime/optimize"
+	"github.com/arana-db/arana/pkg/runtime/plan/dal"
 )
+
+func init() {
+	optimize.Register(ast.SQLTypeShowStatus, optimizeShowStatus)
+}
+
+func optimizeShowStatus(_ context.Context, o *optimize.Optimizer) (proto.Plan, error) {
+	stmt := o.Stmt.(*ast.ShowStatus)
+
+	ret := dal.NewShowStatusPlan(stmt)
+	ret.BindArgs(o.Args)
+
+	return ret, nil
+}
