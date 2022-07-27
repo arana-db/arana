@@ -706,4 +706,3 @@ func (s *IntegrationSuite) TestInsertAutoIncrement() {
 		assert.False(t, odd == 0, "sequence val all even number")
 	}
 }
-
