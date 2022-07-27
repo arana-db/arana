@@ -37,15 +37,13 @@ import (
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
+const SequencePluginName = "snowflake"
+
 func init() {
 	proto.RegisterSequence(SequencePluginName, func() proto.EnhancedSequence {
 		return &snowflakeSequence{}
 	})
 }
-
-const (
-	SequencePluginName = "snowflake"
-)
 
 const (
 	_initTableSql = `

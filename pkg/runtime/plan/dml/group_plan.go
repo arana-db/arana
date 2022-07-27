@@ -35,9 +35,11 @@ import (
 // GroupPlan TODO now only support stmt which group by items equal with order by items, such as
 // `select uid, max(score) from student group by uid order by uid`
 type GroupPlan struct {
-	Plan         proto.Plan
-	AggItems     map[int]func() merge.Aggregator
-	OrderByItems []dataset.OrderByItem
+	Plan       proto.Plan
+	AggItems   map[int]func() merge.Aggregator
+	GroupItems []dataset.OrderByItem
+
+	OriginColumnCount int
 }
 
 func (g *GroupPlan) Type() proto.PlanType {
@@ -60,12 +62,12 @@ func (g *GroupPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result,
 	}
 
 	return resultx.New(resultx.WithDataset(dataset.Pipe(ds, dataset.GroupReduce(
-		g.OrderByItems,
+		g.GroupItems,
 		func(fields []proto.Field) []proto.Field {
-			return fields
+			return fields[0:g.OriginColumnCount]
 		},
 		func() dataset.Reducer {
-			return dataset.NewGroupReducer(g.AggItems, fields)
+			return dataset.NewGroupReducer(g.AggItems, fields, g.OriginColumnCount)
 		},
 	)))), nil
 }
