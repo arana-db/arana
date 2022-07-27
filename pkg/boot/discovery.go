@@ -74,40 +74,51 @@ type Cluster struct {
 	Type   config.DataSourceType
 }
 
-type Discovery interface {
-	// Init init discovery with context
-	Init(ctx context.Context) error
+type ConfigProvider interface {
 	// ListTenants list tenants name
 	ListTenants(ctx context.Context) ([]string, error)
+
 	// GetTenant returns the tenant info
 	GetTenant(ctx context.Context, tenant string) (*config.Tenant, error)
 
-	// ListListeners lists the listener names
-	ListListeners(ctx context.Context) ([]*config.Listener, error)
-	// ListFilters list the filter names
-	ListFilters(ctx context.Context) ([]*config.Filter, error)
-
 	// ListClusters lists the cluster names.
 	ListClusters(ctx context.Context) ([]string, error)
-	// GetClusterObject returns the dataSourceCluster object
+
+	// GetDataSourceCluster returns the dataSourceCluster object
 	GetDataSourceCluster(ctx context.Context, cluster string) (*config.DataSourceCluster, error)
+
 	// GetCluster returns the cluster info
 	GetCluster(ctx context.Context, cluster string) (*Cluster, error)
+
 	// ListGroups lists the group names.
 	ListGroups(ctx context.Context, cluster string) ([]string, error)
 
 	// ListNodes lists the node names.
 	ListNodes(ctx context.Context, cluster, group string) ([]string, error)
+
 	// GetNode returns the node info.
 	GetNode(ctx context.Context, cluster, group, node string) (*config.Node, error)
 
 	// ListTables lists the table names.
 	ListTables(ctx context.Context, cluster string) ([]string, error)
+
 	// GetTable returns the table info.
 	GetTable(ctx context.Context, cluster, table string) (*rule.VTable, error)
 
-	// GetConfigCenter
+	// GetConfigCenter returns the config center.
 	GetConfigCenter() *config.Center
+}
+
+type Discovery interface {
+	ConfigProvider
+	// ListListeners lists the listener names
+	ListListeners(ctx context.Context) ([]*config.Listener, error)
+
+	// ListFilters list the filter names
+	ListFilters(ctx context.Context) ([]*config.Filter, error)
+
+	// Init initializes discovery with context
+	Init(ctx context.Context) error
 }
 
 type discovery struct {
@@ -598,7 +609,7 @@ func parseTable(input string) (db, tbl string, err error) {
 	return
 }
 
-func NewProvider(path string) Discovery {
+func NewDiscovery(path string) Discovery {
 	return &discovery{
 		path: path,
 	}
