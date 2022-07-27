@@ -26,8 +26,6 @@ import (
 )
 
 import (
-	bsnowflake "github.com/bwmarrin/snowflake"
-
 	"go.uber.org/zap"
 )
 
@@ -90,16 +88,25 @@ var (
 
 	workIdMax int64 = 1024
 	_nodeId   string
+
+	_defaultEpoch    int64 = 1533429240000
+	_defaultNodeBits uint8 = 10
+	_defaultStepBits uint8 = 12
+
+	stepMask      int64 = -1 ^ (-1 << _defaultStepBits)
+	timeShift           = _defaultNodeBits + _defaultNodeBits
+	workIdShift         = _defaultStepBits
+	startWallTime       = time.Now()
 )
 
 type snowflakeSequence struct {
 	mu sync.Mutex
 
-	idGenerate *bsnowflake.Node
+	seqOffset  int8
 	epoch      time.Time
 	lastTime   int64
 	step       int64
-	workdId    int64
+	workId     int64
 	currentVal int64
 }
 
@@ -117,12 +124,8 @@ func (seq *snowflakeSequence) Start(ctx context.Context, conf proto.SequenceConf
 		return err
 	}
 
-	node, err := bsnowflake.NewNode(seq.workdId)
-	if err != nil {
-		return err
-	}
-
-	seq.idGenerate = node
+	curTime := startWallTime
+	seq.epoch = curTime.Add(time.Unix(_defaultEpoch/1000, (_defaultEpoch%1000)*1000000).Sub(curTime))
 
 	return nil
 }
@@ -176,9 +179,9 @@ func (seq *snowflakeSequence) initWorkerID(ctx context.Context, rt runtime.Runti
 		return err
 	}
 
-	seq.workdId = workId
+	seq.workId = workId
 
-	if seq.workdId < 0 || seq.workdId > workIdMax {
+	if seq.workId < 0 || seq.workId > workIdMax {
 		return fmt.Errorf("node worker-id must in [0, %d]", workIdMax)
 	}
 	return nil
@@ -186,19 +189,28 @@ func (seq *snowflakeSequence) initWorkerID(ctx context.Context, rt runtime.Runti
 
 // Acquire Apply for a self-increase ID
 func (seq *snowflakeSequence) Acquire(ctx context.Context) (int64, error) {
+	seq.mu.Lock()
+	defer seq.mu.Unlock()
 
-	id := seq.idGenerate.Generate()
+	timestamp := time.Since(seq.epoch).Nanoseconds() / 1000000
 
-	for {
-		cur := seq.CurrentVal()
-		if id.Int64() > cur {
-			if atomic.CompareAndSwapInt64(&seq.currentVal, cur, id.Int64()) {
-				break
+	if timestamp == seq.lastTime {
+		seq.step = (seq.step + 1) & stepMask
+
+		if seq.step == 0 {
+			for timestamp <= seq.lastTime {
+				timestamp = time.Since(seq.epoch).Nanoseconds() / 1000000
 			}
 		}
+	} else {
+		seq.seqOffset = ^seq.seqOffset & 1
+		seq.step = int64(seq.seqOffset)
 	}
 
-	return id.Int64(), nil
+	seq.lastTime = timestamp
+	seq.currentVal = (timestamp)<<timeShift | (seq.workId << workIdShift) | (seq.step)
+
+	return seq.currentVal, nil
 }
 
 func (seq *snowflakeSequence) Reset() error {
