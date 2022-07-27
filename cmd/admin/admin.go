@@ -15,11 +15,13 @@
  * limitations under the License.
  */
 
-package tools
+package admin
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"path/filepath"
 )
 
 import (
@@ -28,55 +30,62 @@ import (
 
 import (
 	"github.com/arana-db/arana/cmd/cmds"
+	"github.com/arana-db/arana/pkg/admin"
+	_ "github.com/arana-db/arana/pkg/admin/router"
 	"github.com/arana-db/arana/pkg/boot"
-	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/constants"
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
-var (
-	sourceConfigPath   string
-	importBootConfPath string
+const (
+	_keyPort     = "port"
+	_defaultPort = 8080
 )
 
-// init Init startCmd
 func init() {
 	cmd := &cobra.Command{
-		Use:     "import",
-		Short:   "import arana config",
-		Example: "./arana import -c ../docker/conf/bootstrap.yaml -s ../docker/conf/config.yaml",
-		Run:     Run,
+		Use:     "admin",
+		Short:   "admin",
+		Example: "arana admin -c bootstrap.yaml -p 8080",
+		RunE:    run,
 	}
-
 	cmd.PersistentFlags().
-		StringVarP(&importBootConfPath, constants.ConfigPathKey, "c", os.Getenv(constants.EnvBootstrapPath), "bootstrap configuration file path")
+		StringP(constants.ConfigPathKey, "c", os.Getenv(constants.EnvBootstrapPath), "bootstrap configuration file path")
 	cmd.PersistentFlags().
-		StringVarP(&sourceConfigPath, constants.ImportConfigPathKey, "s", "", "import configuration file path")
+		Uint16P(_keyPort, "p", _defaultPort, "listen port")
 
 	cmds.Handle(func(root *cobra.Command) {
 		root.AddCommand(cmd)
 	})
 }
 
-func Run(cmd *cobra.Command, args []string) {
-	_, _ = cmd, args
-
-	discovery := boot.NewDiscovery(importBootConfPath)
+func Run(bootstrapPath string, addr string) error {
+	discovery := boot.NewDiscovery(bootstrapPath)
 	if err := discovery.Init(context.Background()); err != nil {
-		log.Fatal("init failed: %+v", err)
-		return
+		log.Fatal("start admin api server failed: %v", err)
+		return err
+	}
+	adminServer := admin.New(discovery)
+	return adminServer.Listen(addr)
+}
+
+func run(cmd *cobra.Command, args []string) error {
+	_ = args
+	btPath, _ := cmd.PersistentFlags().GetString(constants.ConfigPathKey)
+	port, _ := cmd.PersistentFlags().GetUint16("port")
+	if len(btPath) < 1 {
+		// search bootstrap yaml
+		for _, path := range constants.GetConfigSearchPathList() {
+			btPath = filepath.Join(path, "bootstrap.yaml")
+			if _, err := os.Stat(btPath); err == nil {
+				break
+			}
+			btPath = filepath.Join(path, "bootstrap.yml")
+			if _, err := os.Stat(btPath); err == nil {
+				break
+			}
+		}
 	}
 
-	cfg, err := config.Load(sourceConfigPath)
-	if err != nil {
-		log.Fatal("load config from %s failed: %+v", sourceConfigPath, err)
-		return
-	}
-
-	c := discovery.GetConfigCenter()
-
-	if err := c.ImportConfiguration(cfg); err != nil {
-		log.Fatal("persist config to config.store failed: %+v", err)
-		return
-	}
+	return Run(btPath, fmt.Sprintf(":%d", port))
 }
