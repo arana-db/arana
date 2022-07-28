@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package config
+package config_test
 
 import (
 	"testing"
@@ -26,13 +26,14 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/testdata"
 )
 
 var FakeConfigPath = testdata.Path("fake_config.yaml")
 
 func TestMetadataConf(t *testing.T) {
-	conf, err := Load(FakeConfigPath)
+	conf, err := config.Load(FakeConfigPath)
 	assert.NoError(t, err)
 	assert.NotNil(t, conf)
 
@@ -45,23 +46,23 @@ func TestMetadataConf(t *testing.T) {
 }
 
 func TestValidate(t *testing.T) {
-	conf, err := Load(FakeConfigPath)
+	conf, err := config.Load(FakeConfigPath)
 	assert.NoError(t, err)
 	assert.NotNil(t, conf)
 
-	err = Validate(conf)
+	err = config.Validate(conf)
 	assert.NoError(t, err)
 }
 
 func TestDataSourceClustersConf(t *testing.T) {
-	conf, err := Load(FakeConfigPath)
+	conf, err := config.Load(FakeConfigPath)
 	assert.NoError(t, err)
 	assert.NotEqual(t, nil, conf)
 
 	assert.Equal(t, 1, len(conf.Data.DataSourceClusters))
 	dataSourceCluster := conf.Data.DataSourceClusters[0]
 	assert.Equal(t, "employee", dataSourceCluster.Name)
-	assert.Equal(t, DBMySQL, dataSourceCluster.Type)
+	assert.Equal(t, config.DBMySQL, dataSourceCluster.Type)
 	assert.Equal(t, -1, dataSourceCluster.SqlMaxLimit)
 	assert.Equal(t, "arana", dataSourceCluster.Tenant)
 
@@ -81,7 +82,7 @@ func TestDataSourceClustersConf(t *testing.T) {
 }
 
 func TestShardingRuleConf(t *testing.T) {
-	conf, err := Load(FakeConfigPath)
+	conf, err := config.Load(FakeConfigPath)
 	assert.NoError(t, err)
 	assert.NotEqual(t, nil, conf)
 
@@ -107,24 +108,24 @@ func TestShardingRuleConf(t *testing.T) {
 }
 
 func TestUnmarshalTextForProtocolTypeNil(t *testing.T) {
-	var protocolType ProtocolType
+	var protocolType config.ProtocolType
 	text := []byte("http")
 	err := protocolType.UnmarshalText(text)
 	assert.Nil(t, err)
-	assert.Equal(t, Http, protocolType)
+	assert.Equal(t, config.Http, protocolType)
 }
 
 func TestUnmarshalTextForUnrecognizedProtocolType(t *testing.T) {
-	protocolType := Http
+	protocolType := config.Http
 	text := []byte("PostgreSQL")
 	err := protocolType.UnmarshalText(text)
 	assert.Error(t, err)
 }
 
 func TestUnmarshalText(t *testing.T) {
-	protocolType := Http
+	protocolType := config.Http
 	text := []byte("mysql")
 	err := protocolType.UnmarshalText(text)
 	assert.Nil(t, err)
-	assert.Equal(t, MySQL, protocolType)
+	assert.Equal(t, config.MySQL, protocolType)
 }
