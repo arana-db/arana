@@ -23,7 +23,9 @@ package config
 
 import (
 	reflect "reflect"
+)
 
+import (
 	gomock "github.com/golang/mock/gomock"
 )
 

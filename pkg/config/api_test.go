@@ -2,9 +2,13 @@ package config
 
 import (
 	"fmt"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
 	"testing"
+)
+
+import (
+	"github.com/golang/mock/gomock"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetStoreOperate(t *testing.T) {
