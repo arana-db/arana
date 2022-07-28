@@ -19,7 +19,7 @@
 // Source: api.go
 
 // Package pkg is a generated GoMock package.
-package config
+package testdata
 
 import (
 	reflect "reflect"
@@ -27,6 +27,10 @@ import (
 
 import (
 	gomock "github.com/golang/mock/gomock"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/config"
 )
 
 // MockStoreOperate is a mock of StoreOperate interface.
@@ -67,7 +71,7 @@ func (mr *MockStoreOperateMockRecorder) Close() *gomock.Call {
 }
 
 // Get mocks base method.
-func (m *MockStoreOperate) Get(key PathKey) ([]byte, error) {
+func (m *MockStoreOperate) Get(key config.PathKey) ([]byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", key)
 	ret0, _ := ret[0].([]byte)
@@ -110,7 +114,7 @@ func (mr *MockStoreOperateMockRecorder) Name() *gomock.Call {
 }
 
 // Save mocks base method.
-func (m *MockStoreOperate) Save(key PathKey, val []byte) error {
+func (m *MockStoreOperate) Save(key config.PathKey, val []byte) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Save", key, val)
 	ret0, _ := ret[0].(error)
@@ -124,7 +128,7 @@ func (mr *MockStoreOperateMockRecorder) Save(key, val interface{}) *gomock.Call 
 }
 
 // Watch mocks base method.
-func (m *MockStoreOperate) Watch(key PathKey) (<-chan []byte, error) {
+func (m *MockStoreOperate) Watch(key config.PathKey) (<-chan []byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Watch", key)
 	ret0, _ := ret[0].(<-chan []byte)

@@ -1,4 +1,21 @@
-package config
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package config_test
 
 import (
 	"fmt"
@@ -11,20 +28,25 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+import (
+	"github.com/arana-db/arana/pkg/config"
+	"github.com/arana-db/arana/testdata"
+)
+
 func TestGetStoreOperate(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	//mockStore := NewMockStoreOperate(ctrl)
 	tests := []struct {
 		name    string
-		want    StoreOperate
+		want    config.StoreOperate
 		wantErr assert.ErrorAssertionFunc
 	}{
 		{"GetStoreOperate_1", nil, assert.Error},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetStoreOperate()
+			got, err := config.GetStoreOperate()
 			if !tt.wantErr(t, err, fmt.Sprintf("GetStoreOperate()")) {
 				return
 			}
@@ -47,7 +69,7 @@ func TestInit(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.wantErr(t, Init(tt.args.name, tt.args.options), fmt.Sprintf("Init(%v, %v)", tt.args.name, tt.args.options))
+			tt.wantErr(t, config.Init(tt.args.name, tt.args.options), fmt.Sprintf("Init(%v, %v)", tt.args.name, tt.args.options))
 		})
 	}
 }
@@ -55,10 +77,10 @@ func TestInit(t *testing.T) {
 func TestRegister(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockStore := NewMockStoreOperate(ctrl)
+	mockStore := testdata.NewMockStoreOperate(ctrl)
 	mockStore.EXPECT().Name().Times(2).Return("nacos")
 	type args struct {
-		s StoreOperate
+		s config.StoreOperate
 	}
 	tests := []struct {
 		name string
@@ -68,7 +90,7 @@ func TestRegister(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			Register(tt.args.s)
+			config.Register(tt.args.s)
 		})
 	}
 }
@@ -76,18 +98,17 @@ func TestRegister(t *testing.T) {
 func Test_api(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockFileStore := NewMockStoreOperate(ctrl)
-	mockEtcdStore := NewMockStoreOperate(ctrl)
+	mockFileStore := testdata.NewMockStoreOperate(ctrl)
+	mockEtcdStore := testdata.NewMockStoreOperate(ctrl)
 	mockFileStore.EXPECT().Name().Times(2).Return("file")
 	mockEtcdStore.EXPECT().Name().Times(2).Return("etcd")
-	Register(mockFileStore)
-	Register(mockEtcdStore)
-	assert.True(t, len(slots) > 0)
+	config.Register(mockFileStore)
+	config.Register(mockEtcdStore)
 
-	mockFileStore2 := NewMockStoreOperate(ctrl)
+	mockFileStore2 := testdata.NewMockStoreOperate(ctrl)
 	mockFileStore2.EXPECT().Name().AnyTimes().Return("file")
 	assert.Panics(t, func() {
-		Register(mockFileStore2)
+		config.Register(mockFileStore2)
 	}, "StoreOperate=[file] already exist")
 }
 
@@ -95,17 +116,17 @@ func Test_Init(t *testing.T) {
 	options := make(map[string]interface{}, 0)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockFileStore := NewMockStoreOperate(ctrl)
+	mockFileStore := testdata.NewMockStoreOperate(ctrl)
 	mockFileStore.EXPECT().Name().Times(2).Return("fake")
 	mockFileStore.EXPECT().Init(options).Return(nil)
-	err := Init("fake", options)
+	err := config.Init("fake", options)
 	assert.Error(t, err)
 
-	Register(mockFileStore)
-	err = Init("fake", options)
+	config.Register(mockFileStore)
+	err = config.Init("fake", options)
 	assert.NoError(t, err)
 
-	store, err := GetStoreOperate()
+	store, err := config.GetStoreOperate()
 	assert.NoError(t, err)
 	assert.NotNil(t, store)
 }
