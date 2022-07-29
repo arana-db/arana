@@ -7,14 +7,9 @@ package testdata
 import (
 	io "io"
 	reflect "reflect"
-)
 
-import (
-	gomock "github.com/golang/mock/gomock"
-)
-
-import (
 	proto "github.com/arana-db/arana/pkg/proto"
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockField is a mock of Field interface.

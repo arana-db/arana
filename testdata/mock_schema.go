@@ -7,14 +7,9 @@ package testdata
 import (
 	context "context"
 	reflect "reflect"
-)
 
-import (
-	gomock "github.com/golang/mock/gomock"
-)
-
-import (
 	proto "github.com/arana-db/arana/pkg/proto"
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockSchemaLoader is a mock of SchemaLoader interface.

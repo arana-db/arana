@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-//go:generate mockgen -destination=../../testdata/mock_sequence.go -package=testdata . Sequence,Sequencer
+//go:generate mockgen -destination=../../testdata/mock_sequence.go -package=testdata . Sequence,SequenceManager
 package proto
 
 import (

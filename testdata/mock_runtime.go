@@ -8,14 +8,9 @@ import (
 	context "context"
 	reflect "reflect"
 	time "time"
-)
 
-import (
-	gomock "github.com/golang/mock/gomock"
-)
-
-import (
 	proto "github.com/arana-db/arana/pkg/proto"
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockVConn is a mock of VConn interface.

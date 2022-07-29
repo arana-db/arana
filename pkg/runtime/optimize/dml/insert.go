@@ -128,10 +128,7 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		slots[db][table] = append(slots[db][table], i)
 	}
 
-	metadata, err := getMetadata(ctx, vt)
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
+	metadata, _ := getMetadata(ctx, vt)
 
 	for db, slot := range slots {
 		for table, indexes := range slot {
