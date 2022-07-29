@@ -18,11 +18,14 @@
 package file
 
 import (
-	"github.com/arana-db/arana/pkg/config"
 	"path/filepath"
 	"reflect"
 	"sync"
 	"testing"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/config"
 )
 
 var jsonConfig = `{
