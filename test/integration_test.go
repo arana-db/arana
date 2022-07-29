@@ -642,11 +642,9 @@ func (s *IntegrationSuite) TestShowStatus() {
 
 	for _, it := range []tt{
 		{"SHOW STATUS", func(t *testing.T, data [][]string) bool {
-			t.Logf("%+v", data)
 			return len(data) > 0
 		}},
 		{"SHOW STATUS LIKE 'Key%';", func(t *testing.T, data [][]string) bool {
-			t.Logf("%+v", data)
 			return len(data) >= 5
 		}},
 	} {
@@ -688,6 +686,7 @@ func (s *IntegrationSuite) TestInsertAutoIncrement() {
 			2022+i,
 		)
 		assert.NoErrorf(t, err, "insert row error: %+v", err)
+
 		affected, err := result.RowsAffected()
 		assert.NoErrorf(t, err, "insert row error: %+v", err)
 		assert.True(t, affected == 1)
@@ -695,6 +694,7 @@ func (s *IntegrationSuite) TestInsertAutoIncrement() {
 		lastId, err := result.LastInsertId()
 		assert.NoErrorf(t, err, "insert row error: %+v", err)
 		assert.True(t, lastId != 0, fmt.Sprintf("LastInsertId : %d", lastId))
+
 		t.Log("LastInsertId", lastId)
 
 		if lastId%2 == 0 {

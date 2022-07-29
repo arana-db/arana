@@ -20,13 +20,11 @@ package snowflake
 import (
 	"context"
 	"fmt"
+	"github.com/arana-db/arana/pkg/util/log"
+	"go.uber.org/zap"
 	"sync"
 	"sync/atomic"
 	"time"
-)
-
-import (
-	"go.uber.org/zap"
 )
 
 import (
@@ -34,7 +32,6 @@ import (
 	"github.com/arana-db/arana/pkg/runtime"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/util/identity"
-	"github.com/arana-db/arana/pkg/util/log"
 )
 
 const SequencePluginName = "snowflake"
@@ -136,15 +133,28 @@ func (seq *snowflakeSequence) initTableAndKeepalive(ctx context.Context, rt runt
 		return nil
 	}
 
-	if _, err := rt.Exec(ctx, "", _initTableSql); err != nil {
+	tx, err := rt.Begin(ctx)
+	if err != nil {
 		return err
 	}
+
+	defer tx.Rollback(ctx)
+
+	ret, err := tx.Exec(ctx, "", _initTableSql)
+	if err != nil {
+		return err
+	}
+	_, _ = ret.RowsAffected()
 
 	nodeId, err := identity.GetNodeIdentity()
 	if err != nil {
 		return err
 	}
 	_nodeId = nodeId
+
+	if _, _, err := tx.Commit(ctx); err != nil {
+		return err
+	}
 
 	k := &nodeKeepLive{rt: rt}
 	go k.keepalive()
@@ -310,11 +320,30 @@ type nodeKeepLive struct {
 func (n *nodeKeepLive) keepalive() {
 	ticker := time.NewTicker(1 * time.Minute)
 
-	for range ticker.C {
-		_, err := n.rt.Exec(context.Background(), "", _keepaliveNode, _nodeId)
+	f := func() {
+		ctx := context.Background()
 
+		tx, err := n.rt.Begin(ctx)
+		if err != nil {
+			log.Error("[Sequence][Snowflake] keepalive open tx fail", zap.String("node-id", _nodeId), zap.Error(err))
+			return
+		}
+
+		defer tx.Rollback(ctx)
+
+		ret, err := tx.Exec(context.Background(), "", _keepaliveNode, _nodeId)
 		if err != nil {
 			log.Error("[Sequence][Snowflake] keepalive fail", zap.String("node-id", _nodeId), zap.Error(err))
+			return
 		}
+		_, _ = ret.RowsAffected()
+
+		if _, _, err := tx.Commit(ctx); err != nil {
+			log.Error("[Sequence][Snowflake] keepalive tx commit fail", zap.String("node-id", _nodeId), zap.Error(err))
+		}
+	}
+
+	for range ticker.C {
+		f()
 	}
 }
