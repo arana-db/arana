@@ -37,7 +37,7 @@ import (
 	"github.com/arana-db/arana/testdata"
 )
 
-const _defaultEtcdV3WorkDir = "/tmp/dubbo-go-arana/config"
+const _defaultEtcdV3WorkDir = "/tmp/arana/config"
 
 var (
 	mockConfData = map[config.PathKey]string{
