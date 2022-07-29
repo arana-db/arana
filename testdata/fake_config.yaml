@@ -109,3 +109,4 @@ data:
           tbl_pattern: student_${0000..0031}
         attributes:
           sqlMaxLimit: -1
+          foo: bar

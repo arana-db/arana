@@ -18,14 +18,17 @@
 package file
 
 import (
-	"path/filepath"
 	"reflect"
 	"testing"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/config"
+	"github.com/arana-db/arana/testdata"
 )
+
+var FakeConfigPath = testdata.Path("fake_config.yaml")
+var EmptyConfigPath = testdata.Path("fake_empty_config.yaml")
 
 var jsonConfig = `{
     "metadata":"metadata",
@@ -200,8 +203,6 @@ func Test_storeOperate_Get(t *testing.T) {
 }
 
 func Test_storeOperate_Init(t *testing.T) {
-	configFile, _ := filepath.Abs("../../../testdata/fake_config.yaml")
-	errConfigFile, _ := filepath.Abs("../../../testdata/fake_empty_config.yaml")
 	type fields struct {
 		receivers map[config.PathKey][]chan []byte
 		cfgJson   map[config.PathKey]string
@@ -223,22 +224,22 @@ func Test_storeOperate_Init(t *testing.T) {
 		}, {
 			"Init_2",
 			fields{},
-			args{map[string]interface{}{"yaml_config": "yaml_config"}},
+			args{map[string]interface{}{"content": "yaml_config"}},
 			true,
 		}, {
 			"Init_3",
 			fields{},
-			args{map[string]interface{}{"yaml_config": yamlConfig}},
+			args{map[string]interface{}{"content": yamlConfig}},
 			false,
 		}, {
 			"Init_4",
 			fields{},
-			args{map[string]interface{}{"path": configFile}},
+			args{map[string]interface{}{"path": FakeConfigPath}},
 			false,
 		}, {
 			"Init_5",
 			fields{},
-			args{map[string]interface{}{"path": errConfigFile}},
+			args{map[string]interface{}{"path": EmptyConfigPath}},
 			true,
 		},
 	}
@@ -376,7 +377,6 @@ func Test_storeOperate_initCfgJsonMap(t *testing.T) {
 }
 
 func Test_storeOperate_readFromFile(t *testing.T) {
-	configFile, _ := filepath.Abs("../../../testdata/fake_config.yaml")
 	type fields struct {
 		receivers map[config.PathKey][]chan []byte
 		cfgJson   map[config.PathKey]string
@@ -394,7 +394,7 @@ func Test_storeOperate_readFromFile(t *testing.T) {
 		{
 			"readFromFile_1",
 			fields{nil, map[config.PathKey]string{"/arana-db/config/data/dataSourceClusters": "test"}},
-			args{configFile, &config.Configuration{}},
+			args{FakeConfigPath, &config.Configuration{}},
 			false,
 		}, {
 			"readFromFile_2",
