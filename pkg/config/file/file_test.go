@@ -20,7 +20,6 @@ package file
 import (
 	"path/filepath"
 	"reflect"
-	"sync"
 	"testing"
 )
 
@@ -136,7 +135,6 @@ data:
 
 func Test_storeOperate_Close(t *testing.T) {
 	type fields struct {
-		lock      sync.RWMutex
 		receivers map[config.PathKey][]chan []byte
 		cfgJson   map[config.PathKey]string
 	}
@@ -150,7 +148,6 @@ func Test_storeOperate_Close(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &storeOperate{
-				lock:      tt.fields.lock,
 				receivers: tt.fields.receivers,
 				cfgJson:   tt.fields.cfgJson,
 			}
