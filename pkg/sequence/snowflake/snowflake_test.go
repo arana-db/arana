@@ -26,23 +26,15 @@ import (
 )
 
 import (
-	bsnowflake "github.com/bwmarrin/snowflake"
-
 	"github.com/stretchr/testify/assert"
 )
 
 func Test_snowflakeSequence_Acquire(t *testing.T) {
 
-	node, err := bsnowflake.NewNode(1)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	seq := &snowflakeSequence{
-		mu:         sync.Mutex{},
-		epoch:      time.Time{},
-		workdId:    1,
-		idGenerate: node,
+		mu:     sync.Mutex{},
+		epoch:  startWallTime.Add(time.Unix(_defaultEpoch/1000, (_defaultEpoch%1000)*1000000).Sub(startWallTime)),
+		workId: 1,
 	}
 
 	val, err := seq.Acquire(context.Background())
