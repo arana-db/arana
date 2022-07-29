@@ -30,7 +30,6 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/runtime/namespace"
-	_ "github.com/arana-db/arana/pkg/sequence"
 )
 
 func TestLoad(t *testing.T) {
