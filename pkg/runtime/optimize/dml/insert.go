@@ -128,8 +128,6 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		slots[db][table] = append(slots[db][table], i)
 	}
 
-	metadata, _ := getMetadata(ctx, vt)
-
 	for db, slot := range slots {
 		for table, indexes := range slot {
 			// clone insert stmt without values
@@ -144,9 +142,7 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 			}
 			newborn.SetValues(values)
 
-			if err := rewriteInsertStatement(ctx, o, vt, metadata, newborn); err != nil {
-				return nil, errors.Wrap(err, "cannot rewrite insert statement")
-			}
+			rewriteInsertStatement(ctx, o, vt, newborn)
 			ret.Put(db, newborn)
 		}
 	}
@@ -184,7 +180,17 @@ func getMetadata(ctx context.Context, vtab *rule.VTable) (*proto.TableMetadata, 
 	return metadata, nil
 }
 
-func rewriteInsertStatement(ctx context.Context, o *optimize.Optimizer, vtab *rule.VTable, metadata *proto.TableMetadata, stmt *ast.InsertStatement) error {
+func rewriteInsertStatement(ctx context.Context, o *optimize.Optimizer, vtab *rule.VTable, stmt *ast.InsertStatement) error {
+	_, tb0, _ := vtab.Topology().Smallest()
+	metadatas, err := proto.LoadSchemaLoader().Load(ctx, rcontext.Schema(ctx), []string{tb0})
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	metadata := metadatas[tb0]
+	if metadata == nil || len(metadata.ColumnNames) == 0 {
+		return errors.Errorf("optimize: cannot get metadata of `%s`.`%s`", rcontext.Schema(ctx), tb0)
+	}
+
 	if len(metadata.ColumnNames) == len(stmt.Columns()) {
 		// User had explicitly specified every value
 		return nil

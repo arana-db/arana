@@ -7,9 +7,14 @@ package testdata
 import (
 	context "context"
 	reflect "reflect"
+)
 
-	proto "github.com/arana-db/arana/pkg/proto"
+import (
 	gomock "github.com/golang/mock/gomock"
+)
+
+import (
+	proto "github.com/arana-db/arana/pkg/proto"
 )
 
 // MockSequence is a mock of Sequence interface.
