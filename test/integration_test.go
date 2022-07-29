@@ -18,6 +18,7 @@
 package test
 
 import (
+	"database/sql"
 	"fmt"
 	"testing"
 	"time"
@@ -371,20 +372,42 @@ func (s *IntegrationSuite) TestShardingAgg() {
 		t  = s.T()
 	)
 
+	if _, err := db.Exec("DELETE FROM student"); err != nil {
+		t.Fatal(err)
+	}
+
 	const total = 100
 
 	// insert into logical table
 	for i := 1; i <= total; i++ {
-		result, err := db.Exec(
-			`INSERT IGNORE INTO student(id,uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?,?)`,
-			time.Now().UnixNano(),
-			i,
-			3.14,
-			fmt.Sprintf("fake_name_%d", i),
-			fmt.Sprintf("fake_nickname_%d", i),
-			1,
-			2022,
+
+		var (
+			result sql.Result
+			err    error
 		)
+
+		if i == 1 {
+			result, err = db.Exec(
+				`INSERT IGNORE INTO student(uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?)`,
+				i,
+				95,
+				fmt.Sprintf("fake_name_%d", i),
+				fmt.Sprintf("fake_nickname_%d", i),
+				1,
+				2022,
+			)
+		} else {
+			result, err = db.Exec(
+				`INSERT IGNORE INTO student(uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?)`,
+				i,
+				10,
+				fmt.Sprintf("fake_name_%d", i),
+				fmt.Sprintf("fake_nickname_%d", i),
+				1,
+				2022,
+			)
+		}
+
 		assert.NoErrorf(t, err, "insert row error: %v", err)
 		affected, err := result.RowsAffected()
 		assert.NoErrorf(t, err, "insert row error: %v", err)
@@ -409,19 +432,18 @@ func (s *IntegrationSuite) TestShardingAgg() {
 		row := db.QueryRow("select min(score) as ttt from student")
 		var cnt float64
 		assert.NoError(t, row.Scan(&cnt))
-		assert.Equal(t, 3.14, cnt)
+		assert.Equal(t, float64(10), cnt)
 	})
 
 	t.Run("SUM", func(t *testing.T) {
 		row := db.QueryRow("select sum(score) as ttt from student")
 		var cnt float64
 		assert.NoError(t, row.Scan(&cnt))
-		assert.Equal(t, int64(405), int64(cnt))
+		assert.Equal(t, int64(1085), int64(cnt))
 	})
 
 	result, err := db.Exec(
-		`INSERT IGNORE INTO student(id,uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?,?)`,
-		time.Now().UnixNano(),
+		`INSERT IGNORE INTO student(uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?)`,
 		9527,
 		100,
 		"jason",
@@ -620,11 +642,9 @@ func (s *IntegrationSuite) TestShowStatus() {
 
 	for _, it := range []tt{
 		{"SHOW STATUS", func(t *testing.T, data [][]string) bool {
-			t.Logf("%+v", data)
 			return len(data) > 0
 		}},
 		{"SHOW STATUS LIKE 'Key%';", func(t *testing.T, data [][]string) bool {
-			t.Logf("%+v", data)
 			return len(data) >= 5
 		}},
 	} {
@@ -638,4 +658,51 @@ func (s *IntegrationSuite) TestShowStatus() {
 		})
 	}
 
+}
+
+func (s *IntegrationSuite) TestInsertAutoIncrement() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	defer func() {
+		if _, err := db.Exec("DELETE FROM student"); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	odd := 0
+	even := 0
+
+	for i := 0; i < 1000; i++ {
+		result, err := db.Exec(
+			`INSERT INTO student(uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?)`,
+			100+i,
+			rand2.Int31n(100),
+			fmt.Sprintf("auto_increment_%d", i),
+			fmt.Sprintf("auto_increment_%d", i),
+			1,
+			2022+i,
+		)
+		assert.NoErrorf(t, err, "insert row error: %+v", err)
+
+		affected, err := result.RowsAffected()
+		assert.NoErrorf(t, err, "insert row error: %+v", err)
+		assert.True(t, affected == 1)
+
+		lastId, err := result.LastInsertId()
+		assert.NoErrorf(t, err, "insert row error: %+v", err)
+		assert.True(t, lastId != 0, fmt.Sprintf("LastInsertId : %d", lastId))
+
+		t.Log("LastInsertId", lastId)
+
+		if lastId%2 == 0 {
+			even++
+		} else {
+			odd++
+		}
+
+		assert.False(t, odd == 0, "sequence val all even number")
+	}
 }

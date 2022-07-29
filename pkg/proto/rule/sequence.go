@@ -15,13 +15,9 @@
  * limitations under the License.
  */
 
-package boot
+package rule
 
-import (
-	_ "github.com/arana-db/arana/pkg/config/etcd"
-	_ "github.com/arana-db/arana/pkg/config/file"
-	_ "github.com/arana-db/arana/pkg/config/nacos"
-	_ "github.com/arana-db/arana/pkg/sequence"
-	_ "github.com/arana-db/arana/pkg/sequence/group"
-	_ "github.com/arana-db/arana/pkg/sequence/snowflake"
-)
+type AutoIncrement struct {
+	Type   string
+	Option map[string]string
+}

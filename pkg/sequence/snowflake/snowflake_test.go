@@ -15,58 +15,49 @@
  * limitations under the License.
  */
 
-package runtime
+package snowflake
 
 import (
+	"context"
+	"fmt"
 	"sync"
 	"testing"
+	"time"
 )
 
 import (
-	"github.com/golang/mock/gomock"
-
 	"github.com/stretchr/testify/assert"
 )
 
-import (
-	"github.com/arana-db/arana/pkg/runtime/namespace"
-)
+func Test_snowflakeSequence_Acquire(t *testing.T) {
 
-func TestLoad(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	const schemaName = "FakeSchema"
-
-	rt, err := Load(schemaName)
-	assert.Error(t, err)
-	assert.Nil(t, rt)
-	ns, err := namespace.New(schemaName)
-	assert.NoError(t, err)
-	_ = namespace.Register(ns)
-	defer func() {
-		_ = namespace.Unregister(schemaName)
-	}()
-
-	rt, err = Load(schemaName)
-	assert.NoError(t, err)
-	assert.NotNil(t, rt)
-}
-
-func TestNextTxID(t *testing.T) {
-	const total = 1000
-	var (
-		m  sync.Map
-		wg sync.WaitGroup
-	)
-	wg.Add(total)
-	for range [total]struct{}{} {
-		go func() {
-			defer wg.Done()
-			_, loaded := m.LoadOrStore(nextTxID(), struct{}{})
-			assert.False(t, loaded)
-		}()
+	seq := &snowflakeSequence{
+		mu:     sync.Mutex{},
+		epoch:  startWallTime.Add(time.Unix(_defaultEpoch/1000, (_defaultEpoch%1000)*1000000).Sub(startWallTime)),
+		workId: 1,
 	}
 
-	wg.Wait()
+	val, err := seq.Acquire(context.Background())
+
+	assert.NoError(t, err, fmt.Sprintf("acquire err : %v", err))
+
+	curVal := seq.CurrentVal()
+
+	assert.Equal(t, val, curVal, fmt.Sprintf("acquire val: %d, cur val: %d", val, curVal))
+
+	bucket := []int64{0, 0}
+
+	total := int64(100000)
+	for i := int64(0); i < total; i++ {
+		ret, _ := seq.Acquire(context.Background())
+
+		if ret%2 == 0 {
+			bucket[0] = bucket[0] + 1
+		} else {
+			bucket[1] = bucket[1] + 1
+		}
+	}
+
+	t.Logf("odd number : %0.3f", float64(bucket[1]*1.0)/float64(total))
+	t.Logf("even number : %0.3f", float64(bucket[0]*1.0)/float64(total))
 }

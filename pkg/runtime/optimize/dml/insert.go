@@ -128,8 +128,6 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		slots[db][table] = append(slots[db][table], i)
 	}
 
-	_, tb0, _ := vt.Topology().Smallest()
-
 	for db, slot := range slots {
 		for table, indexes := range slot {
 			// clone insert stmt without values
@@ -144,7 +142,7 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 			}
 			newborn.SetValues(values)
 
-			rewriteInsertStatement(ctx, newborn, tb0)
+			rewriteInsertStatement(ctx, o, vt, newborn)
 			ret.Put(db, newborn)
 		}
 	}
@@ -169,14 +167,28 @@ func optimizeInsertSelect(_ context.Context, o *optimize.Optimizer) (proto.Plan,
 	return nil, errors.New("not support insert-select into sharding table")
 }
 
-func rewriteInsertStatement(ctx context.Context, stmt *ast.InsertStatement, tb string) error {
-	metadatas, err := proto.LoadSchemaLoader().Load(ctx, rcontext.Schema(ctx), []string{tb})
+func getMetadata(ctx context.Context, vtab *rule.VTable) (*proto.TableMetadata, error) {
+	_, tb0, _ := vtab.Topology().Smallest()
+	metadatas, err := proto.LoadSchemaLoader().Load(ctx, rcontext.Schema(ctx), []string{tb0})
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	metadata := metadatas[tb0]
+	if metadata == nil || len(metadata.ColumnNames) == 0 {
+		return nil, errors.Errorf("optimize: cannot get metadata of `%s`.`%s`", rcontext.Schema(ctx), tb0)
+	}
+	return metadata, nil
+}
+
+func rewriteInsertStatement(ctx context.Context, o *optimize.Optimizer, vtab *rule.VTable, stmt *ast.InsertStatement) error {
+	_, tb0, _ := vtab.Topology().Smallest()
+	metadatas, err := proto.LoadSchemaLoader().Load(ctx, rcontext.Schema(ctx), []string{tb0})
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	metadata := metadatas[tb]
+	metadata := metadatas[tb0]
 	if metadata == nil || len(metadata.ColumnNames) == 0 {
-		return errors.Errorf("optimize: cannot get metadata of `%s`.`%s`", rcontext.Schema(ctx), tb)
+		return errors.Errorf("optimize: cannot get metadata of `%s`.`%s`", rcontext.Schema(ctx), tb0)
 	}
 
 	if len(metadata.ColumnNames) == len(stmt.Columns()) {
@@ -199,17 +211,71 @@ func rewriteInsertStatement(ctx context.Context, stmt *ast.InsertStatement, tb s
 			break
 		}
 	}
+
+	if err := createSequenceIfAbsent(ctx, vtab, metadata); err != nil {
+		return err
+	}
+
 	if len(pkColName) < 1 {
 		// There's no auto-generated primary key column
 		return nil
 	}
 
+	mgr := proto.LoadSequenceManager()
+
+	seq, err := mgr.GetSequence(ctx, rcontext.Tenant(ctx), rcontext.Schema(ctx), proto.BuildAutoIncrementName(vtab.Name()))
+	if err != nil {
+		return err
+	}
+
+	val, err := seq.Acquire(ctx)
+	if err != nil {
+		return err
+	}
+
 	// TODO rewrite columns and add distributed primary key
-	//stmt.SetColumns(append(stmt.Columns(), pkColName))
+	stmt.SetColumns(append(stmt.Columns(), pkColName))
 	// append value of distributed primary key
-	//newValues := stmt.Values()
-	//for _, newValue := range newValues {
-	//	newValue = append(newValue, )
-	//}
+	newValues := stmt.Values()
+	for i := range newValues {
+		newValues[i] = append(newValues[i], &ast.PredicateExpressionNode{
+			P: &ast.AtomPredicateNode{
+				A: &ast.ConstantExpressionAtom{Inner: val},
+			},
+		})
+	}
+	return nil
+}
+
+func createSequenceIfAbsent(ctx context.Context, vtab *rule.VTable, metadata *proto.TableMetadata) error {
+	seqName := proto.BuildAutoIncrementName(vtab.Name())
+
+	seq, err := proto.LoadSequenceManager().GetSequence(ctx, rcontext.Tenant(ctx), rcontext.Schema(ctx), seqName)
+	if err != nil && !errors.Is(err, proto.ErrorNotFoundSequence) {
+		return errors.WithStack(err)
+	}
+
+	if seq != nil {
+		return nil
+	}
+
+	columns := metadata.Columns
+	for i := range columns {
+		if columns[i].Generated {
+			autoIncr := vtab.GetAutoIncrement()
+
+			c := proto.SequenceConfig{
+				Name:   seqName,
+				Type:   autoIncr.Type,
+				Option: autoIncr.Option,
+			}
+
+			if _, err := proto.LoadSequenceManager().CreateSequence(ctx, rcontext.Tenant(ctx), rcontext.Schema(ctx), c); err != nil {
+				return errors.WithStack(err)
+			}
+
+			break
+		}
+	}
 	return nil
 }
