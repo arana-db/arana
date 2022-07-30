@@ -118,7 +118,7 @@ func (l *Listener) handleQuery(c *Conn, ctx *proto.Context) error {
 
 	fields, _ := ds.Fields()
 
-	if err = c.writeFields(l.capabilities, fields); err != nil {
+	if err = c.writeFields(fields); err != nil {
 		log.Errorf("write fields error %v: %v", ctx.ConnectionID, err)
 		return err
 	}
@@ -126,7 +126,7 @@ func (l *Listener) handleQuery(c *Conn, ctx *proto.Context) error {
 		log.Errorf("write dataset error %v: %v", ctx.ConnectionID, err)
 		return err
 	}
-	if err = c.writeEndResult(l.capabilities, false, 0, 0, warn); err != nil {
+	if err = c.writeEndResult(false, 0, 0, warn); err != nil {
 		log.Errorf("Error writing result to %s: %v", c, err)
 		return err
 	}
@@ -239,13 +239,13 @@ func (l *Listener) handleStmtExecute(c *Conn, ctx *proto.Context) error {
 
 	fields, _ := ds.Fields()
 
-	if err = c.writeFields(l.capabilities, fields); err != nil {
+	if err = c.writeFields(fields); err != nil {
 		return err
 	}
 	if err = c.writeDatasetBinary(ds); err != nil {
 		return err
 	}
-	if err = c.writeEndResult(l.capabilities, false, 0, 0, warn); err != nil {
+	if err = c.writeEndResult(false, 0, 0, warn); err != nil {
 		log.Errorf("Error writing result to %s: %v", c, err)
 		return err
 	}
@@ -296,7 +296,7 @@ func (l *Listener) handlePrepare(c *Conn, ctx *proto.Context) error {
 
 	l.stmts.Store(statementID, stmt)
 
-	return c.writePrepare(l.capabilities, stmt)
+	return c.writePrepare(stmt)
 }
 
 func (l *Listener) handleStmtReset(c *Conn, ctx *proto.Context) error {
@@ -317,9 +317,9 @@ func (l *Listener) handleSetOption(c *Conn, ctx *proto.Context) error {
 	if ok {
 		switch operation {
 		case 0:
-			l.capabilities |= mysql.CapabilityClientMultiStatements
+			c.Capabilities |= mysql.CapabilityClientMultiStatements
 		case 1:
-			l.capabilities &^= mysql.CapabilityClientMultiStatements
+			c.Capabilities &^= mysql.CapabilityClientMultiStatements
 		default:
 			log.Errorf("Got unhandled packet (ComSetOption default) from client %v, returning error: %v", ctx.ConnectionID, ctx.Data)
 			if err := c.writeErrorPacket(mysql.ERUnknownComError, mysql.SSUnknownComError, "error handling packet: %v", ctx.Data); err != nil {
@@ -327,7 +327,7 @@ func (l *Listener) handleSetOption(c *Conn, ctx *proto.Context) error {
 				return err
 			}
 		}
-		if err := c.writeEndResult(l.capabilities, false, 0, 0, 0); err != nil {
+		if err := c.writeEndResult(false, 0, 0, 0); err != nil {
 			log.Errorf("Error writeEndResult error %v ", err)
 			return err
 		}
