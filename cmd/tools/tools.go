@@ -61,7 +61,7 @@ func init() {
 func Run(cmd *cobra.Command, args []string) {
 	_, _ = cmd, args
 
-	provider := boot.NewProvider(importBootConfPath)
+	provider := boot.NewDiscovery(importBootConfPath)
 	if err := provider.Init(context.Background()); err != nil {
 		log.Fatal("init failed: %+v", err)
 		return

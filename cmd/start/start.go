@@ -73,7 +73,7 @@ func Run(bootstrapConfigPath string) {
 	// print slogan
 	fmt.Printf("\033[92m%s\033[0m\n", slogan) // 92m: light green
 
-	provider := boot.NewProvider(bootstrapConfigPath)
+	provider := boot.NewDiscovery(bootstrapConfigPath)
 	if err := boot.Boot(context.Background(), provider); err != nil {
 		log.Fatal("start failed: %v", err)
 		return

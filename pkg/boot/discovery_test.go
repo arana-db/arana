@@ -31,7 +31,7 @@ import (
 )
 
 func TestFileProvider(t *testing.T) {
-	provider := NewProvider(testdata.Path("fake_bootstrap.yaml"))
+	provider := NewDiscovery(testdata.Path("fake_bootstrap.yaml"))
 
 	err := Boot(context.Background(), provider)
 	assert.NoError(t, err, "should init ok")

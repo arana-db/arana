@@ -77,8 +77,8 @@ func TestDataSourceClustersConf(t *testing.T) {
 	assert.Equal(t, "123456", node.Password)
 	assert.Equal(t, "employees_0000", node.Database)
 	assert.Equal(t, "r10w10", node.Weight)
-	//assert.Len(t, node.Labels, 1)
-	//assert.NotNil(t, node.ConnProps)
+	// assert.Len(t, node.Labels, 1)
+	// assert.NotNil(t, node.ConnProps)
 }
 
 func TestShardingRuleConf(t *testing.T) {
@@ -102,8 +102,8 @@ func TestShardingRuleConf(t *testing.T) {
 
 	assert.Equal(t, "employees_${0000..0003}", table.Topology.DbPattern)
 	assert.Equal(t, "student_${0000..0031}", table.Topology.TblPattern)
-	//assert.Equal(t, "employee_0000", table.ShadowTopology.DbPattern)
-	//assert.Equal(t, "__test_student_${0000...0007}", table.ShadowTopology.TblPattern)
+	// assert.Equal(t, "employee_0000", table.ShadowTopology.DbPattern)
+	// assert.Equal(t, "__test_student_${0000...0007}", table.ShadowTopology.TblPattern)
 	assert.Len(t, table.Attributes, 2)
 }
 
