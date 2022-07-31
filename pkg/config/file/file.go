@@ -115,6 +115,7 @@ func (s *storeOperate) Get(key config.PathKey) ([]byte, error) {
 
 // Watch TODO change notification through file inotify mechanism
 func (s *storeOperate) Watch(key config.PathKey) (<-chan []byte, error) {
+	s.lock.Lock()
 	defer s.lock.Unlock()
 
 	if _, ok := s.receivers[key]; !ok {
