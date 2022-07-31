@@ -38,9 +38,7 @@ func init() {
 }
 
 func optimizeDelete(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error) {
-	var (
-		stmt = o.Stmt.(*ast.DeleteStatement)
-	)
+	stmt := o.Stmt.(*ast.DeleteStatement)
 
 	shards, err := o.ComputeShards(stmt.Table, stmt.Where, o.Args)
 	if err != nil {

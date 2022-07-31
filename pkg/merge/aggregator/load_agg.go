@@ -23,7 +23,7 @@ import (
 )
 
 func LoadAggs(fields []ast.SelectElement) map[int]func() merge.Aggregator {
-	var aggMap = make(map[int]func() merge.Aggregator)
+	aggMap := make(map[int]func() merge.Aggregator)
 	enter := func(i int, n *ast.AggrFunction) {
 		if n == nil {
 			return

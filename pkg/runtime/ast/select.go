@@ -19,7 +19,6 @@ package ast
 
 import (
 	"strings"
-	"time"
 )
 
 import (
@@ -39,15 +38,14 @@ var (
 )
 
 type SelectStatement struct {
-	flag       uint8
-	Select     SelectNode
-	From       FromNode
-	Where      ExpressionNode
-	GroupBy    *GroupByNode
-	Having     ExpressionNode
-	OrderBy    OrderByNode
-	Limit      *LimitNode
-	ModifiedAt time.Time
+	flag    uint8
+	Select  SelectNode
+	From    FromNode
+	Where   ExpressionNode
+	GroupBy *GroupByNode
+	Having  ExpressionNode
+	OrderBy OrderByNode
+	Limit   *LimitNode
 }
 
 func (ss *SelectStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -169,11 +167,11 @@ func (ss *SelectStatement) HasJoin() bool {
 			case *SelectStatement:
 				return it.HasJoin()
 			case *UnionSelectStatement:
-				if it.first.HasJoin() {
+				if it.First.HasJoin() {
 					return true
 				}
-				for _, next := range it.others {
-					if next.SelectStatement().HasJoin() {
+				for _, next := range it.UnionStatementItems {
+					if next.Stmt.HasJoin() {
 						return true
 					}
 				}
@@ -196,59 +194,6 @@ func (ss *SelectStatement) HasSubQuery() bool {
 		}
 	}
 	return false
-}
-
-func (ss *SelectStatement) Validate() error {
-	tables := make(map[string]struct{})
-	for _, it := range ss.From {
-		alias := it.Alias()
-
-		if len(alias) > 0 {
-			tables[alias] = struct{}{}
-		} else if tn := it.TableName(); tn != nil {
-			tables[tn.Suffix()] = struct{}{}
-			continue
-		}
-
-		if sq := it.SubQuery(); sq != nil {
-			switch val := sq.(type) {
-			case *SelectStatement:
-				if err := val.Validate(); err != nil {
-					return err
-				}
-			case *UnionSelectStatement:
-				if err := val.Validate(); err != nil {
-					return err
-				}
-			}
-		}
-	}
-
-	for _, sel := range ss.Select {
-		if err := sel.InTables(tables); err != nil {
-			return errors.Wrap(err, "invalid SELECT clause")
-		}
-	}
-
-	if ss.Where != nil {
-		if err := ss.Where.InTables(tables); err != nil {
-			return errors.Wrap(err, "invalid WHERE clause")
-		}
-	}
-
-	if ss.OrderBy != nil {
-		if err := ss.OrderBy.InTables(tables); err != nil {
-			return errors.Wrap(err, "invalid ORDER BY clause")
-		}
-	}
-
-	if ss.GroupBy != nil {
-		if err := ss.OrderBy.InTables(tables); err != nil {
-			return errors.Wrap(err, "invalid GROUP BY clause")
-		}
-	}
-
-	return nil
 }
 
 func (ss *SelectStatement) Mode() SQLType {

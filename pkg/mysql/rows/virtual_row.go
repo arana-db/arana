@@ -157,6 +157,9 @@ func (vi *binaryVirtualRow) WriteTo(w io.Writer) (n int64, err error) {
 			_, err = bw.WriteUint16(uint16(val))
 		case string:
 			_, err = bw.WriteString(val)
+		case []uint8:
+			// FIXME: how to write binary bytes???
+			_, err = bw.WriteString(bytesconv.BytesToString(val))
 		case float32:
 			_, err = bw.WriteFloat32(val)
 		case float64:
@@ -167,6 +170,7 @@ func (vi *binaryVirtualRow) WriteTo(w io.Writer) (n int64, err error) {
 			_, err = bw.WriteDuration(val)
 		case *gxbig.Decimal:
 			_, err = bw.WriteString(val.String())
+
 		default:
 			err = perrors.Errorf("unknown value type %T", val)
 		}

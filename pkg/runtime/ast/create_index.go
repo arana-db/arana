@@ -48,6 +48,7 @@ func (c *CreateIndexStatement) Restore(flag RestoreFlag, sb *strings.Builder, ar
 	}
 
 	sb.WriteString(" (")
+
 	for i, k := range c.Keys {
 		if i != 0 {
 			sb.WriteString(", ")
@@ -57,10 +58,6 @@ func (c *CreateIndexStatement) Restore(flag RestoreFlag, sb *strings.Builder, ar
 		}
 	}
 	sb.WriteString(")")
-	return nil
-}
-
-func (c *CreateIndexStatement) Validate() error {
 	return nil
 }
 

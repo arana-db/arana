@@ -40,12 +40,12 @@ func LoadAggrs(fields []ast2.SelectElement) *AggrLoader {
 
 		aggrLoader.Aggrs = append(aggrLoader.Aggrs, n.Name())
 		for _, arg := range n.Args() {
-			switch arg.Value().(type) {
+			switch arg.Value.(type) {
 			case ast2.ColumnNameExpressionAtom:
-				columnExpression := arg.Value().(ast2.ColumnNameExpressionAtom)
+				columnExpression := arg.Value.(ast2.ColumnNameExpressionAtom)
 				aggrLoader.Name = append(aggrLoader.Name, columnExpression.String())
 			case ast2.PredicateExpressionNode:
-				enter(arg.Value().(ast2.AtomPredicateNode).A.(*ast2.FunctionCallExpressionAtom).F.(*ast2.AggrFunction))
+				enter(arg.Value.(ast2.AtomPredicateNode).A.(*ast2.FunctionCallExpressionAtom).F.(*ast2.AggrFunction))
 			}
 		}
 	}

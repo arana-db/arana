@@ -35,17 +35,17 @@ import (
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
-// UnionPlan merges multiple query plan.
-type UnionPlan struct {
+// CompositePlan merges multiple query plan.
+type CompositePlan struct {
 	Plans []proto.Plan
 }
 
-func (u UnionPlan) Type() proto.PlanType {
+func (u CompositePlan) Type() proto.PlanType {
 	return proto.PlanTypeQuery
 }
 
-func (u UnionPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
-	ctx, span := plan.Tracer.Start(ctx, "UnionPlan.ExecIn")
+func (u CompositePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+	ctx, span := plan.Tracer.Start(ctx, "CompositePlan.ExecIn")
 	defer span.End()
 	switch u.Plans[0].Type() {
 	case proto.PlanTypeQuery:
@@ -57,7 +57,7 @@ func (u UnionPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, 
 	}
 }
 
-func (u UnionPlan) showOpenTables(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+func (u CompositePlan) showOpenTables(ctx context.Context, conn proto.VConn) (proto.Result, error) {
 	var (
 		fields    []proto.Field
 		rows      []proto.Row
@@ -109,7 +109,7 @@ func (u UnionPlan) showOpenTables(ctx context.Context, conn proto.VConn) (proto.
 	return resultx.New(resultx.WithDataset(ds)), nil
 }
 
-func (u UnionPlan) query(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+func (u CompositePlan) query(ctx context.Context, conn proto.VConn) (proto.Result, error) {
 	var generators []dataset.GenerateFunc
 	for _, it := range u.Plans {
 		it := it
@@ -124,13 +124,13 @@ func (u UnionPlan) query(ctx context.Context, conn proto.VConn) (proto.Result, e
 
 	ds, err := dataset.Fuse(generators[0], generators[1:]...)
 	if err != nil {
-		log.Errorf("UnionPlan Fuse error:%v", err)
+		log.Errorf("CompositePlan Fuse error:%v", err)
 		return nil, err
 	}
 	return resultx.New(resultx.WithDataset(ds)), nil
 }
 
-func (u UnionPlan) exec(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+func (u CompositePlan) exec(ctx context.Context, conn proto.VConn) (proto.Result, error) {
 	var id, affects uint64
 	for _, it := range u.Plans {
 		i, n, err := u.execOne(ctx, conn, it)
@@ -144,7 +144,7 @@ func (u UnionPlan) exec(ctx context.Context, conn proto.VConn) (proto.Result, er
 	return resultx.New(resultx.WithLastInsertID(id), resultx.WithRowsAffected(affects)), nil
 }
 
-func (u UnionPlan) execOne(ctx context.Context, conn proto.VConn, p proto.Plan) (uint64, uint64, error) {
+func (u CompositePlan) execOne(ctx context.Context, conn proto.VConn, p proto.Plan) (uint64, uint64, error) {
 	res, err := p.ExecIn(ctx, conn)
 	if err != nil {
 		return 0, 0, errors.WithStack(err)

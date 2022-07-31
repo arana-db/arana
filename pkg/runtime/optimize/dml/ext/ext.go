@@ -15,41 +15,20 @@
  * limitations under the License.
  */
 
-package ast
+package ext
 
 import (
-	"strings"
+	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
-import (
-	"github.com/pkg/errors"
-)
-
-type DropTableStatement struct {
-	Tables []*TableName
+// WeakMarker marks the select element is weak.
+type WeakMarker interface {
+	// Weak marks weak.
+	Weak()
 }
 
-func NewDropTableStatement() *DropTableStatement {
-	return &DropTableStatement{}
-}
-
-func (d DropTableStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
-	sb.WriteString("DROP TABLE ")
-	for index, table := range d.Tables {
-		if index != 0 {
-			sb.WriteString(", ")
-		}
-		if err := table.Restore(flag, sb, args); err != nil {
-			return errors.Errorf("An error occurred while restore DropTableStatement.Tables[%d],error:%s", index, err)
-		}
-	}
-	return nil
-}
-
-func (d DropTableStatement) CntParams() int {
-	return 0
-}
-
-func (d DropTableStatement) Mode() SQLType {
-	return SQLTypeDropTable
+// SelectElementProvider provides previous upstream select element.
+type SelectElementProvider interface {
+	// Prev returns the previous select element.
+	Prev() ast.SelectElement
 }

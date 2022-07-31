@@ -48,7 +48,7 @@ func optimizeAlterTable(_ context.Context, o *optimize.Optimizer) (proto.Plan, e
 		return ret, nil
 	}
 
-	//TODO alter table table or column to new name , should update sharding info
+	// TODO alter table table or column to new name , should update sharding info
 
 	// exit if full-scan is disabled
 	if !vt.AllowFullScan() {

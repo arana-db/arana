@@ -29,16 +29,6 @@ import (
 	"github.com/arana-db/arana/pkg/runtime/cmp"
 )
 
-const (
-	_ PredicateMode = iota
-	PmIn
-	PmCompare
-	PmLike
-	PmAtom
-	PmBetween
-	PmRegexp
-)
-
 var (
 	_ PredicateNode = (*LikePredicateNode)(nil)
 	_ PredicateNode = (*BinaryComparisonPredicateNode)(nil)
@@ -48,29 +38,18 @@ var (
 	_ PredicateNode = (*RegexpPredicationNode)(nil)
 )
 
-type PredicateMode uint8
+type predicateNodePhantom struct{}
 
 type PredicateNode interface {
 	Restorer
 	paramsCounter
-	inTablesChecker
-	Mode() PredicateMode
+	phantom() predicateNodePhantom
 }
 
 type LikePredicateNode struct {
 	Not   bool
 	Left  PredicateNode
 	Right PredicateNode
-}
-
-func (l *LikePredicateNode) InTables(tables map[string]struct{}) error {
-	if err := l.Left.InTables(tables); err != nil {
-		return err
-	}
-	if err := l.Right.InTables(tables); err != nil {
-		return err
-	}
-	return nil
 }
 
 func (l *LikePredicateNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -98,8 +77,8 @@ func (l *LikePredicateNode) CntParams() int {
 	return l.Left.CntParams() + l.Right.CntParams()
 }
 
-func (l *LikePredicateNode) Mode() PredicateMode {
-	return PmLike
+func (l *LikePredicateNode) phantom() predicateNodePhantom {
+	return predicateNodePhantom{}
 }
 
 type RegexpPredicationNode struct {
@@ -124,38 +103,18 @@ func (rp *RegexpPredicationNode) Restore(flag RestoreFlag, sb *strings.Builder, 
 	return nil
 }
 
+func (rp *RegexpPredicationNode) phantom() predicateNodePhantom {
+	return predicateNodePhantom{}
+}
+
 func (rp *RegexpPredicationNode) CntParams() int {
 	return rp.Left.CntParams() + rp.Right.CntParams()
-}
-
-func (rp *RegexpPredicationNode) InTables(tables map[string]struct{}) error {
-	if err := rp.Left.InTables(tables); err != nil {
-		return err
-	}
-	if err := rp.Right.InTables(tables); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (rp *RegexpPredicationNode) Mode() PredicateMode {
-	return PmRegexp
 }
 
 type BinaryComparisonPredicateNode struct {
 	Left  PredicateNode
 	Right PredicateNode
 	Op    cmp.Comparison
-}
-
-func (b *BinaryComparisonPredicateNode) InTables(tables map[string]struct{}) error {
-	if err := b.Left.InTables(tables); err != nil {
-		return err
-	}
-	if err := b.Right.InTables(tables); err != nil {
-		return err
-	}
-	return nil
 }
 
 func (b *BinaryComparisonPredicateNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -195,16 +154,12 @@ func (b *BinaryComparisonPredicateNode) CntParams() int {
 	return b.Left.CntParams() + b.Right.CntParams()
 }
 
-func (b *BinaryComparisonPredicateNode) Mode() PredicateMode {
-	return PmCompare
+func (b *BinaryComparisonPredicateNode) phantom() predicateNodePhantom {
+	return predicateNodePhantom{}
 }
 
 type AtomPredicateNode struct {
 	A ExpressionAtom
-}
-
-func (a *AtomPredicateNode) InTables(tables map[string]struct{}) error {
-	return a.A.InTables(tables)
 }
 
 func (a *AtomPredicateNode) Column() (ColumnNameExpressionAtom, bool) {
@@ -226,8 +181,8 @@ func (a *AtomPredicateNode) CntParams() int {
 	return a.A.CntParams()
 }
 
-func (a *AtomPredicateNode) Mode() PredicateMode {
-	return PmAtom
+func (a *AtomPredicateNode) phantom() predicateNodePhantom {
+	return predicateNodePhantom{}
 }
 
 type BetweenPredicateNode struct {
@@ -235,19 +190,6 @@ type BetweenPredicateNode struct {
 	Key   PredicateNode
 	Left  PredicateNode
 	Right PredicateNode
-}
-
-func (b *BetweenPredicateNode) InTables(tables map[string]struct{}) error {
-	if err := b.Key.InTables(tables); err != nil {
-		return err
-	}
-	if err := b.Left.InTables(tables); err != nil {
-		return err
-	}
-	if err := b.Right.InTables(tables); err != nil {
-		return err
-	}
-	return nil
 }
 
 func (b *BetweenPredicateNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -276,31 +218,15 @@ func (b *BetweenPredicateNode) CntParams() int {
 	return b.Key.CntParams() + b.Left.CntParams() + b.Right.CntParams()
 }
 
-func (b *BetweenPredicateNode) Mode() PredicateMode {
-	return PmBetween
+func (b *BetweenPredicateNode) phantom() predicateNodePhantom {
+	return predicateNodePhantom{}
 }
 
 type InPredicateNode struct {
-	not bool
+	Not bool
 	P   PredicateNode
 	E   []ExpressionNode
 	// TODO: select statement
-}
-
-func (ip *InPredicateNode) InTables(tables map[string]struct{}) error {
-	if err := ip.P.InTables(tables); err != nil {
-		return err
-	}
-	for _, it := range ip.E {
-		if err := it.InTables(tables); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (ip *InPredicateNode) IsNot() bool {
-	return ip.not
 }
 
 func (ip *InPredicateNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -308,7 +234,7 @@ func (ip *InPredicateNode) Restore(flag RestoreFlag, sb *strings.Builder, args *
 		return errors.WithStack(err)
 	}
 
-	if ip.IsNot() {
+	if ip.Not {
 		sb.WriteString(" NOT IN ")
 	} else {
 		sb.WriteString(" IN ")
@@ -339,6 +265,6 @@ func (ip *InPredicateNode) CntParams() (n int) {
 	return
 }
 
-func (ip *InPredicateNode) Mode() PredicateMode {
-	return PmIn
+func (ip *InPredicateNode) phantom() predicateNodePhantom {
+	return predicateNodePhantom{}
 }

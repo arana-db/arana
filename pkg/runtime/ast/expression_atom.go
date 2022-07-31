@@ -34,21 +34,6 @@ import (
 	"github.com/arana-db/arana/pkg/runtime/misc"
 )
 
-const (
-	_ ExpressionAtomMode = iota
-	EamUnary
-	EamVar
-	EamCol
-	EamMath
-	EamConst
-	EamNested
-	EamFunc
-	EamSysVar
-	EamInterval
-)
-
-type ExpressionAtomMode uint8
-
 var (
 	_ ExpressionAtom = (ColumnNameExpressionAtom)(nil)
 	_ ExpressionAtom = (*MathExpressionAtom)(nil)
@@ -61,28 +46,21 @@ var (
 	_ ExpressionAtom = (*IntervalExpressionAtom)(nil)
 )
 
+type expressionAtomPhantom struct{}
+
 type ExpressionAtom interface {
 	Restorer
 	paramsCounter
-	inTablesChecker
-	Mode() ExpressionAtomMode
+	phantom() expressionAtomPhantom
 }
 
 type IntervalExpressionAtom struct {
-	unit  ast.TimeUnitType
-	value PredicateNode
-}
-
-func (ie *IntervalExpressionAtom) Value() PredicateNode {
-	return ie.value
-}
-
-func (ie *IntervalExpressionAtom) Unit() ast.TimeUnitType {
-	return ie.unit
+	Unit  ast.TimeUnitType
+	Value PredicateNode
 }
 
 func (ie *IntervalExpressionAtom) Duration() time.Duration {
-	switch ie.unit {
+	switch ie.Unit {
 	case ast.TimeUnitMicrosecond:
 		return time.Microsecond
 	case ast.TimeUnitSecond:
@@ -94,44 +72,36 @@ func (ie *IntervalExpressionAtom) Duration() time.Duration {
 	case ast.TimeUnitDay:
 		return time.Hour * 24
 	default:
-		panic(fmt.Sprintf("unsupported interval unit %s!", ie.unit))
+		panic(fmt.Sprintf("unsupported interval unit %s!", ie.Unit))
 	}
 }
 
 func (ie *IntervalExpressionAtom) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("INTERVAL ")
-	if err := ie.value.Restore(flag, sb, args); err != nil {
+	if err := ie.Value.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
 	sb.WriteByte(' ')
-	sb.WriteString(ie.unit.String())
+	sb.WriteString(ie.Unit.String())
 
 	return nil
 }
 
 func (ie *IntervalExpressionAtom) CntParams() int {
-	return ie.value.CntParams()
+	return ie.Value.CntParams()
 }
 
-func (ie *IntervalExpressionAtom) InTables(tables map[string]struct{}) error {
-	return ie.value.InTables(tables)
-}
-
-func (ie *IntervalExpressionAtom) Mode() ExpressionAtomMode {
-	return EamInterval
+func (ie *IntervalExpressionAtom) phantom() expressionAtomPhantom {
+	return expressionAtomPhantom{}
 }
 
 type SystemVariableExpressionAtom struct {
-	name string
+	Name string
 }
 
-func (sy *SystemVariableExpressionAtom) Name() string {
-	return sy.name
-}
-
-func (sy *SystemVariableExpressionAtom) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+func (sy *SystemVariableExpressionAtom) Restore(_ RestoreFlag, sb *strings.Builder, _ *[]int) error {
 	sb.WriteString("@@")
-	sb.WriteString(sy.name)
+	sb.WriteString(sy.Name)
 	return nil
 }
 
@@ -139,28 +109,13 @@ func (sy *SystemVariableExpressionAtom) CntParams() int {
 	return 0
 }
 
-func (sy *SystemVariableExpressionAtom) InTables(tables map[string]struct{}) error {
-	return nil
-}
-
-func (sy *SystemVariableExpressionAtom) Mode() ExpressionAtomMode {
-	return EamSysVar
+func (sy *SystemVariableExpressionAtom) phantom() expressionAtomPhantom {
+	return expressionAtomPhantom{}
 }
 
 type UnaryExpressionAtom struct {
 	Operator string
 	Inner    interface{} // ExpressionAtom or *BinaryComparisonPredicateNode
-}
-
-func (u *UnaryExpressionAtom) InTables(tables map[string]struct{}) error {
-	switch t := u.Inner.(type) {
-	case ExpressionAtom:
-		return t.InTables(tables)
-	case *BinaryComparisonPredicateNode:
-		return t.InTables(tables)
-	default:
-		panic("unreachable")
-	}
 }
 
 func (u *UnaryExpressionAtom) IsOperatorNot() bool {
@@ -200,21 +155,21 @@ func (u *UnaryExpressionAtom) CntParams() int {
 	}
 }
 
-func (u *UnaryExpressionAtom) Mode() ExpressionAtomMode {
-	return EamUnary
+func (u *UnaryExpressionAtom) phantom() expressionAtomPhantom {
+	return expressionAtomPhantom{}
 }
 
 type ConstantExpressionAtom struct {
 	Inner interface{}
 }
 
-func (c *ConstantExpressionAtom) InTables(_ map[string]struct{}) error {
-	return nil
-}
-
 func (c *ConstantExpressionAtom) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString(constant2string(c.Inner))
 	return nil
+}
+
+func (c *ConstantExpressionAtom) phantom() expressionAtomPhantom {
+	return expressionAtomPhantom{}
 }
 
 func constant2string(value interface{}) string {
@@ -271,25 +226,11 @@ func (c *ConstantExpressionAtom) Value() interface{} {
 	return c.Inner
 }
 
-func (c *ConstantExpressionAtom) Mode() ExpressionAtomMode {
-	return EamConst
-}
-
 func (c *ConstantExpressionAtom) CntParams() int {
 	return 0
 }
 
 type ColumnNameExpressionAtom []string
-
-func (c ColumnNameExpressionAtom) InTables(tables map[string]struct{}) error {
-	if len(c) == 1 {
-		return nil
-	}
-	if _, ok := tables[c.Prefix()]; ok {
-		return nil
-	}
-	return errors.Errorf("unknown column '%s'", c.String())
-}
 
 func (c ColumnNameExpressionAtom) Prefix() string {
 	if len(c) > 1 {
@@ -320,15 +261,11 @@ func (c ColumnNameExpressionAtom) CntParams() int {
 	return 0
 }
 
-func (c ColumnNameExpressionAtom) Mode() ExpressionAtomMode {
-	return EamCol
+func (c ColumnNameExpressionAtom) phantom() expressionAtomPhantom {
+	return expressionAtomPhantom{}
 }
 
 type VariableExpressionAtom int
-
-func (v VariableExpressionAtom) InTables(_ map[string]struct{}) error {
-	return nil
-}
 
 func (v VariableExpressionAtom) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteByte('?')
@@ -348,24 +285,14 @@ func (v VariableExpressionAtom) CntParams() int {
 	return 1
 }
 
-func (v VariableExpressionAtom) Mode() ExpressionAtomMode {
-	return EamVar
+func (v VariableExpressionAtom) phantom() expressionAtomPhantom {
+	return expressionAtomPhantom{}
 }
 
 type MathExpressionAtom struct {
 	Left     ExpressionAtom
 	Operator string
 	Right    ExpressionAtom
-}
-
-func (m *MathExpressionAtom) InTables(tables map[string]struct{}) error {
-	if err := m.Left.InTables(tables); err != nil {
-		return err
-	}
-	if err := m.Right.InTables(tables); err != nil {
-		return err
-	}
-	return nil
 }
 
 func (m *MathExpressionAtom) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -384,16 +311,12 @@ func (m *MathExpressionAtom) CntParams() int {
 	return m.Left.CntParams() + m.Right.CntParams()
 }
 
-func (m *MathExpressionAtom) Mode() ExpressionAtomMode {
-	return EamMath
+func (m *MathExpressionAtom) phantom() expressionAtomPhantom {
+	return expressionAtomPhantom{}
 }
 
 type NestedExpressionAtom struct {
 	First ExpressionNode
-}
-
-func (n *NestedExpressionAtom) InTables(tables map[string]struct{}) error {
-	return n.First.InTables(tables)
 }
 
 func (n *NestedExpressionAtom) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -410,21 +333,12 @@ func (n *NestedExpressionAtom) CntParams() (ret int) {
 	return n.First.CntParams()
 }
 
-func (n *NestedExpressionAtom) Mode() ExpressionAtomMode {
-	return EamNested
+func (n *NestedExpressionAtom) phantom() expressionAtomPhantom {
+	return expressionAtomPhantom{}
 }
 
 type FunctionCallExpressionAtom struct {
 	F interface{} // *Function OR *AggrFunction OR *CaseWhenElseFunction OR *CastFunction
-}
-
-func (f *FunctionCallExpressionAtom) InTables(tables map[string]struct{}) error {
-	if c, ok := f.F.(inTablesChecker); ok {
-		if err := c.InTables(tables); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (f *FunctionCallExpressionAtom) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -464,6 +378,6 @@ func (f *FunctionCallExpressionAtom) CntParams() int {
 	}
 }
 
-func (f *FunctionCallExpressionAtom) Mode() ExpressionAtomMode {
-	return EamFunc
+func (f *FunctionCallExpressionAtom) phantom() expressionAtomPhantom {
+	return expressionAtomPhantom{}
 }

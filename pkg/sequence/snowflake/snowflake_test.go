@@ -30,7 +30,6 @@ import (
 )
 
 func Test_snowflakeSequence_Acquire(t *testing.T) {
-
 	seq := &snowflakeSequence{
 		mu:     sync.Mutex{},
 		epoch:  startWallTime.Add(time.Unix(_defaultEpoch/1000, (_defaultEpoch%1000)*1000000).Sub(startWallTime)),

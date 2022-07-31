@@ -33,49 +33,18 @@ const (
 	_flagInsertSetSyntax
 )
 
-var (
-	_ BaseInsertValuesStatement = (*InsertStatement)(nil)
-	_ BaseInsertValuesStatement = (*ReplaceStatement)(nil)
-	_ BaseInsertSelectStatement = (*InsertSelectStatement)(nil)
-	_ BaseInsertSelectStatement = (*ReplaceSelectStatement)(nil)
-)
-
 type BaseInsertStatement interface {
 	Statement
 	paramsCounter
 	IsSetSyntax() bool
 	IsIgnore() bool
 	Priority() (string, bool)
-	Columns() []string
-	Table() TableName
-}
-
-type BaseInsertValuesStatement interface {
-	BaseInsertStatement
-	Values() [][]ExpressionNode
-}
-
-type BaseInsertSelectStatement interface {
-	BaseInsertStatement
-	Select() *SelectStatement
 }
 
 type baseInsertStatement struct {
 	flag    uint8
-	table   TableName
-	columns []string
-}
-
-func (b *baseInsertStatement) Table() TableName {
-	return b.table
-}
-
-func (b *baseInsertStatement) SetColumns(columns []string) {
-	b.columns = columns
-}
-
-func (b *baseInsertStatement) Columns() []string {
-	return b.columns
+	Table   TableName
+	Columns []string
 }
 
 func (b *baseInsertStatement) IsSetSyntax() bool {
@@ -142,20 +111,12 @@ func (b *baseInsertStatement) enableSetSyntax() {
 
 type ReplaceStatement struct {
 	*baseInsertStatement
-	values [][]ExpressionNode
+	Values [][]ExpressionNode
 }
 
 func (r *ReplaceStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	// TODO implement me
 	panic("implement me")
-}
-
-func (r *ReplaceStatement) Validate() error {
-	return nil
-}
-
-func (r *ReplaceStatement) Values() [][]ExpressionNode {
-	return r.values
 }
 
 func (r *ReplaceStatement) Mode() SQLType {
@@ -164,7 +125,7 @@ func (r *ReplaceStatement) Mode() SQLType {
 
 func (r *ReplaceStatement) CntParams() int {
 	var n int
-	for _, row := range r.values {
+	for _, row := range r.Values {
 		for _, col := range row {
 			if col != nil {
 				n += col.CntParams()
@@ -177,15 +138,15 @@ func (r *ReplaceStatement) CntParams() int {
 // InsertStatement represents mysql insert statement. see https://dev.mysql.com/doc/refman/8.0/en/insert.html
 type InsertStatement struct {
 	*baseInsertStatement
-	duplicatedUpdates []*UpdateElement
-	values            [][]ExpressionNode
+	DuplicatedUpdates []*UpdateElement
+	Values            [][]ExpressionNode
 }
 
 func NewInsertStatement(table TableName, columns []string) *InsertStatement {
 	return &InsertStatement{
 		baseInsertStatement: &baseInsertStatement{
-			table:   table,
-			columns: columns,
+			Table:   table,
+			Columns: columns,
 		},
 	}
 }
@@ -208,39 +169,39 @@ func (is *InsertStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *
 
 	sb.WriteString("INTO ")
 
-	if err := is.Table().Restore(flag, sb, args); err != nil {
+	if err := is.Table.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
 
 	if is.IsSetSyntax() {
 		sb.WriteString(" SET ")
-		_ = is.columns[0]
-		_ = is.values[0]
+		_ = is.Columns[0]
+		_ = is.Values[0]
 
-		if len(is.columns) != len(is.values[0]) {
-			return errors.Errorf("length of column and value doesn't match: %d<>%d", len(is.columns), len(is.values[0]))
+		if len(is.Columns) != len(is.Values[0]) {
+			return errors.Errorf("length of column and value doesn't match: %d<>%d", len(is.Columns), len(is.Values[0]))
 		}
 
-		WriteID(sb, is.columns[0])
+		WriteID(sb, is.Columns[0])
 		sb.WriteString(" = ")
-		if err := is.values[0][0].Restore(flag, sb, args); err != nil {
+		if err := is.Values[0][0].Restore(flag, sb, args); err != nil {
 			return errors.WithStack(err)
 		}
 
-		for i := 1; i < len(is.columns); i++ {
+		for i := 1; i < len(is.Columns); i++ {
 			sb.WriteString(", ")
-			WriteID(sb, is.columns[i])
+			WriteID(sb, is.Columns[i])
 			sb.WriteString(" = ")
-			if err := is.values[0][i].Restore(flag, sb, args); err != nil {
+			if err := is.Values[0][i].Restore(flag, sb, args); err != nil {
 				return errors.WithStack(err)
 			}
 		}
-	} else if len(is.columns) > 0 {
+	} else if len(is.Columns) > 0 {
 		sb.WriteByte('(')
-		WriteID(sb, is.columns[0])
-		for i := 1; i < len(is.columns); i++ {
+		WriteID(sb, is.Columns[0])
+		for i := 1; i < len(is.Columns); i++ {
 			sb.WriteString(", ")
-			WriteID(sb, is.columns[i])
+			WriteID(sb, is.Columns[i])
 		}
 		sb.WriteString(") ")
 	} else {
@@ -271,63 +232,38 @@ func (is *InsertStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *
 			return nil
 		}
 
-		if err := writeOne(flag, sb, args, is.values[0]); err != nil {
+		if err := writeOne(flag, sb, args, is.Values[0]); err != nil {
 			return errors.WithStack(err)
 		}
 
-		for i := 1; i < len(is.values); i++ {
+		for i := 1; i < len(is.Values); i++ {
 			sb.WriteByte(',')
-			if err := writeOne(flag, sb, args, is.values[i]); err != nil {
+			if err := writeOne(flag, sb, args, is.Values[i]); err != nil {
 				return errors.WithStack(err)
 			}
 		}
 	}
 
-	if len(is.duplicatedUpdates) > 0 {
+	if len(is.DuplicatedUpdates) > 0 {
 		sb.WriteString(" ON DUPLICATE KEY UPDATE ")
 
-		if err := is.duplicatedUpdates[0].Restore(flag, sb, args); err != nil {
+		if err := is.DuplicatedUpdates[0].Restore(flag, sb, args); err != nil {
 			return errors.WithStack(err)
 		}
-		for i := 1; i < len(is.duplicatedUpdates); i++ {
+		for i := 1; i < len(is.DuplicatedUpdates); i++ {
 			sb.WriteString(", ")
-			if err := is.duplicatedUpdates[i].Restore(flag, sb, args); err != nil {
+			if err := is.DuplicatedUpdates[i].Restore(flag, sb, args); err != nil {
 				return errors.WithStack(err)
 			}
 		}
 	}
 
 	return nil
-}
-
-func (is *InsertStatement) Validate() error {
-	for _, next := range is.values {
-		if len(next) != len(is.columns) {
-			return errors.New("the amounts of column and values doesn't match")
-		}
-	}
-	return nil
-}
-
-func (is *InsertStatement) SetDuplicatedUpdates(updates []*UpdateElement) {
-	is.duplicatedUpdates = updates
-}
-
-func (is *InsertStatement) DuplicatedUpdates() []*UpdateElement {
-	return is.duplicatedUpdates
-}
-
-func (is *InsertStatement) SetValues(values [][]ExpressionNode) {
-	is.values = values
-}
-
-func (is *InsertStatement) Values() [][]ExpressionNode {
-	return is.values
 }
 
 func (is *InsertStatement) CntParams() int {
 	var n int
-	for _, row := range is.values {
+	for _, row := range is.Values {
 		for _, col := range row {
 			if col != nil {
 				n += col.CntParams()
@@ -335,7 +271,7 @@ func (is *InsertStatement) CntParams() int {
 		}
 	}
 
-	for _, dup := range is.duplicatedUpdates {
+	for _, dup := range is.DuplicatedUpdates {
 		n += dup.CntParams()
 	}
 
@@ -348,7 +284,7 @@ func (is *InsertStatement) Mode() SQLType {
 
 type ReplaceSelectStatement struct {
 	*baseInsertStatement
-	sel *SelectStatement
+	Select *SelectStatement
 }
 
 func (r *ReplaceSelectStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -356,16 +292,8 @@ func (r *ReplaceSelectStatement) Restore(flag RestoreFlag, sb *strings.Builder, 
 	panic("implement me")
 }
 
-func (r *ReplaceSelectStatement) Validate() error {
-	return nil
-}
-
-func (r *ReplaceSelectStatement) Select() *SelectStatement {
-	return r.sel
-}
-
 func (r *ReplaceSelectStatement) CntParams() int {
-	return r.sel.CntParams()
+	return r.Select.CntParams()
 }
 
 func (r *ReplaceSelectStatement) Mode() SQLType {
@@ -397,16 +325,16 @@ func (is *InsertSelectStatement) Restore(flag RestoreFlag, sb *strings.Builder, 
 
 	sb.WriteString("INTO ")
 
-	if err := is.Table().Restore(flag, sb, args); err != nil {
+	if err := is.Table.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
 
-	if len(is.columns) > 0 {
+	if len(is.Columns) > 0 {
 		sb.WriteByte('(')
-		WriteID(sb, is.columns[0])
-		for i := 1; i < len(is.columns); i++ {
+		WriteID(sb, is.Columns[0])
+		for i := 1; i < len(is.Columns); i++ {
 			sb.WriteString(", ")
-			WriteID(sb, is.columns[i])
+			WriteID(sb, is.Columns[i])
 		}
 		sb.WriteString(") ")
 	} else {
@@ -440,13 +368,6 @@ func (is *InsertSelectStatement) Restore(flag RestoreFlag, sb *strings.Builder, 
 	}
 
 	return nil
-}
-
-func (is *InsertSelectStatement) Validate() error {
-	if is.unionSel != nil {
-		return is.unionSel.Validate()
-	}
-	return is.sel.Validate()
 }
 
 func (is *InsertSelectStatement) Select() *SelectStatement {

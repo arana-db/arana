@@ -48,7 +48,6 @@ type ExpressionMode uint8
 type ExpressionNode interface {
 	Restorer
 	paramsCounter
-	inTablesChecker
 	Mode() ExpressionMode
 }
 
@@ -56,16 +55,6 @@ type LogicalExpressionNode struct {
 	Op    logical.Op
 	Left  ExpressionNode
 	Right ExpressionNode
-}
-
-func (l *LogicalExpressionNode) InTables(tables map[string]struct{}) error {
-	if err := l.Left.InTables(tables); err != nil {
-		return err
-	}
-	if err := l.Right.InTables(tables); err != nil {
-		return err
-	}
-	return nil
 }
 
 func (l *LogicalExpressionNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -101,10 +90,6 @@ type NotExpressionNode struct {
 	E ExpressionNode
 }
 
-func (n *NotExpressionNode) InTables(tables map[string]struct{}) error {
-	return n.E.InTables(tables)
-}
-
 func (n *NotExpressionNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("NOT ")
 	if err := n.E.Restore(flag, sb, args); err != nil {
@@ -123,10 +108,6 @@ func (n *NotExpressionNode) Mode() ExpressionMode {
 
 type PredicateExpressionNode struct {
 	P PredicateNode
-}
-
-func (a *PredicateExpressionNode) InTables(tables map[string]struct{}) error {
-	return a.P.InTables(tables)
 }
 
 func (a *PredicateExpressionNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {

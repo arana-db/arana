@@ -35,7 +35,7 @@ func init() {
 
 func optimizeDropIndex(_ context.Context, o *optimize.Optimizer) (proto.Plan, error) {
 	stmt := o.Stmt.(*ast.DropIndexStatement)
-	//table shard
+	// table shard
 
 	shard, err := o.ComputeShards(stmt.Table, nil, o.Args)
 	if err != nil {

@@ -50,7 +50,7 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		ok   bool
 	)
 
-	if vt, ok = o.Rule.VTable(stmt.Table().Suffix()); !ok { // insert into non-sharding table
+	if vt, ok = o.Rule.VTable(stmt.Table.Suffix()); !ok { // insert into non-sharding table
 		ret.Put("", stmt)
 		return ret, nil
 	}
@@ -59,7 +59,7 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 
 	bingo := -1
 	// check existing shard columns
-	for i, col := range stmt.Columns() {
+	for i, col := range stmt.Columns {
 		if _, _, ok = vt.GetShardMetadata(col); ok {
 			bingo = i
 			break
@@ -70,9 +70,9 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		return nil, errors.Wrap(optimize.ErrNoShardKeyFound, "failed to insert")
 	}
 
-	//check on duplicated key update
-	for _, upd := range stmt.DuplicatedUpdates() {
-		if upd.Column.Suffix() == stmt.Columns()[bingo] {
+	// check on duplicated key update
+	for _, upd := range stmt.DuplicatedUpdates {
+		if upd.Column.Suffix() == stmt.Columns[bingo] {
 			return nil, errors.New("do not support update sharding key")
 		}
 	}
@@ -97,12 +97,11 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		filter.P.(*ast.BinaryComparisonPredicateNode).Right = value.(*ast.PredicateExpressionNode).P
 	}
 
-	for i, values := range stmt.Values() {
+	for i, values := range stmt.Values {
 		value := values[bingo]
-		resetFilter(stmt.Columns()[bingo], value)
+		resetFilter(stmt.Columns[bingo], value)
 
-		shards, _, err := sharder.Shard(stmt.Table(), filter, o.Args...)
-
+		shards, _, err := sharder.Shard(stmt.Table, filter, o.Args...)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
@@ -131,16 +130,16 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 	for db, slot := range slots {
 		for table, indexes := range slot {
 			// clone insert stmt without values
-			newborn := ast.NewInsertStatement(ast.TableName{table}, stmt.Columns())
+			newborn := ast.NewInsertStatement(ast.TableName{table}, stmt.Columns)
 			newborn.SetFlag(stmt.Flag())
-			newborn.SetDuplicatedUpdates(stmt.DuplicatedUpdates())
+			newborn.DuplicatedUpdates = stmt.DuplicatedUpdates
 
 			// collect values with same table
 			values := make([][]ast.ExpressionNode, 0, len(indexes))
 			for _, i := range indexes {
-				values = append(values, stmt.Values()[i])
+				values = append(values, stmt.Values[i])
 			}
-			newborn.SetValues(values)
+			newborn.Values = values
 
 			rewriteInsertStatement(ctx, o, vt, newborn)
 			ret.Put(db, newborn)
@@ -157,7 +156,7 @@ func optimizeInsertSelect(_ context.Context, o *optimize.Optimizer) (proto.Plan,
 
 	ret.BindArgs(o.Args)
 
-	if _, ok := o.Rule.VTable(stmt.Table().Suffix()); !ok { // insert into non-sharding table
+	if _, ok := o.Rule.VTable(stmt.Table.Suffix()); !ok { // insert into non-sharding table
 		ret.Batch[""] = stmt
 		return ret, nil
 	}
@@ -191,13 +190,13 @@ func rewriteInsertStatement(ctx context.Context, o *optimize.Optimizer, vtab *ru
 		return errors.Errorf("optimize: cannot get metadata of `%s`.`%s`", rcontext.Schema(ctx), tb0)
 	}
 
-	if len(metadata.ColumnNames) == len(stmt.Columns()) {
+	if len(metadata.ColumnNames) == len(stmt.Columns) {
 		// User had explicitly specified every value
 		return nil
 	}
 	columnsMetadata := metadata.Columns
 
-	for _, colName := range stmt.Columns() {
+	for _, colName := range stmt.Columns {
 		if columnsMetadata[colName].PrimaryKey && columnsMetadata[colName].Generated {
 			// User had explicitly specified auto-generated primary key column
 			return nil
@@ -234,11 +233,10 @@ func rewriteInsertStatement(ctx context.Context, o *optimize.Optimizer, vtab *ru
 	}
 
 	// TODO rewrite columns and add distributed primary key
-	stmt.SetColumns(append(stmt.Columns(), pkColName))
+	stmt.Columns = append(stmt.Columns, pkColName)
 	// append value of distributed primary key
-	newValues := stmt.Values()
-	for i := range newValues {
-		newValues[i] = append(newValues[i], &ast.PredicateExpressionNode{
+	for i := range stmt.Values {
+		stmt.Values[i] = append(stmt.Values[i], &ast.PredicateExpressionNode{
 			P: &ast.AtomPredicateNode{
 				A: &ast.ConstantExpressionAtom{Inner: val},
 			},

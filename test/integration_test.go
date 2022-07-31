@@ -20,6 +20,9 @@ package test
 import (
 	"database/sql"
 	"fmt"
+	"sort"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -126,7 +129,7 @@ func (s *IntegrationSuite) TestSimpleSharding() {
 			fmt.Sprintf("fake_name_%d", i),
 			fmt.Sprintf("fake_nickname_%d", i),
 			1,
-			2022,
+			2022-rand2.Intn(40),
 		)
 		assert.NoErrorf(t, err, "insert row error: %v", err)
 		affected, err := result.RowsAffected()
@@ -203,13 +206,13 @@ func (s *IntegrationSuite) TestInsertOnDuplicateKey() {
 
 	i := 32
 	result, err := db.Exec(`INSERT IGNORE INTO student(id,uid,score,name,nickname,gender,birth_year) 
-     values (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE nickname='dump' `, 1654008174496657000, i, 3.14, fmt.Sprintf("fake_name_%d", i), fmt.Sprintf("fake_nickname_%d", i), 1, 2022)
+     values (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE nickname='dump' `, 1654008174496657000, i, 3.14, fmt.Sprintf("fake_name_%d", i), fmt.Sprintf("fake_nickname_%d", i), 1, 2022-rand2.Intn(40))
 	assert.NoErrorf(t, err, "insert row error: %v", err)
 	_, err = result.RowsAffected()
 	assert.NoErrorf(t, err, "insert row error: %v", err)
 
 	_, err = db.Exec(`INSERT IGNORE INTO student(id,uid,score,name,nickname,gender,birth_year) 
-     values (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE uid=32 `, 1654008174496657000, i, 3.14, fmt.Sprintf("fake_name_%d", i), fmt.Sprintf("fake_nickname_%d", i), 1, 2022)
+     values (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE uid=32 `, 1654008174496657000, i, 3.14, fmt.Sprintf("fake_name_%d", i), fmt.Sprintf("fake_nickname_%d", i), 1, 2022-rand2.Intn(40))
 	assert.Error(t, err, "insert row error: %v", err)
 }
 
@@ -394,7 +397,7 @@ func (s *IntegrationSuite) TestShardingAgg() {
 				fmt.Sprintf("fake_name_%d", i),
 				fmt.Sprintf("fake_nickname_%d", i),
 				1,
-				2022,
+				2022-rand2.Intn(40),
 			)
 		} else {
 			result, err = db.Exec(
@@ -404,10 +407,9 @@ func (s *IntegrationSuite) TestShardingAgg() {
 				fmt.Sprintf("fake_name_%d", i),
 				fmt.Sprintf("fake_nickname_%d", i),
 				1,
-				2022,
+				2022-rand2.Intn(40),
 			)
 		}
-
 		assert.NoErrorf(t, err, "insert row error: %v", err)
 		affected, err := result.RowsAffected()
 		assert.NoErrorf(t, err, "insert row error: %v", err)
@@ -449,7 +451,7 @@ func (s *IntegrationSuite) TestShardingAgg() {
 		"jason",
 		"jason",
 		1,
-		2022,
+		2022-rand2.Intn(40),
 	)
 	assert.NoErrorf(t, err, "insert row error: %v", err)
 	affected, err := result.RowsAffected()
@@ -463,7 +465,7 @@ func (s *IntegrationSuite) TestShardingAgg() {
 		"jason",
 		"jason",
 		1,
-		2022,
+		2022-rand2.Intn(40),
 	)
 	assert.NoErrorf(t, err, "insert row error: %v", err)
 	affected, err = result.RowsAffected()
@@ -598,6 +600,86 @@ func (s *IntegrationSuite) TestDropTrigger() {
 	}
 }
 
+func (s *IntegrationSuite) TestOrderBy() {
+	var (
+		db   = s.DB()
+		t    = s.T()
+		uids []int
+		base = int(time.Now().UnixMilli())
+	)
+	for i := 1; i <= 10; i++ {
+		var (
+			id  = 101*base + i
+			uid = 10*base + i
+		)
+		uids = append(uids, uid)
+		result, err := db.Exec(
+			`INSERT INTO student(id,uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?,?)`,
+			id,
+			uid,
+			float64(rand2.Intn(100))+0.05,
+			fmt.Sprintf("fake_name_%d", uid),
+			fmt.Sprintf("fake_nickname_%d", uid),
+			1,
+			1980+i,
+		)
+		assert.NoErrorf(t, err, "insert row error: %v", err)
+		affected, err := result.RowsAffected()
+		assert.NoErrorf(t, err, "insert row error: %v", err)
+		assert.True(t, affected <= 1)
+	}
+
+	// cleanup
+	defer func() {
+		var deleted []interface{}
+		for i := range uids {
+			deleted = append(deleted, uids[i])
+		}
+		_, _ = db.Exec(
+			fmt.Sprintf(
+				"delete from student where uid in (%s)",
+				strings.Repeat("?,", len(deleted)-1)+"?",
+			),
+			deleted...,
+		)
+	}()
+
+	type tt struct {
+		sql  string
+		desc bool
+	}
+
+	for _, it := range []tt{
+		{"select uid,name,birth_year from student where uid between ? and ? order by birth_year", false},
+		{"select uid,name from student where uid between ? and ? order by birth_year", false},
+		{"select uid,name from student where uid between ? and ? order by birth_year desc", true},
+		{"select uid,name,birth_year as birth from student where uid between ? and ? order by birth_year desc", true},
+	} {
+		s.T().Run(it.sql, func(t *testing.T) {
+			begin := uids[0]
+			end := uids[len(uids)-1]
+			rows, err := db.Query(it.sql, begin, end)
+			assert.NoError(t, err)
+			defer rows.Close()
+
+			records, _ := utils.PrintTable(rows)
+			assert.Len(t, records, len(uids))
+
+			var actualUids []int
+			for _, record := range records {
+				uid, _ := strconv.Atoi(record[0])
+				actualUids = append(actualUids, uid)
+			}
+			if it.desc {
+				for i, j := 0, len(actualUids)-1; i < j; i, j = i+1, j-1 {
+					actualUids[i], actualUids[j] = actualUids[j], actualUids[i]
+				}
+			}
+			assert.True(t, sort.IsSorted(sort.IntSlice(actualUids)))
+		})
+	}
+}
+
 func (s *IntegrationSuite) TestHints() {
 	var (
 		db = s.DB()
@@ -626,7 +708,6 @@ func (s *IntegrationSuite) TestHints() {
 			assert.Equal(t, it.expectLen, len(data))
 		})
 	}
-
 }
 
 func (s *IntegrationSuite) TestShowCollation() {
@@ -673,7 +754,6 @@ func (s *IntegrationSuite) TestShowStatus() {
 			assert.True(t, it.expectF(t, data))
 		})
 	}
-
 }
 
 func (s *IntegrationSuite) TestInsertAutoIncrement() {

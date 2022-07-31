@@ -40,9 +40,7 @@ import (
 	"github.com/arana-db/arana/pkg/runtime/plan"
 )
 
-var (
-	_ proto.Plan = (*ShowTopology)(nil)
-)
+var _ proto.Plan = (*ShowTopology)(nil)
 
 type ShowTopology struct {
 	plan.BasePlan

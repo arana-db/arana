@@ -30,9 +30,9 @@ data:
   tenants:
     - name: arana
       users:
-        - username: arana
+        - username: root
           password: "123456"
-        - username: dksl
+        - username: arana
           password: "123456"
 
   clusters:

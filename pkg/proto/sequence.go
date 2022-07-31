@@ -87,10 +87,8 @@ type (
 	}
 )
 
-var (
-	// Record the list of Sequence plug -in through the registered self -registered
-	suppliersRegistry = make(map[string]SequenceSupplier)
-)
+// Record the list of Sequence plug -in through the registered self -registered
+var suppliersRegistry = make(map[string]SequenceSupplier)
 
 // RegisterSequence Register a Sequence plugin
 func RegisterSequence(name string, supplier SequenceSupplier) {
@@ -103,8 +101,7 @@ func GetSequenceSupplier(name string) (SequenceSupplier, bool) {
 	return val, ok
 }
 
-type noopSequenceManager struct {
-}
+type noopSequenceManager struct{}
 
 // CreateSequence creates one sequence instance
 func (n noopSequenceManager) CreateSequence(ctx context.Context, tenant, schema string, opt SequenceConfig) (Sequence, error) {
