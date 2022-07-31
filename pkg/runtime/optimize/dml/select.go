@@ -30,6 +30,7 @@ import (
 	"github.com/arana-db/arana/pkg/dataset"
 	"github.com/arana-db/arana/pkg/merge/aggregator"
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/proto/hint"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
@@ -78,20 +79,28 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 	// --- SIMPLE QUERY BEGIN ---
 
 	var (
-		shards   rule.DatabaseTables
-		fullScan bool
-		err      error
-		vt       = o.Rule.MustVTable(stmt.From[0].TableName().Suffix())
+		shards    rule.DatabaseTables
+		fullScan  bool
+		err       error
+		vt        = o.Rule.MustVTable(stmt.From[0].TableName().Suffix())
+		tableName = stmt.From[0].TableName()
 	)
+	if len(o.Hints) > 0 {
+		if shards, err = optimize.Hints(tableName, o.Hints, o.Rule); err != nil {
+			return nil, errors.Wrap(err, "calculate hints failed")
+		}
+	}
 
-	if shards, fullScan, err = (*optimize.Sharder)(o.Rule).Shard(stmt.From[0].TableName(), stmt.Where, o.Args...); err != nil {
-		return nil, errors.Wrap(err, "calculate shards failed")
+	if shards == nil {
+		if shards, fullScan, err = (*optimize.Sharder)(o.Rule).Shard(tableName, stmt.Where, o.Args...); err != nil && fullScan == false {
+			return nil, errors.Wrap(err, "calculate shards failed")
+		}
 	}
 
 	log.Debugf("compute shards: result=%s, isFullScan=%v", shards, fullScan)
 
 	// return error if full-scan is disabled
-	if fullScan && !vt.AllowFullScan() {
+	if fullScan && (!vt.AllowFullScan() && !hint.Contains(hint.TypeFullScan, o.Hints)) {
 		return nil, errors.WithStack(optimize.ErrDenyFullScan)
 	}
 
@@ -489,6 +498,7 @@ func rewriteSelectStatement(ctx context.Context, stmt *ast.SelectStatement, tb s
 	if metadata == nil || len(metadata.ColumnNames) == 0 {
 		return errors.Errorf("optimize: cannot get metadata of `%s`.`%s`", rcontext.Schema(ctx), tb)
 	}
+
 	selectElements := make([]ast.SelectElement, len(metadata.Columns))
 	for i, column := range metadata.ColumnNames {
 		selectElements[i] = ast.NewSelectElementColumn([]string{column}, "")

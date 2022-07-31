@@ -188,3 +188,12 @@ func scanComma(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	}
 	return 0, nil, nil
 }
+
+func Contains(hType Type, hints []*Hint) bool {
+	for _, v := range hints {
+		if v.Type == hType {
+			return true
+		}
+	}
+	return false
+}
