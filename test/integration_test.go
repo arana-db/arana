@@ -710,6 +710,39 @@ func (s *IntegrationSuite) TestHints() {
 	}
 }
 
+func (s *IntegrationSuite) TestMultipleHints() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql       string
+		args      []interface{}
+		expectLen int
+	}
+
+	for _, it := range []tt{
+		{"/*A! master */ /*A! fullscan */ SELECT * FROM student WHERE score > 100", nil, 0},
+		{"/*A! slave */ /*A! master */ /*A! fullscan */ SELECT id,name FROM student WHERE score > 100", nil, 0},
+		{"/*A! master */ /*A! direct */ SELECT * FROM student_0000 WHERE uid = ?", []interface{}{1}, 0},
+		{"/*A! fullscan */ /*A! direct */ SELECT * FROM student WHERE uid in (?)", []interface{}{1}, 0},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			// select from logical table
+			rows, err := db.Query(it.sql, it.args...)
+			if err != nil {
+				assert.True(t, strings.Contains(err.Error(), "hint type conflict"))
+			} else {
+				defer rows.Close()
+				assert.NoError(t, err, "should query from sharding table successfully")
+				data, _ := utils.PrintTable(rows)
+				assert.Equal(t, it.expectLen, len(data))
+			}
+		})
+	}
+}
+
 func (s *IntegrationSuite) TestShowCollation() {
 	var (
 		db = s.DB()

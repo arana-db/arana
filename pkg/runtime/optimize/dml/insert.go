@@ -45,9 +45,11 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 	ret.BindArgs(o.Args)
 
 	var (
-		stmt = o.Stmt.(*ast.InsertStatement)
-		vt   *rule.VTable
-		ok   bool
+		stmt      = o.Stmt.(*ast.InsertStatement)
+		vt        *rule.VTable
+		ok        bool
+		tableName = stmt.Table
+		err       error
 	)
 
 	if vt, ok = o.Rule.VTable(stmt.Table.Suffix()); !ok { // insert into non-sharding table
@@ -98,12 +100,20 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 	}
 
 	for i, values := range stmt.Values {
+		var shards rule.DatabaseTables
 		value := values[bingo]
 		resetFilter(stmt.Columns[bingo], value)
 
-		shards, _, err := sharder.Shard(stmt.Table, filter, o.Args...)
-		if err != nil {
-			return nil, errors.WithStack(err)
+		if len(o.Hints) > 0 {
+			if shards, err = optimize.Hints(tableName, o.Hints, o.Rule); err != nil {
+				return nil, errors.Wrap(err, "calculate hints failed")
+			}
+		}
+
+		if shards == nil {
+			if shards, _, err = sharder.Shard(tableName, filter, o.Args...); err != nil {
+				return nil, errors.WithStack(err)
+			}
 		}
 
 		if shards.Len() != 1 {
