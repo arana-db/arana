@@ -34,6 +34,7 @@ const (
 	SQLTypeAlterTable             // ALTER TABLE
 	SQLTypeDropIndex              // DROP INDEX
 	SQLTypeShowDatabases          // SHOW DATABASES
+	SQLTypeShowCollation          // SHOW COLLATION
 	SQLTypeShowTables             // SHOW TABLES
 	SQLTypeShowOpenTables         // SHOW OPEN TABLES
 	SQLTypeShowIndex              // SHOW INDEX

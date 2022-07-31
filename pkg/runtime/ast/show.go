@@ -101,6 +101,26 @@ func (s ShowDatabases) Validate() error {
 	return nil
 }
 
+type ShowCollation struct {
+	*baseShow
+}
+
+func (s ShowCollation) Mode() SQLType {
+	return SQLTypeShowCollation
+}
+
+func (s ShowCollation) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	sb.WriteString("SHOW COLLATION")
+	if err := s.baseShow.Restore(flag, sb, args); err != nil {
+		return errors.WithStack(err)
+	}
+	return nil
+}
+
+func (s ShowCollation) Validate() error {
+	return nil
+}
+
 type ShowTables struct {
 	*baseShow
 }
