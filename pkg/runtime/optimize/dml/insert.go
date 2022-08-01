@@ -45,12 +45,14 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 	ret.BindArgs(o.Args)
 
 	var (
-		stmt = o.Stmt.(*ast.InsertStatement)
-		vt   *rule.VTable
-		ok   bool
+		stmt      = o.Stmt.(*ast.InsertStatement)
+		vt        *rule.VTable
+		ok        bool
+		tableName = stmt.Table
+		err       error
 	)
 
-	if vt, ok = o.Rule.VTable(stmt.Table().Suffix()); !ok { // insert into non-sharding table
+	if vt, ok = o.Rule.VTable(stmt.Table.Suffix()); !ok { // insert into non-sharding table
 		ret.Put("", stmt)
 		return ret, nil
 	}
@@ -59,7 +61,7 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 
 	bingo := -1
 	// check existing shard columns
-	for i, col := range stmt.Columns() {
+	for i, col := range stmt.Columns {
 		if _, _, ok = vt.GetShardMetadata(col); ok {
 			bingo = i
 			break
@@ -70,9 +72,9 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		return nil, errors.Wrap(optimize.ErrNoShardKeyFound, "failed to insert")
 	}
 
-	//check on duplicated key update
-	for _, upd := range stmt.DuplicatedUpdates() {
-		if upd.Column.Suffix() == stmt.Columns()[bingo] {
+	// check on duplicated key update
+	for _, upd := range stmt.DuplicatedUpdates {
+		if upd.Column.Suffix() == stmt.Columns[bingo] {
 			return nil, errors.New("do not support update sharding key")
 		}
 	}
@@ -97,14 +99,21 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		filter.P.(*ast.BinaryComparisonPredicateNode).Right = value.(*ast.PredicateExpressionNode).P
 	}
 
-	for i, values := range stmt.Values() {
+	for i, values := range stmt.Values {
+		var shards rule.DatabaseTables
 		value := values[bingo]
-		resetFilter(stmt.Columns()[bingo], value)
+		resetFilter(stmt.Columns[bingo], value)
 
-		shards, _, err := sharder.Shard(stmt.Table(), filter, o.Args...)
+		if len(o.Hints) > 0 {
+			if shards, err = optimize.Hints(tableName, o.Hints, o.Rule); err != nil {
+				return nil, errors.Wrap(err, "calculate hints failed")
+			}
+		}
 
-		if err != nil {
-			return nil, errors.WithStack(err)
+		if shards == nil {
+			if shards, _, err = sharder.Shard(tableName, filter, o.Args...); err != nil {
+				return nil, errors.WithStack(err)
+			}
 		}
 
 		if shards.Len() != 1 {
@@ -128,23 +137,21 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		slots[db][table] = append(slots[db][table], i)
 	}
 
-	_, tb0, _ := vt.Topology().Smallest()
-
 	for db, slot := range slots {
 		for table, indexes := range slot {
 			// clone insert stmt without values
-			newborn := ast.NewInsertStatement(ast.TableName{table}, stmt.Columns())
+			newborn := ast.NewInsertStatement(ast.TableName{table}, stmt.Columns)
 			newborn.SetFlag(stmt.Flag())
-			newborn.SetDuplicatedUpdates(stmt.DuplicatedUpdates())
+			newborn.DuplicatedUpdates = stmt.DuplicatedUpdates
 
 			// collect values with same table
 			values := make([][]ast.ExpressionNode, 0, len(indexes))
 			for _, i := range indexes {
-				values = append(values, stmt.Values()[i])
+				values = append(values, stmt.Values[i])
 			}
-			newborn.SetValues(values)
+			newborn.Values = values
 
-			rewriteInsertStatement(ctx, newborn, tb0)
+			rewriteInsertStatement(ctx, o, vt, newborn)
 			ret.Put(db, newborn)
 		}
 	}
@@ -159,7 +166,7 @@ func optimizeInsertSelect(_ context.Context, o *optimize.Optimizer) (proto.Plan,
 
 	ret.BindArgs(o.Args)
 
-	if _, ok := o.Rule.VTable(stmt.Table().Suffix()); !ok { // insert into non-sharding table
+	if _, ok := o.Rule.VTable(stmt.Table.Suffix()); !ok { // insert into non-sharding table
 		ret.Batch[""] = stmt
 		return ret, nil
 	}
@@ -169,23 +176,37 @@ func optimizeInsertSelect(_ context.Context, o *optimize.Optimizer) (proto.Plan,
 	return nil, errors.New("not support insert-select into sharding table")
 }
 
-func rewriteInsertStatement(ctx context.Context, stmt *ast.InsertStatement, tb string) error {
-	metadatas, err := proto.LoadSchemaLoader().Load(ctx, rcontext.Schema(ctx), []string{tb})
+func getMetadata(ctx context.Context, vtab *rule.VTable) (*proto.TableMetadata, error) {
+	_, tb0, _ := vtab.Topology().Smallest()
+	metadatas, err := proto.LoadSchemaLoader().Load(ctx, rcontext.Schema(ctx), []string{tb0})
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	metadata := metadatas[tb0]
+	if metadata == nil || len(metadata.ColumnNames) == 0 {
+		return nil, errors.Errorf("optimize: cannot get metadata of `%s`.`%s`", rcontext.Schema(ctx), tb0)
+	}
+	return metadata, nil
+}
+
+func rewriteInsertStatement(ctx context.Context, o *optimize.Optimizer, vtab *rule.VTable, stmt *ast.InsertStatement) error {
+	_, tb0, _ := vtab.Topology().Smallest()
+	metadatas, err := proto.LoadSchemaLoader().Load(ctx, rcontext.Schema(ctx), []string{tb0})
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	metadata := metadatas[tb]
+	metadata := metadatas[tb0]
 	if metadata == nil || len(metadata.ColumnNames) == 0 {
-		return errors.Errorf("optimize: cannot get metadata of `%s`.`%s`", rcontext.Schema(ctx), tb)
+		return errors.Errorf("optimize: cannot get metadata of `%s`.`%s`", rcontext.Schema(ctx), tb0)
 	}
 
-	if len(metadata.ColumnNames) == len(stmt.Columns()) {
+	if len(metadata.ColumnNames) == len(stmt.Columns) {
 		// User had explicitly specified every value
 		return nil
 	}
 	columnsMetadata := metadata.Columns
 
-	for _, colName := range stmt.Columns() {
+	for _, colName := range stmt.Columns {
 		if columnsMetadata[colName].PrimaryKey && columnsMetadata[colName].Generated {
 			// User had explicitly specified auto-generated primary key column
 			return nil
@@ -199,17 +220,70 @@ func rewriteInsertStatement(ctx context.Context, stmt *ast.InsertStatement, tb s
 			break
 		}
 	}
+
+	if err := createSequenceIfAbsent(ctx, vtab, metadata); err != nil {
+		return err
+	}
+
 	if len(pkColName) < 1 {
 		// There's no auto-generated primary key column
 		return nil
 	}
 
+	mgr := proto.LoadSequenceManager()
+
+	seq, err := mgr.GetSequence(ctx, rcontext.Tenant(ctx), rcontext.Schema(ctx), proto.BuildAutoIncrementName(vtab.Name()))
+	if err != nil {
+		return err
+	}
+
+	val, err := seq.Acquire(ctx)
+	if err != nil {
+		return err
+	}
+
 	// TODO rewrite columns and add distributed primary key
-	//stmt.SetColumns(append(stmt.Columns(), pkColName))
+	stmt.Columns = append(stmt.Columns, pkColName)
 	// append value of distributed primary key
-	//newValues := stmt.Values()
-	//for _, newValue := range newValues {
-	//	newValue = append(newValue, )
-	//}
+	for i := range stmt.Values {
+		stmt.Values[i] = append(stmt.Values[i], &ast.PredicateExpressionNode{
+			P: &ast.AtomPredicateNode{
+				A: &ast.ConstantExpressionAtom{Inner: val},
+			},
+		})
+	}
+	return nil
+}
+
+func createSequenceIfAbsent(ctx context.Context, vtab *rule.VTable, metadata *proto.TableMetadata) error {
+	seqName := proto.BuildAutoIncrementName(vtab.Name())
+
+	seq, err := proto.LoadSequenceManager().GetSequence(ctx, rcontext.Tenant(ctx), rcontext.Schema(ctx), seqName)
+	if err != nil && !errors.Is(err, proto.ErrorNotFoundSequence) {
+		return errors.WithStack(err)
+	}
+
+	if seq != nil {
+		return nil
+	}
+
+	columns := metadata.Columns
+	for i := range columns {
+		if columns[i].Generated {
+			autoIncr := vtab.GetAutoIncrement()
+
+			c := proto.SequenceConfig{
+				Name:   seqName,
+				Type:   autoIncr.Type,
+				Option: autoIncr.Option,
+			}
+
+			if _, err := proto.LoadSequenceManager().CreateSequence(ctx, rcontext.Tenant(ctx), rcontext.Schema(ctx), c); err != nil {
+				return errors.WithStack(err)
+			}
+
+			break
+		}
+	}
 	return nil
 }

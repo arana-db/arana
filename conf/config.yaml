@@ -30,9 +30,9 @@ data:
   tenants:
     - name: arana
       users:
-        - username: arana
+        - username: root
           password: "123456"
-        - username: dksl
+        - username: arana
           password: "123456"
 
   clusters:
@@ -40,6 +40,8 @@ data:
       type: mysql
       sql_max_limit: -1
       tenant: arana
+      parameters:
+        max_allowed_packet: 256M
       groups:
         - name: employees_0000
           nodes:
@@ -51,7 +53,6 @@ data:
               database: employees_0000
               weight: r10w10
               parameters:
-                maxAllowedPacket: 256M
             - name: node0_r_0
               host: arana-mysql
               port: 3306
@@ -59,8 +60,6 @@ data:
               password: "123456"
               database: employees_0000_r
               weight: r0w0
-              parameters:
-                maxAllowedPacket: 256M
         - name: employees_0001
           nodes:
             - name: node1
@@ -70,8 +69,6 @@ data:
               password: "123456"
               database: employees_0001
               weight: r10w10
-              parameters:
-                maxAllowedPacket: 256M
         - name: employees_0002
           nodes:
             - name: node2
@@ -81,8 +78,6 @@ data:
               password: "123456"
               database: employees_0002
               weight: r10w10
-              parameters:
-                maxAllowedPacket: 256M
         - name: employees_0003
           nodes:
             - name: node3
@@ -92,12 +87,22 @@ data:
               password: "123456"
               database: employees_0003
               weight: r10w10
-              parameters:
-                maxAllowedPacket: 256M
+        - name: employees_shadow
+          nodes:
+            - name: node_shadow
+              host: arana-mysql
+              port: 3306
+              username: root
+              password: "123456"
+              database: employees_show
+              weight: r10w10
   sharding_rule:
     tables:
       - name: employees.student
         allow_full_scan: true
+        sequence:
+          type: snowflake
+          option:
         db_rules:
           - column: uid
             type: scriptExpr
@@ -112,3 +117,24 @@ data:
           tbl_pattern: student_${0000..0031}
         attributes:
           sqlMaxLimit: -1
+
+  shadow_rule:
+    tables:
+      - name: student
+        enable: false
+        group_node: employees_shadow
+        match_rules:
+          - operation: [insert,update]
+            match_type: value
+            attributes:
+              - column: uid
+                value: 10000
+          - operation: [delete]
+            match_type: regex
+            attributes:
+              - column: name
+                regex: "^hanmeimei$"
+          - operation: [select]
+            match_type: hint
+            attributes:
+              - shadow: true

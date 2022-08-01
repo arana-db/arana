@@ -41,7 +41,9 @@ func TestLoad(t *testing.T) {
 	rt, err := Load(schemaName)
 	assert.Error(t, err)
 	assert.Nil(t, rt)
-	_ = namespace.Register(namespace.New(schemaName))
+	ns, err := namespace.New(schemaName)
+	assert.NoError(t, err)
+	_ = namespace.Register(ns)
 	defer func() {
 		_ = namespace.Unregister(schemaName)
 	}()

@@ -55,8 +55,22 @@ const (
 // VTable represents a virtual/logical table.
 type VTable struct {
 	attributes
-	topology *Topology
-	shards   map[string][2]*ShardMetadata // column -> [db shard metadata,table shard metadata]
+	name          string // TODO: set name
+	autoIncrement *AutoIncrement
+	topology      *Topology
+	shards        map[string][2]*ShardMetadata // column -> [db shard metadata,table shard metadata]
+}
+
+func (vt *VTable) Name() string {
+	return vt.name
+}
+
+func (vt *VTable) GetAutoIncrement() *AutoIncrement {
+	return vt.autoIncrement
+}
+
+func (vt *VTable) SetAutoIncrement(seq *AutoIncrement) {
+	vt.autoIncrement = seq
 }
 
 func (vt *VTable) SetAllowFullScan(allow bool) {
@@ -136,6 +150,10 @@ func (vt *VTable) SetTopology(topology *Topology) {
 	vt.topology = topology
 }
 
+func (vt *VTable) SetName(name string) {
+	vt.name = name
+}
+
 // Rule represents sharding rule, a Rule contains multiple logical tables.
 type Rule struct {
 	mu    sync.RWMutex
@@ -202,4 +220,16 @@ func (ru *Rule) MustVTable(name string) *VTable {
 		panic(fmt.Sprintf("no such VTable %s!", name))
 	}
 	return v
+}
+
+// Range ranges each VTable
+func (ru *Rule) Range(f func(table string, vt *VTable) bool) {
+	ru.mu.RLock()
+	defer ru.mu.RUnlock()
+
+	for k, v := range ru.vtabs {
+		if !f(k, v) {
+			break
+		}
+	}
 }

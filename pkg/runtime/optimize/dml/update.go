@@ -53,7 +53,7 @@ func optimizeUpdate(_ context.Context, o *optimize.Optimizer) (proto.Plan, error
 		return ret, nil
 	}
 
-	//check update sharding key
+	// check update sharding key
 	for _, element := range stmt.Updated {
 		if _, _, ok := vt.GetShardMetadata(element.Column.Suffix()); ok {
 			return nil, errors.New("do not support update sharding key")
@@ -68,9 +68,16 @@ func optimizeUpdate(_ context.Context, o *optimize.Optimizer) (proto.Plan, error
 
 	// compute shards
 	if where := stmt.Where; where != nil {
-		sharder := (*optimize.Sharder)(o.Rule)
-		if shards, fullScan, err = sharder.Shard(table, where, o.Args...); err != nil {
-			return nil, errors.Wrap(err, "failed to update")
+		if len(o.Hints) > 0 {
+			if shards, err = optimize.Hints(table, o.Hints, o.Rule); err != nil {
+				return nil, errors.Wrap(err, "calculate hints failed")
+			}
+		}
+
+		if shards == nil {
+			if shards, fullScan, err = (*optimize.Sharder)(o.Rule).Shard(table, where, o.Args...); err != nil {
+				return nil, errors.Wrap(err, "failed to update")
+			}
 		}
 	}
 

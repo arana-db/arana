@@ -50,10 +50,6 @@ func (d *DescribeStatement) Restore(flag RestoreFlag, sb *strings.Builder, args 
 	return nil
 }
 
-func (d *DescribeStatement) Validate() error {
-	return nil
-}
-
 func (d *DescribeStatement) CntParams() int {
 	return 0
 }
@@ -64,27 +60,19 @@ func (d *DescribeStatement) Mode() SQLType {
 
 // ExplainStatement represents mysql explain statement. see https://dev.mysql.com/doc/refman/8.0/en/explain.html
 type ExplainStatement struct {
-	tgt Statement
+	Target Statement
 }
 
 func (e *ExplainStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("EXPLAIN ")
-	if err := e.tgt.Restore(flag, sb, args); err != nil {
+	if err := e.Target.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
 	return nil
 }
 
-func (e *ExplainStatement) Validate() error {
-	return e.tgt.Validate()
-}
-
-func (e *ExplainStatement) Target() Statement {
-	return e.tgt
-}
-
 func (e *ExplainStatement) CntParams() int {
-	return e.tgt.CntParams()
+	return e.Target.CntParams()
 }
 
 func (e *ExplainStatement) Mode() SQLType {

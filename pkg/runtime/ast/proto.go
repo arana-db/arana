@@ -34,6 +34,7 @@ const (
 	SQLTypeAlterTable             // ALTER TABLE
 	SQLTypeDropIndex              // DROP INDEX
 	SQLTypeShowDatabases          // SHOW DATABASES
+	SQLTypeShowCollation          // SHOW COLLATION
 	SQLTypeShowTables             // SHOW TABLES
 	SQLTypeShowOpenTables         // SHOW OPEN TABLES
 	SQLTypeShowIndex              // SHOW INDEX
@@ -45,18 +46,8 @@ const (
 	SQLTypeUnion                  // UNION
 	SQLTypeDropTrigger            // DROP TRIGGER
 	SQLTypeCreateIndex            // CREATE INDEX
+	SQLTypeShowStatus             // SHOW STATUS
 )
-
-type RestoreFlag uint32
-
-const (
-	RestoreDefault      RestoreFlag = 0
-	RestoreLowerKeyword RestoreFlag = 1 << iota // force use lower-case keyword
-)
-
-type Restorer interface {
-	Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error
-}
 
 var _sqlTypeNames = [...]string{
 	SQLTypeSelect:         "SELECT",
@@ -80,6 +71,7 @@ var _sqlTypeNames = [...]string{
 	SQLTypeUnion:          "UNION",
 	SQLTypeDropTrigger:    "DROP TRIGGER",
 	SQLTypeCreateIndex:    "CREATE INDEX",
+	SQLTypeShowStatus:     "SHOW STATUS",
 }
 
 // SQLType represents the type of SQL.
@@ -93,8 +85,6 @@ func (s SQLType) String() string {
 type Statement interface {
 	paramsCounter
 	Restorer
-	// Validate validates the current Statement.
-	Validate() error
 	// Mode returns the SQLType of current Statement.
 	Mode() SQLType
 }
@@ -102,11 +92,6 @@ type Statement interface {
 type paramsCounter interface {
 	// CntParams returns the amount of params.
 	CntParams() int
-}
-
-type inTablesChecker interface {
-	// InTables check whether all columns are in the table list.
-	InTables(tables map[string]struct{}) error
 }
 
 func RestoreToString(flag RestoreFlag, r Restorer) (string, error) {

@@ -99,7 +99,7 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		case *ShowColumns:
 			return &DescribeStatement{Table: tgt.TableName, Column: tgt.Column}, nil
 		default:
-			return &ExplainStatement{tgt: tgt}, nil
+			return &ExplainStatement{Target: tgt}, nil
 		}
 	case *ast.TruncateTableStmt:
 		return cc.convTruncateTableStmt(stmt), nil
@@ -400,21 +400,21 @@ func (cc *convCtx) convColumn(col *ast.ColumnName) ColumnNameExpressionAtom {
 func (cc *convCtx) convUnionStmt(stmt *ast.SetOprStmt) *UnionSelectStatement {
 	var ret UnionSelectStatement
 
-	ret.first = cc.convSelectStmt(stmt.SelectList.Selects[0].(*ast.SelectStmt))
+	ret.First = cc.convSelectStmt(stmt.SelectList.Selects[0].(*ast.SelectStmt))
 	for i := 1; i < len(stmt.SelectList.Selects); i++ {
 		var (
 			next = stmt.SelectList.Selects[i].(*ast.SelectStmt)
 			item UnionStatementItem
 		)
-		item.ss = cc.convSelectStmt(next)
+		item.Stmt = cc.convSelectStmt(next)
 
 		switch *next.AfterSetOperator {
 		case ast.UnionAll:
-			item.unionType = UnionTypeAll
+			item.Type = UnionTypeAll
 		case ast.Union:
-			item.unionType = UnionTypeDistinct
+			item.Type = UnionTypeDistinct
 		}
-		ret.others = append(ret.others, &item)
+		ret.UnionStatementItems = append(ret.UnionStatementItems, &item)
 	}
 
 	return &ret
@@ -490,7 +490,7 @@ func (cc *convCtx) convInsertStmt(stmt *ast.InsertStmt) Statement {
 	)
 
 	// extract table
-	bi.table = cc.convFrom(stmt.Table)[0].TableName()
+	bi.Table = cc.convFrom(stmt.Table)[0].TableName()
 
 	if stmt.IgnoreErr {
 		bi.enableIgnore()
@@ -506,7 +506,7 @@ func (cc *convCtx) convInsertStmt(stmt *ast.InsertStmt) Statement {
 	}
 
 	if stmt.Setlist == nil { // INSERT INTO xxx(...) VALUES (...)
-		bi.columns = convInsertColumns(stmt.Columns)
+		bi.Columns = convInsertColumns(stmt.Columns)
 		values = make([][]ExpressionNode, 0, len(stmt.Lists))
 		for _, row := range stmt.Lists {
 			next := make([]ExpressionNode, 0, len(row))
@@ -518,10 +518,10 @@ func (cc *convCtx) convInsertStmt(stmt *ast.InsertStmt) Statement {
 	} else { // INSERT INTO xxx SET xx=xx,...
 		bi.enableSetSyntax() // mark as SET mode
 
-		bi.columns = make([]string, 0, len(stmt.Setlist))
+		bi.Columns = make([]string, 0, len(stmt.Setlist))
 		next := make([]ExpressionNode, 0, len(stmt.Setlist))
 		for _, set := range stmt.Setlist {
-			bi.columns = append(bi.columns, set.Column.Name.O)
+			bi.Columns = append(bi.Columns, set.Column.Name.O)
 			next = append(next, toExpressionNode(cc.convExpr(set.Expr)))
 		}
 
@@ -531,7 +531,7 @@ func (cc *convCtx) convInsertStmt(stmt *ast.InsertStmt) Statement {
 	if stmt.IsReplace {
 		return &ReplaceStatement{
 			baseInsertStatement: &bi,
-			values:              values,
+			Values:              values,
 		}
 	}
 
@@ -565,8 +565,8 @@ func (cc *convCtx) convInsertStmt(stmt *ast.InsertStmt) Statement {
 
 	return &InsertStatement{
 		baseInsertStatement: &bi,
-		values:              values,
-		duplicatedUpdates:   updates,
+		Values:              values,
+		DuplicatedUpdates:   updates,
 	}
 }
 
@@ -631,6 +631,8 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 		return &ShowTables{baseShow: toBaseShow()}
 	case ast.ShowDatabases:
 		return &ShowDatabases{baseShow: toBaseShow()}
+	case ast.ShowCollation:
+		return &ShowCollation{baseShow: toBaseShow()}
 	case ast.ShowCreateTable:
 		return &ShowCreate{
 			typ: ShowCreateTypeTable,
@@ -671,6 +673,12 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 			ret.like.String = like
 		}
 		return ret
+	case ast.ShowStatus:
+		ret := &ShowStatus{
+			baseShow: toBaseShow(),
+			global:   node.GlobalScope,
+		}
+		return ret
 	default:
 		panic(fmt.Sprintf("unimplement: show type %v!", node.Tp))
 	}
@@ -682,6 +690,21 @@ func convInsertColumns(columnNames []*ast.ColumnName) []string {
 		results = append(results, cn.Name.O)
 	}
 	return results
+}
+
+// ParseSelect parses the SQL string to SelectStatement.
+func ParseSelect(sql string, options ...ParseOption) ([]*hint.Hint, *SelectStatement, error) {
+	h, s, err := Parse(sql, options...)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	stmt, ok := s.(*SelectStatement)
+	if !ok {
+		return nil, nil, errors.Errorf("incorrect statement type: expect=%T, actual=%T", (*SelectStatement)(nil), s)
+	}
+
+	return h, stmt, nil
 }
 
 // Parse parses the SQL string to Statement.
@@ -749,7 +772,7 @@ func (cc *convCtx) convFrom(from *ast.TableRefsClause) (ret []*TableSourceNode) 
 		switch val := input.(type) {
 		case *ast.TableSource:
 			var target TableSourceNode
-			target.alias = val.AsName.O
+			target.Alias = val.AsName.O
 			switch source := val.Source.(type) {
 			case *ast.TableName:
 				cc.convTableName(source, &target)
@@ -980,7 +1003,7 @@ func (cc *convCtx) convExpr(expr ast.ExprNode) interface{} {
 func (cc *convCtx) convVariableExpr(node *ast.VariableExpr) PredicateNode {
 	return &AtomPredicateNode{
 		A: &SystemVariableExpressionAtom{
-			name: node.Name,
+			Name: node.Name,
 		},
 	}
 }
@@ -1112,19 +1135,19 @@ func (cc *convCtx) convFuncCallExpr(expr *ast.FuncCallExpr) PredicateNode {
 			args = append(args, next)
 
 			isTimeUnit = false
-			if next.Type() == FunctionArgConstant {
-				_, isTimeUnit = next.value.(ast.TimeUnitType)
+			if next.Type == FunctionArgConstant {
+				_, isTimeUnit = next.Value.(ast.TimeUnitType)
 			}
 		}
 
 		if isTimeUnit {
 			args[len(args)-2] = &FunctionArg{
-				typ: FunctionArgExpression,
-				value: &PredicateExpressionNode{
+				Type: FunctionArgExpression,
+				Value: &PredicateExpressionNode{
 					P: &AtomPredicateNode{
 						A: &IntervalExpressionAtom{
-							unit:  args[len(args)-1].value.(ast.TimeUnitType),
-							value: cc.convExpr(expr.Args[len(args)-2]).(PredicateNode),
+							Unit:  args[len(args)-1].Value.(ast.TimeUnitType),
+							Value: cc.convExpr(expr.Args[len(args)-2]).(PredicateNode),
 						},
 					},
 				},
@@ -1155,46 +1178,46 @@ func (cc *convCtx) toArg(arg ast.ExprNode) *FunctionArg {
 		switch atom := next.A.(type) {
 		case ColumnNameExpressionAtom:
 			return &FunctionArg{
-				typ:   FunctionArgColumn,
-				value: atom,
+				Type:  FunctionArgColumn,
+				Value: atom,
 			}
 		case *ConstantExpressionAtom:
 			return &FunctionArg{
-				typ:   FunctionArgConstant,
-				value: atom.Value(),
+				Type:  FunctionArgConstant,
+				Value: atom.Value(),
 			}
 		case VariableExpressionAtom:
 			return &FunctionArg{
-				typ:   FunctionArgExpression,
-				value: &PredicateExpressionNode{P: next},
+				Type:  FunctionArgExpression,
+				Value: &PredicateExpressionNode{P: next},
 			}
 		case *UnaryExpressionAtom:
 			return &FunctionArg{
-				typ:   FunctionArgExpression,
-				value: &PredicateExpressionNode{P: next},
+				Type:  FunctionArgExpression,
+				Value: &PredicateExpressionNode{P: next},
 			}
 		case *MathExpressionAtom:
 			return &FunctionArg{
-				typ:   FunctionArgExpression,
-				value: &PredicateExpressionNode{P: next},
+				Type:  FunctionArgExpression,
+				Value: &PredicateExpressionNode{P: next},
 			}
 		case *FunctionCallExpressionAtom:
 			return &FunctionArg{
-				typ:   FunctionArgExpression,
-				value: &PredicateExpressionNode{P: next},
+				Type:  FunctionArgExpression,
+				Value: &PredicateExpressionNode{P: next},
 			}
 		default:
 			panic(fmt.Sprintf("unimplement: function arg atom type %T!", atom))
 		}
 	case *BinaryComparisonPredicateNode:
 		return &FunctionArg{
-			typ:   FunctionArgExpression,
-			value: &PredicateExpressionNode{P: next},
+			Type:  FunctionArgExpression,
+			Value: &PredicateExpressionNode{P: next},
 		}
 	case *RegexpPredicationNode:
 		return &FunctionArg{
-			typ:   FunctionArgExpression,
-			value: &PredicateExpressionNode{P: next},
+			Type:  FunctionArgExpression,
+			Value: &PredicateExpressionNode{P: next},
 		}
 	default:
 		panic(fmt.Sprintf("unimplement: function arg type %T!", next))
@@ -1256,7 +1279,7 @@ func (cc *convCtx) convPatternInExpr(expr *ast.PatternInExpr) PredicateNode {
 	}
 
 	return &InPredicateNode{
-		not: expr.Not,
+		Not: expr.Not,
 		P:   key.(PredicateNode),
 		E:   list,
 	}
@@ -1484,8 +1507,8 @@ func (cc *convCtx) convTableName(val *ast.TableName, tgt *TableSourceNode) {
 	}
 
 	tgt.source = tableName
-	tgt.indexHints = indexHints
-	tgt.partitions = partitions
+	tgt.IndexHints = indexHints
+	tgt.Partitions = partitions
 }
 
 func (cc *convCtx) convDropTrigger(stmt *ast.DropTriggerStmt) *DropTriggerStatement {

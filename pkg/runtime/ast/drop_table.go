@@ -50,10 +50,6 @@ func (d DropTableStatement) CntParams() int {
 	return 0
 }
 
-func (d DropTableStatement) Validate() error {
-	return nil
-}
-
 func (d DropTableStatement) Mode() SQLType {
 	return SQLTypeDropTable
 }

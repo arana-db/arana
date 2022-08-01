@@ -25,11 +25,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-var (
-	_ Statement     = (*DeleteStatement)(nil)
-	_ Restorer      = (*DeleteStatement)(nil)
-	_ paramsCounter = (*DeleteStatement)(nil)
-)
+var _ Statement = (*DeleteStatement)(nil)
 
 const (
 	_deleteLowPriority uint8 = 1 << iota
@@ -90,10 +86,6 @@ func (ds *DeleteStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *
 		}
 	}
 
-	return nil
-}
-
-func (ds *DeleteStatement) Validate() error {
 	return nil
 }
 

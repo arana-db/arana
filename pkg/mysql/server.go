@@ -173,6 +173,9 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32) {
 		return
 	}
 
+	c.Capabilities = l.capabilities
+	c.CharacterSet = l.characterSet
+
 	// Negotiation worked, send OK packet.
 	if err = c.writeOKPacket(0, 0, c.StatusFlags, 0); err != nil {
 		log.Errorf("Cannot write OK packet to %s: %v", c, err)
@@ -1054,7 +1057,7 @@ func (c *Conn) writeColumnDefinition(field *Field) error {
 
 // writeFields writes the fields of a Result. It should be called only
 // if there are valid Columns in the result.
-func (c *Conn) writeFields(capabilities uint32, fields []proto.Field) error {
+func (c *Conn) writeFields(fields []proto.Field) error {
 	// Send the number of fields first.
 	if err := c.sendColumnCount(uint64(len(fields))); err != nil {
 		return err
@@ -1069,7 +1072,7 @@ func (c *Conn) writeFields(capabilities uint32, fields []proto.Field) error {
 	}
 
 	// Now send an EOF packet.
-	if capabilities&mysql.CapabilityClientDeprecateEOF == 0 {
+	if c.Capabilities&mysql.CapabilityClientDeprecateEOF == 0 {
 		// With CapabilityClientDeprecateEOF, we do not send this EOF.
 		if err := c.writeEOFPacket(c.StatusFlags, 0); err != nil {
 			return err
@@ -1111,14 +1114,14 @@ func (c *Conn) writeDataset(ds proto.Dataset) error {
 
 // writeEndResult concludes the sending of a Result.
 // if more is set to true, then it means there are more results afterwords
-func (c *Conn) writeEndResult(capabilities uint32, more bool, affectedRows, lastInsertID uint64, warnings uint16) error {
+func (c *Conn) writeEndResult(more bool, affectedRows, lastInsertID uint64, warnings uint16) error {
 	// Send either an EOF, or an OK packet.
 	// See doc.go.
 	flags := c.StatusFlags
 	if more {
 		flags |= mysql.ServerMoreResultsExists
 	}
-	if capabilities&mysql.CapabilityClientDeprecateEOF == 0 {
+	if c.Capabilities&mysql.CapabilityClientDeprecateEOF == 0 {
 		if err := c.writeEOFPacket(flags, warnings); err != nil {
 			return err
 		}
@@ -1133,7 +1136,7 @@ func (c *Conn) writeEndResult(capabilities uint32, more bool, affectedRows, last
 }
 
 // writePrepare writes a prepared query response to the wire.
-func (c *Conn) writePrepare(capabilities uint32, prepare *proto.Stmt) error {
+func (c *Conn) writePrepare(prepare *proto.Stmt) error {
 	paramsCount := prepare.ParamsCount
 
 	data := c.startEphemeralPacket(12)
@@ -1163,7 +1166,7 @@ func (c *Conn) writePrepare(capabilities uint32, prepare *proto.Stmt) error {
 		}
 
 		// Now send an EOF packet.
-		if capabilities&mysql.CapabilityClientDeprecateEOF == 0 {
+		if c.Capabilities&mysql.CapabilityClientDeprecateEOF == 0 {
 			// With CapabilityClientDeprecateEOF, we do not send this EOF.
 			if err := c.writeEOFPacket(c.StatusFlags, 0); err != nil {
 				return err
@@ -1186,10 +1189,10 @@ func (c *Conn) writeDatasetBinary(result proto.Dataset) error {
 			return nil
 		}
 		if err != nil {
-			return err
+			return perrors.WithStack(err)
 		}
 		if err = c.writeRow(row); err != nil {
-			return err
+			return perrors.WithStack(err)
 		}
 	}
 }

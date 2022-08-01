@@ -143,7 +143,6 @@ func TestOptimizer_OptimizeInsert(t *testing.T) {
 	)
 
 	t.Run("sharding", func(t *testing.T) {
-
 		sql := "insert into student(name,uid,age) values('foo',?,18),('bar',?,19),('qux',?,17)"
 
 		p := parser.New()

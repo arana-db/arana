@@ -37,9 +37,9 @@ func init() {
 
 func optimizeDropTable(_ context.Context, o *optimize.Optimizer) (proto.Plan, error) {
 	stmt := o.Stmt.(*ast.DropTableStatement)
-	//table shard
+	// table shard
 	var shards []rule.DatabaseTables
-	//tables not shard
+	// tables not shard
 	noShardStmt := ast.NewDropTableStatement()
 	for _, table := range stmt.Tables {
 		shard, err := o.ComputeShards(*table, nil, o.Args)
@@ -63,7 +63,7 @@ func optimizeDropTable(_ context.Context, o *optimize.Optimizer) (proto.Plan, er
 
 	noShardPlan := plan.Transparent(noShardStmt, o.Args)
 
-	return &dml.UnionPlan{
+	return &dml.CompositePlan{
 		Plans: []proto.Plan{
 			noShardPlan, shardPlan,
 		},

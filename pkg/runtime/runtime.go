@@ -29,6 +29,7 @@ import (
 
 import (
 	"github.com/bwmarrin/snowflake"
+
 	perrors "github.com/pkg/errors"
 
 	"go.opentelemetry.io/otel"
@@ -66,9 +67,7 @@ var (
 
 var Tracer = otel.Tracer("Runtime")
 
-var (
-	errTxClosed = errors.New("transaction is closed")
-)
+var errTxClosed = errors.New("transaction is closed")
 
 func NewAtomDB(node *config.Node) *AtomDB {
 	if node == nil {

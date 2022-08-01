@@ -27,12 +27,16 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 )
 
 import (
 	"github.com/go-playground/validator/v10"
 
 	"github.com/pkg/errors"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 
 	"gopkg.in/yaml.v3"
 )
@@ -63,6 +67,7 @@ type (
 		Tenants            []*Tenant            `validate:"required,dive" yaml:"tenants" json:"tenants"`
 		DataSourceClusters []*DataSourceCluster `validate:"required,dive" yaml:"clusters" json:"clusters"`
 		ShardingRule       *ShardingRule        `validate:"required,dive" yaml:"sharding_rule,omitempty" json:"sharding_rule,omitempty"`
+		ShadowRule         *ShadowRule          `yaml:"shadow_rule,omitempty" json:"shadow_rule,omitempty"`
 	}
 
 	Filter struct {
@@ -80,6 +85,7 @@ type (
 		Type        DataSourceType `yaml:"type" json:"type"`
 		SqlMaxLimit int            `default:"-1" yaml:"sql_max_limit" json:"sql_max_limit,omitempty"`
 		Tenant      string         `yaml:"tenant" json:"tenant"`
+		Parameters  ParametersMap  `yaml:"parameters" json:"parameters"`
 		Groups      []*Group       `yaml:"groups" json:"groups"`
 	}
 
@@ -105,6 +111,36 @@ type (
 		Tables []*Table `yaml:"tables" json:"tables"`
 	}
 
+	ShadowRule struct {
+		ShadowTables []*ShadowTable `yaml:"tables" json:"tables"`
+	}
+
+	ShadowTable struct {
+		Name       string       `yaml:"name" json:"name"`
+		Enable     bool         `yaml:"enable" json:"enable"`
+		GroupNode  string       `yaml:"group_node" json:"group_node"`
+		MatchRules []*MatchRule `yaml:"match_rules" json:"match_rules"`
+	}
+
+	MatchRule struct {
+		Operation  []string         `yaml:"operation" json:"operation"`
+		MatchType  string           `yaml:"match_type" json:"match_type"`
+		Attributes []*RuleAttribute `yaml:"attributes" json:"attributes"`
+	}
+
+	RuleAttribute struct {
+		Column string `yaml:"column" json:"column"`
+		Value  string `yaml:"value,omitempty" json:"value,omitempty"`
+		Regex  string `yaml:"regex,omitempty" json:"regex,omitempty"`
+	}
+
+	Prop struct {
+		Operation string `yaml:"operation" json:"operation"`
+		Column    string `yaml:"column" json:"column"`
+		Value     string `yaml:"value" json:"value"`
+		Regex     string `yaml:"regex" json:"regex"`
+	}
+
 	Listener struct {
 		ProtocolType  string         `yaml:"protocol_type" json:"protocol_type"`
 		SocketAddress *SocketAddress `yaml:"socket_address" json:"socket_address"`
@@ -118,12 +154,18 @@ type (
 
 	Table struct {
 		Name           string            `validate:"required" yaml:"name" json:"name"`
+		Sequence       *Sequence         `yaml:"sequence" json:"sequence"`
 		AllowFullScan  bool              `yaml:"allow_full_scan" json:"allow_full_scan,omitempty"`
 		DbRules        []*Rule           `yaml:"db_rules" json:"db_rules"`
 		TblRules       []*Rule           `yaml:"tbl_rules" json:"tbl_rules"`
 		Topology       *Topology         `yaml:"topology" json:"topology"`
 		ShadowTopology *Topology         `yaml:"shadow_topology" json:"shadow_topology"`
 		Attributes     map[string]string `yaml:"attributes" json:"attributes"`
+	}
+
+	Sequence struct {
+		Type   string            `yaml:"type" json:"type"`
+		Option map[string]string `yaml:"option" json:"option"`
 	}
 
 	Rule struct {
@@ -141,15 +183,35 @@ type (
 
 type ParametersMap map[string]string
 
+func (pm *ParametersMap) Merge(parametersMap ParametersMap) {
+	for key, val := range parametersMap {
+		if _, ok := (*pm)[key]; !ok {
+			(*pm)[key] = val
+		}
+	}
+}
+
 func (pm *ParametersMap) String() string {
 	sBuff := strings.Builder{}
 	for k, v := range *pm {
-		sBuff.WriteString(k)
+		sBuff.WriteString(pm.LowerCaseFirstLetter(pm.Camel(k)))
 		sBuff.WriteString("=")
 		sBuff.WriteString(v)
 		sBuff.WriteString("&")
 	}
 	return strings.TrimRight(sBuff.String(), "&")
+}
+
+// Camel underline to camel
+func (pm *ParametersMap) Camel(name string) string {
+	name = strings.Replace(name, "_", " ", -1)
+	name = cases.Title(language.English, cases.NoLower).String(name)
+	return strings.Replace(name, " ", "", -1)
+}
+
+// LowerCaseFirstLetter lowercase letter
+func (pm *ParametersMap) LowerCaseFirstLetter(str string) string {
+	return string(unicode.ToLower(rune(str[0]))) + str[1:]
 }
 
 // Decoder decodes configuration.

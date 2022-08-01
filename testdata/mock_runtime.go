@@ -359,7 +359,7 @@ func (mr *MockDBMockRecorder) SetWeight(arg0 interface{}) *gomock.Call {
 // Weight mocks base method.
 func (m *MockDB) Weight() proto.Weight {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Weight")
+	ret := m.ctrl.Call(m, "Ordinal")
 	ret0, _ := ret[0].(proto.Weight)
 	return ret0
 }
@@ -367,5 +367,5 @@ func (m *MockDB) Weight() proto.Weight {
 // Weight indicates an expected call of Weight.
 func (mr *MockDBMockRecorder) Weight() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Weight", reflect.TypeOf((*MockDB)(nil).Weight))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ordinal", reflect.TypeOf((*MockDB)(nil).Weight))
 }

@@ -29,9 +29,9 @@ var _ Restorer = (*TableSourceNode)(nil)
 
 type TableSourceNode struct {
 	source     interface{} // TableName or Statement or *JoinNode
-	alias      string
-	partitions []string
-	indexHints []*IndexHint
+	Alias      string
+	Partitions []string
+	IndexHints []*IndexHint
 }
 
 func (t *TableSourceNode) ResetTableName(newTableName string) bool {
@@ -72,30 +72,30 @@ func (t *TableSourceNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[
 		return errors.Errorf("unsupported table source %T!", source)
 	}
 
-	if len(t.partitions) > 0 {
+	if len(t.Partitions) > 0 {
 		sb.WriteString(" PARTITION (")
-		WriteID(sb, t.partitions[0])
-		for i := 1; i < len(t.partitions); i++ {
+		WriteID(sb, t.Partitions[0])
+		for i := 1; i < len(t.Partitions); i++ {
 			sb.WriteByte(',')
-			WriteID(sb, t.partitions[i])
+			WriteID(sb, t.Partitions[i])
 		}
 		sb.WriteByte(')')
 	}
 
-	if len(t.alias) > 0 {
+	if len(t.Alias) > 0 {
 		sb.WriteString(" AS ")
-		WriteID(sb, t.alias)
+		WriteID(sb, t.Alias)
 	}
 
-	if len(t.indexHints) > 0 {
+	if len(t.IndexHints) > 0 {
 		sb.WriteByte(' ')
-		if err := t.indexHints[0].Restore(flag, sb, args); err != nil {
+		if err := t.IndexHints[0].Restore(flag, sb, args); err != nil {
 			return errors.WithStack(err)
 		}
 
-		for i := 1; i < len(t.indexHints); i++ {
+		for i := 1; i < len(t.IndexHints); i++ {
 			sb.WriteString(", ")
-			if err := t.indexHints[i].Restore(flag, sb, args); err != nil {
+			if err := t.IndexHints[i].Restore(flag, sb, args); err != nil {
 				return errors.WithStack(err)
 			}
 		}
@@ -106,18 +106,6 @@ func (t *TableSourceNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[
 
 func (t *TableSourceNode) Source() interface{} {
 	return t.source
-}
-
-func (t *TableSourceNode) Partitions() []string {
-	return t.partitions
-}
-
-func (t *TableSourceNode) IndexHints() []*IndexHint {
-	return t.indexHints
-}
-
-func (t *TableSourceNode) Alias() string {
-	return t.alias
 }
 
 func (t *TableSourceNode) TableName() TableName {

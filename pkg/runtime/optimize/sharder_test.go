@@ -101,6 +101,7 @@ func makeFakeRule(c *gomock.Controller, mod int) *rule.Rule {
 	topo.SetTopology(0, tables...)
 
 	tab.SetTopology(&topo)
+	tab.SetName("student")
 
 	computer := testdata.NewMockShardComputer(c)
 

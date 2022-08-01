@@ -69,7 +69,7 @@ func optimizeShowOpenTables(ctx context.Context, o *optimize.Optimizer) (proto.P
 		}
 	}
 
-	unionPlan := &dml.UnionPlan{
+	unionPlan := &dml.CompositePlan{
 		Plans: plans,
 	}
 

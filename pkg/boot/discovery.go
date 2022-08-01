@@ -89,6 +89,8 @@ type Discovery interface {
 
 	// ListClusters lists the cluster names.
 	ListClusters(ctx context.Context) ([]string, error)
+	// GetClusterObject returns the dataSourceCluster object
+	GetDataSourceCluster(ctx context.Context, cluster string) (*config.DataSourceCluster, error)
 	// GetCluster returns the cluster info
 	GetCluster(ctx context.Context, cluster string) (*Cluster, error)
 	// ListGroups lists the group names.
@@ -161,6 +163,14 @@ func (fp *discovery) initConfigCenter() error {
 
 func (fp *discovery) GetConfigCenter() *config.Center {
 	return fp.c
+}
+
+func (fp *discovery) GetDataSourceCluster(ctx context.Context, cluster string) (*config.DataSourceCluster, error) {
+	dataSourceCluster, ok := fp.loadCluster(cluster)
+	if !ok {
+		return nil, nil
+	}
+	return dataSourceCluster, nil
 }
 
 func (fp *discovery) GetCluster(ctx context.Context, cluster string) (*Cluster, error) {
@@ -298,9 +308,9 @@ func (fp *discovery) GetTable(ctx context.Context, cluster, tableName string) (*
 	if !ok {
 		return nil, nil
 	}
-	var vt rule.VTable
 
 	var (
+		vt                 rule.VTable
 		topology           rule.Topology
 		dbFormat, tbFormat string
 		dbBegin, tbBegin   int
@@ -426,11 +436,18 @@ func (fp *discovery) GetTable(ctx context.Context, cluster, tableName string) (*
 	if table.AllowFullScan {
 		vt.SetAllowFullScan(true)
 	}
+	if table.Sequence != nil {
+		vt.SetAutoIncrement(&rule.AutoIncrement{
+			Type:   table.Sequence.Type,
+			Option: table.Sequence.Option,
+		})
+	}
 
 	// TODO: process attributes
 	_ = table.Attributes["sql_max_limit"]
 
 	vt.SetTopology(&topology)
+	vt.SetName(tableName)
 
 	return &vt, nil
 }

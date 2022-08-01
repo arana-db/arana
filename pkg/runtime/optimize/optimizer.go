@@ -65,9 +65,7 @@ func IsDenyFullScanErr(err error) bool {
 	return perrors.Is(err, ErrDenyFullScan)
 }
 
-var (
-	_handlers = make(map[rast.SQLType]Processor)
-)
+var _handlers = make(map[rast.SQLType]Processor)
 
 func Register(t rast.SQLType, h Processor) {
 	_handlers[t] = h
@@ -123,13 +121,25 @@ func (o *Optimizer) ComputeShards(table rast.TableName, where rast.ExpressionNod
 	if !ok {
 		return nil, nil
 	}
+	var (
+		shards   rule.DatabaseTables
+		err      error
+		fullScan bool
+	)
 
-	shards, fullScan, err := (*Sharder)(ru).Shard(table, where, args...)
-	if err != nil {
-		return nil, perrors.Wrapf(err, "optimize: cannot calculate shards of table '%s'", table.Suffix())
+	if len(o.Hints) > 0 {
+		if shards, err = Hints(table, o.Hints, o.Rule); err != nil {
+			return nil, perrors.Wrap(err, "calculate hints failed")
+		}
 	}
 
-	//log.Debugf("compute shards: result=%s, isFullScan=%v", shards, fullScan)
+	if shards == nil {
+		if shards, fullScan, err = (*Sharder)(ru).Shard(table, where, args...); err != nil {
+			return nil, perrors.Wrapf(err, "optimize: cannot calculate shards of table '%s'", table.Suffix())
+		}
+	}
+
+	// log.Debugf("compute shards: result=%s, isFullScan=%v", shards, fullScan)
 
 	// return error if full-scan is disabled
 	if fullScan && !vt.AllowFullScan() {

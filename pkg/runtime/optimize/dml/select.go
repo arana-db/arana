@@ -30,17 +30,19 @@ import (
 	"github.com/arana-db/arana/pkg/dataset"
 	"github.com/arana-db/arana/pkg/merge/aggregator"
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/proto/hint"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/runtime/optimize"
+	"github.com/arana-db/arana/pkg/runtime/optimize/dml/ext"
 	"github.com/arana-db/arana/pkg/runtime/plan/dml"
 	"github.com/arana-db/arana/pkg/transformer"
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
 const (
-	_bypass uint32 = 1 << iota
+	_bypass uint32 = 1 << iota //
 	_supported
 )
 
@@ -74,15 +76,25 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		return ret, nil
 	}
 
-	var (
-		shards   rule.DatabaseTables
-		fullScan bool
-		err      error
-		vt       = o.Rule.MustVTable(stmt.From[0].TableName().Suffix())
-	)
+	// --- SIMPLE QUERY BEGIN ---
 
-	if shards, fullScan, err = (*optimize.Sharder)(o.Rule).Shard(stmt.From[0].TableName(), stmt.Where, o.Args...); err != nil {
-		return nil, errors.Wrap(err, "calculate shards failed")
+	var (
+		shards    rule.DatabaseTables
+		fullScan  bool
+		err       error
+		vt        = o.Rule.MustVTable(stmt.From[0].TableName().Suffix())
+		tableName = stmt.From[0].TableName()
+	)
+	if len(o.Hints) > 0 {
+		if shards, err = optimize.Hints(tableName, o.Hints, o.Rule); err != nil {
+			return nil, errors.Wrap(err, "calculate hints failed")
+		}
+	}
+
+	if shards == nil {
+		if shards, fullScan, err = (*optimize.Sharder)(o.Rule).Shard(tableName, stmt.Where, o.Args...); err != nil && fullScan == false {
+			return nil, errors.Wrap(err, "calculate shards failed")
+		}
 	}
 
 	log.Debugf("compute shards: result=%s, isFullScan=%v", shards, fullScan)
@@ -106,7 +118,7 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 	}
 
 	// return error if full-scan is disabled
-	if fullScan && !vt.AllowFullScan() {
+	if fullScan && (!vt.AllowFullScan() && !hint.Contains(hint.TypeFullScan, o.Hints)) {
 		return nil, errors.WithStack(optimize.ErrDenyFullScan)
 	}
 
@@ -150,6 +162,20 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		return toSingle(db, tbl)
 	}
 
+	_, tb, _ := vt.Topology().Smallest()
+	if err = rewriteSelectStatement(ctx, stmt, tb); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	var (
+		analysis selectResult
+		scanner  = newSelectScanner(stmt, o.Args)
+	)
+
+	if err = scanner.scan(&analysis); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
 	// Handle multiple shards
 
 	if shards.IsFullScan() { // expand all shards if all shards matched
@@ -167,16 +193,53 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		plans = append(plans, next)
 	}
 
-	if len(plans) > 0 {
-		_, tb, _ := vt.Topology().Smallest()
-		if err = rewriteSelectStatement(ctx, stmt, tb); err != nil {
-			return nil, errors.WithStack(err)
+	var tmpPlan proto.Plan
+	tmpPlan = &dml.CompositePlan{
+		Plans: plans,
+	}
+
+	// check if order-by exists
+	if len(analysis.orders) > 0 {
+		var (
+			sb           strings.Builder
+			orderByItems = make([]dataset.OrderByItem, 0, len(analysis.orders))
+		)
+
+		for _, it := range analysis.orders {
+			var next dataset.OrderByItem
+			next.Desc = it.Desc
+			if alias := it.Alias(); len(alias) > 0 {
+				next.Column = alias
+			} else {
+				switch prev := it.Prev().(type) {
+				case *ast.SelectElementColumn:
+					next.Column = prev.Suffix()
+				default:
+					if err = it.Restore(ast.RestoreWithoutAlias, &sb, nil); err != nil {
+						return nil, errors.WithStack(err)
+					}
+					next.Column = sb.String()
+					sb.Reset()
+				}
+			}
+			orderByItems = append(orderByItems, next)
+		}
+		tmpPlan = &dml.OrderPlan{
+			ParentPlan:   tmpPlan,
+			OrderByItems: orderByItems,
 		}
 	}
 
-	var tmpPlan proto.Plan
-	tmpPlan = &dml.UnionPlan{
-		Plans: plans,
+	if stmt.GroupBy != nil {
+		if tmpPlan, err = handleGroupBy(tmpPlan, stmt); err != nil {
+			return nil, errors.WithStack(err)
+		}
+	} else {
+		tmpPlan = &dml.AggregatePlan{
+			Plan:       tmpPlan,
+			Combiner:   transformer.NewCombinerManager(),
+			AggrLoader: transformer.LoadAggrs(stmt.Select),
+		}
 	}
 
 	if stmt.Limit != nil {
@@ -187,24 +250,21 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		}
 	}
 
-	orderByItems := optimizeOrderBy(stmt)
-
-	if stmt.OrderBy != nil {
-		tmpPlan = &dml.OrderPlan{
-			ParentPlan:   tmpPlan,
-			OrderByItems: orderByItems,
+	// check & drop weak column
+	var weaks []ast.SelectElement
+	for i := range stmt.Select {
+		if _, ok := stmt.Select[i].(ext.WeakMarker); ok {
+			weaks = append(weaks, stmt.Select[i])
 		}
 	}
-	if stmt.GroupBy != nil {
-		return handleGroupBy(tmpPlan, stmt)
-	} else {
-		// TODO: refactor groupby/orderby/aggregate plan to a unified plan
-		return &dml.AggregatePlan{
-			Plan:       tmpPlan,
-			Combiner:   transformer.NewCombinerManager(),
-			AggrLoader: transformer.LoadAggrs(stmt.Select),
-		}, nil
+	if len(weaks) > 0 {
+		tmpPlan = &dml.DropWeakPlan{
+			Plan:     tmpPlan,
+			WeakList: weaks,
+		}
 	}
+
+	return tmpPlan, nil
 }
 
 // handleGroupBy exp: `select max(score) group by id order by name` will be convert to
@@ -252,9 +312,8 @@ func handleGroupBy(parentPlan proto.Plan, stmt *ast.SelectStatement) (proto.Plan
 					}
 					if _, ok := orderItemMap[cn.Suffix()]; !ok {
 						newOrderByItems = append(newOrderByItems, &ast.OrderByItem{
-							Alias: cn.Suffix(),
-							Expr:  cn,
-							Desc:  false,
+							Expr: cn,
+							Desc: false,
 						})
 					}
 					groupItems = append(groupItems, dataset.OrderByItem{
@@ -277,7 +336,7 @@ func handleGroupBy(parentPlan proto.Plan, stmt *ast.SelectStatement) (proto.Plan
 	return groupPlan, nil
 }
 
-//optimizeJoin ony support  a join b in one db
+// optimizeJoin ony support  a join b in one db
 func optimizeJoin(o *optimize.Optimizer, stmt *ast.SelectStatement) (proto.Plan, error) {
 	join := stmt.From[0].Source().(*ast.JoinNode)
 
@@ -287,19 +346,19 @@ func optimizeJoin(o *optimize.Optimizer, stmt *ast.SelectStatement) (proto.Plan,
 			err = errors.New("must table, not statement or join node")
 			return
 		}
-		alias = tableSource.Alias()
+		alias = tableSource.Alias
 		database = table.Prefix()
 
 		shards, err := o.ComputeShards(table, nil, o.Args)
 		if err != nil {
 			return
 		}
-		//table no shard
+		// table no shard
 		if shards == nil {
 			shardList = append(shardList, table.Suffix())
 			return
 		}
-		//table  shard more than one db
+		// table  shard more than one db
 		if len(shards) > 1 {
 			err = errors.New("not support more than one db")
 			return
@@ -322,7 +381,6 @@ func optimizeJoin(o *optimize.Optimizer, stmt *ast.SelectStatement) (proto.Plan,
 		return nil, err
 	}
 	dbRight, aliasRight, shardRight, err := compute(join.Right)
-
 	if err != nil {
 		return nil, err
 	}
@@ -375,22 +433,6 @@ func getSelectFlag(ru *rule.Rule, stmt *ast.SelectStatement) (flag uint32) {
 		flag |= _supported
 	}
 	return
-}
-
-func optimizeOrderBy(stmt *ast.SelectStatement) []dataset.OrderByItem {
-	if stmt == nil || stmt.OrderBy == nil {
-		return nil
-	}
-	result := make([]dataset.OrderByItem, 0, len(stmt.OrderBy))
-	for _, node := range stmt.OrderBy {
-		column, _ := node.Expr.(ast.ColumnNameExpressionAtom)
-		item := dataset.OrderByItem{
-			Column: column[0],
-			Desc:   node.Desc,
-		}
-		result = append(result, item)
-	}
-	return result
 }
 
 func overwriteLimit(stmt *ast.SelectStatement, args *[]interface{}) (originOffset, overwriteLimit int64) {
@@ -452,7 +494,7 @@ func overwriteLimit(stmt *ast.SelectStatement, args *[]interface{}) (originOffse
 
 func rewriteSelectStatement(ctx context.Context, stmt *ast.SelectStatement, tb string) error {
 	// todo db 计算逻辑&tb shard 的计算逻辑
-	var starExpand = false
+	starExpand := false
 	if len(stmt.Select) == 1 {
 		if _, ok := stmt.Select[0].(*ast.SelectElementAll); ok {
 			starExpand = true
@@ -474,6 +516,7 @@ func rewriteSelectStatement(ctx context.Context, stmt *ast.SelectStatement, tb s
 	if metadata == nil || len(metadata.ColumnNames) == 0 {
 		return errors.Errorf("optimize: cannot get metadata of `%s`.`%s`", rcontext.Schema(ctx), tb)
 	}
+
 	selectElements := make([]ast.SelectElement, len(metadata.Columns))
 	for i, column := range metadata.ColumnNames {
 		selectElements[i] = ast.NewSelectElementColumn([]string{column}, "")

@@ -38,16 +38,16 @@ type OrderPlan struct {
 	OrderByItems []dataset.OrderByItem
 }
 
-func (orderPlan *OrderPlan) Type() proto.PlanType {
+func (op *OrderPlan) Type() proto.PlanType {
 	return proto.PlanTypeQuery
 }
 
-func (orderPlan *OrderPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
-	if orderPlan.ParentPlan == nil {
+func (op *OrderPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+	if op.ParentPlan == nil {
 		return nil, errors.New("order plan: ParentPlan is nil")
 	}
 
-	res, err := orderPlan.ParentPlan.ExecIn(ctx, conn)
+	res, err := op.ParentPlan.ExecIn(ctx, conn)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -58,12 +58,12 @@ func (orderPlan *OrderPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto
 	}
 
 	fuseable, ok := ds.(*dataset.FuseableDataset)
-
 	if !ok {
-		return nil, errors.New("order plan convert Dataset to FuseableDataset cause error")
+		// TODO: exhaust ds
+		return nil, errors.Errorf("incorrect upstream Plan for %T: expect=%T, actual=%T", op, (*dataset.FuseableDataset)(nil), ds)
 	}
 
-	orderedDataset := dataset.NewOrderedDataset(fuseable.ToParallel(), orderPlan.OrderByItems)
+	orderedDataset := dataset.NewOrderedDataset(fuseable.ToParallel(), op.OrderByItems)
 
 	return resultx.New(resultx.WithDataset(orderedDataset)), nil
 }

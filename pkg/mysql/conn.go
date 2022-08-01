@@ -127,6 +127,21 @@ type Conn struct {
 	// It is only used by the server. These flags can be changed
 	// by Handler methods.
 	StatusFlags uint16
+
+	// Capabilities is the current set of features this connection
+	// is using.  It is the features that are both supported by
+	// the client and the server, and currently in use.
+	// It is set during the initial handshake.
+	//
+	// It is only used for CapabilityClientDeprecateEOF
+	// and CapabilityClientFoundRows.
+	Capabilities uint32
+
+	// characterSet is the character set used by the other side of the
+	// connection.
+	// It is set during the initial handshake.
+	// See the values in constants.go.
+	CharacterSet uint8
 }
 
 // newConn is an internal method to create a Conn. Used by client and server
@@ -833,7 +848,7 @@ func ParseErrorPacket(data []byte) error {
 		return err2.NewSQLError(mysql.CRUnknownError, mysql.SSUnknownSQLState, "invalid error packet sqlState: %v", data)
 	}
 
-	// Human readable error message is the rest.
+	// Human-readable error message is the rest.
 	msg := string(data[pos:])
 
 	return err2.NewSQLError(int(code), string(sqlState), "%v", msg)

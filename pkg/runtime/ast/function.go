@@ -69,12 +69,6 @@ func (f FunctionType) String() string {
 }
 
 var (
-	_ inTablesChecker = (*FunctionArg)(nil)
-	_ inTablesChecker = (*Function)(nil)
-	_ inTablesChecker = (*AggrFunction)(nil)
-	_ inTablesChecker = (*CaseWhenElseFunction)(nil)
-	_ inTablesChecker = (*CastFunction)(nil)
-
 	_ Restorer = (*FunctionArg)(nil)
 	_ Restorer = (*Function)(nil)
 	_ Restorer = (*AggrFunction)(nil)
@@ -86,15 +80,6 @@ type Function struct {
 	typ  FunctionType
 	name string
 	args []*FunctionArg
-}
-
-func (f *Function) InTables(tables map[string]struct{}) error {
-	for _, it := range f.args {
-		if err := it.InTables(tables); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (f *Function) Type() FunctionType {
@@ -143,54 +128,27 @@ func (f *Function) CntParams() int {
 }
 
 type FunctionArg struct {
-	typ   FunctionArgType
-	value interface{}
-}
-
-func (f *FunctionArg) InTables(tables map[string]struct{}) error {
-	switch f.typ {
-	case FunctionArgColumn:
-		return ColumnNameExpressionAtom(f.value.([]string)).InTables(tables)
-	case FunctionArgExpression:
-		return f.value.(ExpressionNode).InTables(tables)
-	case FunctionArgFunction:
-		return f.value.(*Function).InTables(tables)
-	case FunctionArgAggrFunction:
-		return f.value.(*AggrFunction).InTables(tables)
-	case FunctionArgCaseWhenElseFunction:
-		return f.value.(*CaseWhenElseFunction).InTables(tables)
-	case FunctionArgCastFunction:
-		return f.value.(*CastFunction).InTables(tables)
-	default:
-		return nil
-	}
-}
-
-func (f *FunctionArg) Type() FunctionArgType {
-	return f.typ
-}
-
-func (f *FunctionArg) Value() interface{} {
-	return f.value
+	Type  FunctionArgType
+	Value interface{}
 }
 
 func (f *FunctionArg) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	var err error
-	switch f.typ {
+	switch f.Type {
 	case FunctionArgColumn:
-		err = f.value.(ColumnNameExpressionAtom).Restore(flag, sb, args)
+		err = f.Value.(ColumnNameExpressionAtom).Restore(flag, sb, args)
 	case FunctionArgExpression:
-		err = f.value.(ExpressionNode).Restore(flag, sb, args)
+		err = f.Value.(ExpressionNode).Restore(flag, sb, args)
 	case FunctionArgConstant:
-		sb.WriteString(constant2string(f.value))
+		sb.WriteString(constant2string(f.Value))
 	case FunctionArgFunction:
-		err = f.value.(*Function).Restore(flag, sb, args)
+		err = f.Value.(*Function).Restore(flag, sb, args)
 	case FunctionArgAggrFunction:
-		err = f.value.(*AggrFunction).Restore(flag, sb, args)
+		err = f.Value.(*AggrFunction).Restore(flag, sb, args)
 	case FunctionArgCaseWhenElseFunction:
-		err = f.value.(*CaseWhenElseFunction).Restore(flag, sb, args)
+		err = f.Value.(*CaseWhenElseFunction).Restore(flag, sb, args)
 	case FunctionArgCastFunction:
-		err = f.value.(*CastFunction).Restore(flag, sb, args)
+		err = f.Value.(*CastFunction).Restore(flag, sb, args)
 	default:
 		panic("unreachable")
 	}
@@ -203,7 +161,7 @@ func (f *FunctionArg) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int
 }
 
 func (f *FunctionArg) CntParams() int {
-	c, ok := f.value.(paramsCounter)
+	c, ok := f.Value.(paramsCounter)
 	if ok {
 		return c.CntParams()
 	}
@@ -234,15 +192,6 @@ type AggrFunction struct {
 	name       string
 	aggregator string
 	args       []*FunctionArg
-}
-
-func (af *AggrFunction) InTables(tables map[string]struct{}) error {
-	for _, it := range af.args {
-		if err := it.InTables(tables); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (af *AggrFunction) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -316,30 +265,6 @@ type CaseWhenElseFunction struct {
 	elseBlock *FunctionArg
 }
 
-func (c *CaseWhenElseFunction) InTables(tables map[string]struct{}) error {
-	if c.caseBlock != nil {
-		if err := c.caseBlock.InTables(tables); err != nil {
-			return err
-		}
-	}
-
-	for _, branch := range c.branches {
-		for _, it := range branch[:] {
-			if err := it.InTables(tables); err != nil {
-				return err
-			}
-		}
-	}
-
-	if c.elseBlock != nil {
-		if err := c.elseBlock.InTables(tables); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (c *CaseWhenElseFunction) Case() ExpressionNode {
 	return c.caseBlock
 }
@@ -407,10 +332,6 @@ type CastFunction struct {
 	isCast bool
 	src    ExpressionNode
 	cast   interface{} // *ConvertDataType or string
-}
-
-func (c *CastFunction) InTables(tables map[string]struct{}) error {
-	return c.src.InTables(tables)
 }
 
 func (c *CastFunction) Source() ExpressionNode {

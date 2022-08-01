@@ -21,10 +21,7 @@ import (
 	"strings"
 )
 
-var (
-	_ Statement     = (*AlterTableStatement)(nil)
-	_ paramsCounter = (*AlterTableStatement)(nil)
-)
+var _ Statement = (*AlterTableStatement)(nil)
 
 type AlterTableType uint8
 
@@ -167,10 +164,6 @@ func (at *AlterTableStatement) Restore(flag RestoreFlag, sb *strings.Builder, ar
 			return err
 		}
 	}
-	return nil
-}
-
-func (at *AlterTableStatement) Validate() error {
 	return nil
 }
 

@@ -86,11 +86,11 @@ type (
 	}
 
 	// Command represents the command to control Namespace.
-	Command func(ns *Namespace)
+	Command func(ns *Namespace) error
 )
 
 // New creates a Namespace.
-func New(name string, commands ...Command) *Namespace {
+func New(name string, commands ...Command) (*Namespace, error) {
 	ns := &Namespace{
 		name: name,
 		cmds: make(chan Command, 1),
@@ -100,12 +100,14 @@ func New(name string, commands ...Command) *Namespace {
 	ns.rule.Store(&rule.Rule{})               // init empty rule
 
 	for _, cmd := range commands {
-		cmd(ns)
+		if err := cmd(ns); err != nil {
+			return nil, err
+		}
 	}
 
 	go ns.loopCmds()
 
-	return ns
+	return ns, nil
 }
 
 // Name returns the name of namespace.
