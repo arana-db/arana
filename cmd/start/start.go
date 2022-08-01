@@ -78,8 +78,8 @@ func Run(bootstrapConfigPath string, importPath string) {
 	// print slogan
 	fmt.Printf("\033[92m%s\033[0m\n", slogan) // 92m: light green
 
-	provider := boot.NewProvider(bootstrapConfigPath)
-	if err := provider.Init(context.Background()); err != nil {
+	discovery := boot.NewDiscovery(bootstrapConfigPath)
+	if err := discovery.Init(context.Background()); err != nil {
 		log.Fatal("start failed: %v", err)
 		return
 	}
@@ -90,20 +90,20 @@ func Run(bootstrapConfigPath string, importPath string) {
 			log.Fatal("failed to import configuration from %s: %v", importPath, err)
 			return
 		}
-		if err := provider.GetConfigCenter().ImportConfiguration(c); err != nil {
+		if err := discovery.GetConfigCenter().ImportConfiguration(c); err != nil {
 			log.Fatal("failed to import configuration from %s: %v", importPath, err)
 			return
 		}
 	}
 
-	if err := boot.Boot(context.Background(), provider); err != nil {
+	if err := boot.Boot(context.Background(), discovery); err != nil {
 		log.Fatal("start failed: %v", err)
 		return
 	}
 
 	propeller := server.NewServer()
 
-	listenersConf, err := provider.ListListeners(context.Background())
+	listenersConf, err := discovery.ListListeners(context.Background())
 	if err != nil {
 		log.Fatal("start failed: %v", err)
 		return
