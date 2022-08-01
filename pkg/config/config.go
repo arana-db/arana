@@ -104,11 +104,13 @@ func NewCenter(options ConfigOptions) (*Center, error) {
 	}
 
 	return &Center{
-		confHolder:   atomic.Value{},
-		lock:         sync.RWMutex{},
 		storeOperate: operate,
 		observers:    make([]Observer, 0, 2),
 	}, nil
+}
+
+func (c *Center) GetStoreOperate() StoreOperate {
+	return c.storeOperate
 }
 
 func (c *Center) Close() error {

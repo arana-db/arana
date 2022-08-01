@@ -23,8 +23,9 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+)
 
-	"github.com/arana-db/arana/pkg/util/log"
+import (
 	"go.uber.org/zap"
 )
 
@@ -33,6 +34,7 @@ import (
 	"github.com/arana-db/arana/pkg/runtime"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/util/identity"
+	"github.com/arana-db/arana/pkg/util/log"
 )
 
 const SequencePluginName = "snowflake"

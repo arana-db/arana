@@ -73,13 +73,13 @@ func Run(bootstrapConfigPath string) {
 	// print slogan
 	fmt.Printf("\033[92m%s\033[0m\n", slogan) // 92m: light green
 
-	provider := boot.NewProvider(bootstrapConfigPath)
-	if err := boot.Boot(context.Background(), provider); err != nil {
+	discovery := boot.NewDiscovery(bootstrapConfigPath)
+	if err := boot.Boot(context.Background(), discovery); err != nil {
 		log.Fatal("start failed: %v", err)
 		return
 	}
 
-	filters, err := provider.ListFilters(context.Background())
+	filters, err := discovery.ListFilters(context.Background())
 	if err != nil {
 		log.Fatal("start failed: %v", err)
 		return
@@ -99,7 +99,7 @@ func Run(bootstrapConfigPath string) {
 
 	propeller := server.NewServer()
 
-	listenersConf, err := provider.ListListeners(context.Background())
+	listenersConf, err := discovery.ListListeners(context.Background())
 	if err != nil {
 		log.Fatal("start failed: %v", err)
 		return

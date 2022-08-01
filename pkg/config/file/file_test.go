@@ -27,8 +27,10 @@ import (
 	"github.com/arana-db/arana/testdata"
 )
 
-var FakeConfigPath = testdata.Path("fake_config.yaml")
-var EmptyConfigPath = testdata.Path("fake_empty_config.yaml")
+var (
+	FakeConfigPath  = testdata.Path("fake_config.yaml")
+	EmptyConfigPath = testdata.Path("fake_empty_config.yaml")
+)
 
 var jsonConfig = `{
     "kind":"ConfigMap",
