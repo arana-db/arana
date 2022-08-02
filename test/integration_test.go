@@ -853,10 +853,10 @@ func (s *IntegrationSuite) TestHintsRoute() {
 			"SELECT * FROM student", false},
 		//not use route hint, one shard
 		{"/*A! route(employees_0000.student_0000,employees_0000.student_0007) */ SELECT * FROM student where uid=1",
-			"SELECT * FROM student where uid=1", true},
+			"SELECT * FROM student where uid=1", false},
 		//not use route hint, fullScan
 		{"/*A! route(employees_0000.student_0000,employees_0000.student_0007) */ SELECT * FROM student  where uid>=1",
-			"SELECT * FROM student  where uid>=1", true},
+			"SELECT * FROM student  where uid>=1", false},
 	} {
 		t.Run(it.sql, func(t *testing.T) {
 			// select from logical table
