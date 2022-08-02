@@ -98,25 +98,6 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 	}
 
 	log.Debugf("compute shards: result=%s, isFullScan=%v", shards, fullScan)
-
-	//use route hint when fullScan
-	hints := rcontext.RouteHints(ctx)
-	if fullScan && len(hints) > 0 {
-		hintRoute := make(map[string][]string)
-		for _, h := range hints {
-			for _, i := range h.Inputs {
-				tb := strings.Split(i.V, ".")
-				if len(tb) != 2 {
-					return nil, errors.New("route hint format error")
-				}
-
-				hintRoute[tb[0]] = append(hintRoute[tb[0]], tb[1])
-			}
-		}
-		shards = hintRoute
-		fullScan = false
-	}
-
 	// return error if full-scan is disabled
 	if fullScan && (!vt.AllowFullScan() && !hint.Contains(hint.TypeFullScan, o.Hints)) {
 		return nil, errors.WithStack(optimize.ErrDenyFullScan)
