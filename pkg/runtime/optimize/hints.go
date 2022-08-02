@@ -65,6 +65,17 @@ func validate(hints []*hint.Hint) error {
 			nodeType = v.Type
 		}
 	}
+	//validate TypeRoute
+	if shardingType == hint.TypeRoute {
+		for _, h := range hints {
+			for _, i := range h.Inputs {
+				tb := strings.Split(i.V, ".")
+				if len(tb) != 2 {
+					return errors.Errorf("route hint format error")
+				}
+			}
+		}
+	}
 	return nil
 }
 
@@ -112,10 +123,6 @@ func (c *CustomRoute) exec(tableName ast.TableName, r *rule.Rule, hints []*hint.
 	for _, h := range hints {
 		for _, i := range h.Inputs {
 			tb := strings.Split(i.V, ".")
-			if len(tb) != 2 {
-				return nil, errors.New("route hint format error")
-			}
-
 			hintTables[tb[0]] = append(hintTables[tb[0]], tb[1])
 		}
 	}
