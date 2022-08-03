@@ -18,8 +18,11 @@
 package optimize
 
 import (
-	"github.com/pkg/errors"
 	"strings"
+)
+
+import (
+	"github.com/pkg/errors"
 )
 
 import (
@@ -64,17 +67,16 @@ func validate(hints []*hint.Hint) error {
 			}
 			nodeType = v.Type
 		}
-	}
-	//validate TypeRoute
-	if shardingType == hint.TypeRoute {
-		for _, h := range hints {
-			for _, i := range h.Inputs {
+		//validate TypeRoute
+		if v.Type == hint.TypeRoute {
+			for _, i := range v.Inputs {
 				tb := strings.Split(i.V, ".")
 				if len(tb) != 2 {
 					return errors.Errorf("route hint format error")
 				}
 			}
 		}
+
 	}
 	return nil
 }
@@ -119,8 +121,10 @@ type CustomRoute struct {
 }
 
 func (c *CustomRoute) exec(tableName ast.TableName, r *rule.Rule, hints []*hint.Hint) (hintTables rule.DatabaseTables, err error) {
-	hintTables = make(map[string][]string)
 	for _, h := range hints {
+		if h.Type != hint.TypeRoute {
+			continue
+		}
 		for _, i := range h.Inputs {
 			tb := strings.Split(i.V, ".")
 			hintTables[tb[0]] = append(hintTables[tb[0]], tb[1])
