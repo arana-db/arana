@@ -121,6 +121,7 @@ type CustomRoute struct {
 }
 
 func (c *CustomRoute) exec(tableName ast.TableName, r *rule.Rule, hints []*hint.Hint) (hintTables rule.DatabaseTables, err error) {
+	hintTables = make(map[string][]string)
 	for _, h := range hints {
 		if h.Type != hint.TypeRoute {
 			continue
