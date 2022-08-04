@@ -98,7 +98,6 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 	}
 
 	log.Debugf("compute shards: result=%s, isFullScan=%v", shards, fullScan)
-
 	// return error if full-scan is disabled
 	if fullScan && (!vt.AllowFullScan() && !hint.Contains(hint.TypeFullScan, o.Hints)) {
 		return nil, errors.WithStack(optimize.ErrDenyFullScan)
