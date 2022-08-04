@@ -20,7 +20,7 @@ package dal
 import (
 	"context"
 	"strings"
-	"sync"
+	"sync/atomic"
 )
 
 import (
@@ -94,19 +94,12 @@ func (s *ShowTableStatusPlan) ExecIn(ctx context.Context, conn proto.VConn) (pro
 		return nil, errors.WithStack(err)
 	}
 
-	found := 0
-
-	mutex := sync.RWMutex{}
+	record := new(int32)
 
 	ds = dataset.Pipe(ds, dataset.Filter(func(next proto.Row) bool {
-		mutex.RLock()
-		if found != 0 {
+		if atomic.AddInt32(record, 1) != 1 {
 			return false
 		}
-		mutex.RUnlock()
-		mutex.Lock()
-		found++
-		mutex.Unlock()
 		dest := make([]proto.Value, len(fields))
 		if next.Scan(dest) != nil {
 			return false
