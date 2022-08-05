@@ -92,6 +92,15 @@ func (l *Listener) handleQuery(c *Conn, ctx *proto.Context) error {
 		return nil
 	}
 
+	if result == nil {
+		log.Errorf("executor com_query error %v: %+v", ctx.ConnectionID, "un dataset")
+		if wErr := c.writeErrorPacketFromError(errors.NewSQLError(mysql.ERBadNullError, mysql.SSUnknownSQLState, "un dataset")); wErr != nil {
+			log.Errorf("Error writing query error to client %v: %v", ctx.ConnectionID, err)
+			return wErr
+		}
+		return nil
+	}
+
 	var ds proto.Dataset
 	if ds, err = result.Dataset(); err != nil {
 		log.Errorf("get dataset error %v: %v", ctx.ConnectionID, err)
