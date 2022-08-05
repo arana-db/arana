@@ -19,6 +19,7 @@ package dal
 
 import (
 	"context"
+	"github.com/arana-db/arana/pkg/mysql/rows"
 	"strings"
 	"sync/atomic"
 )
@@ -96,16 +97,18 @@ func (s *ShowTableStatusPlan) ExecIn(ctx context.Context, conn proto.VConn) (pro
 
 	record := new(int32)
 
-	ds = dataset.Pipe(ds, dataset.Filter(func(next proto.Row) bool {
-		if atomic.AddInt32(record, 1) != 1 {
-			return false
-		}
+	ds = dataset.Pipe(ds, dataset.Map(nil, func(next proto.Row) (proto.Row, error) {
 		dest := make([]proto.Value, len(fields))
 		if next.Scan(dest) != nil {
-			return false
+			return next, nil
 		}
 		dest[0] = toTable
 		if next.IsBinary() {
+			return rows.NewBinaryVirtualRow(fields, dest), nil
+		}
+		return rows.NewTextVirtualRow(fields, dest), nil
+	}), dataset.Filter(func(next proto.Row) bool {
+		if atomic.AddInt32(record, 1) != 1 {
 			return false
 		}
 		return true
