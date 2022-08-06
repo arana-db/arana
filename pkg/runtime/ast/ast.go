@@ -679,6 +679,23 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 			global:   node.GlobalScope,
 		}
 		return ret
+	case ast.ShowTableStatus:
+		const prefixFrom = "show table status from"
+		ret := &ShowTableStatus{Database: node.DBName}
+
+		if strings.HasPrefix(strings.ToLower(node.Text()), prefixFrom) {
+			ret.isFrom = true
+		}
+
+		if where, ok := toWhere(node); ok {
+			ret.where = where
+		}
+
+		if like, ok := toLike(node); ok {
+			ret.like.Valid = true
+			ret.like.String = like
+		}
+		return ret
 	default:
 		panic(fmt.Sprintf("unimplement: show type %v!", node.Tp))
 	}

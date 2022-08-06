@@ -34,6 +34,7 @@ var (
 	_ Statement = (*ShowColumns)(nil)
 	_ Statement = (*ShowIndex)(nil)
 	_ Statement = (*ShowTopology)(nil)
+	_ Statement = (*ShowTableStatus)(nil)
 )
 
 type FromTable string
@@ -410,4 +411,48 @@ func (s *ShowStatus) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int)
 
 func (s *ShowStatus) Mode() SQLType {
 	return SQLTypeShowStatus
+}
+
+type ShowTableStatus struct {
+	*baseShow
+	Database string
+	isFrom   bool
+	where    ExpressionNode
+	like     sql.NullString
+}
+
+func (s *ShowTableStatus) Validate() error {
+	return nil
+}
+
+func (s *ShowTableStatus) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	sb.WriteString("SHOW TABLE STATUS")
+
+	if s.isFrom {
+		sb.WriteString(" FROM ")
+	} else {
+		sb.WriteString(" IN ")
+	}
+
+	sb.WriteString(s.Database)
+
+	if s.where != nil {
+		sb.WriteString(" WHERE ")
+		if err := s.where.Restore(flag, sb, args); err != nil {
+			return errors.WithStack(err)
+		}
+	}
+
+	if s.like.Valid {
+		sb.WriteString(" LIKE ")
+		sb.WriteString("'")
+		sb.WriteString(s.like.String)
+		sb.WriteString("'")
+	}
+
+	return nil
+}
+
+func (s *ShowTableStatus) Mode() SQLType {
+	return SQLTypeShowStatusTable
 }
