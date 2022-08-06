@@ -41,8 +41,11 @@ import (
 
 var (
 	_ proto.Plan = (*ShowTablesPlan)(nil)
+)
 
-	headerPrefix = "Tables_in_"
+const (
+	headerPrefix           = "Tables_in_"
+	aranaSystemTablePrefix = "__arana_"
 )
 
 type ShowTablesPlan struct {
@@ -131,6 +134,9 @@ func (st *ShowTablesPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 			}
 
 			tableName := vr.Values()[0].(string)
+			if strings.HasPrefix(tableName, aranaSystemTablePrefix) {
+				return false
+			}
 			if _, ok := duplicates[tableName]; ok {
 				return false
 			}
