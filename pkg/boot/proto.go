@@ -78,7 +78,7 @@ type ConfigProvider interface {
 	GetTenant(ctx context.Context, tenant string) (*config.Tenant, error)
 
 	// ListClusters lists the cluster names.
-	ListClusters(ctx context.Context, tenant string) ([]string, error)
+	ListClusters(ctx context.Context) ([]string, error)
 
 	// GetDataSourceCluster returns the dataSourceCluster object
 	GetDataSourceCluster(ctx context.Context, cluster string) (*config.DataSourceCluster, error)
