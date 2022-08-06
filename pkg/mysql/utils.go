@@ -109,7 +109,7 @@ func getTLSConfigClone(key string) (config *tls.Config) {
 
 // Returns the bool value of the input.
 // The 2nd return value indicates if the input was a valid bool value
-func readBool(input string) (value bool, valid bool) {
+func readBool(input string) (value, valid bool) {
 	switch input {
 	case "1", "true", "TRUE", "True":
 		return true, true
@@ -245,7 +245,7 @@ func parseByteNanoSec(b []byte) (int, error) {
 		ns += v * digit
 		digit /= 10
 	}
-	// nanoseconds has 10-digits. (needs to scale digits)
+	// nanosecond has 10-digits. (needs to scale digits)
 	// 10 - 6 = 4, so we have to multiple 1000.
 	return ns * 1000, nil
 }
