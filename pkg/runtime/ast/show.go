@@ -454,5 +454,5 @@ func (s *ShowTableStatus) Restore(flag RestoreFlag, sb *strings.Builder, args *[
 }
 
 func (s *ShowTableStatus) Mode() SQLType {
-	return SQLTypeShowStatusTable
+	return SQLTypeShowTableStatus
 }

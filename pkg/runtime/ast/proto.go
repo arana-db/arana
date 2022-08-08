@@ -47,7 +47,7 @@ const (
 	SQLTypeDropTrigger             // DROP TRIGGER
 	SQLTypeCreateIndex             // CREATE INDEX
 	SQLTypeShowStatus              // SHOW STATUS
-	SQLTypeShowStatusTable         // SHOW STATUS TABLE
+	SQLTypeShowTableStatus         // SHOW TABLE STATUS
 )
 
 var _sqlTypeNames = [...]string{
@@ -73,7 +73,7 @@ var _sqlTypeNames = [...]string{
 	SQLTypeDropTrigger:     "DROP TRIGGER",
 	SQLTypeCreateIndex:     "CREATE INDEX",
 	SQLTypeShowStatus:      "SHOW STATUS",
-	SQLTypeShowStatusTable: "SHOW STATUS TABLE",
+	SQLTypeShowTableStatus: "SHOW TABLE STATUS",
 }
 
 // SQLType represents the type of SQL.

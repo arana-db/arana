@@ -30,7 +30,7 @@ import (
 )
 
 func init() {
-	optimize.Register(ast.SQLTypeShowStatusTable, optimizeShowTablesStatus)
+	optimize.Register(ast.SQLTypeShowTableStatus, optimizeShowTablesStatus)
 }
 
 func optimizeShowTablesStatus(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error) {
