@@ -20,7 +20,7 @@ package dal
 import (
 	"context"
 	"strings"
-	"sync/atomic"
+	"sync"
 )
 
 import (
@@ -95,22 +95,29 @@ func (s *ShowTableStatusPlan) ExecIn(ctx context.Context, conn proto.VConn) (pro
 		return nil, errors.WithStack(err)
 	}
 
-	record := new(int32)
+	sm := sync.Map{}
 
 	ds = dataset.Pipe(ds, dataset.Map(nil, func(next proto.Row) (proto.Row, error) {
 		dest := make([]proto.Value, len(fields))
 		if next.Scan(dest) != nil {
 			return next, nil
 		}
-		dest[0] = toTable
+		if strings.HasPrefix(dest[0].(string), toTable) {
+			dest[0] = toTable
+		}
 		if next.IsBinary() {
 			return rows.NewBinaryVirtualRow(fields, dest), nil
 		}
 		return rows.NewTextVirtualRow(fields, dest), nil
 	}), dataset.Filter(func(next proto.Row) bool {
-		if atomic.AddInt32(record, 1) != 1 {
+		dest := make([]proto.Value, len(fields))
+		if next.Scan(dest) != nil {
 			return false
 		}
+		if _, ok := sm.Load(dest[0]); ok {
+			return false
+		}
+		sm.Store(dest[0], "")
 		return true
 	}))
 
