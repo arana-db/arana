@@ -155,9 +155,9 @@ func TestParseBinaryDateTime(t *testing.T) {
 		want driver.Value
 	}{
 		{num: 0, data: []byte(""), want: time.Time{}},
-		{num: 4, data: []byte{byte(230), byte(7), byte(1), byte(1)}, want: time.Date(2022, 01, 01, 0, 0, 0, 0, time.Local)},
-		{num: 7, data: []byte{byte(230), byte(7), byte(1), byte(1), byte(1), byte(1), byte(1)}, want: time.Date(2022, 01, 01, 1, 1, 1, 0, time.Local)},
-		{num: 11, data: []byte{byte(230), byte(7), byte(1), byte(1), byte(1), byte(1), byte(1), byte(87), byte(4), byte(0), byte(0)}, want: time.Date(2022, 01, 01, 1, 1, 1, 1111000, time.Local)},
+		{num: 4, data: []byte{byte(230), byte(7), byte(1), byte(1)}, want: time.Date(2022, 0o1, 0o1, 0, 0, 0, 0, time.Local)},
+		{num: 7, data: []byte{byte(230), byte(7), byte(1), byte(1), byte(1), byte(1), byte(1)}, want: time.Date(2022, 0o1, 0o1, 1, 1, 1, 0, time.Local)},
+		{num: 11, data: []byte{byte(230), byte(7), byte(1), byte(1), byte(1), byte(1), byte(1), byte(87), byte(4), byte(0), byte(0)}, want: time.Date(2022, 0o1, 0o1, 1, 1, 1, 1111000, time.Local)},
 	}
 	for i := 0; i < len(table); i++ {
 		res, err := parseBinaryDateTime(table[i].num, table[i].data, time.Local)

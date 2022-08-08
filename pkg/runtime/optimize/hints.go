@@ -34,16 +34,13 @@ import (
 func init() {
 	RegisterHint(hint.TypeDirect, &Direct{})
 	RegisterHint(hint.TypeRoute, &CustomRoute{})
-
 }
 
 type HintExecutor interface {
 	exec(tableName ast.TableName, rule *rule.Rule, hints []*hint.Hint) (hintTables rule.DatabaseTables, err error)
 }
 
-var (
-	hintHandlers = make(map[hint.Type]HintExecutor)
-)
+var hintHandlers = make(map[hint.Type]HintExecutor)
 
 // RegisterHint register hint implementation.
 func RegisterHint(t hint.Type, h HintExecutor) {
@@ -67,7 +64,7 @@ func validate(hints []*hint.Hint) error {
 			}
 			nodeType = v.Type
 		}
-		//validate TypeRoute
+		// validate TypeRoute
 		if v.Type == hint.TypeRoute {
 			for _, i := range v.Inputs {
 				tb := strings.Split(i.V, ".")
@@ -104,8 +101,7 @@ func Hints(tableName ast.TableName, hints []*hint.Hint, rule *rule.Rule) (hintTa
 }
 
 // Direct force forward to db[0]
-type Direct struct {
-}
+type Direct struct{}
 
 func (h *Direct) exec(tableName ast.TableName, rule *rule.Rule, hints []*hint.Hint) (hintTables rule.DatabaseTables, err error) {
 	db0, _, ok := rule.MustVTable(tableName.Suffix()).Topology().Smallest()
@@ -117,8 +113,7 @@ func (h *Direct) exec(tableName ast.TableName, rule *rule.Rule, hints []*hint.Hi
 	return hintTables, nil
 }
 
-type CustomRoute struct {
-}
+type CustomRoute struct{}
 
 func (c *CustomRoute) exec(tableName ast.TableName, r *rule.Rule, hints []*hint.Hint) (hintTables rule.DatabaseTables, err error) {
 	hintTables = make(map[string][]string)

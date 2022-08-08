@@ -18,15 +18,15 @@
 package dal
 
 import (
+	"context"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/optimize"
 	"github.com/arana-db/arana/pkg/runtime/plan/dal"
-)
-
-import (
-	"context"
 )
 
 func init() {

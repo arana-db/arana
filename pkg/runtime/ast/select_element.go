@@ -36,6 +36,7 @@ type selectElementPhantom struct{}
 
 // SelectElement represents a select element.
 type SelectElement interface {
+	Node
 	Restorer
 	// Alias returns the alias if available.
 	Alias() string
@@ -46,6 +47,10 @@ type SelectElement interface {
 
 type SelectElementAll struct {
 	prefix string
+}
+
+func (s *SelectElementAll) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitSelectElementWildcard(s)
 }
 
 func (s *SelectElementAll) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -84,6 +89,10 @@ type SelectElementExpr struct {
 	alias string
 }
 
+func (s *SelectElementExpr) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitSelectElementExpr(s)
+}
+
 func (s *SelectElementExpr) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	if err := s.Expression().Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
@@ -114,8 +123,12 @@ func (s *SelectElementExpr) phantom() selectElementPhantom {
 }
 
 type SelectElementFunction struct {
-	inner interface{} // *Function or *AggrFunction
+	inner Node // *Function or *AggrFunction
 	alias string
+}
+
+func (s *SelectElementFunction) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitSelectElementFunction(s)
 }
 
 func (s *SelectElementFunction) phantom() selectElementPhantom {
@@ -191,7 +204,7 @@ func (s *SelectElementFunction) SetAlias(alias string) {
 	s.alias = alias
 }
 
-func (s *SelectElementFunction) Function() interface{} {
+func (s *SelectElementFunction) Function() Node {
 	return s.inner
 }
 
@@ -202,6 +215,10 @@ func (s *SelectElementFunction) Alias() string {
 type SelectElementColumn struct {
 	Name  []string
 	alias string
+}
+
+func (s *SelectElementColumn) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitSelectElementColumn(s)
 }
 
 func (s *SelectElementColumn) Suffix() string {

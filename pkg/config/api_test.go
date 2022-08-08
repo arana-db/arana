@@ -36,7 +36,7 @@ import (
 func TestGetStoreOperate(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	//mockStore := NewMockStoreOperate(ctrl)
+	// mockStore := NewMockStoreOperate(ctrl)
 	tests := []struct {
 		name    string
 		want    config.StoreOperate

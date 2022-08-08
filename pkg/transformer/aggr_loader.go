@@ -18,7 +18,8 @@
 package transformer
 
 import (
-	ast2 "github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/runtime/optimize/dml/ext"
 )
 
 type AggrLoader struct {
@@ -27,13 +28,13 @@ type AggrLoader struct {
 	Name  []string
 }
 
-func LoadAggrs(fields []ast2.SelectElement) *AggrLoader {
+func LoadAggrs(fields []ast.SelectElement) *AggrLoader {
 	aggrLoader := &AggrLoader{
 		Alias: make([]string, len(fields)),
 	}
 
-	var enter func(n *ast2.AggrFunction)
-	enter = func(n *ast2.AggrFunction) {
+	var enter func(n *ast.AggrFunction)
+	enter = func(n *ast.AggrFunction) {
 		if n == nil {
 			return
 		}
@@ -41,11 +42,11 @@ func LoadAggrs(fields []ast2.SelectElement) *AggrLoader {
 		aggrLoader.Aggrs = append(aggrLoader.Aggrs, n.Name())
 		for _, arg := range n.Args() {
 			switch arg.Value.(type) {
-			case ast2.ColumnNameExpressionAtom:
-				columnExpression := arg.Value.(ast2.ColumnNameExpressionAtom)
+			case ast.ColumnNameExpressionAtom:
+				columnExpression := arg.Value.(ast.ColumnNameExpressionAtom)
 				aggrLoader.Name = append(aggrLoader.Name, columnExpression.String())
-			case ast2.PredicateExpressionNode:
-				enter(arg.Value.(ast2.AtomPredicateNode).A.(*ast2.FunctionCallExpressionAtom).F.(*ast2.AggrFunction))
+			case ast.PredicateExpressionNode:
+				enter(arg.Value.(ast.AtomPredicateNode).A.(*ast.FunctionCallExpressionAtom).F.(*ast.AggrFunction))
 			}
 		}
 	}
@@ -54,9 +55,29 @@ func LoadAggrs(fields []ast2.SelectElement) *AggrLoader {
 		if field == nil {
 			continue
 		}
-		if f, ok := field.(*ast2.SelectElementFunction); ok {
+
+		var aggrFunc *ast.AggrFunction
+		switch f := field.(type) {
+		case *ext.MappingSelectElement:
+			continue
+		case ext.SelectElementProvider:
+			switch p := f.Prev().(type) {
+			case *ast.SelectElementFunction:
+				switch af := p.Function().(type) {
+				case *ast.AggrFunction:
+					aggrFunc = af
+				}
+			}
+		case *ast.SelectElementFunction:
+			switch af := f.Function().(type) {
+			case *ast.AggrFunction:
+				aggrFunc = af
+			}
+		}
+
+		if aggrFunc != nil {
 			aggrLoader.Alias[i] = field.Alias()
-			enter(f.Function().(*ast2.AggrFunction))
+			enter(aggrFunc)
 		}
 	}
 

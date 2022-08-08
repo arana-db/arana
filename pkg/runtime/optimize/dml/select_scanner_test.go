@@ -62,6 +62,11 @@ func TestSelectScanner_Scan(t *testing.T) {
 			[]string{"`id`", "`name`", "2022-`birth_year`"},
 			[]string{"2022-`birth_year`"},
 		},
+		{
+			"select id,name from student order by -birth_year",
+			[]string{"`id`", "`name`", "-`birth_year`"},
+			[]string{"-`birth_year`"},
+		},
 	} {
 		t.Run(it.sql, func(t *testing.T) {
 			_, stmt, _ := ast.ParseSelect(it.sql)

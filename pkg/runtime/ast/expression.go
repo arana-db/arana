@@ -40,12 +40,12 @@ var (
 	_ ExpressionNode = (*NotExpressionNode)(nil)
 	_ ExpressionNode = (*PredicateExpressionNode)(nil)
 	_ ExpressionNode = (*LogicalExpressionNode)(nil)
-	_ ExpressionNode = (*NotExpressionNode)(nil)
 )
 
 type ExpressionMode uint8
 
 type ExpressionNode interface {
+	Node
 	Restorer
 	paramsCounter
 	Mode() ExpressionMode
@@ -55,6 +55,10 @@ type LogicalExpressionNode struct {
 	Op    logical.Op
 	Left  ExpressionNode
 	Right ExpressionNode
+}
+
+func (l *LogicalExpressionNode) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitLogicalExpression(l)
 }
 
 func (l *LogicalExpressionNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -90,6 +94,10 @@ type NotExpressionNode struct {
 	E ExpressionNode
 }
 
+func (n *NotExpressionNode) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitNotExpression(n)
+}
+
 func (n *NotExpressionNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("NOT ")
 	if err := n.E.Restore(flag, sb, args); err != nil {
@@ -108,6 +116,10 @@ func (n *NotExpressionNode) Mode() ExpressionMode {
 
 type PredicateExpressionNode struct {
 	P PredicateNode
+}
+
+func (a *PredicateExpressionNode) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitPredicateExpression(a)
 }
 
 func (a *PredicateExpressionNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {

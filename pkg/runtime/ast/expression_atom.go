@@ -49,6 +49,7 @@ var (
 type expressionAtomPhantom struct{}
 
 type ExpressionAtom interface {
+	Node
 	Restorer
 	paramsCounter
 	phantom() expressionAtomPhantom
@@ -57,6 +58,10 @@ type ExpressionAtom interface {
 type IntervalExpressionAtom struct {
 	Unit  ast.TimeUnitType
 	Value PredicateNode
+}
+
+func (ie *IntervalExpressionAtom) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitAtomInterval(ie)
 }
 
 func (ie *IntervalExpressionAtom) Duration() time.Duration {
@@ -99,6 +104,10 @@ type SystemVariableExpressionAtom struct {
 	Name string
 }
 
+func (sy *SystemVariableExpressionAtom) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitAtomSystemVariable(sy)
+}
+
 func (sy *SystemVariableExpressionAtom) Restore(_ RestoreFlag, sb *strings.Builder, _ *[]int) error {
 	sb.WriteString("@@")
 	sb.WriteString(sy.Name)
@@ -115,7 +124,11 @@ func (sy *SystemVariableExpressionAtom) phantom() expressionAtomPhantom {
 
 type UnaryExpressionAtom struct {
 	Operator string
-	Inner    interface{} // ExpressionAtom or *BinaryComparisonPredicateNode
+	Inner    Node // ExpressionAtom or *BinaryComparisonPredicateNode
+}
+
+func (u *UnaryExpressionAtom) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitAtomUnary(u)
 }
 
 func (u *UnaryExpressionAtom) IsOperatorNot() bool {
@@ -161,6 +174,10 @@ func (u *UnaryExpressionAtom) phantom() expressionAtomPhantom {
 
 type ConstantExpressionAtom struct {
 	Inner interface{}
+}
+
+func (c *ConstantExpressionAtom) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitAtomConstant(c)
 }
 
 func (c *ConstantExpressionAtom) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -232,6 +249,10 @@ func (c *ConstantExpressionAtom) CntParams() int {
 
 type ColumnNameExpressionAtom []string
 
+func (c ColumnNameExpressionAtom) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitAtomColumn(c)
+}
+
 func (c ColumnNameExpressionAtom) Prefix() string {
 	if len(c) > 1 {
 		return c[0]
@@ -267,6 +288,10 @@ func (c ColumnNameExpressionAtom) phantom() expressionAtomPhantom {
 
 type VariableExpressionAtom int
 
+func (v VariableExpressionAtom) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitAtomVariable(v)
+}
+
 func (v VariableExpressionAtom) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteByte('?')
 
@@ -295,6 +320,10 @@ type MathExpressionAtom struct {
 	Right    ExpressionAtom
 }
 
+func (m *MathExpressionAtom) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitAtomMath(m)
+}
+
 func (m *MathExpressionAtom) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	if err := m.Left.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
@@ -319,6 +348,10 @@ type NestedExpressionAtom struct {
 	First ExpressionNode
 }
 
+func (n *NestedExpressionAtom) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitAtomNested(n)
+}
+
 func (n *NestedExpressionAtom) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteByte('(')
 	if err := n.First.Restore(flag, sb, args); err != nil {
@@ -338,7 +371,11 @@ func (n *NestedExpressionAtom) phantom() expressionAtomPhantom {
 }
 
 type FunctionCallExpressionAtom struct {
-	F interface{} // *Function OR *AggrFunction OR *CaseWhenElseFunction OR *CastFunction
+	F Node // *Function OR *AggrFunction OR *CaseWhenElseFunction OR *CastFunction
+}
+
+func (f *FunctionCallExpressionAtom) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitAtomFunction(f)
 }
 
 func (f *FunctionCallExpressionAtom) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {

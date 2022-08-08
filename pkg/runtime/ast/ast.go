@@ -1130,7 +1130,7 @@ func (cc *convCtx) convFuncCallExpr(expr *ast.FuncCallExpr) PredicateNode {
 	// NOTICE: tidb-parser cannot process CONVERT('foobar' USING utf8).
 	// It should be a CastFunc, but now will be parsed as a FuncCall.
 	// We should do some transform work.
-	var inner interface{}
+	var inner Node
 	switch fnName {
 	case "CONVERT":
 		_ = expr.Args[1]
@@ -1303,7 +1303,7 @@ func (cc *convCtx) convPatternInExpr(expr *ast.PatternInExpr) PredicateNode {
 }
 
 func (cc *convCtx) convUnaryExpr(expr *ast.UnaryOperationExpr) PredicateNode {
-	var atom interface{}
+	var atom Node
 
 	switch t := cc.convExpr(expr.V).(type) {
 	case ExpressionAtom:
