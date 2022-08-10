@@ -19,7 +19,6 @@ package dal
 
 import (
 	"context"
-	"sort"
 	"strings"
 	"sync"
 )
@@ -63,19 +62,7 @@ func (s *ShowTableStatusPlan) ExecIn(ctx context.Context, conn proto.VConn) (pro
 		return nil, errors.WithStack(err)
 	}
 
-	var (
-		db, table string
-		dbNames   []string
-	)
-
-	for k, _ := range s.Shards {
-		if strings.HasPrefix(k, s.Database) {
-			dbNames = append(dbNames, k)
-		}
-	}
-
-	// get first database
-	db, table = s.getFirstInstance(dbNames)
+	db, table := s.Shards.Smallest()
 
 	if db == "" || table == "" {
 		return nil, errors.New("no found db or table")
@@ -128,20 +115,4 @@ func (s *ShowTableStatusPlan) ExecIn(ctx context.Context, conn proto.VConn) (pro
 	}))
 
 	return resultx.New(resultx.WithDataset(ds)), nil
-}
-
-// getFirstInstance Sort by database name to get the first one
-func (s *ShowTableStatusPlan) getFirstInstance(dbNames []string) (dbName string, tableName string) {
-	if len(dbNames) == 0 {
-		return
-	}
-
-	sort.Strings(dbNames)
-
-	tableNames, _ := s.Shards[dbNames[0]]
-
-	tableName = tableNames[0]
-	dbName = dbNames[0]
-
-	return
 }
