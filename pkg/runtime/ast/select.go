@@ -33,6 +33,7 @@ const (
 
 var (
 	_ Statement     = (*SelectStatement)(nil)
+	_ Node          = (*SelectStatement)(nil)
 	_ paramsCounter = (*SelectStatement)(nil)
 	_ Restorer      = (*SelectStatement)(nil)
 )
@@ -46,6 +47,10 @@ type SelectStatement struct {
 	Having  ExpressionNode
 	OrderBy OrderByNode
 	Limit   *LimitNode
+}
+
+func (ss *SelectStatement) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitSelectStatement(ss)
 }
 
 func (ss *SelectStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {

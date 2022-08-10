@@ -444,6 +444,13 @@ func (s *IntegrationSuite) TestShardingAgg() {
 		assert.Equal(t, int64(1085), int64(cnt))
 	})
 
+	t.Run("AVG", func(t *testing.T) {
+		row := db.QueryRow("select avg(score) as ttt from student")
+		var avg float64
+		assert.NoError(t, row.Scan(&avg))
+		assert.True(t, avg > 0)
+	})
+
 	result, err := db.Exec(
 		`INSERT IGNORE INTO student(uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?)`,
 		9527,
@@ -654,6 +661,8 @@ func (s *IntegrationSuite) TestOrderBy() {
 		{"select uid,name from student where uid between ? and ? order by birth_year", false},
 		{"select uid,name from student where uid between ? and ? order by birth_year desc", true},
 		{"select uid,name,birth_year as birth from student where uid between ? and ? order by birth_year desc", true},
+		//TODO: {"select uid,name,birth_year as birth from student where uid between ? and ? order by -birth_year", true},
+		//TODO: {"select uid,name,birth_year as birth from student where uid between ? and ? order by 2022-birth_year", true},
 	} {
 		s.T().Run(it.sql, func(t *testing.T) {
 			begin := uids[0]
@@ -848,15 +857,21 @@ func (s *IntegrationSuite) TestHintsRoute() {
 	}
 
 	for _, it := range []tt{
-		//use route hint
-		{"/*A! route(employees_0000.student_0000,employees_0000.student_0007) */ SELECT * FROM student",
-			"SELECT * FROM student", false},
-		//not use route hint, one shard
-		{"/*A! route(employees_0000.student_0000,employees_0000.student_0007) */ SELECT * FROM student where uid=1",
-			"SELECT * FROM student where uid=1", false},
-		//not use route hint, fullScan
-		{"/*A! route(employees_0000.student_0000,employees_0000.student_0007) */ SELECT * FROM student  where uid>=1",
-			"SELECT * FROM student  where uid>=1", false},
+		// use route hint
+		{
+			"/*A! route(employees_0000.student_0000,employees_0000.student_0007) */ SELECT * FROM student",
+			"SELECT * FROM student", false,
+		},
+		// not use route hint, one shard
+		{
+			"/*A! route(employees_0000.student_0000,employees_0000.student_0007) */ SELECT * FROM student where uid=1",
+			"SELECT * FROM student where uid=1", false,
+		},
+		// not use route hint, fullScan
+		{
+			"/*A! route(employees_0000.student_0000,employees_0000.student_0007) */ SELECT * FROM student  where uid>=1",
+			"SELECT * FROM student  where uid>=1", false,
+		},
 	} {
 		t.Run(it.sql, func(t *testing.T) {
 			// select from logical table
@@ -872,7 +887,6 @@ func (s *IntegrationSuite) TestHintsRoute() {
 			assert.Equal(t, it.same, len(data) == len(data2))
 		})
 	}
-
 }
 
 func (s *IntegrationSuite) TestShowTableStatus() {

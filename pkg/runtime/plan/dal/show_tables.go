@@ -39,9 +39,7 @@ import (
 	"github.com/arana-db/arana/pkg/runtime/plan"
 )
 
-var (
-	_ proto.Plan = (*ShowTablesPlan)(nil)
-)
+var _ proto.Plan = (*ShowTablesPlan)(nil)
 
 const (
 	headerPrefix           = "Tables_in_"

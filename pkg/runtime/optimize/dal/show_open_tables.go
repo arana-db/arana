@@ -30,7 +30,6 @@ import (
 	"github.com/arana-db/arana/pkg/runtime/plan/dal"
 	"github.com/arana-db/arana/pkg/runtime/plan/dml"
 	"github.com/arana-db/arana/pkg/security"
-	"github.com/arana-db/arana/pkg/transformer"
 )
 
 func init() {
@@ -69,15 +68,7 @@ func optimizeShowOpenTables(ctx context.Context, o *optimize.Optimizer) (proto.P
 		}
 	}
 
-	unionPlan := &dml.CompositePlan{
+	return &dml.CompositePlan{
 		Plans: plans,
-	}
-
-	aggregate := &dml.AggregatePlan{
-		Plan:       unionPlan,
-		Combiner:   transformer.NewCombinerManager(),
-		AggrLoader: transformer.LoadAggrs(nil),
-	}
-
-	return aggregate, nil
+	}, nil
 }

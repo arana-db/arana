@@ -82,6 +82,10 @@ type Function struct {
 	args []*FunctionArg
 }
 
+func (f *Function) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitFunction(f)
+}
+
 func (f *Function) Type() FunctionType {
 	return f.typ
 }
@@ -194,6 +198,10 @@ type AggrFunction struct {
 	args       []*FunctionArg
 }
 
+func (af *AggrFunction) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitFunctionAggregate(af)
+}
+
 func (af *AggrFunction) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString(af.name)
 	sb.WriteByte('(')
@@ -228,7 +236,7 @@ func (af *AggrFunction) Restore(flag RestoreFlag, sb *strings.Builder, args *[]i
 	return nil
 }
 
-func (af *AggrFunction) Aggreator() (string, bool) {
+func (af *AggrFunction) Aggregator() (string, bool) {
 	if len(af.aggregator) < 1 {
 		return "", false
 	}
@@ -263,6 +271,10 @@ type CaseWhenElseFunction struct {
 	caseBlock ExpressionNode
 	branches  [][2]*FunctionArg
 	elseBlock *FunctionArg
+}
+
+func (c *CaseWhenElseFunction) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitFunctionCaseWhenElse(c)
 }
 
 func (c *CaseWhenElseFunction) Case() ExpressionNode {
@@ -332,6 +344,14 @@ type CastFunction struct {
 	isCast bool
 	src    ExpressionNode
 	cast   interface{} // *ConvertDataType or string
+}
+
+func (c *CastFunction) SetSource(src ExpressionNode) {
+	c.src = src
+}
+
+func (c *CastFunction) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitFunctionCast(c)
 }
 
 func (c *CastFunction) Source() ExpressionNode {
