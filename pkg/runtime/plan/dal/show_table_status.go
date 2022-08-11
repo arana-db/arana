@@ -62,14 +62,7 @@ func (s *ShowTableStatusPlan) ExecIn(ctx context.Context, conn proto.VConn) (pro
 		return nil, errors.WithStack(err)
 	}
 
-	var db, table string
-
-	for k, v := range s.Shards {
-		if strings.HasPrefix(k, s.Database) {
-			db, table = k, v[0]
-			break
-		}
-	}
+	db, table := s.Shards.Smallest()
 
 	if db == "" || table == "" {
 		return nil, errors.New("no found db or table")
