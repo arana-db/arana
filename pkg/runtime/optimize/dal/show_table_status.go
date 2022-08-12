@@ -15,14 +15,34 @@
  * limitations under the License.
  */
 
-package ext
+package dal
 
 import (
-	"github.com/arana-db/arana/pkg/runtime/ast"
+	"context"
 )
 
-// SelectElementProvider provides previous upstream select element.
-type SelectElementProvider interface {
-	// Prev returns the previous select element.
-	Prev() ast.SelectElement
+import (
+	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/proto/rule"
+	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/runtime/optimize"
+	"github.com/arana-db/arana/pkg/runtime/plan/dal"
+)
+
+func init() {
+	optimize.Register(ast.SQLTypeShowTableStatus, optimizeShowTablesStatus)
+}
+
+func optimizeShowTablesStatus(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error) {
+	shards := rule.DatabaseTables{}
+	for _, table := range o.Rule.VTables() {
+		shards = table.Topology().Enumerate()
+		break
+	}
+
+	stmt := o.Stmt.(*ast.ShowTableStatus)
+
+	ret := &dal.ShowTableStatusPlan{Stmt: stmt, Database: stmt.Database, Shards: shards}
+	ret.BindArgs(o.Args)
+	return ret, nil
 }

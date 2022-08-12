@@ -444,6 +444,13 @@ func (s *IntegrationSuite) TestShardingAgg() {
 		assert.Equal(t, int64(1085), int64(cnt))
 	})
 
+	t.Run("AVG", func(t *testing.T) {
+		row := db.QueryRow("select avg(score) as ttt from student")
+		var avg float64
+		assert.NoError(t, row.Scan(&avg))
+		assert.True(t, avg > 0)
+	})
+
 	result, err := db.Exec(
 		`INSERT IGNORE INTO student(uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?)`,
 		9527,
@@ -654,6 +661,8 @@ func (s *IntegrationSuite) TestOrderBy() {
 		{"select uid,name from student where uid between ? and ? order by birth_year", false},
 		{"select uid,name from student where uid between ? and ? order by birth_year desc", true},
 		{"select uid,name,birth_year as birth from student where uid between ? and ? order by birth_year desc", true},
+		//TODO: {"select uid,name,birth_year as birth from student where uid between ? and ? order by -birth_year", true},
+		//TODO: {"select uid,name,birth_year as birth from student where uid between ? and ? order by 2022-birth_year", true},
 	} {
 		s.T().Run(it.sql, func(t *testing.T) {
 			begin := uids[0]
@@ -706,6 +715,39 @@ func (s *IntegrationSuite) TestHints() {
 			defer rows.Close()
 			data, _ := utils.PrintTable(rows)
 			assert.Equal(t, it.expectLen, len(data))
+		})
+	}
+}
+
+func (s *IntegrationSuite) TestMultipleHints() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql       string
+		args      []interface{}
+		expectLen int
+	}
+
+	for _, it := range []tt{
+		{"/*A! master */ /*A! fullscan */ SELECT * FROM student WHERE score > 100", nil, 0},
+		{"/*A! slave */ /*A! master */ /*A! fullscan */ SELECT id,name FROM student WHERE score > 100", nil, 0},
+		{"/*A! master */ /*A! direct */ SELECT * FROM student_0000 WHERE uid = ?", []interface{}{1}, 0},
+		{"/*A! fullscan */ /*A! direct */ SELECT * FROM student WHERE uid in (?)", []interface{}{1}, 0},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			// select from logical table
+			rows, err := db.Query(it.sql, it.args...)
+			if err != nil {
+				assert.True(t, strings.Contains(err.Error(), "hint type conflict"))
+			} else {
+				defer rows.Close()
+				assert.NoError(t, err, "should query from sharding table successfully")
+				data, _ := utils.PrintTable(rows)
+				assert.Equal(t, it.expectLen, len(data))
+			}
 		})
 	}
 }
@@ -800,5 +842,72 @@ func (s *IntegrationSuite) TestInsertAutoIncrement() {
 		}
 
 		assert.False(t, odd == 0, "sequence val all even number")
+	}
+}
+
+func (s *IntegrationSuite) TestHintsRoute() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+	type tt struct {
+		sqlHint string
+		sql     string
+		same    bool
+	}
+
+	for _, it := range []tt{
+		// use route hint
+		{
+			"/*A! route(employees_0000.student_0000,employees_0000.student_0007) */ SELECT * FROM student",
+			"SELECT * FROM student", false,
+		},
+		// not use route hint, one shard
+		{
+			"/*A! route(employees_0000.student_0000,employees_0000.student_0007) */ SELECT * FROM student where uid=1",
+			"SELECT * FROM student where uid=1", false,
+		},
+		// not use route hint, fullScan
+		{
+			"/*A! route(employees_0000.student_0000,employees_0000.student_0007) */ SELECT * FROM student  where uid>=1",
+			"SELECT * FROM student  where uid>=1", false,
+		},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			// select from logical table
+			rows, err := db.Query(it.sqlHint)
+			assert.NoError(t, err, "should query from sharding table successfully")
+			defer rows.Close()
+			data, _ := utils.PrintTable(rows)
+
+			rows, err = db.Query(it.sql)
+			assert.NoError(t, err, "should query from sharding table successfully")
+			defer rows.Close()
+			data2, _ := utils.PrintTable(rows)
+			assert.Equal(t, it.same, len(data) == len(data2))
+		})
+	}
+}
+
+func (s *IntegrationSuite) TestShowTableStatus() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql string
+	}
+
+	for _, it := range [...]tt{
+		{"SHOW TABLE STATUS FROM employees"},
+		{"SHOW TABLE STATUS FROM employees WHERE name='student'"},
+		{"SHOW TABLE STATUS FROM employees LIKE '%stu%'"},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			rows, err := db.Query(it.sql)
+			assert.NoError(t, err)
+			defer rows.Close()
+		})
 	}
 }

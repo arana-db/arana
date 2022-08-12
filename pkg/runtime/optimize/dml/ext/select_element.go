@@ -24,10 +24,12 @@ import (
 var (
 	_ ast.SelectElement     = (*WeakSelectElement)(nil)
 	_ SelectElementProvider = (*WeakSelectElement)(nil)
-	_ WeakMarker            = (*WeakSelectElement)(nil)
 
 	_ ast.SelectElement     = (*OrderedSelectElement)(nil)
 	_ SelectElementProvider = (*OrderedSelectElement)(nil)
+
+	_ ast.SelectElement     = (*MappingSelectElement)(nil)
+	_ SelectElementProvider = (*MappingSelectElement)(nil)
 )
 
 // WeakSelectElement represents a temporary SelectElement which will be cleaned finally.
@@ -59,4 +61,16 @@ func (o OrderedSelectElement) Prev() ast.SelectElement {
 		return p.Prev()
 	}
 	return o.SelectElement
+}
+
+type MappingSelectElement struct {
+	ast.SelectElement
+	Mapping ast.SelectElement
+}
+
+func (vt MappingSelectElement) Prev() ast.SelectElement {
+	if p, ok := vt.SelectElement.(SelectElementProvider); ok {
+		return p.Prev()
+	}
+	return vt.SelectElement
 }

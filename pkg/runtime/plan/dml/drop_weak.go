@@ -47,7 +47,7 @@ var _ proto.Plan = (*DropWeakPlan)(nil)
 // the `age` field is weak, will be dropped finally.
 type DropWeakPlan struct {
 	proto.Plan
-	WeakList []ast.SelectElement
+	WeakList []*ext.WeakSelectElement
 }
 
 func (dr DropWeakPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
@@ -122,13 +122,7 @@ func (dr DropWeakPlan) generateWeakMap() map[string]struct{} {
 			continue
 		}
 
-		var root ast.SelectElement
-		if p, ok := it.(ext.SelectElementProvider); ok {
-			root = p.Prev()
-		} else {
-			root = it
-		}
-
+		root := it.Prev()
 		switch val := root.(type) {
 		case *ast.SelectElementColumn:
 			weaks[val.Suffix()] = struct{}{}

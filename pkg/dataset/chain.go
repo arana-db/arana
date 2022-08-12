@@ -19,9 +19,21 @@ package dataset
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/reduce"
 )
 
 type pipeOption []func(proto.Dataset) proto.Dataset
+
+func Reduce(reducers map[int]reduce.Reducer) Option {
+	return func(option *pipeOption) {
+		*option = append(*option, func(dataset proto.Dataset) proto.Dataset {
+			return &ReduceDataset{
+				Dataset:  dataset,
+				Reducers: reducers,
+			}
+		})
+	}
+}
 
 func Filter(predicate PredicateFunc) Option {
 	return func(option *pipeOption) {

@@ -15,14 +15,39 @@
  * limitations under the License.
  */
 
-package ext
+package reduce
 
 import (
-	"github.com/arana-db/arana/pkg/runtime/ast"
+	"time"
 )
 
-// SelectElementProvider provides previous upstream select element.
-type SelectElementProvider interface {
-	// Prev returns the previous select element.
-	Prev() ast.SelectElement
+import (
+	gxbig "github.com/dubbogo/gost/math/big"
+
+	"github.com/pkg/errors"
+)
+
+var _ Reducer = (*sumReducer)(nil)
+
+type sumReducer struct{}
+
+func (s sumReducer) Int64(prev, next int64) (int64, error) {
+	return prev + next, nil
+}
+
+func (s sumReducer) Float64(prev, next float64) (float64, error) {
+	return prev + next, nil
+}
+
+func (s sumReducer) Decimal(prev, next *gxbig.Decimal) (*gxbig.Decimal, error) {
+	var d gxbig.Decimal
+	if err := gxbig.DecimalAdd(prev, next, &d); err != nil {
+		return nil, errors.WithStack(err)
+	}
+	return &d, nil
+}
+
+func (s sumReducer) Time(_, _ time.Time) (ret time.Time, err error) {
+	err = errors.New("time.Time is not supported for SUM")
+	return
 }

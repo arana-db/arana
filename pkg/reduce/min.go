@@ -15,14 +15,44 @@
  * limitations under the License.
  */
 
-package ext
+package reduce
 
 import (
-	"github.com/arana-db/arana/pkg/runtime/ast"
+	"time"
 )
 
-// SelectElementProvider provides previous upstream select element.
-type SelectElementProvider interface {
-	// Prev returns the previous select element.
-	Prev() ast.SelectElement
+import (
+	gxbig "github.com/dubbogo/gost/math/big"
+)
+
+type minReducer struct{}
+
+func (minReducer) Int64(prev, next int64) (int64, error) {
+	if next < prev {
+		return next, nil
+	}
+	return prev, nil
+}
+
+func (minReducer) Float64(prev, next float64) (float64, error) {
+	if next < prev {
+		return next, nil
+	}
+	return prev, nil
+}
+
+func (minReducer) Decimal(prev, next *gxbig.Decimal) (*gxbig.Decimal, error) {
+	switch next.Compare(prev) {
+	case -1:
+		return next, nil
+	default:
+		return prev, nil
+	}
+}
+
+func (minReducer) Time(prev, next time.Time) (time.Time, error) {
+	if next.Before(prev) {
+		return next, nil
+	}
+	return prev, nil
 }

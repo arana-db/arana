@@ -41,6 +41,7 @@ var (
 type predicateNodePhantom struct{}
 
 type PredicateNode interface {
+	Node
 	Restorer
 	paramsCounter
 	phantom() predicateNodePhantom
@@ -50,6 +51,10 @@ type LikePredicateNode struct {
 	Not   bool
 	Left  PredicateNode
 	Right PredicateNode
+}
+
+func (l *LikePredicateNode) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitPredicateLike(l)
 }
 
 func (l *LikePredicateNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -87,6 +92,10 @@ type RegexpPredicationNode struct {
 	Not   bool
 }
 
+func (rp *RegexpPredicationNode) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitPredicateRegexp(rp)
+}
+
 func (rp *RegexpPredicationNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	if err := rp.Left.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
@@ -115,6 +124,10 @@ type BinaryComparisonPredicateNode struct {
 	Left  PredicateNode
 	Right PredicateNode
 	Op    cmp.Comparison
+}
+
+func (b *BinaryComparisonPredicateNode) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitPredicateBinaryComparison(b)
 }
 
 func (b *BinaryComparisonPredicateNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -162,6 +175,10 @@ type AtomPredicateNode struct {
 	A ExpressionAtom
 }
 
+func (a *AtomPredicateNode) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitPredicateAtom(a)
+}
+
 func (a *AtomPredicateNode) Column() (ColumnNameExpressionAtom, bool) {
 	switch v := a.A.(type) {
 	case ColumnNameExpressionAtom:
@@ -190,6 +207,10 @@ type BetweenPredicateNode struct {
 	Key   PredicateNode
 	Left  PredicateNode
 	Right PredicateNode
+}
+
+func (b *BetweenPredicateNode) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitPredicateBetween(b)
 }
 
 func (b *BetweenPredicateNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -227,6 +248,10 @@ type InPredicateNode struct {
 	P   PredicateNode
 	E   []ExpressionNode
 	// TODO: select statement
+}
+
+func (ip *InPredicateNode) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitPredicateIn(ip)
 }
 
 func (ip *InPredicateNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {

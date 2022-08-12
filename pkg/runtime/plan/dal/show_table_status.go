@@ -20,6 +20,7 @@ package dal
 import (
 	"context"
 	"strings"
+	"sync"
 )
 
 import (
@@ -36,40 +37,43 @@ import (
 	"github.com/arana-db/arana/pkg/runtime/plan"
 )
 
-var _ proto.Plan = (*ShowIndexPlan)(nil)
+var _ proto.Plan = (*ShowTableStatusPlan)(nil)
 
-type ShowIndexPlan struct {
+type ShowTableStatusPlan struct {
 	plan.BasePlan
-	Stmt   *ast.ShowIndex
-	Shards rule.DatabaseTables
+	Database string
+	Stmt     *ast.ShowTableStatus
+	Shards   rule.DatabaseTables
 }
 
-func (s *ShowIndexPlan) Type() proto.PlanType {
+func (s *ShowTableStatusPlan) Type() proto.PlanType {
 	return proto.PlanTypeQuery
 }
 
-func (s *ShowIndexPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+func (s *ShowTableStatusPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
 	var (
-		sb      strings.Builder
-		indexes []int
-		err     error
+		sb   strings.Builder
+		args []int
 	)
+	ctx, span := plan.Tracer.Start(ctx, "ShowTableStatusPlan.ExecIn")
+	defer span.End()
 
-	if s.Shards == nil {
-		if err = s.Stmt.Restore(ast.RestoreDefault, &sb, &indexes); err != nil {
-			return nil, errors.WithStack(err)
-		}
-		return conn.Query(ctx, "", sb.String(), s.ToArgs(indexes)...)
-	}
-
-	db, table := s.Shards.Smallest()
-	s.Stmt.TableName = ast.TableName{table}
-
-	if err = s.Stmt.Restore(ast.RestoreDefault, &sb, &indexes); err != nil {
+	if err := s.Stmt.Restore(ast.RestoreDefault, &sb, &args); err != nil {
 		return nil, errors.WithStack(err)
 	}
 
-	query, err := conn.Query(ctx, db, sb.String(), s.ToArgs(indexes)...)
+	db, table := s.Shards.Smallest()
+
+	if db == "" || table == "" {
+		return nil, errors.New("no found db or table")
+	}
+
+	toTable := table[:strings.LastIndex(table, "_")]
+
+	toSql := strings.ReplaceAll(sb.String(), s.Database, db)
+	toSql = strings.ReplaceAll(toSql, toTable, table)
+
+	query, err := conn.Query(ctx, "", toSql, s.ToArgs(args)...)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -84,22 +88,31 @@ func (s *ShowIndexPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Res
 		return nil, errors.WithStack(err)
 	}
 
-	toTable := s.Stmt.TableName.Suffix()
+	sm := sync.Map{}
 
-	ds = dataset.Pipe(ds,
-		dataset.Map(nil, func(next proto.Row) (proto.Row, error) {
-			dest := make([]proto.Value, len(fields))
-			if next.Scan(dest) != nil {
-				return next, nil
-			}
+	ds = dataset.Pipe(ds, dataset.Map(nil, func(next proto.Row) (proto.Row, error) {
+		dest := make([]proto.Value, len(fields))
+		if next.Scan(dest) != nil {
+			return next, nil
+		}
+		if strings.HasPrefix(dest[0].(string), toTable) {
 			dest[0] = toTable
-
-			if next.IsBinary() {
-				return rows.NewBinaryVirtualRow(fields, dest), nil
-			}
-			return rows.NewTextVirtualRow(fields, dest), nil
-		}),
-	)
+		}
+		if next.IsBinary() {
+			return rows.NewBinaryVirtualRow(fields, dest), nil
+		}
+		return rows.NewTextVirtualRow(fields, dest), nil
+	}), dataset.Filter(func(next proto.Row) bool {
+		dest := make([]proto.Value, len(fields))
+		if next.Scan(dest) != nil {
+			return false
+		}
+		if _, ok := sm.Load(dest[0]); ok {
+			return false
+		}
+		sm.Store(dest[0], "")
+		return true
+	}))
 
 	return resultx.New(resultx.WithDataset(ds)), nil
 }

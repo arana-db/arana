@@ -679,6 +679,23 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 			global:   node.GlobalScope,
 		}
 		return ret
+	case ast.ShowTableStatus:
+		const prefixFrom = "show table status from"
+		ret := &ShowTableStatus{Database: node.DBName}
+
+		if strings.HasPrefix(strings.ToLower(node.Text()), prefixFrom) {
+			ret.isFrom = true
+		}
+
+		if where, ok := toWhere(node); ok {
+			ret.where = where
+		}
+
+		if like, ok := toLike(node); ok {
+			ret.like.Valid = true
+			ret.like.String = like
+		}
+		return ret
 	default:
 		panic(fmt.Sprintf("unimplement: show type %v!", node.Tp))
 	}
@@ -1113,7 +1130,7 @@ func (cc *convCtx) convFuncCallExpr(expr *ast.FuncCallExpr) PredicateNode {
 	// NOTICE: tidb-parser cannot process CONVERT('foobar' USING utf8).
 	// It should be a CastFunc, but now will be parsed as a FuncCall.
 	// We should do some transform work.
-	var inner interface{}
+	var inner Node
 	switch fnName {
 	case "CONVERT":
 		_ = expr.Args[1]
@@ -1286,7 +1303,7 @@ func (cc *convCtx) convPatternInExpr(expr *ast.PatternInExpr) PredicateNode {
 }
 
 func (cc *convCtx) convUnaryExpr(expr *ast.UnaryOperationExpr) PredicateNode {
-	var atom interface{}
+	var atom Node
 
 	switch t := cc.convExpr(expr.V).(type) {
 	case ExpressionAtom:

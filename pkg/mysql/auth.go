@@ -244,8 +244,8 @@ func encryptPassword(password string, seed []byte, pub *rsa.PublicKey) ([]byte, 
 		j := i % len(seed)
 		plain[i] ^= seed[j]
 	}
-	sha1 := sha1.New()
-	return rsa.EncryptOAEP(sha1, rand.Reader, pub, plain, nil)
+	hash := sha1.New()
+	return rsa.EncryptOAEP(hash, rand.Reader, pub, plain, nil)
 }
 
 func (conn *BackendConnection) sendEncryptedPassword(seed []byte, pub *rsa.PublicKey) error {

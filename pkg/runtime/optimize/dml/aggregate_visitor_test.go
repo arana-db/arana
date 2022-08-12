@@ -15,14 +15,40 @@
  * limitations under the License.
  */
 
-package ext
+package dml
+
+import (
+	"testing"
+)
+
+import (
+	"github.com/stretchr/testify/assert"
+)
 
 import (
 	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
-// SelectElementProvider provides previous upstream select element.
-type SelectElementProvider interface {
-	// Prev returns the previous select element.
-	Prev() ast.SelectElement
+func TestAggregateVisitor(t *testing.T) {
+	type tt struct {
+		sql string // input sql
+		cnt int    // aggregate function amount
+	}
+
+	for _, it := range []tt{
+		{"select id,name from t", 0},
+		{"select avg(age)+1 from t", 2},
+		{"select count(*)+1 from t", 1},
+		{"select sum(age)/count(age) from t", 2},
+		{"select id,avg(age)+1,count(*),min(age),max(age) from t", 5},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			var av aggregateVisitor
+			_, stmt, err := ast.ParseSelect(it.sql)
+			assert.NoError(t, err)
+			_, err = stmt.Accept(&av)
+			assert.NoError(t, err)
+			assert.Len(t, av.aggregations, it.cnt)
+		})
+	}
 }

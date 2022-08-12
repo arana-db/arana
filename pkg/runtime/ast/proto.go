@@ -22,56 +22,58 @@ import (
 )
 
 const (
-	_                     SQLType = iota
-	SQLTypeSelect                 // SELECT
-	SQLTypeDelete                 // DELETE
-	SQLTypeUpdate                 // UPDATE
-	SQLTypeInsert                 // INSERT
-	SQLTypeInsertSelect           // INSERT SELECT
-	SQLTypeReplace                // REPLACE
-	SQLTypeTruncate               // TRUNCATE
-	SQLTypeDropTable              // DROP TABLE
-	SQLTypeAlterTable             // ALTER TABLE
-	SQLTypeDropIndex              // DROP INDEX
-	SQLTypeShowDatabases          // SHOW DATABASES
-	SQLTypeShowCollation          // SHOW COLLATION
-	SQLTypeShowTables             // SHOW TABLES
-	SQLTypeShowOpenTables         // SHOW OPEN TABLES
-	SQLTypeShowIndex              // SHOW INDEX
-	SQLTypeShowColumns            // SHOW COLUMNS
-	SQLTypeShowCreate             // SHOW CREATE
-	SQLTypeShowVariables          // SHOW VARIABLES
-	SQLTypeShowTopology           // SHOW TOPOLOGY
-	SQLTypeDescribe               // DESCRIBE
-	SQLTypeUnion                  // UNION
-	SQLTypeDropTrigger            // DROP TRIGGER
-	SQLTypeCreateIndex            // CREATE INDEX
-	SQLTypeShowStatus             // SHOW STATUS
+	_                      SQLType = iota
+	SQLTypeSelect                  // SELECT
+	SQLTypeDelete                  // DELETE
+	SQLTypeUpdate                  // UPDATE
+	SQLTypeInsert                  // INSERT
+	SQLTypeInsertSelect            // INSERT SELECT
+	SQLTypeReplace                 // REPLACE
+	SQLTypeTruncate                // TRUNCATE
+	SQLTypeDropTable               // DROP TABLE
+	SQLTypeAlterTable              // ALTER TABLE
+	SQLTypeDropIndex               // DROP INDEX
+	SQLTypeShowDatabases           // SHOW DATABASES
+	SQLTypeShowCollation           // SHOW COLLATION
+	SQLTypeShowTables              // SHOW TABLES
+	SQLTypeShowOpenTables          // SHOW OPEN TABLES
+	SQLTypeShowIndex               // SHOW INDEX
+	SQLTypeShowColumns             // SHOW COLUMNS
+	SQLTypeShowCreate              // SHOW CREATE
+	SQLTypeShowVariables           // SHOW VARIABLES
+	SQLTypeShowTopology            // SHOW TOPOLOGY
+	SQLTypeDescribe                // DESCRIBE
+	SQLTypeUnion                   // UNION
+	SQLTypeDropTrigger             // DROP TRIGGER
+	SQLTypeCreateIndex             // CREATE INDEX
+	SQLTypeShowStatus              // SHOW STATUS
+	SQLTypeShowTableStatus         // SHOW TABLE STATUS
 )
 
 var _sqlTypeNames = [...]string{
-	SQLTypeSelect:         "SELECT",
-	SQLTypeDelete:         "DELETE",
-	SQLTypeUpdate:         "UPDATE",
-	SQLTypeInsert:         "INSERT",
-	SQLTypeInsertSelect:   "INSERT SELECT",
-	SQLTypeReplace:        "REPLACE",
-	SQLTypeTruncate:       "TRUNCATE",
-	SQLTypeDropTable:      "DROP TABLE",
-	SQLTypeAlterTable:     "ALTER TABLE",
-	SQLTypeDropIndex:      "DROP INDEX",
-	SQLTypeShowDatabases:  "SHOW DATABASES",
-	SQLTypeShowTables:     "SHOW TABLES",
-	SQLTypeShowOpenTables: "SHOW OPEN TABLES",
-	SQLTypeShowIndex:      "SHOW INDEX",
-	SQLTypeShowColumns:    "SHOW COLUMNS",
-	SQLTypeShowCreate:     "SHOW CREATE",
-	SQLTypeShowVariables:  "SHOW VARIABLES",
-	SQLTypeDescribe:       "DESCRIBE",
-	SQLTypeUnion:          "UNION",
-	SQLTypeDropTrigger:    "DROP TRIGGER",
-	SQLTypeCreateIndex:    "CREATE INDEX",
-	SQLTypeShowStatus:     "SHOW STATUS",
+	SQLTypeSelect:          "SELECT",
+	SQLTypeDelete:          "DELETE",
+	SQLTypeUpdate:          "UPDATE",
+	SQLTypeInsert:          "INSERT",
+	SQLTypeInsertSelect:    "INSERT SELECT",
+	SQLTypeReplace:         "REPLACE",
+	SQLTypeTruncate:        "TRUNCATE",
+	SQLTypeDropTable:       "DROP TABLE",
+	SQLTypeAlterTable:      "ALTER TABLE",
+	SQLTypeDropIndex:       "DROP INDEX",
+	SQLTypeShowDatabases:   "SHOW DATABASES",
+	SQLTypeShowTables:      "SHOW TABLES",
+	SQLTypeShowOpenTables:  "SHOW OPEN TABLES",
+	SQLTypeShowIndex:       "SHOW INDEX",
+	SQLTypeShowColumns:     "SHOW COLUMNS",
+	SQLTypeShowCreate:      "SHOW CREATE",
+	SQLTypeShowVariables:   "SHOW VARIABLES",
+	SQLTypeDescribe:        "DESCRIBE",
+	SQLTypeUnion:           "UNION",
+	SQLTypeDropTrigger:     "DROP TRIGGER",
+	SQLTypeCreateIndex:     "CREATE INDEX",
+	SQLTypeShowStatus:      "SHOW STATUS",
+	SQLTypeShowTableStatus: "SHOW TABLE STATUS",
 }
 
 // SQLType represents the type of SQL.

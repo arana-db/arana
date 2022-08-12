@@ -31,8 +31,11 @@ import (
 )
 
 type selectResult struct {
-	orders []*ext.OrderedSelectElement
-	groups []*ext.OrderedSelectElement
+	hasAggregate bool
+	hasMapping   bool
+	hasWeak      bool
+	orders       []*ext.OrderedSelectElement
+	groups       []*ext.OrderedSelectElement
 }
 
 type selectScanner struct {
@@ -57,6 +60,10 @@ func (sc *selectScanner) scan(result *selectResult) error {
 	}
 
 	if err := sc.anaOrderBy(result); err != nil {
+		return errors.WithStack(err)
+	}
+
+	if err := sc.anaAggregate(result); err != nil {
 		return errors.WithStack(err)
 	}
 
@@ -122,6 +129,7 @@ func (sc *selectScanner) anaOrderBy(dst *selectResult) error {
 			if err := sc.appendSelectElement(sel); err != nil {
 				return errors.WithStack(err)
 			}
+			dst.hasWeak = true
 		}
 
 		dst.orders = append(dst.orders, &ext.OrderedSelectElement{
@@ -164,4 +172,17 @@ func (sc *selectScanner) indexOfSelect(search string) (ast.SelectElement, bool) 
 		return exist, true
 	}
 	return nil, false
+}
+
+func (sc *selectScanner) anaAggregate(result *selectResult) error {
+	var av aggregateVisitor
+	if _, err := sc.stmt.Accept(&av); err != nil {
+		return errors.WithStack(err)
+	}
+
+	result.hasAggregate = len(av.aggregations) > 0
+	result.hasMapping = av.hasMapping
+	result.hasWeak = result.hasWeak || av.hasWeak
+
+	return nil
 }
