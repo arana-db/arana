@@ -41,7 +41,7 @@ func Boot(ctx context.Context, provider Discovery) error {
 		return err
 	}
 
-	clusters, err := provider.ListClusters(ctx)
+	clusters, err := provider.ListClusters(ctx, "")
 	if err != nil {
 		return err
 	}
@@ -52,7 +52,7 @@ func Boot(ctx context.Context, provider Discovery) error {
 			ns *namespace.Namespace
 		)
 
-		if c, err = provider.GetCluster(ctx, cluster); err != nil {
+		if c, err = provider.GetCluster(ctx, "", cluster); err != nil {
 			continue
 		}
 

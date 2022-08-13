@@ -199,7 +199,7 @@ func (fp *discovery) GetDataSourceCluster(ctx context.Context, cluster string) (
 	return dataSourceCluster, nil
 }
 
-func (fp *discovery) GetCluster(ctx context.Context, cluster string) (*Cluster, error) {
+func (fp *discovery) GetCluster(ctx context.Context, tenant, cluster string) (*Cluster, error) {
 	exist, ok := fp.loadCluster(cluster)
 	if !ok {
 		return nil, nil
@@ -247,7 +247,7 @@ func (fp *discovery) ListListeners(ctx context.Context) ([]*config.Listener, err
 	return cfg.Data.Listeners, nil
 }
 
-func (fp *discovery) ListClusters(ctx context.Context) ([]string, error) {
+func (fp *discovery) ListClusters(ctx context.Context, tenant string) ([]string, error) {
 	cfg, err := fp.c.Load()
 	if err != nil {
 		return nil, err
