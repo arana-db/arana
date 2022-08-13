@@ -192,7 +192,7 @@ func (fp *discovery) GetDataSourceCluster(ctx context.Context, cluster string) (
 	return dataSourceCluster, nil
 }
 
-func (fp *discovery) GetCluster(ctx context.Context, cluster string) (*Cluster, error) {
+func (fp *discovery) GetCluster(ctx context.Context, tenant, cluster string) (*Cluster, error) {
 	exist, ok := fp.loadCluster(cluster)
 	if !ok {
 		return nil, nil
@@ -249,7 +249,7 @@ func (fp *discovery) ListFilters(ctx context.Context) ([]*config.Filter, error) 
 	return cfg.Data.Filters, nil
 }
 
-func (fp *discovery) ListClusters(ctx context.Context) ([]string, error) {
+func (fp *discovery) ListClusters(ctx context.Context, tenant string) ([]string, error) {
 	cfg, err := fp.c.Load()
 	if err != nil {
 		return nil, err
