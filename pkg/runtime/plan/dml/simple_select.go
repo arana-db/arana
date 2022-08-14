@@ -32,7 +32,9 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/resultx"
 	"github.com/arana-db/arana/pkg/runtime/ast"
+	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/runtime/plan"
+	"github.com/arana-db/arana/pkg/util/log"
 )
 
 var _ proto.Plan = (*SimpleQueryPlan)(nil)
@@ -70,6 +72,19 @@ func (s *SimpleQueryPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 		args  = s.ToArgs(indexes)
 	)
 
+	version := rcontext.Version(ctx)
+	if strings.Compare(version, "8.0.0") >= 0 {
+		args_cachesize_57 := "@@query_cache_size"
+		args_cachesize_80 := "1048576"
+		query = strings.Replace(query, args_cachesize_57, args_cachesize_80, -1)
+		args_cachetype_57 := "@@query_cache_type"
+		args_cachetype_80 := "'OFF'"
+		query = strings.Replace(query, args_cachetype_57, args_cachetype_80, -1)
+		args_txiso_57 := "@@tx_isolation"
+		args_txiso_80 := "@@transaction_isolation"
+		query = strings.Replace(query, args_txiso_57, args_txiso_80, -1)
+		log.Debugf("ComQueryFor8.0: %s", query)
+	}
 	if res, err = conn.Query(ctx, s.Database, query, args...); err != nil {
 		return nil, errors.WithStack(err)
 	}
