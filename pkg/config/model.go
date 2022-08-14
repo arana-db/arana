@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -58,39 +57,30 @@ type (
 	// DataSourceType is the data source type
 	DataSourceType string
 
-	// SocketAddress specify either a logical or physical address and port, which are
-	// used to tell server where to bind/listen, connect to upstream and find
-	// management servers
-	SocketAddress struct {
-		Address string `default:"0.0.0.0" yaml:"address" json:"address"`
-		Port    int    `default:"13306" yaml:"port" json:"port"`
-	}
-
 	Data struct {
-		Listeners          []*Listener          `validate:"required,dive" yaml:"listeners" json:"listeners"`
-		Tenants            []*Tenant            `validate:"required,dive" yaml:"tenants" json:"tenants"`
-		DataSourceClusters []*DataSourceCluster `validate:"required,dive" yaml:"clusters" json:"clusters"`
-		ShardingRule       *ShardingRule        `validate:"required,dive" yaml:"sharding_rule,omitempty" json:"sharding_rule,omitempty"`
-		ShadowRule         *ShadowRule          `yaml:"shadow_rule,omitempty" json:"shadow_rule,omitempty"`
+		Tenants []*Tenant `validate:"required,dive" yaml:"tenants" json:"tenants"`
 	}
 
 	Tenant struct {
-		Name  string  `validate:"required" yaml:"name" json:"name"`
-		Users []*User `validate:"required" yaml:"users" json:"users"`
+		Name               string               `validate:"required" yaml:"name" json:"name"`
+		Users              []*User              `validate:"required" yaml:"users" json:"users"`
+		DataSourceClusters []*DataSourceCluster `validate:"required,dive" yaml:"clusters" json:"clusters"`
+		ShardingRule       *ShardingRule        `validate:"required,dive" yaml:"sharding_rule,omitempty" json:"sharding_rule,omitempty"`
+		ShadowRule         *ShadowRule          `yaml:"shadow_rule,omitempty" json:"shadow_rule,omitempty"`
+		Nodes              []*Node              `validate:"required" yaml:"nodes" json:"nodes"`
 	}
 
 	DataSourceCluster struct {
 		Name        string         `yaml:"name" json:"name"`
 		Type        DataSourceType `yaml:"type" json:"type"`
 		SqlMaxLimit int            `default:"-1" yaml:"sql_max_limit" json:"sql_max_limit,omitempty"`
-		Tenant      string         `yaml:"tenant" json:"tenant"`
 		Parameters  ParametersMap  `yaml:"parameters" json:"parameters"`
 		Groups      []*Group       `yaml:"groups" json:"groups"`
 	}
 
 	Group struct {
-		Name  string  `yaml:"name" json:"name"`
-		Nodes []*Node `yaml:"nodes" json:"nodes"`
+		Name  string   `yaml:"name" json:"name"`
+		Nodes []string `yaml:"nodes" json:"nodes"`
 	}
 
 	Node struct {
@@ -138,12 +128,6 @@ type (
 		Column    string `yaml:"column" json:"column"`
 		Value     string `yaml:"value" json:"value"`
 		Regex     string `yaml:"regex" json:"regex"`
-	}
-
-	Listener struct {
-		ProtocolType  string         `yaml:"protocol_type" json:"protocol_type"`
-		SocketAddress *SocketAddress `yaml:"socket_address" json:"socket_address"`
-		ServerVersion string         `yaml:"server_version" json:"server_version"`
 	}
 
 	User struct {
@@ -370,121 +354,5 @@ type (
 	Groups   []*Group
 	Users    []*User
 	Rules    []*Rule
+	Filters  []*Filter
 )
-
-func (r Rules) Compare(o Rules) bool {
-	if len(r) == 0 && len(o) == 0 {
-		return true
-	}
-
-	if len(r) != len(o) {
-		return false
-	}
-
-	newT := make([]*Rule, 0, 4)
-	updateT := make([]*Rule, 0, 4)
-	deleteT := make([]*Rule, 0, 4)
-
-	newTmp := map[string]*Rule{}
-	oldTmp := map[string]*Rule{}
-
-	for i := range r {
-		newTmp[r[i].Column] = r[i]
-	}
-	for i := range o {
-		oldTmp[o[i].Column] = o[i]
-	}
-
-	for i := range r {
-		if _, ok := oldTmp[o[i].Column]; !ok {
-			newT = append(newT, o[i])
-		}
-	}
-
-	for i := range o {
-		val, ok := newTmp[o[i].Column]
-		if !ok {
-			deleteT = append(deleteT, o[i])
-			continue
-		}
-
-		if !reflect.DeepEqual(val, o[i]) {
-			updateT = append(updateT, val)
-			continue
-		}
-	}
-
-	return len(newT) == 0 && len(updateT) == 0 && len(deleteT) == 0
-}
-
-func (t *Table) Compare(o *Table) bool {
-	if len(t.DbRules) != len(o.DbRules) {
-		return false
-	}
-
-	if len(t.TblRules) != len(o.TblRules) {
-		return false
-	}
-
-	if !Rules(t.DbRules).Compare(o.DbRules) {
-		return false
-	}
-	if !Rules(t.TblRules).Compare(o.TblRules) {
-		return false
-	}
-
-	if !reflect.DeepEqual(t.Topology, o.Topology) || !reflect.DeepEqual(t.ShadowTopology, o.ShadowTopology) {
-		return false
-	}
-
-	if t.AllowFullScan == o.AllowFullScan {
-		return false
-	}
-
-	if !reflect.DeepEqual(t.Attributes, o.Attributes) {
-		return false
-	}
-
-	return true
-}
-
-func (s *ShardingRule) Diff(old *ShardingRule) *ShardingRuleEvent {
-	newT := make([]*Table, 0, 4)
-	updateT := make([]*Table, 0, 4)
-	deleteT := make([]*Table, 0, 4)
-
-	newTmp := map[string]*Table{}
-	oldTmp := map[string]*Table{}
-
-	for i := range s.Tables {
-		newTmp[s.Tables[i].Name] = s.Tables[i]
-	}
-	for i := range old.Tables {
-		oldTmp[old.Tables[i].Name] = old.Tables[i]
-	}
-
-	for i := range s.Tables {
-		if _, ok := oldTmp[s.Tables[i].Name]; !ok {
-			newT = append(newT, s.Tables[i])
-		}
-	}
-
-	for i := range old.Tables {
-		val, ok := newTmp[old.Tables[i].Name]
-		if !ok {
-			deleteT = append(deleteT, old.Tables[i])
-			continue
-		}
-
-		if !reflect.DeepEqual(val, old.Tables[i]) {
-			updateT = append(updateT, val)
-			continue
-		}
-	}
-
-	return &ShardingRuleEvent{
-		AddTables:    newT,
-		UpdateTables: updateT,
-		DeleteTables: deleteT,
-	}
-}

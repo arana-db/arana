@@ -81,7 +81,7 @@ type ConfigProvider interface {
 	ListClusters(ctx context.Context, tenant string) ([]string, error)
 
 	// GetDataSourceCluster returns the dataSourceCluster object
-	GetDataSourceCluster(ctx context.Context, cluster string) (*config.DataSourceCluster, error)
+	GetDataSourceCluster(ctx context.Context, tenant, cluster string) (*config.DataSourceCluster, error)
 
 	// GetGroup returns the cluster info
 	GetGroup(ctx context.Context, tenant, cluster, group string) (*config.Group, error)
@@ -90,19 +90,19 @@ type ConfigProvider interface {
 	GetCluster(ctx context.Context, tenant, cluster string) (*Cluster, error)
 
 	// ListGroups lists the group names.
-	ListGroups(ctx context.Context, cluster string) ([]string, error)
+	ListGroups(ctx context.Context, tenant, cluster string) ([]string, error)
 
 	// ListNodes lists the node names.
-	ListNodes(ctx context.Context, cluster, group string) ([]string, error)
+	ListNodes(ctx context.Context, tenant, cluster, group string) ([]string, error)
 
 	// GetNode returns the node info.
-	GetNode(ctx context.Context, cluster, group, node string) (*config.Node, error)
+	GetNode(ctx context.Context, tenant, cluster, group, node string) (*config.Node, error)
 
 	// ListTables lists the table names.
-	ListTables(ctx context.Context, cluster string) ([]string, error)
+	ListTables(ctx context.Context, tenant, cluster string) ([]string, error)
 
 	// GetTable returns the table info.
-	GetTable(ctx context.Context, cluster, table string) (*rule.VTable, error)
+	GetTable(ctx context.Context, tenant, cluster, table string) (*rule.VTable, error)
 }
 
 // ConfigUpdater represents the mutations of configurations.
@@ -172,10 +172,10 @@ type ConfigUpdater interface {
 type Discovery interface {
 	ConfigProvider
 	// ListListeners lists the listener names
-	ListListeners(ctx context.Context) ([]*config.Listener, error)
+	ListListeners(ctx context.Context) []*Listener
 
-	// GetConfigCenter returns the config center.
-	GetConfigCenter() *config.Center
+	// ListFilters list the filter names
+	ListFilters(ctx context.Context) ([]*config.Filter, error)
 
 	// Init initializes discovery with context
 	Init(ctx context.Context) error

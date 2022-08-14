@@ -23,8 +23,8 @@ package config
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"github.com/pkg/errors"
 	"sync"
 	"sync/atomic"
 )
@@ -41,75 +41,104 @@ import (
 )
 
 var (
-	ConfigKeyMapping map[PathKey]string = map[PathKey]string{
+	ConfigKeyMapping = map[PathKey]string{
 		DefaultConfigMetadataPath:           "metadata",
-		DefaultConfigDataTenantsPath:        "data.tenants",
-		DefaultConfigDataListenersPath:      "data.listeners",
-		DefaultConfigDataSourceClustersPath: "data.clusters",
-		DefaultConfigDataShardingRulePath:   "data.sharding_rule",
+		DefaultTenantsPath:                  "tenants",
+		DefaultConfigDataUsersPath:          "tenants.users",
+		DefaultConfigDataSourceClustersPath: "tenants.clusters",
+		DefaultConfigDataShardingRulePath:   "tenants.sharding_rule",
+		DefaultConfigDataNodesPath:          "tenants.nodes",
+		DefaultConfigDataShadowRulePath:     "tenants.shadow",
 	}
 
-	_configValSupplier map[PathKey]func(cfg *Configuration) interface{} = map[PathKey]func(cfg *Configuration) interface{}{
-		DefaultConfigMetadataPath: func(cfg *Configuration) interface{} {
-			return &cfg.Metadata
+	ConfigEventMapping = map[PathKey]EventType{
+		DefaultConfigDataUsersPath:          EventTypeUsers,
+		DefaultConfigDataNodesPath:          EventTypeNodes,
+		DefaultConfigDataSourceClustersPath: EventTypeClusters,
+		DefaultConfigDataShardingRulePath:   EventTypeShardingRule,
+		DefaultConfigDataShadowRulePath:     EventTypeShadowRule,
+	}
+
+	_configValSupplier = map[PathKey]func(cfg *Tenant) interface{}{
+		DefaultConfigDataSourceClustersPath: func(cfg *Tenant) interface{} {
+			return cfg.DataSourceClusters
 		},
-		DefaultConfigDataTenantsPath: func(cfg *Configuration) interface{} {
-			return &cfg.Data.Tenants
+		DefaultConfigDataShardingRulePath: func(cfg *Tenant) interface{} {
+			return &cfg.ShardingRule
 		},
-		DefaultConfigDataListenersPath: func(cfg *Configuration) interface{} {
-			return &cfg.Data.Listeners
+		DefaultConfigDataShardingRulePath: func(cfg *Tenant) interface{} {
+			return &cfg.ShardingRule
 		},
-		DefaultConfigDataSourceClustersPath: func(cfg *Configuration) interface{} {
-			return &cfg.Data.DataSourceClusters
-		},
-		DefaultConfigDataShardingRulePath: func(cfg *Configuration) interface{} {
-			return &cfg.Data.ShardingRule
+		DefaultConfigDataShardingRulePath: func(cfg *Tenant) interface{} {
+			return &cfg.ShardingRule
 		},
 	}
 )
 
-type Changeable interface {
-	Name() string
-	Sign() string
-}
-
-type Observer func()
-
-type ConfigOptions struct {
-	StoreName string                 `yaml:"name"`
-	Options   map[string]interface{} `yaml:"options"`
-}
-
-type Center struct {
-	initialize   int32
-	storeOperate StoreOperate
-	confHolder   atomic.Value // 里面持有了最新的 *Configuration 对象
-	lock         sync.RWMutex
-	observers    []Observer
-	watchCancels []context.CancelFunc
-}
-
-func NewCenter(options ConfigOptions) (*Center, error) {
-	if err := Init(options.StoreName, options.Options); err != nil {
-		return nil, err
+func NewTenantOperate(op StoreOperate) TenantOperate {
+	return &tenantOperate{
+		op: op,
 	}
+}
 
-	operate, err := GetStoreOperate()
+type tenantOperate struct {
+	op   StoreOperate
+	lock sync.RWMutex
+}
+
+func (tp *tenantOperate) Tenants() ([]string, error) {
+	tp.lock.RLock()
+	defer tp.lock.RUnlock()
+
+	val, err := tp.op.Get(DefaultTenantsPath)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Center{
-		storeOperate: operate,
-		observers:    make([]Observer, 0, 2),
-	}, nil
+	tenants := make([]string, 0, 4)
+
+	if err := yaml.Unmarshal(val, &tenants); err != nil {
+		return nil, err
+	}
+
+	return tenants, nil
 }
 
-func (c *Center) GetStoreOperate() StoreOperate {
-	return c.storeOperate
+func (tp *tenantOperate) CreateTenant(name string) error {
+	return errors.New("implement me")
 }
 
-func (c *Center) Close() error {
+func (tp *tenantOperate) RemoveTenant(name string) error {
+	return errors.New("implement me")
+}
+
+type center struct {
+	tenant       string
+	initialize   int32
+	storeOperate StoreOperate
+	holders      map[PathKey]*atomic.Value
+
+	lock         sync.RWMutex
+	observers    map[EventType][]EventSubscriber
+	watchCancels []context.CancelFunc
+}
+
+func NewCenter(tenant string, op StoreOperate) Center {
+	holders := map[PathKey]*atomic.Value{}
+	for k := range ConfigKeyMapping {
+		holders[k] = &atomic.Value{}
+		holders[k].Store(&Configuration{})
+	}
+
+	return &center{
+		tenant:       tenant,
+		holders:      holders,
+		storeOperate: op,
+		observers:    make(map[EventType][]EventSubscriber),
+	}
+}
+
+func (c *center) Close() error {
 	if err := c.storeOperate.Close(); err != nil {
 		return err
 	}
@@ -121,46 +150,48 @@ func (c *Center) Close() error {
 	return nil
 }
 
-func (c *Center) Load() (*Configuration, error) {
-	return c.LoadContext(context.Background())
-}
-
-func (c *Center) LoadContext(ctx context.Context) (*Configuration, error) {
-	val := c.confHolder.Load()
-	if val == nil {
-		cfg, err := c.loadFromStore(ctx)
-		if err != nil {
-			return nil, err
-		}
-		c.confHolder.Store(cfg)
-
-		out, _ := yaml.Marshal(cfg)
-		if env.IsDevelopEnvironment() {
-			log.Infof("load configuration:\n%s", string(out))
-		}
+func (c *center) Load(ctx context.Context) (*Tenant, error) {
+	val := c.compositeConfiguration()
+	if val != nil {
+		return val, nil
 	}
 
-	val = c.confHolder.Load()
+	cfg, err := c.loadFromStore(ctx)
+	if err != nil {
+		return nil, err
+	}
 
-	return val.(*Configuration), nil
+	out, _ := yaml.Marshal(cfg)
+	if env.IsDevelopEnvironment() {
+		log.Debugf("load configuration:\n%s", string(out))
+	}
+	return c.compositeConfiguration(), nil
 }
 
-func (c *Center) ImportConfiguration(cfg *Configuration) error {
-	c.confHolder.Store(cfg)
-	return c.Persist()
+func (c *center) compositeConfiguration() *Tenant {
+	conf := &Tenant{}
+	conf.Users = c.holders[DefaultConfigDataUsersPath].Load().(*Tenant).Users
+	conf.Nodes = c.holders[DefaultConfigDataNodesPath].Load().(*Tenant).Nodes
+	conf.DataSourceClusters = c.holders[DefaultConfigDataSourceClustersPath].Load().(*Tenant).DataSourceClusters
+	conf.ShardingRule = c.holders[DefaultConfigDataShardingRulePath].Load().(*Tenant).ShardingRule
+	conf.ShadowRule = c.holders[DefaultConfigDataShadowRulePath].Load().(*Tenant).ShadowRule
+
+	return conf
 }
 
-func (c *Center) loadFromStore(ctx context.Context) (*Configuration, error) {
+func (c *center) Import(ctx context.Context, cfg *Tenant) error {
+	return c.doPersist(ctx, cfg)
+}
+
+func (c *center) loadFromStore(ctx context.Context) (*Tenant, error) {
 	operate := c.storeOperate
 
-	cfg := &Configuration{
-		Metadata: make(map[string]interface{}),
-		Data: &Data{
-			Listeners:          make([]*Listener, 0),
-			Tenants:            make([]*Tenant, 0),
-			DataSourceClusters: make([]*DataSourceCluster, 0),
-			ShardingRule:       &ShardingRule{},
-		},
+	cfg := &Tenant{
+		Users:              make([]*User, 0, 4),
+		Nodes:              make([]*Node, 0, 4),
+		DataSourceClusters: make([]*DataSourceCluster, 0, 4),
+		ShardingRule:       new(ShardingRule),
+		ShadowRule:         new(ShadowRule),
 	}
 
 	for k := range ConfigKeyMapping {
@@ -184,7 +215,7 @@ func (c *Center) loadFromStore(ctx context.Context) (*Configuration, error) {
 	return cfg, nil
 }
 
-func (c *Center) watchFromStore() error {
+func (c *center) watchFromStore() error {
 	if !atomic.CompareAndSwapInt32(&c.initialize, 0, 1) {
 		return nil
 	}
@@ -205,18 +236,15 @@ func (c *Center) watchFromStore() error {
 	return nil
 }
 
-func (c *Center) watchKey(ctx context.Context, key PathKey, ch <-chan []byte) {
+func (c *center) watchKey(ctx context.Context, key PathKey, ch <-chan []byte) {
 	consumer := func(ret []byte) {
-		c.lock.Lock()
-		defer c.lock.Unlock()
-
 		supplier, ok := _configValSupplier[key]
 		if !ok {
 			log.Errorf("%s not register val supplier", key)
 			return
 		}
 
-		cfg := c.confHolder.Load().(*Configuration)
+		cfg := c.holders[key].Load().(*Tenant)
 
 		if len(ret) != 0 {
 			if err := json.Unmarshal(ret, supplier(cfg)); err != nil {
@@ -224,7 +252,21 @@ func (c *Center) watchKey(ctx context.Context, key PathKey, ch <-chan []byte) {
 			}
 		}
 
-		c.confHolder.Store(cfg)
+		c.holders[key].Store(cfg)
+
+		et := ConfigEventMapping[key]
+
+		notify := func() {
+			c.lock.RLock()
+			defer c.lock.RUnlock()
+
+			v := c.observers[et]
+
+			for i := range v {
+				v[i].OnEvent(nil)
+			}
+		}
+		notify()
 	}
 
 	for {
@@ -237,17 +279,11 @@ func (c *Center) watchKey(ctx context.Context, key PathKey, ch <-chan []byte) {
 	}
 }
 
-func (c *Center) Persist() error {
-	return c.PersistContext(context.Background())
+func (c *center) PersistContext(ctx context.Context) error {
+	return c.doPersist(ctx, c.compositeConfiguration())
 }
 
-func (c *Center) PersistContext(ctx context.Context) error {
-	val := c.confHolder.Load()
-	if val == nil {
-		return errors.New("ConfHolder.load is nil")
-	}
-
-	conf := val.(*Configuration)
+func (c *center) doPersist(ctx context.Context, conf *Tenant) error {
 
 	configJson, err := json.Marshal(conf)
 	if err != nil {
@@ -260,4 +296,48 @@ func (c *Center) PersistContext(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+//Subscribe
+func (c *center) Subscribe(ctx context.Context, s ...EventSubscriber) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	for i := range s {
+		if _, ok := c.observers[s[i].Type()]; !ok {
+			c.observers[s[i].Type()] = make([]EventSubscriber, 0, 4)
+		}
+
+		v := c.observers[s[i].Type()]
+		v = append(v, s[i])
+
+		c.observers[s[i].Type()] = v
+	}
+}
+
+//UnSubscribe
+func (c *center) UnSubscribe(ctx context.Context, s ...EventSubscriber) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	for i := range s {
+		if _, ok := c.observers[s[i].Type()]; !ok {
+			continue
+		}
+
+		v := c.observers[s[i].Type()]
+
+		for p := range v {
+			if v[p] == s[i] {
+				v = append(v[:p], v[p+1:]...)
+				break
+			}
+		}
+
+		c.observers[s[i].Type()] = v
+	}
+}
+
+func (c *center) Tenant() string {
+	return c.tenant
 }

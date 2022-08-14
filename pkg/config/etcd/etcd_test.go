@@ -43,6 +43,7 @@ var (
 	mockConfData = map[config.PathKey]string{
 		config.DefaultConfigMetadataPath:           "",
 		config.DefaultConfigDataListenersPath:      "",
+		config.DefaultConfigDataFiltersPath:        "",
 		config.DefaultConfigDataSourceClustersPath: "",
 		config.DefaultConfigDataShardingRulePath:   "",
 		config.DefaultConfigDataTenantsPath:        "",
@@ -108,16 +109,20 @@ func Test_storeOpertae(t *testing.T) {
 		t.Logf("%s => %s", k, string(ret))
 	}
 
-	receiver, err := operate.Watch(config.DefaultConfigDataTenantsPath)
+	receiver, err := operate.Watch(config.DefaultConfigDataFiltersPath)
 	assert.NoError(t, err, "watch must success")
 
 	newCfg, _ := config.Load(testdata.Path("fake_config.yaml"))
+	newCfg.Data.Filters = append(newCfg.Data.Filters, &config.Filter{
+		Name:   "arana-etcd-watch",
+		Config: []byte("{\"arana-etcd-watch\":\"arana-etcd-watch\"}"),
+	})
 	data, _ = json.Marshal(newCfg)
 
-	expectVal := string(gjson.GetBytes(data, config.ConfigKeyMapping[config.DefaultConfigDataTenantsPath]).String())
+	expectVal := gjson.GetBytes(data, config.ConfigKeyMapping[config.DefaultConfigDataFiltersPath]).String()
 
 	for k := range config.ConfigKeyMapping {
-		if k == config.DefaultConfigDataTenantsPath {
+		if k == config.DefaultConfigDataFiltersPath {
 			err := operate.client.Put(string(k), expectVal)
 			assert.NoError(t, err, "put to etcd must success")
 			break

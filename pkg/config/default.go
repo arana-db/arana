@@ -13,31 +13,40 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
-package boot
+package config
 
 import (
-	"github.com/arana-db/arana/pkg/config"
+	"fmt"
+	"github.com/pkg/errors"
 )
 
-type (
-	BootOptions struct {
-		Config    *config.Options `yaml:"config"`
-		Listeners []*Listener     `validate:"required,dive" yaml:"listeners" json:"listeners"`
+func GetStoreOperate() (StoreOperate, error) {
+	if storeOperate != nil {
+		return storeOperate, nil
 	}
 
-	// SocketAddress specify either a logical or physical address and port, which are
-	// used to tell server where to bind/listen, connect to upstream and find
-	// management servers
-	SocketAddress struct {
-		Address string `default:"0.0.0.0" yaml:"address" json:"address"`
-		Port    int    `default:"13306" yaml:"port" json:"port"`
+	return nil, errors.New("StoreOperate not init")
+}
+
+func initStoreOperate(name string, options map[string]interface{}) error {
+	s, exist := slots[name]
+	if !exist {
+		return fmt.Errorf("StoreOperate solt=[%s] not exist", name)
 	}
 
-	Listener struct {
-		ProtocolType  string         `yaml:"protocol_type" json:"protocol_type"`
-		SocketAddress *SocketAddress `yaml:"socket_address" json:"socket_address"`
-		ServerVersion string         `yaml:"server_version" json:"server_version"`
+	storeOperate = s
+	return storeOperate.Init(options)
+}
+
+func Init(options Options) error {
+	initPath(options.RootPath)
+
+	if err := initStoreOperate(options.StoreName, options.Options); err != nil {
+		return err
 	}
-)
+
+	return nil
+}

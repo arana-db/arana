@@ -23,7 +23,6 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -75,7 +74,9 @@ type discovery struct {
 	inited  uatomic.Bool
 	path    string
 	options *BootOptions
-	c       *config.Center
+
+	tenantOp config.TenantOperate
+	centers  map[string]config.Center
 }
 
 func (fp *discovery) UpsertTenant(ctx context.Context, tenant string, body *TenantBody) error {
@@ -147,7 +148,17 @@ func (fp *discovery) Init(ctx context.Context) error {
 		return err
 	}
 
-	if err := fp.initConfigCenter(); err != nil {
+	if err := config.Init(*fp.options.Config); err != nil {
+		return err
+	}
+
+	op, err := config.GetStoreOperate()
+	if err != nil {
+		return err
+	}
+
+	fp.tenantOp = config.NewTenantOperate(op)
+	if err := fp.initAllConfigCenter(op); err != nil {
 		return err
 	}
 
@@ -176,22 +187,23 @@ func (fp *discovery) loadBootOptions() error {
 	return nil
 }
 
-func (fp *discovery) initConfigCenter() error {
-	c, err := config.NewCenter(*fp.options.Config)
+func (fp *discovery) initAllConfigCenter(op config.StoreOperate) error {
+
+	tenants, err := fp.tenantOp.Tenants()
 	if err != nil {
 		return err
 	}
 
-	fp.c = c
+	for i := range tenants {
+		tenant := tenants[i]
+
+		fp.centers[tenant] = config.NewCenter(tenant, op)
+	}
 
 	return nil
 }
 
-func (fp *discovery) GetConfigCenter() *config.Center {
-	return fp.c
-}
-
-func (fp *discovery) GetDataSourceCluster(ctx context.Context, cluster string) (*config.DataSourceCluster, error) {
+func (fp *discovery) GetDataSourceCluster(ctx context.Context, tenant, cluster string) (*config.DataSourceCluster, error) {
 	dataSourceCluster, ok := fp.loadCluster(cluster)
 	if !ok {
 		return nil, nil
@@ -221,56 +233,28 @@ func (fp *discovery) GetCluster(ctx context.Context, tenant, cluster string) (*C
 }
 
 func (fp *discovery) ListTenants(ctx context.Context) ([]string, error) {
-	cfg, err := fp.c.Load()
-	if err != nil {
-		return nil, err
-	}
-
-	var tenants []string
-	for _, it := range cfg.Data.Tenants {
-		tenants = append(tenants, it.Name)
-	}
-	return tenants, nil
-}
-
-func (fp *discovery) GetTenant(ctx context.Context, tenant string) (*config.Tenant, error) {
-	cfg, err := fp.c.Load()
-	if err != nil {
-		return nil, err
-	}
-
-	for _, it := range cfg.Data.Tenants {
-		if it.Name == tenant {
-			return it, nil
-		}
-	}
 	return nil, nil
 }
 
-func (fp *discovery) ListListeners(ctx context.Context) ([]*config.Listener, error) {
-	cfg, err := fp.c.Load()
-	if err != nil {
-		return nil, err
-	}
+func (fp *discovery) GetTenant(ctx context.Context, tenant string) (*config.Tenant, error) {
+	return nil, nil
+}
 
-	return cfg.Data.Listeners, nil
+func (fp *discovery) ListListeners(ctx context.Context) []*Listener {
+	return fp.options.Listeners
+}
+
+func (fp *discovery) ListFilters(ctx context.Context) ([]*config.Filter, error) {
+
+	return nil, nil
 }
 
 func (fp *discovery) ListClusters(ctx context.Context, tenant string) ([]string, error) {
-	cfg, err := fp.c.Load()
-	if err != nil {
-		return nil, err
-	}
 
-	clusters := make([]string, 0, len(cfg.Data.DataSourceClusters))
-	for _, it := range cfg.Data.DataSourceClusters {
-		clusters = append(clusters, it.Name)
-	}
-
-	return clusters, nil
+	return nil, nil
 }
 
-func (fp *discovery) ListGroups(ctx context.Context, cluster string) ([]string, error) {
+func (fp *discovery) ListGroups(ctx context.Context, tenant, cluster string) ([]string, error) {
 	bingo, ok := fp.loadCluster(cluster)
 	if !ok {
 		return nil, nil
@@ -283,7 +267,7 @@ func (fp *discovery) ListGroups(ctx context.Context, cluster string) ([]string, 
 	return groups, nil
 }
 
-func (fp *discovery) ListNodes(ctx context.Context, cluster, group string) ([]string, error) {
+func (fp *discovery) ListNodes(ctx context.Context, tenant, cluster, group string) ([]string, error) {
 	bingo, ok := fp.loadGroup(cluster, group)
 	if !ok {
 		return nil, nil
@@ -297,21 +281,12 @@ func (fp *discovery) ListNodes(ctx context.Context, cluster, group string) ([]st
 	return nodes, nil
 }
 
-func (fp *discovery) ListTables(ctx context.Context, cluster string) ([]string, error) {
-	cfg, err := fp.c.Load()
-	if err != nil {
-		return nil, err
-	}
+func (fp *discovery) ListTables(ctx context.Context, tenant, cluster string) ([]string, error) {
 
-	var tables []string
-	for tb := range fp.loadTables(cfg, cluster) {
-		tables = append(tables, tb)
-	}
-	sort.Strings(tables)
-	return tables, nil
+	return nil, nil
 }
 
-func (fp *discovery) GetNode(ctx context.Context, cluster, group, node string) (*config.Node, error) {
+func (fp *discovery) GetNode(ctx context.Context, tenant, cluster, group, node string) (*config.Node, error) {
 	bingo, ok := fp.loadGroup(cluster, group)
 	if !ok {
 		return nil, nil
@@ -324,8 +299,8 @@ func (fp *discovery) GetNode(ctx context.Context, cluster, group, node string) (
 	return nil, nil
 }
 
-func (fp *discovery) GetTable(ctx context.Context, cluster, tableName string) (*rule.VTable, error) {
-	cfg, err := fp.c.Load()
+func (fp *discovery) GetTable(ctx context.Context, tenant, cluster, tableName string) (*rule.VTable, error) {
+	cfg, err := fp.centers[""].Load(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -479,16 +454,16 @@ func (fp *discovery) GetTable(ctx context.Context, cluster, tableName string) (*
 }
 
 func (fp *discovery) loadCluster(cluster string) (*config.DataSourceCluster, bool) {
-	cfg, err := fp.c.Load()
-	if err != nil {
-		return nil, false
-	}
-
-	for _, it := range cfg.Data.DataSourceClusters {
-		if it.Name == cluster {
-			return it, true
-		}
-	}
+	//cfg, err := fp.c.Load()
+	//if err != nil {
+	//	return nil, false
+	//}
+	//
+	//for _, it := range cfg.Data.DataSourceClusters {
+	//	if it.Name == cluster {
+	//		return it, true
+	//	}
+	//}
 	return nil, false
 }
 
@@ -506,8 +481,12 @@ func (fp *discovery) loadGroup(cluster, group string) (*config.Group, bool) {
 }
 
 func (fp *discovery) loadTables(cfg *config.Configuration, cluster string) map[string]*config.Table {
+	if len(cfg.Data.Tenants) < 1 {
+		return nil
+	}
+
 	var tables map[string]*config.Table
-	for _, it := range cfg.Data.ShardingRule.Tables {
+	for _, it := range cfg.Data.Tenants[0].ShardingRule.Tables {
 		db, tb, err := parseTable(it.Name)
 		if err != nil {
 			log.Warnf("skip parsing table rule: %v", err)

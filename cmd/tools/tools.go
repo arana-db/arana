@@ -75,7 +75,7 @@ func Run(cmd *cobra.Command, args []string) {
 
 	c := discovery.GetConfigCenter()
 
-	if err := c.ImportConfiguration(cfg); err != nil {
+	if err := c.Import(context.Background(), cfg); err != nil {
 		log.Fatal("persist config to config.store failed: %+v", err)
 		return
 	}

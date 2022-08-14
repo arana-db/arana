@@ -184,21 +184,22 @@ func (s *storeOperate) Save(key config.PathKey, val []byte) error {
 
 // Get get a configuration
 func (s *storeOperate) Get(key config.PathKey) ([]byte, error) {
-	defer s.cfgLock.RUnlock()
 	s.cfgLock.RLock()
+	defer s.cfgLock.RUnlock()
 
 	val := []byte(s.confMap[key])
 
 	if env.IsDevelopEnvironment() {
-		log.Infof("[ConfigCenter][nacos] load config content : %#v", string(val))
+		log.Debugf("[ConfigCenter][nacos] load config content : %#v", string(val))
 	}
 	return val, nil
 }
 
 // Watch Monitor changes of the key
 func (s *storeOperate) Watch(key config.PathKey) (<-chan []byte, error) {
-	defer s.lock.Unlock()
 	s.lock.Lock()
+	defer s.lock.Unlock()
+
 	if _, ok := s.receivers[key]; !ok {
 		w, err := s.newWatcher(key, s.client)
 		if err != nil {
@@ -213,8 +214,8 @@ func (s *storeOperate) Watch(key config.PathKey) (<-chan []byte, error) {
 
 	w := s.receivers[key]
 
-	defer w.lock.Unlock()
 	w.lock.Lock()
+	defer w.lock.Unlock()
 
 	rec := make(chan []byte)
 	s.receivers[key].receivers = append(s.receivers[key].receivers, rec)
@@ -226,7 +227,7 @@ func (s *storeOperate) Name() string {
 	return "nacos"
 }
 
-// Close do close storeOperate
+// Close closes storeOperate
 func (s *storeOperate) Close() error {
 	return nil
 }

@@ -18,44 +18,49 @@
 
 package config
 
-//ConfigChangeEvent
-type ConfigChangeEvent struct {
-	TenantsEvent      ChangeTenantsEvent
-	ClustersEvent     ChangeClustersEvent
-	ShardingRuleEvent ShardingRuleEvent
+type EventType int32
+
+const (
+	_ EventType = iota
+	EventTypeUsers
+	EventTypeNodes
+	EventTypeClusters
+	EventTypeShardingRule
+	EventTypeShadowRule
+)
+
+type Event interface {
+	TenantsEvent | ClustersEvent | ShardingRuleEvent | FiltersEvent
 }
 
-//ChangeTenantsEvent
-type ChangeTenantsEvent struct {
-	AddTenants    []TenantEvent
-	UpdateTenants []TenantEvent
-	DeleteTenants []TenantEvent
+//TenantsEvent
+type TenantsEvent struct {
+	AddTenants    Tenants
+	UpdateTenants Tenants
+	DeleteTenants Tenants
 }
 
-//TenantEvent
-type TenantEvent struct {
-	Name        string
-	AddUsers    Users
-	UpdateUsers Users
-	DeleteUsers Users
-}
-
-//ChangeClustersEvent
-type ChangeClustersEvent struct {
-	AddCluster    []ClusterEvent
-	UpdateCluster []ClusterEvent
-	DeleteCluster []ClusterEvent
+//ClustersEvent
+type ClustersEvent struct {
+	AddCluster    Clusters
+	DeleteCluster Clusters
+	UpdateCluster []*ClusterEvent
 }
 
 //ClusterEvent
 type ClusterEvent struct {
-	Name         string
-	Type         DataSourceType
-	SqlMaxLimit  int
-	Tenant       string
-	AddGroups    []GroupEvent
-	UpdateGroups []GroupEvent
-	DeleteGroups []GroupEvent
+	Name        string
+	Type        DataSourceType
+	SqlMaxLimit int
+	Parameters  ParametersMap
+	GroupsEvent *GroupsEvent
+}
+
+//GroupsEvent
+type GroupsEvent struct {
+	AddGroups    Groups
+	UpdateGroups Groups
+	DeleteGroups Groups
 }
 
 //GroupEvent
@@ -71,4 +76,11 @@ type ShardingRuleEvent struct {
 	AddTables    []*Table
 	UpdateTables []*Table
 	DeleteTables []*Table
+}
+
+//FiltersEvent
+type FiltersEvent struct {
+	AddFilters    Filters
+	UpdateFilters Filters
+	DeleteFilters Filters
 }

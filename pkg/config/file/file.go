@@ -18,11 +18,13 @@
 package file
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 )
 
 import (
@@ -50,9 +52,13 @@ type storeOperate struct {
 	lock      sync.RWMutex
 	receivers map[config.PathKey][]chan []byte
 	cfgJson   map[config.PathKey]string
+	cancels   []context.CancelFunc
 }
 
 func (s *storeOperate) Init(options map[string]interface{}) error {
+
+	ctx, cancel := context.WithCancel(context.Background())
+
 	s.receivers = make(map[config.PathKey][]chan []byte)
 	var (
 		content string
@@ -79,28 +85,48 @@ func (s *storeOperate) Init(options map[string]interface{}) error {
 			return errors.New("no config file found")
 		}
 
+		path, err := formatPath(path)
+		if err != nil {
+			return err
+		}
+
 		if err := s.readFromFile(path, &cfg); err != nil {
 			return err
 		}
+
+		go s.watchFileChange(ctx, path)
 	}
 
 	configJson, err := json.Marshal(cfg)
 	if err != nil {
 		return errors.Wrap(err, "config json.marshal failed")
 	}
-	s.initCfgJsonMap(string(configJson))
+	s.updateCfgJsonMap(string(configJson), false)
+	s.cancels = append(s.cancels, cancel)
+
 	return nil
 }
 
-func (s *storeOperate) initCfgJsonMap(val string) {
+func (s *storeOperate) updateCfgJsonMap(val string, notify bool) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
 	s.cfgJson = make(map[config.PathKey]string)
 
 	for k, v := range config.ConfigKeyMapping {
-		s.cfgJson[k] = gjson.Get(val, v).String()
+
+		val := gjson.Get(val, v).String()
+		s.cfgJson[k] = val
+
+		if notify {
+			for i := range s.receivers[k] {
+				s.receivers[k][i] <- []byte(val)
+			}
+		}
 	}
 
 	if env.IsDevelopEnvironment() {
-		log.Infof("[ConfigCenter][File] load config content : %#v", s.cfgJson)
+		log.Debugf("[ConfigCenter][File] load config content : %#v", s.cfgJson)
 	}
 }
 
@@ -113,7 +139,7 @@ func (s *storeOperate) Get(key config.PathKey) ([]byte, error) {
 	return val, nil
 }
 
-// Watch TODO change notification through file inotify mechanism
+// Watch
 func (s *storeOperate) Watch(key config.PathKey) (<-chan []byte, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
@@ -134,6 +160,11 @@ func (s *storeOperate) Name() string {
 }
 
 func (s *storeOperate) Close() error {
+
+	for i := range s.cancels {
+		s.cancels[i]()
+	}
+
 	return nil
 }
 
@@ -142,16 +173,6 @@ func (s *storeOperate) readFromFile(path string, cfg *config.Configuration) erro
 		f   *os.File
 		err error
 	)
-
-	if strings.HasPrefix(path, "~") {
-		var home string
-		if home, err = os.UserHomeDir(); err != nil {
-			return err
-		}
-		path = strings.Replace(path, "~", home, 1)
-	}
-
-	path = filepath.Clean(path)
 
 	if f, err = os.Open(path); err != nil {
 		return errors.Wrapf(err, "failed to open arana config file '%s'", path)
@@ -178,4 +199,56 @@ func (s *storeOperate) searchDefaultConfigFile() (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func formatPath(path string) (string, error) {
+	if strings.HasPrefix(path, "~") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		path = strings.Replace(path, "~", home, 1)
+	}
+
+	path = filepath.Clean(path)
+
+	return path, nil
+}
+
+func (s *storeOperate) watchFileChange(ctx context.Context, path string) {
+
+	refreshT := time.NewTicker(30 * time.Second)
+
+	oldStat, err := os.Stat(path)
+	if err != nil {
+		log.Errorf("[ConfigCenter][File] get file=%s stat fail : %s", path, err.Error())
+	}
+
+	for {
+		select {
+		case <-refreshT.C:
+			stat, err := os.Stat(path)
+			if err != nil {
+				log.Errorf("[ConfigCenter][File] get file=%s stat fail : %s", path, err.Error())
+				continue
+			}
+
+			if stat.ModTime().Equal(oldStat.ModTime()) {
+				continue
+			}
+
+			cfg := &config.Configuration{}
+			if err := s.readFromFile(path, cfg); err != nil {
+				log.Errorf("[ConfigCenter][File] read file=%s and marshal to Configuration fail : %s", path, err.Error())
+				return
+			}
+
+			log.Errorf("[ConfigCenter][File] watch file=%s change : %+v", path, stat.ModTime())
+			configJson, _ := json.Marshal(cfg)
+			s.updateCfgJsonMap(string(configJson), true)
+		case <-ctx.Done():
+
+		}
+	}
+
 }

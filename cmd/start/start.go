@@ -103,12 +103,7 @@ func Run(bootstrapConfigPath string, importPath string) {
 
 	propeller := server.NewServer()
 
-	listenersConf, err := discovery.ListListeners(context.Background())
-	if err != nil {
-		log.Fatal("start failed: %v", err)
-		return
-	}
-
+	listenersConf := discovery.ListListeners(context.Background())
 	for _, listenerConf := range listenersConf {
 		listener, err := mysql.NewListener(listenerConf)
 		if err != nil {

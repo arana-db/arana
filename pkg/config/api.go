@@ -18,9 +18,10 @@
 package config
 
 import (
-	"errors"
+	"context"
 	"fmt"
 	"io"
+	"path/filepath"
 )
 
 type (
@@ -31,14 +32,32 @@ type (
 	PathKey string
 )
 
-const (
-	DefaultConfigPath                   PathKey = "/arana-db/config"
-	DefaultConfigMetadataPath           PathKey = "/arana-db/config/metadata"
-	DefaultConfigDataListenersPath      PathKey = "/arana-db/config/data/listeners"
-	DefaultConfigDataSourceClustersPath PathKey = "/arana-db/config/data/dataSourceClusters"
-	DefaultConfigDataShardingRulePath   PathKey = "/arana-db/config/data/shardingRule"
-	DefaultConfigDataTenantsPath        PathKey = "/arana-db/config/data/tenants"
+var (
+	_rootPathTemp                       = "/%s/arana-db"
+	DefaultRootPath                     PathKey
+	DefaultConfigMetadataPath           PathKey
+	DefaultTenantsPath                  PathKey
+	DefaultTenantBaseConfigPath         PathKey
+	DefaultConfigDataFiltersPath        PathKey
+	DefaultConfigDataNodesPath          PathKey
+	DefaultConfigDataUsersPath          PathKey
+	DefaultConfigDataSourceClustersPath PathKey
+	DefaultConfigDataShardingRulePath   PathKey
+	DefaultConfigDataShadowRulePath     PathKey
 )
+
+func initPath(root string) {
+	DefaultRootPath = PathKey(fmt.Sprintf(_rootPathTemp, root))
+	DefaultConfigMetadataPath = PathKey(filepath.Join(string(DefaultRootPath), "metadata"))
+	DefaultTenantsPath = PathKey(filepath.Join(string(DefaultRootPath), "tenants"))
+	DefaultTenantBaseConfigPath = PathKey(filepath.Join(string(DefaultRootPath), "tenants/%s"))
+	DefaultConfigDataFiltersPath = PathKey(filepath.Join(string(DefaultTenantBaseConfigPath), "filters"))
+	DefaultConfigDataNodesPath = PathKey(filepath.Join(string(DefaultTenantBaseConfigPath), "nodes"))
+	DefaultConfigDataUsersPath = PathKey(filepath.Join(string(DefaultTenantBaseConfigPath), "users"))
+	DefaultConfigDataSourceClustersPath = PathKey(filepath.Join(string(DefaultTenantBaseConfigPath), "dataSourceClusters"))
+	DefaultConfigDataShardingRulePath = PathKey(filepath.Join(string(DefaultConfigDataSourceClustersPath), "shardingRule"))
+	DefaultConfigDataShadowRulePath = PathKey(filepath.Join(string(DefaultConfigDataSourceClustersPath), "shadowRule"))
+}
 
 const (
 	Http ProtocolType = iota
@@ -56,25 +75,6 @@ var (
 	storeOperate StoreOperate
 )
 
-func GetStoreOperate() (StoreOperate, error) {
-	if storeOperate != nil {
-		return storeOperate, nil
-	}
-
-	return nil, errors.New("StoreOperate not init")
-}
-
-func Init(name string, options map[string]interface{}) error {
-	s, exist := slots[name]
-	if !exist {
-		return fmt.Errorf("StoreOperate solt=[%s] not exist", name)
-	}
-
-	storeOperate = s
-
-	return storeOperate.Init(options)
-}
-
 // Register register store plugin
 func Register(s StoreOperate) {
 	if _, ok := slots[s.Name()]; ok {
@@ -84,22 +84,64 @@ func Register(s StoreOperate) {
 	slots[s.Name()] = s
 }
 
-// StoreOperate config storage related plugins
-type StoreOperate interface {
-	io.Closer
+type (
+	//EventSubscriber
+	EventSubscriber interface {
+		//OnEvent
+		OnEvent(event Event)
+		//Type
+		Type() EventType
+	}
 
-	// Init plugin initialization
-	Init(options map[string]interface{}) error
+	Options struct {
+		StoreName string                 `yaml:"name"`
+		RootPath  string                 `yaml:"root_path"`
+		Options   map[string]interface{} `yaml:"options"`
+	}
 
-	// Save save a configuration data
-	Save(key PathKey, val []byte) error
+	//TenantOperate 专门针对租户空间的相关操作
+	TenantOperate interface {
+		Tenants() ([]string, error)
 
-	// Get get a configuration
-	Get(key PathKey) ([]byte, error)
+		CreateTenant(string) error
 
-	// Watch Monitor changes of the key
-	Watch(key PathKey) (<-chan []byte, error)
+		RemoveTenant(string) error
+	}
 
-	// Name plugin name
-	Name() string
-}
+	// Center
+	Center interface {
+		io.Closer
+
+		//Load 每次都是拉取全量的配置数据
+		Load(ctx context.Context) (*Tenant, error)
+
+		//Import 导入配置，仅针对某个命名空间下
+		Import(ctx context.Context, cfg *Tenant) error
+
+		Subscribe(ctx context.Context, s ...EventSubscriber)
+
+		UnSubscribe(ctx context.Context, s ...EventSubscriber)
+
+		Tenant() string
+	}
+
+	// StoreOperate config storage related plugins
+	StoreOperate interface {
+		io.Closer
+
+		// Init plugin initialization
+		Init(options map[string]interface{}) error
+
+		// Save save a configuration data
+		Save(key PathKey, val []byte) error
+
+		// Get get a configuration
+		Get(key PathKey) ([]byte, error)
+
+		// Watch Monitor changes of the key
+		Watch(key PathKey) (<-chan []byte, error)
+
+		// Name plugin name
+		Name() string
+	}
+)
