@@ -45,7 +45,6 @@ var (
 		config.DefaultConfigPath:                   "",
 		config.DefaultConfigMetadataPath:           "",
 		config.DefaultConfigDataListenersPath:      "",
-		config.DefaultConfigDataFiltersPath:        "",
 		config.DefaultConfigDataSourceClustersPath: "",
 		config.DefaultConfigDataShardingRulePath:   "",
 		config.DefaultConfigDataTenantsPath:        "",
@@ -212,21 +211,16 @@ func Test_watch(t *testing.T) {
 
 	newCfg, _ := config.Load(testdata.Path("fake_config.yaml"))
 
-	newCfg.Data.Filters = append(newCfg.Data.Filters, &config.Filter{
-		Name:   "arana-nacos-watch",
-		Config: []byte("{\"arana-nacos-watch\":\"arana-nacos-watch\"}"),
-	})
-
-	receiver, err := operate.Watch(config.DefaultConfigDataFiltersPath)
+	receiver, err := operate.Watch(config.DefaultConfigDataTenantsPath)
 	assert.NoError(t, err, "should be success")
 
 	data, err := json.Marshal(newCfg)
 	assert.NoError(t, err, "should be marshal success")
 
 	for k, v := range config.ConfigKeyMapping {
-		if k == config.DefaultConfigDataFiltersPath {
+		if k == config.DefaultConfigDataTenantsPath {
 			operate.client.PublishConfig(vo.ConfigParam{
-				DataId:  string(config.DefaultConfigDataFiltersPath),
+				DataId:  string(config.DefaultConfigDataTenantsPath),
 				Content: string(gjson.GetBytes(data, v).String()),
 			})
 		}
@@ -236,7 +230,7 @@ func Test_watch(t *testing.T) {
 
 	ret := <-receiver
 
-	expectVal := string(gjson.GetBytes(data, config.ConfigKeyMapping[config.DefaultConfigDataFiltersPath]).String())
+	expectVal := string(gjson.GetBytes(data, config.ConfigKeyMapping[config.DefaultConfigDataTenantsPath]).String())
 
 	t.Logf("expect val : %s", expectVal)
 	t.Logf("acutal val : %s", string(ret))

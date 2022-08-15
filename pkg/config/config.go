@@ -44,7 +44,6 @@ var (
 	ConfigKeyMapping map[PathKey]string = map[PathKey]string{
 		DefaultConfigMetadataPath:           "metadata",
 		DefaultConfigDataTenantsPath:        "data.tenants",
-		DefaultConfigDataFiltersPath:        "data.filters",
 		DefaultConfigDataListenersPath:      "data.listeners",
 		DefaultConfigDataSourceClustersPath: "data.clusters",
 		DefaultConfigDataShardingRulePath:   "data.sharding_rule",
@@ -56,9 +55,6 @@ var (
 		},
 		DefaultConfigDataTenantsPath: func(cfg *Configuration) interface{} {
 			return &cfg.Data.Tenants
-		},
-		DefaultConfigDataFiltersPath: func(cfg *Configuration) interface{} {
-			return &cfg.Data.Filters
 		},
 		DefaultConfigDataListenersPath: func(cfg *Configuration) interface{} {
 			return &cfg.Data.Listeners
@@ -158,7 +154,6 @@ func (c *Center) loadFromStore(ctx context.Context) (*Configuration, error) {
 	cfg := &Configuration{
 		Metadata: make(map[string]interface{}),
 		Data: &Data{
-			Filters:            make([]*Filter, 0),
 			Listeners:          make([]*Listener, 0),
 			Tenants:            make([]*Tenant, 0),
 			DataSourceClusters: make([]*DataSourceCluster, 0),

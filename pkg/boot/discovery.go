@@ -84,8 +84,6 @@ type Discovery interface {
 
 	// ListListeners lists the listener names
 	ListListeners(ctx context.Context) ([]*config.Listener, error)
-	// ListFilters list the filter names
-	ListFilters(ctx context.Context) ([]*config.Filter, error)
 
 	// ListClusters lists the cluster names.
 	ListClusters(ctx context.Context) ([]string, error)
@@ -219,15 +217,6 @@ func (fp *discovery) ListListeners(ctx context.Context) ([]*config.Listener, err
 	}
 
 	return cfg.Data.Listeners, nil
-}
-
-func (fp *discovery) ListFilters(ctx context.Context) ([]*config.Filter, error) {
-	cfg, err := fp.c.Load()
-	if err != nil {
-		return nil, err
-	}
-
-	return cfg.Data.Filters, nil
 }
 
 func (fp *discovery) ListClusters(ctx context.Context) ([]string, error) {

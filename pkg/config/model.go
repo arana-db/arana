@@ -62,17 +62,11 @@ type (
 	}
 
 	Data struct {
-		Filters            []*Filter            `yaml:"filters" json:"filters,omitempty"`
 		Listeners          []*Listener          `validate:"required,dive" yaml:"listeners" json:"listeners"`
 		Tenants            []*Tenant            `validate:"required,dive" yaml:"tenants" json:"tenants"`
 		DataSourceClusters []*DataSourceCluster `validate:"required,dive" yaml:"clusters" json:"clusters"`
 		ShardingRule       *ShardingRule        `validate:"required,dive" yaml:"sharding_rule,omitempty" json:"sharding_rule,omitempty"`
 		ShadowRule         *ShadowRule          `yaml:"shadow_rule,omitempty" json:"shadow_rule,omitempty"`
-	}
-
-	Filter struct {
-		Name   string          `json:"name,omitempty"`
-		Config json.RawMessage `json:"config,omitempty"`
 	}
 
 	Tenant struct {
