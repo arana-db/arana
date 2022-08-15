@@ -31,6 +31,8 @@ query_row_cases:
     sense:
       - db
       - tbl
+      - db_tbl
+      - db_tbl_rw
     expected:
       type: "valueInt"
       value: "1"
@@ -40,6 +42,16 @@ exec_cases:
     sense:
       - db
       - tbl
+      - db_tbl
+      - db_tbl_rw
+    expected:
+      type: "rowAffect"
+      value: 1
+delete_cases:
+  - sql: "DELETE FROM sequence WHERE name=?"
+    parameters: "1:string"
+    sense:
+      - db_tbl_rw
     expected:
       type: "rowAffect"
       value: 1
