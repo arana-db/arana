@@ -74,15 +74,16 @@ func (s *SimpleQueryPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 
 	version := rcontext.Version(ctx)
 	if strings.Compare(version, "8.0.0") >= 0 {
-		args_cachesize_57 := "@@query_cache_size"
-		args_cachesize_80 := "1048576"
-		query = strings.Replace(query, args_cachesize_57, args_cachesize_80, -1)
-		args_cachetype_57 := "@@query_cache_type"
-		args_cachetype_80 := "'OFF'"
-		query = strings.Replace(query, args_cachetype_57, args_cachetype_80, -1)
-		args_txiso_57 := "@@tx_isolation"
-		args_txiso_80 := "@@transaction_isolation"
-		query = strings.Replace(query, args_txiso_57, args_txiso_80, -1)
+		argsCacheSize57 := "@@query_cache_size"
+		argsCacheSize80 := "1048576"
+		argsCacheType57 := "@@query_cache_type"
+		argsCacheType80 := "'OFF'"
+		argsTxIso57 := "@@tx_isolation"
+		argsTxIso80 := "@@transaction_isolation"
+		query = strings.NewReplacer(
+			argsCacheSize57, argsCacheSize80,
+			argsCacheType57, argsCacheType80,
+			argsTxIso57, argsTxIso80).Replace(query)
 		log.Debugf("ComQueryFor8.0: %s", query)
 	}
 	if res, err = conn.Query(ctx, s.Database, query, args...); err != nil {
