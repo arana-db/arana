@@ -27,8 +27,6 @@ import (
 )
 
 import (
-	"github.com/pkg/errors"
-
 	"github.com/spf13/cobra"
 )
 
@@ -37,7 +35,6 @@ import (
 	"github.com/arana-db/arana/pkg/boot"
 	"github.com/arana-db/arana/pkg/constants"
 	"github.com/arana-db/arana/pkg/executor"
-	filter "github.com/arana-db/arana/pkg/filters"
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/server"
 	"github.com/arana-db/arana/pkg/util/log"
@@ -77,24 +74,6 @@ func Run(bootstrapConfigPath string) {
 	if err := boot.Boot(context.Background(), provider); err != nil {
 		log.Fatal("start failed: %v", err)
 		return
-	}
-
-	filters, err := provider.ListFilters(context.Background())
-	if err != nil {
-		log.Fatal("start failed: %v", err)
-		return
-	}
-
-	for _, filterConf := range filters {
-		factory := filter.GetFilterFactory(filterConf.Name)
-		if factory == nil {
-			panic(errors.Errorf("there is no filter factory for filter: %s", filterConf.Name))
-		}
-		f, err := factory.NewFilter(filterConf.Config)
-		if err != nil {
-			panic(errors.WithMessagef(err, "failed to create filter: %s", filterConf.Name))
-		}
-		filter.RegisterFilter(f.GetName(), f)
 	}
 
 	propeller := server.NewServer()

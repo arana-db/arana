@@ -661,8 +661,8 @@ func (s *IntegrationSuite) TestOrderBy() {
 		{"select uid,name from student where uid between ? and ? order by birth_year", false},
 		{"select uid,name from student where uid between ? and ? order by birth_year desc", true},
 		{"select uid,name,birth_year as birth from student where uid between ? and ? order by birth_year desc", true},
-		//TODO: {"select uid,name,birth_year as birth from student where uid between ? and ? order by -birth_year", true},
-		//TODO: {"select uid,name,birth_year as birth from student where uid between ? and ? order by 2022-birth_year", true},
+		// TODO: {"select uid,name,birth_year as birth from student where uid between ? and ? order by -birth_year", true},
+		// TODO: {"select uid,name,birth_year as birth from student where uid between ? and ? order by 2022-birth_year", true},
 	} {
 		s.T().Run(it.sql, func(t *testing.T) {
 			begin := uids[0]
