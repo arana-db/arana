@@ -50,8 +50,14 @@ const (
 	_scheme       string = "scheme"
 )
 
+var (
+	PluginName = "nacos"
+)
+
 func init() {
-	config.Register(&storeOperate{})
+	config.Register(PluginName, func() config.StoreOperate {
+		return &storeOperate{}
+	})
 }
 
 // StoreOperate config storage related plugins
@@ -63,10 +69,13 @@ type storeOperate struct {
 	lock       *sync.RWMutex
 	receivers  map[config.PathKey]*nacosWatcher
 	cancelList []context.CancelFunc
+
+	pathInfo *config.PathInfo
 }
 
 // Init plugin initialization
 func (s *storeOperate) Init(options map[string]interface{}) error {
+	s.pathInfo = config.NewPathInfo(options["tenant"].(string))
 	s.lock = &sync.RWMutex{}
 	s.cfgLock = &sync.RWMutex{}
 	s.confMap = make(map[config.PathKey]string)
@@ -156,7 +165,7 @@ func (s *storeOperate) loadDataFromServer() error {
 	s.cfgLock.Lock()
 	defer s.cfgLock.Unlock()
 
-	for dataId := range config.ConfigKeyMapping {
+	for dataId := range s.pathInfo.ConfigKeyMapping {
 		data, err := s.client.GetConfig(vo.ConfigParam{
 			DataId: string(dataId),
 			Group:  s.groupName,
@@ -224,7 +233,7 @@ func (s *storeOperate) Watch(key config.PathKey) (<-chan []byte, error) {
 
 // Name plugin name
 func (s *storeOperate) Name() string {
-	return "nacos"
+	return PluginName
 }
 
 // Close closes storeOperate

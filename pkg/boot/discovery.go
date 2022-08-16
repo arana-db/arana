@@ -56,6 +56,11 @@ var (
 	_regexpRuleExprSync sync.Once
 )
 
+var (
+	ErrorNotTenant            = errors.New("not tenant")
+	ErrorNotDataSourceCluster = errors.New("not datasourceCluster")
+)
+
 func getTableRegexp() *regexp.Regexp {
 	_regexpTableOnce.Do(func() {
 		_regexpTable = regexp.MustCompile("([a-zA-Z0-9\\-_]+)\\.([a-zA-Z0-9\\\\-_]+)")
@@ -139,6 +144,15 @@ func (fp *discovery) RemoveTable(ctx context.Context, tenant, cluster, table str
 	panic("implement me")
 }
 
+func (fp *discovery) Import(ctx context.Context, info *config.Tenant) error {
+	op, ok := fp.centers[info.Name]
+	if !ok {
+		return ErrorNotTenant
+	}
+
+	return op.Import(ctx, info)
+}
+
 func (fp *discovery) Init(ctx context.Context) error {
 	if !fp.inited.CAS(false, true) {
 		return nil
@@ -148,17 +162,17 @@ func (fp *discovery) Init(ctx context.Context) error {
 		return err
 	}
 
-	if err := config.Init(*fp.options.Config); err != nil {
+	if err := config.Init(*fp.options.Config, fp.options.Spec.APIVersion); err != nil {
 		return err
 	}
 
-	op, err := config.GetStoreOperate()
+	op, err := config.GetStoreOperate(*fp.options.Config)
 	if err != nil {
 		return err
 	}
 
 	fp.tenantOp = config.NewTenantOperate(op)
-	if err := fp.initAllConfigCenter(op); err != nil {
+	if err := fp.initAllConfigCenter(); err != nil {
 		return err
 	}
 
@@ -187,7 +201,7 @@ func (fp *discovery) loadBootOptions() error {
 	return nil
 }
 
-func (fp *discovery) initAllConfigCenter(op config.StoreOperate) error {
+func (fp *discovery) initAllConfigCenter() error {
 
 	tenants, err := fp.tenantOp.Tenants()
 	if err != nil {
@@ -197,6 +211,17 @@ func (fp *discovery) initAllConfigCenter(op config.StoreOperate) error {
 	for i := range tenants {
 		tenant := tenants[i]
 
+		options := *fp.options.Config
+		if len(options.Options) == 0 {
+			options.Options = map[string]interface{}{}
+		}
+		options.Options["tenant"] = tenant
+
+		op, err := config.GetStoreOperate(options)
+		if err != nil {
+			return err
+		}
+
 		fp.centers[tenant] = config.NewCenter(tenant, op)
 	}
 
@@ -204,9 +229,9 @@ func (fp *discovery) initAllConfigCenter(op config.StoreOperate) error {
 }
 
 func (fp *discovery) GetDataSourceCluster(ctx context.Context, tenant, cluster string) (*config.DataSourceCluster, error) {
-	dataSourceCluster, ok := fp.loadCluster(cluster)
-	if !ok {
-		return nil, nil
+	dataSourceCluster, err := fp.loadCluster(cluster, tenant)
+	if err != nil {
+		return nil, err
 	}
 	return dataSourceCluster, nil
 }
@@ -221,26 +246,40 @@ func (fp *discovery) GetGroup(ctx context.Context, tenant, cluster, group string
 }
 
 func (fp *discovery) GetCluster(ctx context.Context, tenant, cluster string) (*Cluster, error) {
-	exist, ok := fp.loadCluster(cluster)
-	if !ok {
-		return nil, nil
+	exist, err := fp.loadCluster(tenant, cluster)
+	if err != nil {
+		return nil, err
 	}
 
 	return &Cluster{
-		Tenant: exist.Tenant,
-		Type:   exist.Type,
+		Type: exist.Type,
 	}, nil
 }
 
 func (fp *discovery) ListTenants(ctx context.Context) ([]string, error) {
-	return nil, nil
+
+	return fp.tenantOp.Tenants()
 }
 
 func (fp *discovery) GetTenant(ctx context.Context, tenant string) (*config.Tenant, error) {
 	return nil, nil
 }
 
-func (fp *discovery) ListListeners(ctx context.Context) []*Listener {
+func (fp *discovery) ListUsers(ctx context.Context, tenant string) (config.Users, error) {
+	op, ok := fp.centers[tenant]
+	if !ok {
+		return nil, ErrorNotTenant
+	}
+
+	cfg, err := op.Load(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	return cfg.Users, nil
+}
+
+func (fp *discovery) ListListeners(ctx context.Context) []*config.Listener {
 	return fp.options.Listeners
 }
 
@@ -255,9 +294,9 @@ func (fp *discovery) ListClusters(ctx context.Context, tenant string) ([]string,
 }
 
 func (fp *discovery) ListGroups(ctx context.Context, tenant, cluster string) ([]string, error) {
-	bingo, ok := fp.loadCluster(cluster)
-	if !ok {
-		return nil, nil
+	bingo, err := fp.loadCluster(tenant, cluster)
+	if err != nil {
+		return nil, err
 	}
 	groups := make([]string, 0, len(bingo.Groups))
 	for _, it := range bingo.Groups {
@@ -268,14 +307,15 @@ func (fp *discovery) ListGroups(ctx context.Context, tenant, cluster string) ([]
 }
 
 func (fp *discovery) ListNodes(ctx context.Context, tenant, cluster, group string) ([]string, error) {
-	bingo, ok := fp.loadGroup(cluster, group)
+
+	bingo, ok := fp.loadGroup(tenant, cluster, group)
 	if !ok {
 		return nil, nil
 	}
 
 	var nodes []string
-	for _, it := range bingo.Nodes {
-		nodes = append(nodes, it.Name)
+	for i := range bingo.Nodes {
+		nodes = append(nodes, bingo.Nodes[i])
 	}
 
 	return nodes, nil
@@ -287,25 +327,45 @@ func (fp *discovery) ListTables(ctx context.Context, tenant, cluster string) ([]
 }
 
 func (fp *discovery) GetNode(ctx context.Context, tenant, cluster, group, node string) (*config.Node, error) {
-	bingo, ok := fp.loadGroup(cluster, group)
+
+	op, ok := fp.centers[tenant]
+	if !ok {
+		return nil, ErrorNotTenant
+	}
+
+	var nodeId string
+
+	bingo, ok := fp.loadGroup(tenant, cluster, group)
 	if !ok {
 		return nil, nil
 	}
-	for _, it := range bingo.Nodes {
-		if it.Name == node {
-			return it, nil
+
+	for i := range bingo.Nodes {
+		if bingo.Nodes[i] == node {
+			nodeId = node
+			break
 		}
 	}
-	return nil, nil
-}
 
-func (fp *discovery) GetTable(ctx context.Context, tenant, cluster, tableName string) (*rule.VTable, error) {
-	cfg, err := fp.centers[""].Load(ctx)
+	if nodeId == "" {
+		return nil, nil
+	}
+
+	nodes, err := fp.loadNodes(op)
 	if err != nil {
 		return nil, err
 	}
 
-	table, ok := fp.loadTables(cfg, cluster)[tableName]
+	return nodes[nodeId], nil
+}
+
+func (fp *discovery) GetTable(ctx context.Context, tenant, cluster, tableName string) (*rule.VTable, error) {
+	op, ok := fp.centers[tenant]
+	if !ok {
+		return nil, ErrorNotTenant
+	}
+
+	table, ok := fp.loadTables(cluster, op)[tableName]
 	if !ok {
 		return nil, nil
 	}
@@ -316,6 +376,7 @@ func (fp *discovery) GetTable(ctx context.Context, tenant, cluster, tableName st
 		dbFormat, tbFormat string
 		dbBegin, tbBegin   int
 		dbEnd, tbEnd       int
+		err                error
 	)
 
 	if table.Topology != nil {
@@ -453,23 +514,37 @@ func (fp *discovery) GetTable(ctx context.Context, tenant, cluster, tableName st
 	return &vt, nil
 }
 
-func (fp *discovery) loadCluster(cluster string) (*config.DataSourceCluster, bool) {
-	//cfg, err := fp.c.Load()
-	//if err != nil {
-	//	return nil, false
-	//}
-	//
-	//for _, it := range cfg.Data.DataSourceClusters {
-	//	if it.Name == cluster {
-	//		return it, true
-	//	}
-	//}
-	return nil, false
+func (fp *discovery) loadCluster(tenant, cluster string) (*config.DataSourceCluster, error) {
+	op, ok := fp.centers[tenant]
+	if !ok {
+		return nil, ErrorNotTenant
+	}
+
+	cfg, err := op.Load(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	for _, it := range cfg.DataSourceClusters {
+		if it.Name == cluster {
+			return it, nil
+		}
+	}
+	return nil, ErrorNotDataSourceCluster
 }
 
-func (fp *discovery) loadGroup(cluster, group string) (*config.Group, bool) {
-	bingo, ok := fp.loadCluster(cluster)
-	if !ok {
+func (fp *discovery) loadNodes(op config.Center) (config.Nodes, error) {
+	cfg, err := op.Load(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	return cfg.Nodes, nil
+}
+
+func (fp *discovery) loadGroup(tenant, cluster, group string) (*config.Group, bool) {
+	bingo, err := fp.loadCluster(tenant, cluster)
+	if err != nil {
 		return nil, false
 	}
 	for _, it := range bingo.Groups {
@@ -480,13 +555,14 @@ func (fp *discovery) loadGroup(cluster, group string) (*config.Group, bool) {
 	return nil, false
 }
 
-func (fp *discovery) loadTables(cfg *config.Configuration, cluster string) map[string]*config.Table {
-	if len(cfg.Data.Tenants) < 1 {
+func (fp *discovery) loadTables(cluster string, op config.Center) map[string]*config.Table {
+	cfg, err := op.Load(context.Background())
+	if err != nil {
 		return nil
 	}
 
 	var tables map[string]*config.Table
-	for _, it := range cfg.Data.Tenants[0].ShardingRule.Tables {
+	for _, it := range cfg.ShardingRule.Tables {
 		db, tb, err := parseTable(it.Name)
 		if err != nil {
 			log.Warnf("skip parsing table rule: %v", err)
@@ -605,6 +681,7 @@ func parseTable(input string) (db, tbl string, err error) {
 
 func NewDiscovery(path string) Discovery {
 	return &discovery{
-		path: path,
+		path:    path,
+		centers: map[string]config.Center{},
 	}
 }

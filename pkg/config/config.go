@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 )
@@ -38,41 +39,6 @@ import (
 import (
 	"github.com/arana-db/arana/pkg/util/env"
 	"github.com/arana-db/arana/pkg/util/log"
-)
-
-var (
-	ConfigKeyMapping = map[PathKey]string{
-		DefaultConfigMetadataPath:           "metadata",
-		DefaultTenantsPath:                  "tenants",
-		DefaultConfigDataUsersPath:          "tenants.users",
-		DefaultConfigDataSourceClustersPath: "tenants.clusters",
-		DefaultConfigDataShardingRulePath:   "tenants.sharding_rule",
-		DefaultConfigDataNodesPath:          "tenants.nodes",
-		DefaultConfigDataShadowRulePath:     "tenants.shadow",
-	}
-
-	ConfigEventMapping = map[PathKey]EventType{
-		DefaultConfigDataUsersPath:          EventTypeUsers,
-		DefaultConfigDataNodesPath:          EventTypeNodes,
-		DefaultConfigDataSourceClustersPath: EventTypeClusters,
-		DefaultConfigDataShardingRulePath:   EventTypeShardingRule,
-		DefaultConfigDataShadowRulePath:     EventTypeShadowRule,
-	}
-
-	_configValSupplier = map[PathKey]func(cfg *Tenant) interface{}{
-		DefaultConfigDataSourceClustersPath: func(cfg *Tenant) interface{} {
-			return cfg.DataSourceClusters
-		},
-		DefaultConfigDataShardingRulePath: func(cfg *Tenant) interface{} {
-			return &cfg.ShardingRule
-		},
-		DefaultConfigDataShardingRulePath: func(cfg *Tenant) interface{} {
-			return &cfg.ShardingRule
-		},
-		DefaultConfigDataShardingRulePath: func(cfg *Tenant) interface{} {
-			return &cfg.ShardingRule
-		},
-	}
 )
 
 func NewTenantOperate(op StoreOperate) TenantOperate {
@@ -113,9 +79,13 @@ func (tp *tenantOperate) RemoveTenant(name string) error {
 }
 
 type center struct {
-	tenant       string
-	initialize   int32
+	tenant     string
+	initialize int32
+
+	firstLoad int32
+
 	storeOperate StoreOperate
+	pathInfo     *PathInfo
 	holders      map[PathKey]*atomic.Value
 
 	lock         sync.RWMutex
@@ -123,14 +93,83 @@ type center struct {
 	watchCancels []context.CancelFunc
 }
 
+type PathInfo struct {
+	DefaultConfigSpecPath               PathKey
+	DefaultTenantBaseConfigPath         PathKey
+	DefaultConfigDataNodesPath          PathKey
+	DefaultConfigDataUsersPath          PathKey
+	DefaultConfigDataSourceClustersPath PathKey
+	DefaultConfigDataShardingRulePath   PathKey
+	DefaultConfigDataShadowRulePath     PathKey
+
+	ConfigKeyMapping   map[PathKey]string
+	ConfigEventMapping map[PathKey]EventType
+	ConfigValSupplier  map[PathKey]func(cfg *Tenant) interface{}
+}
+
+func NewPathInfo(tenant string) *PathInfo {
+
+	p := &PathInfo{}
+
+	p.DefaultTenantBaseConfigPath = PathKey(filepath.Join(string(DefaultRootPath), fmt.Sprintf("tenants/%s", tenant)))
+	p.DefaultConfigSpecPath = PathKey(filepath.Join(string(p.DefaultTenantBaseConfigPath), "spec"))
+	p.DefaultConfigDataNodesPath = PathKey(filepath.Join(string(p.DefaultTenantBaseConfigPath), "nodes"))
+	p.DefaultConfigDataUsersPath = PathKey(filepath.Join(string(p.DefaultTenantBaseConfigPath), "users"))
+	p.DefaultConfigDataSourceClustersPath = PathKey(filepath.Join(string(p.DefaultTenantBaseConfigPath), "dataSourceClusters"))
+	p.DefaultConfigDataShardingRulePath = PathKey(filepath.Join(string(p.DefaultConfigDataSourceClustersPath), "shardingRule"))
+	p.DefaultConfigDataShadowRulePath = PathKey(filepath.Join(string(p.DefaultConfigDataSourceClustersPath), "shadowRule"))
+
+	p.ConfigKeyMapping = map[PathKey]string{
+		p.DefaultConfigSpecPath:               "spec",
+		p.DefaultConfigDataUsersPath:          "users",
+		p.DefaultConfigDataSourceClustersPath: "clusters",
+		p.DefaultConfigDataShardingRulePath:   "sharding_rule",
+		p.DefaultConfigDataNodesPath:          "nodes",
+		p.DefaultConfigDataShadowRulePath:     "shadow_rule",
+	}
+
+	p.ConfigEventMapping = map[PathKey]EventType{
+		p.DefaultConfigDataUsersPath:          EventTypeUsers,
+		p.DefaultConfigDataNodesPath:          EventTypeNodes,
+		p.DefaultConfigDataSourceClustersPath: EventTypeClusters,
+		p.DefaultConfigDataShardingRulePath:   EventTypeShardingRule,
+		p.DefaultConfigDataShadowRulePath:     EventTypeShadowRule,
+	}
+
+	p.ConfigValSupplier = map[PathKey]func(cfg *Tenant) interface{}{
+		p.DefaultConfigDataUsersPath: func(cfg *Tenant) interface{} {
+			return &cfg.Users
+		},
+		p.DefaultConfigDataSourceClustersPath: func(cfg *Tenant) interface{} {
+			return &cfg.DataSourceClusters
+		},
+		p.DefaultConfigDataNodesPath: func(cfg *Tenant) interface{} {
+			return &cfg.Nodes
+		},
+		p.DefaultConfigDataShardingRulePath: func(cfg *Tenant) interface{} {
+			return cfg.ShardingRule
+		},
+		p.DefaultConfigDataShadowRulePath: func(cfg *Tenant) interface{} {
+			return cfg.ShadowRule
+		},
+	}
+
+	return p
+}
+
 func NewCenter(tenant string, op StoreOperate) Center {
+
+	p := NewPathInfo(tenant)
+
 	holders := map[PathKey]*atomic.Value{}
-	for k := range ConfigKeyMapping {
+	for k := range p.ConfigKeyMapping {
 		holders[k] = &atomic.Value{}
-		holders[k].Store(&Configuration{})
+		holders[k].Store(&Tenant{})
 	}
 
 	return &center{
+		firstLoad:    0,
+		pathInfo:     p,
 		tenant:       tenant,
 		holders:      holders,
 		storeOperate: op,
@@ -169,12 +208,28 @@ func (c *center) Load(ctx context.Context) (*Tenant, error) {
 }
 
 func (c *center) compositeConfiguration() *Tenant {
+
+	if atomic.CompareAndSwapInt32(&c.firstLoad, 0, 1) {
+		return nil
+	}
+
 	conf := &Tenant{}
-	conf.Users = c.holders[DefaultConfigDataUsersPath].Load().(*Tenant).Users
-	conf.Nodes = c.holders[DefaultConfigDataNodesPath].Load().(*Tenant).Nodes
-	conf.DataSourceClusters = c.holders[DefaultConfigDataSourceClustersPath].Load().(*Tenant).DataSourceClusters
-	conf.ShardingRule = c.holders[DefaultConfigDataShardingRulePath].Load().(*Tenant).ShardingRule
-	conf.ShadowRule = c.holders[DefaultConfigDataShadowRulePath].Load().(*Tenant).ShadowRule
+
+	if val := c.holders[c.pathInfo.DefaultConfigDataUsersPath].Load(); val != nil {
+		conf.Users = val.(*Tenant).Users
+	}
+	if val := c.holders[c.pathInfo.DefaultConfigDataNodesPath].Load(); val != nil {
+		conf.Nodes = val.(*Tenant).Nodes
+	}
+	if val := c.holders[c.pathInfo.DefaultConfigDataSourceClustersPath].Load(); val != nil {
+		conf.DataSourceClusters = val.(*Tenant).DataSourceClusters
+	}
+	if val := c.holders[c.pathInfo.DefaultConfigDataShardingRulePath].Load(); val != nil {
+		conf.ShardingRule = val.(*Tenant).ShardingRule
+	}
+	if val := c.holders[c.pathInfo.DefaultConfigDataShadowRulePath].Load(); val != nil {
+		conf.ShadowRule = val.(*Tenant).ShadowRule
+	}
 
 	return conf
 }
@@ -187,27 +242,32 @@ func (c *center) loadFromStore(ctx context.Context) (*Tenant, error) {
 	operate := c.storeOperate
 
 	cfg := &Tenant{
+		Spec: Spec{
+			Metadata: map[string]interface{}{},
+		},
 		Users:              make([]*User, 0, 4),
-		Nodes:              make([]*Node, 0, 4),
+		Nodes:              make(map[string]*Node),
 		DataSourceClusters: make([]*DataSourceCluster, 0, 4),
 		ShardingRule:       new(ShardingRule),
 		ShadowRule:         new(ShadowRule),
 	}
 
-	for k := range ConfigKeyMapping {
+	for k := range c.pathInfo.ConfigKeyMapping {
 		val, err := operate.Get(k)
 		if err != nil {
 			return nil, err
 		}
 
-		supplier, ok := _configValSupplier[k]
+		supplier, ok := c.pathInfo.ConfigValSupplier[k]
 
 		if !ok {
-			return nil, fmt.Errorf("%s not register val supplier", k)
+			//return nil, fmt.Errorf("%s not register val supplier", k)
+			continue
 		}
 
 		if len(val) != 0 {
-			if err := json.Unmarshal(val, supplier(cfg)); err != nil {
+			exp := supplier(cfg)
+			if err := yaml.Unmarshal(val, exp); err != nil {
 				return nil, err
 			}
 		}
@@ -220,9 +280,9 @@ func (c *center) watchFromStore() error {
 		return nil
 	}
 
-	cancels := make([]context.CancelFunc, 0, len(ConfigKeyMapping))
+	cancels := make([]context.CancelFunc, 0, len(c.pathInfo.ConfigKeyMapping))
 
-	for k := range ConfigKeyMapping {
+	for k := range c.pathInfo.ConfigKeyMapping {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancels = append(cancels, cancel)
 		ch, err := c.storeOperate.Watch(k)
@@ -238,7 +298,7 @@ func (c *center) watchFromStore() error {
 
 func (c *center) watchKey(ctx context.Context, key PathKey, ch <-chan []byte) {
 	consumer := func(ret []byte) {
-		supplier, ok := _configValSupplier[key]
+		supplier, ok := c.pathInfo.ConfigValSupplier[key]
 		if !ok {
 			log.Errorf("%s not register val supplier", key)
 			return
@@ -247,14 +307,14 @@ func (c *center) watchKey(ctx context.Context, key PathKey, ch <-chan []byte) {
 		cfg := c.holders[key].Load().(*Tenant)
 
 		if len(ret) != 0 {
-			if err := json.Unmarshal(ret, supplier(cfg)); err != nil {
+			if err := yaml.Unmarshal(ret, supplier(cfg)); err != nil {
 				log.Errorf("", err)
 			}
 		}
 
 		c.holders[key].Store(cfg)
 
-		et := ConfigEventMapping[key]
+		et := c.pathInfo.ConfigEventMapping[key]
 
 		notify := func() {
 			c.lock.RLock()
@@ -290,8 +350,14 @@ func (c *center) doPersist(ctx context.Context, conf *Tenant) error {
 		return fmt.Errorf("config json.marshal failed  %v err:", err)
 	}
 
-	for k, v := range ConfigKeyMapping {
-		if err := c.storeOperate.Save(k, []byte(gjson.GetBytes(configJson, v).String())); err != nil {
+	for k, v := range c.pathInfo.ConfigKeyMapping {
+
+		ret, err := JSONToYAML(gjson.GetBytes(configJson, v).String())
+		if err != nil {
+			return err
+		}
+
+		if err := c.storeOperate.Save(k, ret); err != nil {
 			return err
 		}
 	}
@@ -340,4 +406,21 @@ func (c *center) UnSubscribe(ctx context.Context, s ...EventSubscriber) {
 
 func (c *center) Tenant() string {
 	return c.tenant
+}
+
+func JSONToYAML(j string) ([]byte, error) {
+	// Convert the JSON to an object.
+	var jsonObj interface{}
+	// We are using yaml.Unmarshal here (instead of json.Unmarshal) because the
+	// Go JSON library doesn't try to pick the right number type (int, float,
+	// etc.) when unmarshalling to interface{}, it just picks float64
+	// universally. go-yaml does go through the effort of picking the right
+	// number type, so we can preserve number type throughout this process.
+	err := yaml.Unmarshal([]byte(j), &jsonObj)
+	if err != nil {
+		return nil, err
+	}
+
+	// Marshal this object into YAML.
+	return yaml.Marshal(jsonObj)
 }

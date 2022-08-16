@@ -19,34 +19,31 @@
 package config
 
 import (
-	"fmt"
 	"github.com/pkg/errors"
 )
 
-func GetStoreOperate() (StoreOperate, error) {
-	if storeOperate != nil {
-		return storeOperate, nil
+var (
+	ErrorNoStoreOperate = errors.New("no store operate")
+)
+
+func GetStoreOperate(options Options) (StoreOperate, error) {
+
+	s, ok := slots[options.StoreName]
+	if !ok {
+		return nil, ErrorNoStoreOperate
 	}
 
-	return nil, errors.New("StoreOperate not init")
+	op := s()
+
+	if err := op.Init(options.Options); err != nil {
+		return nil, err
+	}
+
+	return op, nil
 }
 
-func initStoreOperate(name string, options map[string]interface{}) error {
-	s, exist := slots[name]
-	if !exist {
-		return fmt.Errorf("StoreOperate solt=[%s] not exist", name)
-	}
-
-	storeOperate = s
-	return storeOperate.Init(options)
-}
-
-func Init(options Options) error {
-	initPath(options.RootPath)
-
-	if err := initStoreOperate(options.StoreName, options.Options); err != nil {
-		return err
-	}
+func Init(options Options, version string) error {
+	initPath(options.RootPath, version)
 
 	return nil
 }

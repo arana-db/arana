@@ -33,30 +33,14 @@ type (
 )
 
 var (
-	_rootPathTemp                       = "/%s/arana-db"
-	DefaultRootPath                     PathKey
-	DefaultConfigMetadataPath           PathKey
-	DefaultTenantsPath                  PathKey
-	DefaultTenantBaseConfigPath         PathKey
-	DefaultConfigDataFiltersPath        PathKey
-	DefaultConfigDataNodesPath          PathKey
-	DefaultConfigDataUsersPath          PathKey
-	DefaultConfigDataSourceClustersPath PathKey
-	DefaultConfigDataShardingRulePath   PathKey
-	DefaultConfigDataShadowRulePath     PathKey
+	_rootPathTemp      = "/%s/%s/arana-db/"
+	DefaultRootPath    PathKey
+	DefaultTenantsPath PathKey
 )
 
-func initPath(root string) {
-	DefaultRootPath = PathKey(fmt.Sprintf(_rootPathTemp, root))
-	DefaultConfigMetadataPath = PathKey(filepath.Join(string(DefaultRootPath), "metadata"))
+func initPath(root, version string) {
+	DefaultRootPath = PathKey(fmt.Sprintf(_rootPathTemp, root, version))
 	DefaultTenantsPath = PathKey(filepath.Join(string(DefaultRootPath), "tenants"))
-	DefaultTenantBaseConfigPath = PathKey(filepath.Join(string(DefaultRootPath), "tenants/%s"))
-	DefaultConfigDataFiltersPath = PathKey(filepath.Join(string(DefaultTenantBaseConfigPath), "filters"))
-	DefaultConfigDataNodesPath = PathKey(filepath.Join(string(DefaultTenantBaseConfigPath), "nodes"))
-	DefaultConfigDataUsersPath = PathKey(filepath.Join(string(DefaultTenantBaseConfigPath), "users"))
-	DefaultConfigDataSourceClustersPath = PathKey(filepath.Join(string(DefaultTenantBaseConfigPath), "dataSourceClusters"))
-	DefaultConfigDataShardingRulePath = PathKey(filepath.Join(string(DefaultConfigDataSourceClustersPath), "shardingRule"))
-	DefaultConfigDataShadowRulePath = PathKey(filepath.Join(string(DefaultConfigDataSourceClustersPath), "shadowRule"))
 }
 
 const (
@@ -71,17 +55,16 @@ const (
 )
 
 var (
-	slots        = make(map[string]StoreOperate)
-	storeOperate StoreOperate
+	slots = make(map[string]func() StoreOperate)
 )
 
 // Register register store plugin
-func Register(s StoreOperate) {
-	if _, ok := slots[s.Name()]; ok {
-		panic(fmt.Errorf("StoreOperate=[%s] already exist", s.Name()))
+func Register(name string, s func() StoreOperate) {
+	if _, ok := slots[name]; ok {
+		panic(fmt.Errorf("StoreOperate=[%s] already exist", name))
 	}
 
-	slots[s.Name()] = s
+	slots[name] = s
 }
 
 type (

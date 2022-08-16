@@ -73,10 +73,16 @@ func Run(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	c := discovery.GetConfigCenter()
+	for i := range cfg.Data.Tenants {
 
-	if err := c.Import(context.Background(), cfg); err != nil {
-		log.Fatal("persist config to config.store failed: %+v", err)
-		return
+		tenant := cfg.Data.Tenants[i]
+
+		tenant.APIVersion = cfg.APIVersion
+		tenant.Metadata = cfg.Metadata
+
+		if err := discovery.Import(context.Background(), tenant); err != nil {
+			log.Fatal("persist config to config.store failed: %+v", err)
+			return
+		}
 	}
 }

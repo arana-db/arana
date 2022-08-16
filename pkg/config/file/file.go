@@ -20,6 +20,7 @@ package file
 import (
 	"context"
 	"encoding/json"
+	"github.com/tidwall/gjson"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,8 +30,6 @@ import (
 
 import (
 	"github.com/pkg/errors"
-
-	"github.com/tidwall/gjson"
 
 	"gopkg.in/yaml.v3"
 )
@@ -42,10 +41,15 @@ import (
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
-var configFilenameList = []string{"config.yaml", "config.yml"}
+var (
+	PluginName         = "file"
+	configFilenameList = []string{"config.yaml", "config.yml"}
+)
 
 func init() {
-	config.Register(&storeOperate{})
+	config.Register(PluginName, func() config.StoreOperate {
+		return &storeOperate{}
+	})
 }
 
 type storeOperate struct {
@@ -53,12 +57,14 @@ type storeOperate struct {
 	receivers map[config.PathKey][]chan []byte
 	cfgJson   map[config.PathKey]string
 	cancels   []context.CancelFunc
+	mapping   map[string]*config.PathInfo
 }
 
 func (s *storeOperate) Init(options map[string]interface{}) error {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
+	s.mapping = make(map[string]*config.PathInfo)
 	s.receivers = make(map[config.PathKey][]chan []byte)
 	var (
 		content string
@@ -97,33 +103,48 @@ func (s *storeOperate) Init(options map[string]interface{}) error {
 		go s.watchFileChange(ctx, path)
 	}
 
-	configJson, err := json.Marshal(cfg)
-	if err != nil {
-		return errors.Wrap(err, "config json.marshal failed")
+	for i := range cfg.Data.Tenants {
+		name := cfg.Data.Tenants[i].Name
+		s.mapping[name] = config.NewPathInfo(name)
 	}
-	s.updateCfgJsonMap(string(configJson), false)
+
+	s.updateCfgJsonMap(cfg, false)
 	s.cancels = append(s.cancels, cancel)
 
 	return nil
 }
 
-func (s *storeOperate) updateCfgJsonMap(val string, notify bool) {
+func (s *storeOperate) updateCfgJsonMap(cfg config.Configuration, notify bool) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
 	s.cfgJson = make(map[config.PathKey]string)
 
-	for k, v := range config.ConfigKeyMapping {
+	tenants := make([]string, 0, 4)
+	for i := range cfg.Data.Tenants {
+		tenants = append(tenants, cfg.Data.Tenants[i].Name)
 
-		val := gjson.Get(val, v).String()
-		s.cfgJson[k] = val
+		tmp, _ := json.Marshal(cfg.Data.Tenants[i])
+		ret := string(tmp)
 
-		if notify {
-			for i := range s.receivers[k] {
-				s.receivers[k][i] <- []byte(val)
+		mapping := s.mapping[cfg.Data.Tenants[i].Name]
+
+		for k, v := range mapping.ConfigKeyMapping {
+
+			val, _ := config.JSONToYAML(gjson.Get(ret, v).String())
+			s.cfgJson[k] = string(val)
+
+			if notify {
+				for i := range s.receivers[k] {
+					s.receivers[k][i] <- val
+				}
 			}
 		}
 	}
+
+	ret, _ := yaml.Marshal(tenants)
+
+	s.cfgJson[config.DefaultTenantsPath] = string(ret)
 
 	if env.IsDevelopEnvironment() {
 		log.Debugf("[ConfigCenter][File] load config content : %#v", s.cfgJson)
@@ -156,7 +177,7 @@ func (s *storeOperate) Watch(key config.PathKey) (<-chan []byte, error) {
 }
 
 func (s *storeOperate) Name() string {
-	return "file"
+	return PluginName
 }
 
 func (s *storeOperate) Close() error {
@@ -244,8 +265,7 @@ func (s *storeOperate) watchFileChange(ctx context.Context, path string) {
 			}
 
 			log.Errorf("[ConfigCenter][File] watch file=%s change : %+v", path, stat.ModTime())
-			configJson, _ := json.Marshal(cfg)
-			s.updateCfgJsonMap(string(configJson), true)
+			s.updateCfgJsonMap(*cfg, true)
 		case <-ctx.Done():
 
 		}

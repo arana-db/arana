@@ -46,12 +46,30 @@ type (
 		Revision() string
 	}
 
-	// Configuration represents an Arana configuration.
-	Configuration struct {
+	Spec struct {
 		Kind       string                 `yaml:"kind" json:"kind,omitempty"`
 		APIVersion string                 `yaml:"apiVersion" json:"apiVersion,omitempty"`
 		Metadata   map[string]interface{} `yaml:"metadata" json:"metadata"`
-		Data       *Data                  `validate:"required,structonly" yaml:"data" json:"data"`
+	}
+
+	// SocketAddress specify either a logical or physical address and port, which are
+	// used to tell server where to bind/listen, connect to upstream and find
+	// management servers
+	SocketAddress struct {
+		Address string `default:"0.0.0.0" yaml:"address" json:"address"`
+		Port    int    `default:"13306" yaml:"port" json:"port"`
+	}
+
+	Listener struct {
+		ProtocolType  string         `yaml:"protocol_type" json:"protocol_type"`
+		SocketAddress *SocketAddress `yaml:"socket_address" json:"socket_address"`
+		ServerVersion string         `yaml:"server_version" json:"server_version"`
+	}
+
+	// Configuration represents an Arana configuration.
+	Configuration struct {
+		Spec `yaml:",inline"`
+		Data *Data `validate:"required,structonly" yaml:"data" json:"data"`
 	}
 
 	// DataSourceType is the data source type
@@ -62,12 +80,13 @@ type (
 	}
 
 	Tenant struct {
+		Spec
 		Name               string               `validate:"required" yaml:"name" json:"name"`
 		Users              []*User              `validate:"required" yaml:"users" json:"users"`
 		DataSourceClusters []*DataSourceCluster `validate:"required,dive" yaml:"clusters" json:"clusters"`
 		ShardingRule       *ShardingRule        `validate:"required,dive" yaml:"sharding_rule,omitempty" json:"sharding_rule,omitempty"`
 		ShadowRule         *ShadowRule          `yaml:"shadow_rule,omitempty" json:"shadow_rule,omitempty"`
-		Nodes              []*Node              `validate:"required" yaml:"nodes" json:"nodes"`
+		Nodes              map[string]*Node     `validate:"required" yaml:"nodes" json:"nodes"`
 	}
 
 	DataSourceCluster struct {
@@ -350,7 +369,7 @@ func GetConnPropIdleTime(connProps map[string]interface{}, defaultValue time.Dur
 type (
 	Clusters []*DataSourceCluster
 	Tenants  []*Tenant
-	Nodes    []*Node
+	Nodes    map[string]*Node
 	Groups   []*Group
 	Users    []*User
 	Rules    []*Rule

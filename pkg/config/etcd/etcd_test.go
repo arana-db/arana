@@ -41,12 +41,7 @@ const _defaultEtcdV3WorkDir = "/tmp/arana/config"
 
 var (
 	mockConfData = map[config.PathKey]string{
-		config.DefaultConfigMetadataPath:           "",
-		config.DefaultConfigDataListenersPath:      "",
-		config.DefaultConfigDataFiltersPath:        "",
-		config.DefaultConfigDataSourceClustersPath: "",
-		config.DefaultConfigDataShardingRulePath:   "",
-		config.DefaultConfigDataTenantsPath:        "",
+		config.DefaultConfigMetadataPath: "",
 	}
 
 	cfg *config.Configuration

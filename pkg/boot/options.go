@@ -23,21 +23,8 @@ import (
 
 type (
 	BootOptions struct {
-		Config    *config.Options `yaml:"config"`
-		Listeners []*Listener     `validate:"required,dive" yaml:"listeners" json:"listeners"`
-	}
-
-	// SocketAddress specify either a logical or physical address and port, which are
-	// used to tell server where to bind/listen, connect to upstream and find
-	// management servers
-	SocketAddress struct {
-		Address string `default:"0.0.0.0" yaml:"address" json:"address"`
-		Port    int    `default:"13306" yaml:"port" json:"port"`
-	}
-
-	Listener struct {
-		ProtocolType  string         `yaml:"protocol_type" json:"protocol_type"`
-		SocketAddress *SocketAddress `yaml:"socket_address" json:"socket_address"`
-		ServerVersion string         `yaml:"server_version" json:"server_version"`
+		config.Spec `yaml:",inline"`
+		Config      *config.Options    `yaml:"config"`
+		Listeners   []*config.Listener `validate:"required,dive" yaml:"listeners" json:"listeners"`
 	}
 )

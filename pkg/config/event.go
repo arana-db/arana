@@ -30,7 +30,7 @@ const (
 )
 
 type Event interface {
-	TenantsEvent | ClustersEvent | ShardingRuleEvent | FiltersEvent
+	Type() EventType
 }
 
 //TenantsEvent

@@ -39,8 +39,14 @@ import (
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
+var (
+	PluginName = "etcd"
+)
+
 func init() {
-	config.Register(&storeOperate{})
+	config.Register(PluginName, func() config.StoreOperate {
+		return &storeOperate{}
+	})
 }
 
 type storeOperate struct {
@@ -156,7 +162,7 @@ func (c *storeOperate) Watch(key config.PathKey) (<-chan []byte, error) {
 }
 
 func (c *storeOperate) Name() string {
-	return "etcd"
+	return PluginName
 }
 
 func (c *storeOperate) Close() error {

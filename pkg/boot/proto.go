@@ -77,6 +77,9 @@ type ConfigProvider interface {
 	// GetTenant returns the tenant info
 	GetTenant(ctx context.Context, tenant string) (*config.Tenant, error)
 
+	// ListUsers returns the user list
+	ListUsers(ctx context.Context, tenant string) (config.Users, error)
+
 	// ListClusters lists the cluster names.
 	ListClusters(ctx context.Context, tenant string) ([]string, error)
 
@@ -103,6 +106,9 @@ type ConfigProvider interface {
 
 	// GetTable returns the table info.
 	GetTable(ctx context.Context, tenant, cluster, table string) (*rule.VTable, error)
+
+	// Import import config into config_center
+	Import(ctx context.Context, info *config.Tenant) error
 }
 
 // ConfigUpdater represents the mutations of configurations.
@@ -172,7 +178,7 @@ type ConfigUpdater interface {
 type Discovery interface {
 	ConfigProvider
 	// ListListeners lists the listener names
-	ListListeners(ctx context.Context) []*Listener
+	ListListeners(ctx context.Context) []*config.Listener
 
 	// ListFilters list the filter names
 	ListFilters(ctx context.Context) ([]*config.Filter, error)
