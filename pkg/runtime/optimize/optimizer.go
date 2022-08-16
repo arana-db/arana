@@ -74,13 +74,14 @@ func Register(t rast.SQLType, h Processor) {
 type Processor = func(ctx context.Context, o *Optimizer) (proto.Plan, error)
 
 type Optimizer struct {
-	Rule  *rule.Rule
-	Hints []*hint.Hint
-	Stmt  rast.Statement
-	Args  []interface{}
+	Rule       *rule.Rule
+	ShadowRule *rule.ShadowRule
+	Hints      []*hint.Hint
+	Stmt       rast.Statement
+	Args       []interface{}
 }
 
-func NewOptimizer(rule *rule.Rule, hints []*hint.Hint, stmt ast.StmtNode, args []interface{}) (proto.Optimizer, error) {
+func NewOptimizer(rule *rule.Rule, su *rule.ShadowRule, hints []*hint.Hint, stmt ast.StmtNode, args []interface{}) (proto.Optimizer, error) {
 	var (
 		rstmt rast.Statement
 		err   error
@@ -90,10 +91,11 @@ func NewOptimizer(rule *rule.Rule, hints []*hint.Hint, stmt ast.StmtNode, args [
 	}
 
 	return &Optimizer{
-		Rule:  rule,
-		Hints: hints,
-		Stmt:  rstmt,
-		Args:  args,
+		Rule:       rule,
+		ShadowRule: su,
+		Hints:      hints,
+		Stmt:       rstmt,
+		Args:       args,
 	}, nil
 }
 
@@ -122,17 +124,18 @@ func (o *Optimizer) ComputeShards(table rast.TableName, where rast.ExpressionNod
 		return nil, nil
 	}
 	var (
-		shards   rule.DatabaseTables
-		err      error
-		fullScan bool
+		shards     rule.DatabaseTables
+		hintLoader HintResultLoader
+		err        error
+		fullScan   bool
 	)
 
 	if len(o.Hints) > 0 {
-		if shards, err = Hints(table, o.Hints, o.Rule); err != nil {
+		if hintLoader, err = Hints(table, o.Hints, o.Rule, o.ShadowRule); err != nil {
 			return nil, perrors.Wrap(err, "calculate hints failed")
 		}
 	}
-
+	shards = hintLoader.GetShards()
 	if shards == nil {
 		if shards, fullScan, err = (*Sharder)(ru).Shard(table, where, args...); err != nil {
 			return nil, perrors.Wrapf(err, "optimize: cannot calculate shards of table '%s'", table.Suffix())

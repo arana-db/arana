@@ -152,3 +152,22 @@ func TestDatabaseTables_Smallest(t *testing.T) {
 		})
 	}
 }
+
+func TestDatabaseTables_Replace(t *testing.T) {
+	type tt struct {
+		input     string
+		expectTbl string
+	}
+
+	for _, it := range []tt{
+		{"db0:tb0,tb1;db1:tb2,tb3;db2:tb4,tb5", "tb0"},
+		{"db2:tb0,tb1;db1:tb2,tb3;db0:tb4,tb5", "tb0"},
+	} {
+		t.Run(it.input, func(t *testing.T) {
+			dt := parseDatabaseTablesFromString(it.input)
+			dt.ReplaceDb("shadow")
+			assert.Equal(t, 6, len(dt["shadow"]))
+			assert.Equal(t, 1, len(dt))
+		})
+	}
+}

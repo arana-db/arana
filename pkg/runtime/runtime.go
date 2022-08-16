@@ -218,6 +218,7 @@ func (tx *compositeTx) Execute(ctx *proto.Context) (res proto.Result, warn uint1
 
 	var (
 		ru   = tx.rt.Namespace().Rule()
+		su   = tx.rt.Namespace().ShadowRule()
 		plan proto.Plan
 		c    = ctx.Context
 	)
@@ -226,7 +227,7 @@ func (tx *compositeTx) Execute(ctx *proto.Context) (res proto.Result, warn uint1
 	c = rcontext.WithHints(c, ctx.Stmt.Hints)
 
 	var opt proto.Optimizer
-	if opt, err = optimize.NewOptimizer(ru, ctx.Stmt.Hints, ctx.Stmt.StmtNode, args); err != nil {
+	if opt, err = optimize.NewOptimizer(ru, su, ctx.Stmt.Hints, ctx.Stmt.StmtNode, args); err != nil {
 		err = perrors.WithStack(err)
 		return
 	}
@@ -628,6 +629,7 @@ func (pi *defaultRuntime) Execute(ctx *proto.Context) (res proto.Result, warn ui
 
 	var (
 		ru   = pi.Namespace().Rule()
+		su   = pi.Namespace().ShadowRule()
 		plan proto.Plan
 		c    = ctx.Context
 	)
@@ -640,7 +642,7 @@ func (pi *defaultRuntime) Execute(ctx *proto.Context) (res proto.Result, warn ui
 	start := time.Now()
 
 	var opt proto.Optimizer
-	if opt, err = optimize.NewOptimizer(ru, ctx.Stmt.Hints, ctx.Stmt.StmtNode, args); err != nil {
+	if opt, err = optimize.NewOptimizer(ru, su, ctx.Stmt.Hints, ctx.Stmt.StmtNode, args); err != nil {
 		err = perrors.WithStack(err)
 		return
 	}

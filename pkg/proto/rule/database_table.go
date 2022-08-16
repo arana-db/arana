@@ -328,3 +328,16 @@ func (dt DatabaseTables) String() string {
 	sb.WriteByte(']')
 	return sb.String()
 }
+
+func (dt DatabaseTables) ReplaceDb(new string) {
+	if dt.IsEmpty() {
+		return
+	}
+	newTbls := make([]string, 0)
+	for db, tbls := range dt {
+		newTbls = append(newTbls, tbls...)
+		delete(dt, db)
+	}
+
+	dt[new] = newTbls
+}

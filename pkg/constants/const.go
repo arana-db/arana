@@ -27,3 +27,14 @@ const (
 
 	VariableNameMaxAllowedPacket = "max_allowed_packet"
 )
+
+const (
+	ShadowMatchRegex = "regex"
+	ShadowMatchValue = "value"
+	ShadowMatchHint  = "hint"
+
+	ShadowInsert = "insert"
+	ShadowSelect = "select"
+	ShadowUpdate = "update"
+	ShadowDelete = "delete"
+)

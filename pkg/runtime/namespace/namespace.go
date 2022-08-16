@@ -76,7 +76,8 @@ type (
 
 		name string // the name of Namespace
 
-		rule atomic.Value // *rule.Rule
+		rule       atomic.Value // *rule.Rule
+		shadowRule atomic.Value // *rule.ShadowRule
 
 		// datasource map, eg: employee_0001 -> [mysql-a,mysql-b,mysql-c], ... employee_0007 -> [mysql-x,mysql-y,mysql-z]
 		dss atomic.Value // map[string][]proto.DB
@@ -98,6 +99,7 @@ func New(name string, commands ...Command) (*Namespace, error) {
 	}
 	ns.dss.Store(make(map[string][]proto.DB)) // init empty map
 	ns.rule.Store(&rule.Rule{})               // init empty rule
+	ns.shadowRule.Store(&rule.ShadowRule{})   // init empty shadowRule
 
 	for _, cmd := range commands {
 		if err := cmd(ns); err != nil {
@@ -222,6 +224,15 @@ func (ns *Namespace) Rule() *rule.Rule {
 		return nil
 	}
 	return ru
+}
+
+// ShadowRule returns the shadow rule.
+func (ns *Namespace) ShadowRule() *rule.ShadowRule {
+	su, ok := ns.shadowRule.Load().(*rule.ShadowRule)
+	if !ok {
+		return nil
+	}
+	return su
 }
 
 // EnqueueCommand enqueues the next command, it will be executed async.

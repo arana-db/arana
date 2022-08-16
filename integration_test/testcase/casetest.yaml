@@ -25,6 +25,14 @@ query_rows_cases:
     expected:
       type: "file"
       value: "../../config/db/expected.yaml"
+  - sql: "/*A! shadow(shadow) */ SELECT name FROM student WHERE name= ?"
+    parameters: "1:string"
+    sense:
+      - shadow
+    expected:
+      type: "file"
+      value: "../../config/db/expected.yaml"
+
 query_row_cases:
   - sql: "SELECT COUNT(1) FROM sequence WHERE name=?"
     parameters: "1:string"
@@ -43,3 +51,23 @@ exec_cases:
     expected:
       type: "rowAffect"
       value: 1
+  - sql: "/*A! shadow(shadow) */ INSERT INTO student(id,uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?,?)"
+    parameters: "1:int, 2:int, 100:int, test:string, test:string, 1:int, 1980:int"
+    sense:
+      - shadow
+    expected:
+      type: "rowAffect"
+      value: 1
+  - sql: "/*A! shadow(shadow) */ update student set score=100.0 where uid = ?"
+    parameters: "2:int"
+      sense:
+        - shadow
+      expected:
+        type: "rowAffect"
+        value: 1
+  - sql: "/*A! shadow(shadow) */ delete from student"
+    sense:
+      - shadow
+    expected:
+      type: "rowAffect"
+      value: 0

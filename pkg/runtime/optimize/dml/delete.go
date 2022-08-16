@@ -26,6 +26,7 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/constants"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/optimize"
@@ -45,10 +46,27 @@ func optimizeDelete(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		return nil, errors.Wrap(err, "failed to optimize DELETE statement")
 	}
 
+	var matchShadow bool
+	if len(o.Hints) > 0 {
+		shadowLoader, err := optimize.Hints(stmt.Table, o.Hints, o.Rule, o.ShadowRule)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to optimize hint DELETE statement")
+		}
+		matchShadow = shadowLoader.GetMatchBy(stmt.Table.Suffix(), constants.ShadowDelete)
+	}
+
 	// TODO: delete from a child sharding-table directly
 
 	if shards == nil {
-		return plan.Transparent(stmt, o.Args), nil
+		transparent := plan.Transparent(stmt, o.Args)
+		if matchShadow {
+			transparent.SetDB(o.ShadowRule.GetDatabase(stmt.Table.Suffix()))
+		}
+		return transparent, nil
+	}
+
+	if matchShadow {
+		shards.ReplaceDb(o.ShadowRule.GetDatabase(stmt.Table.Suffix()))
 	}
 
 	ret := dml.NewSimpleDeletePlan(stmt)

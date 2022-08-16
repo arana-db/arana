@@ -26,6 +26,7 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/constants"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/ast"
@@ -45,11 +46,12 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 	ret.BindArgs(o.Args)
 
 	var (
-		stmt      = o.Stmt.(*ast.InsertStatement)
-		vt        *rule.VTable
-		ok        bool
-		tableName = stmt.Table
-		err       error
+		stmt        = o.Stmt.(*ast.InsertStatement)
+		vt          *rule.VTable
+		ok          bool
+		tableName   = stmt.Table
+		err         error
+		matchShadow bool
 	)
 
 	if vt, ok = o.Rule.VTable(stmt.Table.Suffix()); !ok { // insert into non-sharding table
@@ -105,9 +107,13 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		resetFilter(stmt.Columns[bingo], value)
 
 		if len(o.Hints) > 0 {
-			if shards, err = optimize.Hints(tableName, o.Hints, o.Rule); err != nil {
+			var hintLoader optimize.HintResultLoader
+			if hintLoader, err = optimize.Hints(tableName, o.Hints, o.Rule, o.ShadowRule); err != nil {
 				return nil, errors.Wrap(err, "calculate hints failed")
 			}
+
+			shards = hintLoader.GetShards()
+			matchShadow = hintLoader.GetMatchBy(tableName.Suffix(), constants.ShadowInsert)
 		}
 
 		if shards == nil {
@@ -126,6 +132,9 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		)
 
 		for k, v := range shards {
+			if matchShadow {
+				k = o.ShadowRule.GetDatabase(tableName.Suffix())
+			}
 			db = k
 			table = v[0]
 			break
@@ -138,6 +147,9 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 	}
 
 	for db, slot := range slots {
+		if matchShadow {
+			db = o.ShadowRule.GetDatabase(tableName.Suffix())
+		}
 		for table, indexes := range slot {
 			// clone insert stmt without values
 			newborn := ast.NewInsertStatement(ast.TableName{table}, stmt.Columns)

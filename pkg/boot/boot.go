@@ -145,7 +145,21 @@ func buildNamespace(ctx context.Context, provider Discovery, clusterName string)
 		}
 		ru.SetVTable(table, vt)
 	}
-	initCmds = append(initCmds, namespace.UpdateRule(&ru))
+
+	var su = rule.NewShadowRule()
+	for _, table := range tables {
+		var ruleManager rule.ShadowRuleManager
+		if ruleManager, err = provider.GetShadowOperation(ctx, clusterName, table); err != nil {
+			return nil, err
+		}
+		if ruleManager == nil {
+			log.Warnf("no such shadow rule %s", table)
+			continue
+		}
+		su.SetRuleManager(table, ruleManager)
+	}
+
+	initCmds = append(initCmds, namespace.UpdateRule(&ru), namespace.UpdateShadowRule(su))
 
 	return namespace.New(clusterName, initCmds...)
 }

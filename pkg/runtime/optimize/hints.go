@@ -34,10 +34,16 @@ import (
 func init() {
 	RegisterHint(hint.TypeDirect, &Direct{})
 	RegisterHint(hint.TypeRoute, &CustomRoute{})
+	RegisterHint(hint.TypeShadow, &Shadow{})
 }
 
 type HintExecutor interface {
-	exec(tableName ast.TableName, rule *rule.Rule, hints []*hint.Hint) (hintTables rule.DatabaseTables, err error)
+	exec(tableName ast.TableName, rule *rule.Rule, su *rule.ShadowRule, hints []*hint.Hint) (HintResultLoader, error)
+}
+
+type HintResultLoader interface {
+	GetShards() rule.DatabaseTables
+	GetMatchBy(tableName, action string) bool
 }
 
 var hintHandlers = make(map[hint.Type]HintExecutor)
@@ -78,13 +84,15 @@ func validate(hints []*hint.Hint) error {
 	return nil
 }
 
-func Hints(tableName ast.TableName, hints []*hint.Hint, rule *rule.Rule) (hintTables rule.DatabaseTables, err error) {
-	if err = validate(hints); err != nil {
-		return
+func Hints(tableName ast.TableName, hints []*hint.Hint, rule *rule.Rule, su *rule.ShadowRule) (HintResultLoader, error) {
+	if err := validate(hints); err != nil {
+		return nil, err
 	}
 	var (
-		executor HintExecutor
-		ok       bool
+		executor   HintExecutor
+		ok         bool
+		hintResult HintResultLoader
+		err        error
 	)
 	for _, v := range hints {
 		if executor, ok = hintHandlers[v.Type]; ok {
@@ -92,32 +100,71 @@ func Hints(tableName ast.TableName, hints []*hint.Hint, rule *rule.Rule) (hintTa
 		}
 	}
 	if executor == nil {
-		return
+		return nil, nil
 	}
-	if hintTables, err = executor.exec(tableName, rule, hints); err != nil {
-		return
+	if hintResult, err = executor.exec(tableName, rule, su, hints); err != nil {
+		return nil, err
 	}
-	return
+	return hintResult, nil
+}
+
+type Shadow struct{}
+
+func (s *Shadow) exec(tableName ast.TableName, ru *rule.Rule, su *rule.ShadowRule, hints []*hint.Hint) (HintResultLoader, error) {
+	shadowLabels := make([]string, 0)
+	for _, h := range hints {
+		if h.Type != hint.TypeShadow {
+			continue
+		}
+		for _, i := range h.Inputs {
+			shadowLabels = append(shadowLabels, i.V)
+		}
+	}
+	return &hintInfo{
+		tbls:         make(rule.DatabaseTables, 0),
+		shadowLabels: shadowLabels,
+		shadowRule:   su,
+	}, nil
 }
 
 // Direct force forward to db[0]
 type Direct struct{}
 
-func (h *Direct) exec(tableName ast.TableName, rule *rule.Rule, hints []*hint.Hint) (hintTables rule.DatabaseTables, err error) {
-	db0, _, ok := rule.MustVTable(tableName.Suffix()).Topology().Smallest()
+func (h *Direct) exec(tableName ast.TableName, ru *rule.Rule, su *rule.ShadowRule, hints []*hint.Hint) (HintResultLoader, error) {
+	db0, _, ok := ru.MustVTable(tableName.Suffix()).Topology().Smallest()
 	if !ok {
 		return nil, errors.New("not found db0")
 	}
-	hintTables = make(map[string][]string, 1)
+	hintTables := make(rule.DatabaseTables, 1)
 	hintTables[db0] = []string{tableName.String()}
-	return hintTables, nil
+	shadowLabels := make([]string, 0)
+	for _, ht := range hints {
+		if ht.Type != hint.TypeShadow {
+			continue
+		}
+		for _, i := range ht.Inputs {
+			shadowLabels = append(shadowLabels, i.V)
+		}
+	}
+	return &hintInfo{
+		tbls:         hintTables,
+		shadowRule:   su,
+		shadowLabels: shadowLabels,
+	}, nil
 }
 
 type CustomRoute struct{}
 
-func (c *CustomRoute) exec(tableName ast.TableName, r *rule.Rule, hints []*hint.Hint) (hintTables rule.DatabaseTables, err error) {
-	hintTables = make(map[string][]string)
+func (c *CustomRoute) exec(tableName ast.TableName, ru *rule.Rule, su *rule.ShadowRule, hints []*hint.Hint) (HintResultLoader, error) {
+	hintTables := make(rule.DatabaseTables)
+	shadowLabels := make([]string, 0)
 	for _, h := range hints {
+		if h.Type == hint.TypeShadow {
+			for _, i := range h.Inputs {
+				shadowLabels = append(shadowLabels, i.V)
+			}
+		}
+
 		if h.Type != hint.TypeRoute {
 			continue
 		}
@@ -126,5 +173,32 @@ func (c *CustomRoute) exec(tableName ast.TableName, r *rule.Rule, hints []*hint.
 			hintTables[tb[0]] = append(hintTables[tb[0]], tb[1])
 		}
 	}
-	return
+
+	return &hintInfo{
+		tbls:         hintTables,
+		shadowRule:   su,
+		shadowLabels: shadowLabels,
+	}, nil
+}
+
+type hintInfo struct {
+	tbls         rule.DatabaseTables
+	shadowRule   *rule.ShadowRule
+	shadowLabels []string
+}
+
+func (h *hintInfo) GetShards() rule.DatabaseTables {
+	return h.tbls
+}
+
+func (h *hintInfo) GetMatchBy(tableName, action string) bool {
+	if h.shadowRule == nil {
+		return false
+	}
+	for _, shadowHint := range h.shadowLabels {
+		if h.shadowRule.MatchHintBy(tableName, action, shadowHint) {
+			return true
+		}
+	}
+	return false
 }

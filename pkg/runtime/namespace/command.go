@@ -154,3 +154,14 @@ func UpdateRule(rule *rule.Rule) Command {
 		return nil
 	}
 }
+
+// UpdateShadowRule updates the shadow rule.
+func UpdateShadowRule(rule *rule.ShadowRule) Command {
+	return func(ns *Namespace) error {
+		ns.Lock()
+		defer ns.Unlock()
+		ns.shadowRule.Store(rule)
+
+		return nil
+	}
+}

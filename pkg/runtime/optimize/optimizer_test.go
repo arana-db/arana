@@ -65,11 +65,12 @@ func TestOptimizer_OptimizeSelect(t *testing.T) {
 		sql = "select id, uid from student where uid in (?,?,?)"
 		ctx = context.Background()
 		ru  = makeFakeRule(ctrl, 8)
+		su  = makeFakeShadowRule(ctrl)
 	)
 
 	p := parser.New()
 	stmt, _ := p.ParseOneStmt(sql, "", "")
-	opt, err := NewOptimizer(ru, nil, stmt, []interface{}{1, 2, 3})
+	opt, err := NewOptimizer(ru, su, nil, stmt, []interface{}{1, 2, 3})
 	assert.NoError(t, err)
 	plan, err := opt.Optimize(ctx)
 	assert.NoError(t, err)
@@ -140,6 +141,7 @@ func TestOptimizer_OptimizeInsert(t *testing.T) {
 	var (
 		ctx = context.Background()
 		ru  = makeFakeRule(ctrl, 8)
+		su  = makeFakeShadowRule(ctrl)
 	)
 
 	t.Run("sharding", func(t *testing.T) {
@@ -148,7 +150,7 @@ func TestOptimizer_OptimizeInsert(t *testing.T) {
 		p := parser.New()
 		stmt, _ := p.ParseOneStmt(sql, "", "")
 
-		opt, err := NewOptimizer(ru, nil, stmt, []interface{}{8, 9, 16})
+		opt, err := NewOptimizer(ru, su, nil, stmt, []interface{}{8, 9, 16})
 		assert.NoError(t, err)
 
 		plan, err := opt.Optimize(ctx) // 8,16 -> fake_db_0000, 9 -> fake_db_0001
@@ -169,7 +171,7 @@ func TestOptimizer_OptimizeInsert(t *testing.T) {
 		p := parser.New()
 		stmt, _ := p.ParseOneStmt(sql, "", "")
 
-		opt, err := NewOptimizer(ru, nil, stmt, []interface{}{1})
+		opt, err := NewOptimizer(ru, su, nil, stmt, []interface{}{1})
 		assert.NoError(t, err)
 
 		plan, err := opt.Optimize(ctx)
@@ -200,6 +202,7 @@ func TestOptimizer_OptimizeAlterTable(t *testing.T) {
 	var (
 		ctx      = context.Background()
 		ru       rule.Rule
+		su       rule.ShadowRule
 		tab      rule.VTable
 		topology rule.Topology
 	)
@@ -224,7 +227,7 @@ func TestOptimizer_OptimizeAlterTable(t *testing.T) {
 		p := parser.New()
 		stmt, _ := p.ParseOneStmt(sql, "", "")
 
-		opt, err := NewOptimizer(&ru, nil, stmt, nil)
+		opt, err := NewOptimizer(&ru, &su, nil, stmt, nil)
 		assert.NoError(t, err)
 
 		plan, err := opt.Optimize(ctx)
@@ -240,7 +243,7 @@ func TestOptimizer_OptimizeAlterTable(t *testing.T) {
 		p := parser.New()
 		stmt, _ := p.ParseOneStmt(sql, "", "")
 
-		opt, err := NewOptimizer(&ru, nil, stmt, nil)
+		opt, err := NewOptimizer(&ru, &su, nil, stmt, nil)
 		assert.NoError(t, err)
 
 		plan, err := opt.Optimize(ctx)
@@ -273,6 +276,7 @@ func TestOptimizer_OptimizeInsertSelect(t *testing.T) {
 	var (
 		ctx = context.Background()
 		ru  rule.Rule
+		su  rule.ShadowRule
 	)
 
 	ru.SetVTable("student", nil)
@@ -283,7 +287,7 @@ func TestOptimizer_OptimizeInsertSelect(t *testing.T) {
 		p := parser.New()
 		stmt, _ := p.ParseOneStmt(sql, "", "")
 
-		opt, err := NewOptimizer(&ru, nil, stmt, []interface{}{1})
+		opt, err := NewOptimizer(&ru, &su, nil, stmt, []interface{}{1})
 		assert.NoError(t, err)
 
 		plan, err := opt.Optimize(ctx)

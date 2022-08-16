@@ -84,6 +84,15 @@ data:
               password: "123456"
               database: employees_0003
               weight: r10w10
+        - name: employees_shadow
+          nodes:
+            - name: node_shadow
+              host: arana-mysql
+              port: 3306
+              username: root
+              password: "123456"
+              database: employees_shadow
+              weight: r10w10
 
   sharding_rule:
     tables:
@@ -105,3 +114,13 @@ data:
           tbl_pattern: student_${0000..0031}
         attributes:
           sqlMaxLimit: -1
+  shadow_rule:
+    tables:
+      - name: employees.student
+        enable: true
+        group_node: employees_shadow
+        match_rules:
+          - operation: [select,insert,update,delete]
+            match_type: hint
+            attributes:
+              - value: "shadow"
