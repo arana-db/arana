@@ -20,11 +20,17 @@ package test
 import (
 	"strings"
 	"testing"
+)
 
-	"github.com/arana-db/arana/test"
+import (
 	_ "github.com/go-sql-driver/mysql"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+)
+
+import (
+	"github.com/arana-db/arana/test"
 )
 
 // register mysql
@@ -45,7 +51,7 @@ func TestSuite(t *testing.T) {
 	suite.Run(t, &IntegrationSuite{su})
 }
 
-func (s *IntegrationSuite) TestDBTBLScene() {
+func (s *IntegrationSuite) TestDBTBLRWScene() {
 	var (
 		db = s.DB()
 		t  = s.T()

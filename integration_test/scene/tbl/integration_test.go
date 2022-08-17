@@ -49,7 +49,7 @@ func TestSuite(t *testing.T) {
 	suite.Run(t, &IntegrationSuite{su})
 }
 
-func (s *IntegrationSuite) TestDBTBLScene() {
+func (s *IntegrationSuite) TestTBLScene() {
 	var (
 		db = s.DB()
 		t  = s.T()
