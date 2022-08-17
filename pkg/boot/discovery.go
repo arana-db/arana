@@ -229,7 +229,7 @@ func (fp *discovery) initAllConfigCenter() error {
 }
 
 func (fp *discovery) GetDataSourceCluster(ctx context.Context, tenant, cluster string) (*config.DataSourceCluster, error) {
-	dataSourceCluster, err := fp.loadCluster(cluster, tenant)
+	dataSourceCluster, err := fp.loadCluster(tenant, cluster)
 	if err != nil {
 		return nil, err
 	}
@@ -289,8 +289,22 @@ func (fp *discovery) ListFilters(ctx context.Context) ([]*config.Filter, error) 
 }
 
 func (fp *discovery) ListClusters(ctx context.Context, tenant string) ([]string, error) {
+	op, ok := fp.centers[tenant]
+	if !ok {
+		return nil, ErrorNotTenant
+	}
 
-	return nil, nil
+	cfg, err := op.Load(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]string, 0, 4)
+
+	for _, it := range cfg.DataSourceClusters {
+		ret = append(ret, it.Name)
+	}
+	return ret, nil
 }
 
 func (fp *discovery) ListGroups(ctx context.Context, tenant, cluster string) ([]string, error) {

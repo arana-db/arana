@@ -22,7 +22,6 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"github.com/arana-db/arana/pkg/config"
 	"io"
 	"math"
 	"net"
@@ -40,6 +39,7 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/constants/mysql"
 	"github.com/arana-db/arana/pkg/mysql/errors"
 	"github.com/arana-db/arana/pkg/proto"

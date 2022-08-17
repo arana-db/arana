@@ -18,7 +18,9 @@
 
 package config
 
-import "reflect"
+import (
+	"reflect"
+)
 
 func (r Rules) Compare(o Rules) bool {
 	if len(r) == 0 && len(o) == 0 {

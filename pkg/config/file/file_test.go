@@ -18,6 +18,7 @@
 package file
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 )
@@ -518,7 +519,11 @@ func Test_storeOperate_initCfgJsonMap(t *testing.T) {
 				receivers: tt.fields.receivers,
 				cfgJson:   tt.fields.cfgJson,
 			}
-			s.initCfgJsonMap(tt.args.val)
+
+			cfg := new(config.Configuration)
+			_ = json.Unmarshal([]byte(tt.args.val), cfg)
+
+			s.updateCfgJsonMap(*cfg, false)
 		})
 	}
 }

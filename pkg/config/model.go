@@ -254,6 +254,12 @@ func Load(path string) (*Configuration, error) {
 	return &cfg, nil
 }
 
+func (t *Tenant) Empty() bool {
+	return len(t.Users) == 0 &&
+		len(t.Nodes) == 0 &&
+		len(t.DataSourceClusters) == 0
+}
+
 var _weightRegexp = regexp.MustCompile(`^[rR]([0-9]+)[wW]([0-9]+)$`)
 
 func (d *Node) GetReadAndWriteWeight() (int, int, error) {
@@ -375,3 +381,16 @@ type (
 	Rules    []*Rule
 	Filters  []*Filter
 )
+
+func NewEmptyTenant() *Tenant {
+	return &Tenant{
+		Spec: Spec{
+			Metadata: map[string]interface{}{},
+		},
+		Users:              make([]*User, 0, 1),
+		DataSourceClusters: make([]*DataSourceCluster, 0, 1),
+		ShardingRule:       new(ShardingRule),
+		ShadowRule:         new(ShadowRule),
+		Nodes:              map[string]*Node{},
+	}
+}

@@ -24,7 +24,6 @@ import (
 )
 
 // Copy from
-
 // isEmpty gets whether the specified object is considered empty or not.
 func isEmpty(object interface{}) bool {
 

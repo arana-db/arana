@@ -24,74 +24,22 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
 )
 
 import (
+	"github.com/pkg/errors"
+
 	"github.com/tidwall/gjson"
 
 	"gopkg.in/yaml.v3"
 )
 
 import (
-	"github.com/arana-db/arana/pkg/util/env"
 	"github.com/arana-db/arana/pkg/util/log"
 )
-
-func NewTenantOperate(op StoreOperate) TenantOperate {
-	return &tenantOperate{
-		op: op,
-	}
-}
-
-type tenantOperate struct {
-	op   StoreOperate
-	lock sync.RWMutex
-}
-
-func (tp *tenantOperate) Tenants() ([]string, error) {
-	tp.lock.RLock()
-	defer tp.lock.RUnlock()
-
-	val, err := tp.op.Get(DefaultTenantsPath)
-	if err != nil {
-		return nil, err
-	}
-
-	tenants := make([]string, 0, 4)
-
-	if err := yaml.Unmarshal(val, &tenants); err != nil {
-		return nil, err
-	}
-
-	return tenants, nil
-}
-
-func (tp *tenantOperate) CreateTenant(name string) error {
-	return errors.New("implement me")
-}
-
-func (tp *tenantOperate) RemoveTenant(name string) error {
-	return errors.New("implement me")
-}
-
-type center struct {
-	tenant     string
-	initialize int32
-
-	firstLoad int32
-
-	storeOperate StoreOperate
-	pathInfo     *PathInfo
-	holders      map[PathKey]*atomic.Value
-
-	lock         sync.RWMutex
-	observers    map[EventType][]EventSubscriber
-	watchCancels []context.CancelFunc
-}
 
 type PathInfo struct {
 	DefaultConfigSpecPath               PathKey
@@ -137,6 +85,9 @@ func NewPathInfo(tenant string) *PathInfo {
 	}
 
 	p.ConfigValSupplier = map[PathKey]func(cfg *Tenant) interface{}{
+		p.DefaultConfigSpecPath: func(cfg *Tenant) interface{} {
+			return &cfg.Spec
+		},
 		p.DefaultConfigDataUsersPath: func(cfg *Tenant) interface{} {
 			return &cfg.Users
 		},
@@ -157,6 +108,56 @@ func NewPathInfo(tenant string) *PathInfo {
 	return p
 }
 
+func NewTenantOperate(op StoreOperate) TenantOperate {
+	return &tenantOperate{
+		op: op,
+	}
+}
+
+type tenantOperate struct {
+	op   StoreOperate
+	lock sync.RWMutex
+}
+
+func (tp *tenantOperate) Tenants() ([]string, error) {
+	tp.lock.RLock()
+	defer tp.lock.RUnlock()
+
+	val, err := tp.op.Get(DefaultTenantsPath)
+	if err != nil {
+		return nil, err
+	}
+
+	tenants := make([]string, 0, 4)
+
+	if err := yaml.Unmarshal(val, &tenants); err != nil {
+		return nil, err
+	}
+
+	return tenants, nil
+}
+
+func (tp *tenantOperate) CreateTenant(name string) error {
+	return errors.New("implement me")
+}
+
+func (tp *tenantOperate) RemoveTenant(name string) error {
+	return errors.New("implement me")
+}
+
+type center struct {
+	tenant     string
+	initialize int32
+
+	storeOperate StoreOperate
+	pathInfo     *PathInfo
+	holders      map[PathKey]*atomic.Value
+
+	lock         sync.RWMutex
+	observers    map[EventType][]EventSubscriber
+	watchCancels []context.CancelFunc
+}
+
 func NewCenter(tenant string, op StoreOperate) Center {
 
 	p := NewPathInfo(tenant)
@@ -164,11 +165,10 @@ func NewCenter(tenant string, op StoreOperate) Center {
 	holders := map[PathKey]*atomic.Value{}
 	for k := range p.ConfigKeyMapping {
 		holders[k] = &atomic.Value{}
-		holders[k].Store(&Tenant{})
+		holders[k].Store(NewEmptyTenant())
 	}
 
 	return &center{
-		firstLoad:    0,
 		pathInfo:     p,
 		tenant:       tenant,
 		holders:      holders,
@@ -195,24 +195,14 @@ func (c *center) Load(ctx context.Context) (*Tenant, error) {
 		return val, nil
 	}
 
-	cfg, err := c.loadFromStore(ctx)
-	if err != nil {
+	if _, err := c.loadFromStore(ctx); err != nil {
 		return nil, err
 	}
 
-	out, _ := yaml.Marshal(cfg)
-	if env.IsDevelopEnvironment() {
-		log.Debugf("load configuration:\n%s", string(out))
-	}
 	return c.compositeConfiguration(), nil
 }
 
 func (c *center) compositeConfiguration() *Tenant {
-
-	if atomic.CompareAndSwapInt32(&c.firstLoad, 0, 1) {
-		return nil
-	}
-
 	conf := &Tenant{}
 
 	if val := c.holders[c.pathInfo.DefaultConfigDataUsersPath].Load(); val != nil {
@@ -231,6 +221,9 @@ func (c *center) compositeConfiguration() *Tenant {
 		conf.ShadowRule = val.(*Tenant).ShadowRule
 	}
 
+	if conf.Empty() {
+		return nil
+	}
 	return conf
 }
 
@@ -258,15 +251,14 @@ func (c *center) loadFromStore(ctx context.Context) (*Tenant, error) {
 			return nil, err
 		}
 
+		holder := c.holders[k]
 		supplier, ok := c.pathInfo.ConfigValSupplier[k]
-
 		if !ok {
-			//return nil, fmt.Errorf("%s not register val supplier", k)
-			continue
+			return nil, fmt.Errorf("%s not register val supplier", k)
 		}
 
 		if len(val) != 0 {
-			exp := supplier(cfg)
+			exp := supplier(holder.Load().(*Tenant))
 			if err := yaml.Unmarshal(val, exp); err != nil {
 				return nil, err
 			}
@@ -321,7 +313,6 @@ func (c *center) watchKey(ctx context.Context, key PathKey, ch <-chan []byte) {
 			defer c.lock.RUnlock()
 
 			v := c.observers[et]
-
 			for i := range v {
 				v[i].OnEvent(nil)
 			}

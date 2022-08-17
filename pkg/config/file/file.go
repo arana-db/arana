@@ -20,16 +20,18 @@ package file
 import (
 	"context"
 	"encoding/json"
-	"github.com/tidwall/gjson"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 import (
 	"github.com/pkg/errors"
+
+	"github.com/tidwall/gjson"
 
 	"gopkg.in/yaml.v3"
 )
@@ -42,27 +44,33 @@ import (
 )
 
 var (
-	PluginName         = "file"
-	configFilenameList = []string{"config.yaml", "config.yml"}
+	PluginName                             = "file"
+	configFilenameList                     = []string{"config.yaml", "config.yml"}
+	sp                 config.StoreOperate = &storeOperate{}
 )
 
 func init() {
 	config.Register(PluginName, func() config.StoreOperate {
-		return &storeOperate{}
+		return sp
 	})
 }
 
 type storeOperate struct {
-	lock      sync.RWMutex
-	receivers map[config.PathKey][]chan []byte
-	cfgJson   map[config.PathKey]string
-	cancels   []context.CancelFunc
-	mapping   map[string]*config.PathInfo
+	initialize int32
+	lock       sync.RWMutex
+	receivers  map[config.PathKey][]chan []byte
+	cfgJson    map[config.PathKey]string
+	cancels    []context.CancelFunc
+	mapping    map[string]*config.PathInfo
 }
 
 func (s *storeOperate) Init(options map[string]interface{}) error {
+	if !atomic.CompareAndSwapInt32(&s.initialize, 0, 1) {
+		return nil
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+	s.cancels = append(s.cancels, cancel)
 
 	s.mapping = make(map[string]*config.PathInfo)
 	s.receivers = make(map[config.PathKey][]chan []byte)
@@ -95,7 +103,6 @@ func (s *storeOperate) Init(options map[string]interface{}) error {
 		if err != nil {
 			return err
 		}
-
 		if err := s.readFromFile(path, &cfg); err != nil {
 			return err
 		}
@@ -109,8 +116,6 @@ func (s *storeOperate) Init(options map[string]interface{}) error {
 	}
 
 	s.updateCfgJsonMap(cfg, false)
-	s.cancels = append(s.cancels, cancel)
-
 	return nil
 }
 
@@ -126,14 +131,11 @@ func (s *storeOperate) updateCfgJsonMap(cfg config.Configuration, notify bool) {
 
 		tmp, _ := json.Marshal(cfg.Data.Tenants[i])
 		ret := string(tmp)
-
 		mapping := s.mapping[cfg.Data.Tenants[i].Name]
 
 		for k, v := range mapping.ConfigKeyMapping {
-
 			val, _ := config.JSONToYAML(gjson.Get(ret, v).String())
 			s.cfgJson[k] = string(val)
-
 			if notify {
 				for i := range s.receivers[k] {
 					s.receivers[k][i] <- val
