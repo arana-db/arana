@@ -40,6 +40,7 @@ type (
 	keySchema         struct{}
 	keyDefaultDBGroup struct{}
 	keyTenant         struct{}
+	keyVersion        struct{}
 	keyHints          struct{}
 )
 
@@ -68,6 +69,10 @@ func WithTenant(ctx context.Context, tenant string) context.Context {
 
 func WithSchema(ctx context.Context, data string) context.Context {
 	return context.WithValue(ctx, keySchema{}, data)
+}
+
+func WithVersion(ctx context.Context, data string) context.Context {
+	return context.WithValue(ctx, keyVersion{}, data)
 }
 
 // WithSequenceManager binds a sequencer.
@@ -133,6 +138,13 @@ func SQL(ctx context.Context) string {
 
 func Schema(ctx context.Context) string {
 	if schema, ok := ctx.Value(keySchema{}).(string); ok {
+		return schema
+	}
+	return ""
+}
+
+func Version(ctx context.Context) string {
+	if schema, ok := ctx.Value(keyVersion{}).(string); ok {
 		return schema
 	}
 	return ""
