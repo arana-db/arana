@@ -27,6 +27,7 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/constants"
 	"github.com/arana-db/arana/pkg/dataset"
 	"github.com/arana-db/arana/pkg/merge/aggregator"
 	"github.com/arana-db/arana/pkg/proto"
@@ -78,16 +79,22 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 	// --- SIMPLE QUERY BEGIN ---
 
 	var (
-		shards    rule.DatabaseTables
-		fullScan  bool
-		err       error
-		vt        = o.Rule.MustVTable(stmt.From[0].TableName().Suffix())
-		tableName = stmt.From[0].TableName()
+		shards      rule.DatabaseTables
+		fullScan    bool
+		matchShadow bool
+		err         error
+		vt          = o.Rule.MustVTable(stmt.From[0].TableName().Suffix())
+		tableName   = stmt.From[0].TableName()
 	)
+
 	if len(o.Hints) > 0 {
-		if shards, err = optimize.Hints(tableName, o.Hints, o.Rule); err != nil {
+		var hintLoader optimize.HintResultLoader
+		if hintLoader, err = optimize.Hints(tableName, o.Hints, o.Rule, o.ShadowRule); err != nil {
 			return nil, errors.Wrap(err, "calculate hints failed")
 		}
+
+		shards = hintLoader.GetShards()
+		matchShadow = hintLoader.GetMatchBy(tableName.Suffix(), constants.ShadowSelect)
 	}
 
 	if shards == nil {
@@ -129,6 +136,9 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 			return nil, errors.Errorf("cannot compute minimal topology from '%s'", stmt.From[0].TableName().Suffix())
 		}
 
+		if matchShadow {
+			db0 = o.ShadowRule.GetDatabase(tableName.Suffix())
+		}
 		return toSingle(db0, tbl0)
 	}
 
@@ -137,6 +147,9 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		var db, tbl string
 		for k, v := range shards {
 			db = k
+			if matchShadow {
+				db = o.ShadowRule.GetDatabase(tableName.Suffix())
+			}
 			tbl = v[0]
 		}
 		return toSingle(db, tbl)
@@ -164,6 +177,9 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 
 	plans := make([]proto.Plan, 0, len(shards))
 	for k, v := range shards {
+		if matchShadow {
+			k = o.ShadowRule.GetDatabase(tableName.Suffix())
+		}
 		next := &dml.SimpleQueryPlan{
 			Database: k,
 			Tables:   v,

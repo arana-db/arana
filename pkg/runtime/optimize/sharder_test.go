@@ -124,3 +124,11 @@ func makeFakeRule(c *gomock.Controller, mod int) *rule.Rule {
 	ru.SetVTable("student", &tab)
 	return &ru
 }
+
+func makeFakeShadowRule(c *gomock.Controller) *rule.ShadowRule {
+	var (
+		ru rule.ShadowRule
+	)
+
+	return &ru
+}

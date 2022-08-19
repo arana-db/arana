@@ -103,6 +103,8 @@ type Discovery interface {
 	ListTables(ctx context.Context, cluster string) ([]string, error)
 	// GetTable returns the table info.
 	GetTable(ctx context.Context, cluster, table string) (*rule.VTable, error)
+	// GetShadowOperation return the shadow info.
+	GetShadowOperation(ctx context.Context, cluster, table string) (rule.ShadowRuleManager, error)
 
 	// GetConfigCenter
 	GetConfigCenter() *config.Center
@@ -112,6 +114,45 @@ type discovery struct {
 	path    string
 	options *BootOptions
 	c       *config.Center
+}
+
+func (fp *discovery) GetShadowOperation(ctx context.Context, cluster, table string) (rule.ShadowRuleManager, error) {
+	cfg, err := fp.c.Load()
+	if err != nil {
+		return nil, err
+	}
+
+	if cfg.Data.ShadowRule == nil {
+		return nil, nil
+	}
+
+	for _, tbl := range cfg.Data.ShadowRule.ShadowTables {
+		db, tb, err := parseTable(tbl.Name)
+		if err != nil {
+			log.Warnf("skip parsing table rule: %v", err)
+			continue
+		}
+		if db != cluster {
+			continue
+		}
+		if tb != table {
+			continue
+		}
+
+		operations := make(map[string][]*rule.Attribute, len(tbl.MatchRules)*2)
+		for _, matchRule := range tbl.MatchRules {
+			attributes := make([]*rule.Attribute, 0, len(matchRule.Attributes))
+			for _, attr := range matchRule.Attributes {
+				attributes = append(attributes, rule.NewAttribute(attr.Column, attr.Value, matchRule.MatchType))
+			}
+			for _, operation := range matchRule.Operation {
+				operations[operation] = attributes
+			}
+		}
+		return rule.NewRuleManager(operations, tbl.Enable, tbl.GroupNode), nil
+	}
+
+	return nil, nil
 }
 
 func (fp *discovery) Init(ctx context.Context) error {
@@ -274,12 +315,21 @@ func (fp *discovery) ListTables(ctx context.Context, cluster string) ([]string, 
 	return tables, nil
 }
 
-func (fp *discovery) GetNode(ctx context.Context, cluster, group, node string) (*config.Node, error) {
+func (fp *discovery) GetNodes(ctx context.Context, cluster, group string) ([]*config.Node, error) {
 	bingo, ok := fp.loadGroup(cluster, group)
 	if !ok {
 		return nil, nil
 	}
-	for _, it := range bingo.Nodes {
+
+	return bingo.Nodes, nil
+}
+
+func (fp *discovery) GetNode(ctx context.Context, cluster, group, node string) (*config.Node, error) {
+	nodes, err := fp.GetNodes(ctx, cluster, group)
+	if err != nil {
+		return nil, err
+	}
+	for _, it := range nodes {
 		if it.Name == node {
 			return it, nil
 		}

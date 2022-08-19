@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS `employees_0000`.`student_0000`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0000`.`student_0001`
 (
@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS `employees_0000`.`student_0001`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0000`.`student_0002`
 (
@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS `employees_0000`.`student_0002`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0000`.`student_0003`
 (
@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS `employees_0000`.`student_0003`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0000`.`student_0004`
 (
@@ -100,7 +100,7 @@ CREATE TABLE IF NOT EXISTS `employees_0000`.`student_0004`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0000`.`student_0005`
 (
@@ -116,7 +116,7 @@ CREATE TABLE IF NOT EXISTS `employees_0000`.`student_0005`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0000`.`student_0006`
 (
@@ -132,7 +132,7 @@ CREATE TABLE IF NOT EXISTS `employees_0000`.`student_0006`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0000`.`student_0007`
 (
@@ -148,7 +148,7 @@ CREATE TABLE IF NOT EXISTS `employees_0000`.`student_0007`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0001`.`student_0008`
 (
@@ -164,7 +164,7 @@ CREATE TABLE IF NOT EXISTS `employees_0001`.`student_0008`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0001`.`student_0009`
 (
@@ -180,7 +180,7 @@ CREATE TABLE IF NOT EXISTS `employees_0001`.`student_0009`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0001`.`student_0010`
 (
@@ -196,7 +196,7 @@ CREATE TABLE IF NOT EXISTS `employees_0001`.`student_0010`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0001`.`student_0011`
 (
@@ -212,7 +212,7 @@ CREATE TABLE IF NOT EXISTS `employees_0001`.`student_0011`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0001`.`student_0012`
 (
@@ -228,7 +228,7 @@ CREATE TABLE IF NOT EXISTS `employees_0001`.`student_0012`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0001`.`student_0013`
 (
@@ -244,7 +244,7 @@ CREATE TABLE IF NOT EXISTS `employees_0001`.`student_0013`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0001`.`student_0014`
 (
@@ -260,7 +260,7 @@ CREATE TABLE IF NOT EXISTS `employees_0001`.`student_0014`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0001`.`student_0015`
 (
@@ -276,7 +276,7 @@ CREATE TABLE IF NOT EXISTS `employees_0001`.`student_0015`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0002`.`student_0016`
 (
@@ -292,7 +292,7 @@ CREATE TABLE IF NOT EXISTS `employees_0002`.`student_0016`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0002`.`student_0017`
 (
@@ -308,7 +308,7 @@ CREATE TABLE IF NOT EXISTS `employees_0002`.`student_0017`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0002`.`student_0018`
 (
@@ -324,7 +324,7 @@ CREATE TABLE IF NOT EXISTS `employees_0002`.`student_0018`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0002`.`student_0019`
 (
@@ -340,7 +340,7 @@ CREATE TABLE IF NOT EXISTS `employees_0002`.`student_0019`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0002`.`student_0020`
 (
@@ -356,7 +356,7 @@ CREATE TABLE IF NOT EXISTS `employees_0002`.`student_0020`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0002`.`student_0021`
 (
@@ -372,7 +372,7 @@ CREATE TABLE IF NOT EXISTS `employees_0002`.`student_0021`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0002`.`student_0022`
 (
@@ -388,7 +388,7 @@ CREATE TABLE IF NOT EXISTS `employees_0002`.`student_0022`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0002`.`student_0023`
 (
@@ -404,7 +404,7 @@ CREATE TABLE IF NOT EXISTS `employees_0002`.`student_0023`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0003`.`student_0024`
 (
@@ -420,7 +420,7 @@ CREATE TABLE IF NOT EXISTS `employees_0003`.`student_0024`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0003`.`student_0025`
 (
@@ -436,7 +436,7 @@ CREATE TABLE IF NOT EXISTS `employees_0003`.`student_0025`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0003`.`student_0026`
 (
@@ -452,7 +452,7 @@ CREATE TABLE IF NOT EXISTS `employees_0003`.`student_0026`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0003`.`student_0027`
 (
@@ -468,7 +468,7 @@ CREATE TABLE IF NOT EXISTS `employees_0003`.`student_0027`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0003`.`student_0028`
 (
@@ -484,7 +484,7 @@ CREATE TABLE IF NOT EXISTS `employees_0003`.`student_0028`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0003`.`student_0029`
 (
@@ -500,7 +500,7 @@ CREATE TABLE IF NOT EXISTS `employees_0003`.`student_0029`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0003`.`student_0030`
 (
@@ -516,7 +516,7 @@ CREATE TABLE IF NOT EXISTS `employees_0003`.`student_0030`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0003`.`student_0031`
 (
@@ -532,7 +532,7 @@ CREATE TABLE IF NOT EXISTS `employees_0003`.`student_0031`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 
 CREATE TABLE IF NOT EXISTS `employees_0000_r`.`student_0000`
@@ -549,7 +549,7 @@ CREATE TABLE IF NOT EXISTS `employees_0000_r`.`student_0000`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0000_r`.`student_0001`
 (
@@ -565,7 +565,7 @@ CREATE TABLE IF NOT EXISTS `employees_0000_r`.`student_0001`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0000_r`.`student_0002`
 (
@@ -581,7 +581,7 @@ CREATE TABLE IF NOT EXISTS `employees_0000_r`.`student_0002`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0000_r`.`student_0003`
 (
@@ -597,7 +597,7 @@ CREATE TABLE IF NOT EXISTS `employees_0000_r`.`student_0003`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0000_r`.`student_0004`
 (
@@ -613,7 +613,7 @@ CREATE TABLE IF NOT EXISTS `employees_0000_r`.`student_0004`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0000_r`.`student_0005`
 (
@@ -629,7 +629,7 @@ CREATE TABLE IF NOT EXISTS `employees_0000_r`.`student_0005`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0000_r`.`student_0006`
 (
@@ -645,7 +645,7 @@ CREATE TABLE IF NOT EXISTS `employees_0000_r`.`student_0006`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `employees_0000_r`.`student_0007`
 (
@@ -661,7 +661,518 @@ CREATE TABLE IF NOT EXISTS `employees_0000_r`.`student_0007`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_uid` (`uid`),
     KEY `nickname` (`nickname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS `employees_shadow`.`student_0000`
+(
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uid` BIGINT(20) UNSIGNED NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `score` DECIMAL(6,2) DEFAULT '0',
+    `nickname` VARCHAR(255) DEFAULT NULL,
+    `gender` TINYINT(4) NULL,
+    `birth_year` SMALLINT(5) UNSIGNED DEFAULT '0',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `employees_shadow`.`student_0001`
+(
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uid` BIGINT(20) UNSIGNED NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `score` DECIMAL(6,2) DEFAULT '0',
+    `nickname` VARCHAR(255) DEFAULT NULL,
+    `gender` TINYINT(4) NULL,
+    `birth_year` SMALLINT(5) UNSIGNED DEFAULT '0',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `employees_shadow`.`student_0002`
+(
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uid` BIGINT(20) UNSIGNED NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `score` DECIMAL(6,2) DEFAULT '0',
+    `nickname` VARCHAR(255) DEFAULT NULL,
+    `gender` TINYINT(4) NULL,
+    `birth_year` SMALLINT(5) UNSIGNED DEFAULT '0',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `employees_shadow`.`student_0003`
+(
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uid` BIGINT(20) UNSIGNED NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `score` DECIMAL(6,2) DEFAULT '0',
+    `nickname` VARCHAR(255) DEFAULT NULL,
+    `gender` TINYINT(4) NULL,
+    `birth_year` SMALLINT(5) UNSIGNED DEFAULT '0',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `employees_shadow`.`student_0004`
+(
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uid` BIGINT(20) UNSIGNED NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `score` DECIMAL(6,2) DEFAULT '0',
+    `nickname` VARCHAR(255) DEFAULT NULL,
+    `gender` TINYINT(4) NULL,
+    `birth_year` SMALLINT(5) UNSIGNED DEFAULT '0',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `employees_shadow`.`student_0005`
+(
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uid` BIGINT(20) UNSIGNED NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `score` DECIMAL(6,2) DEFAULT '0',
+    `nickname` VARCHAR(255) DEFAULT NULL,
+    `gender` TINYINT(4) NULL,
+    `birth_year` SMALLINT(5) UNSIGNED DEFAULT '0',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `employees_shadow`.`student_0006`
+(
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uid` BIGINT(20) UNSIGNED NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `score` DECIMAL(6,2) DEFAULT '0',
+    `nickname` VARCHAR(255) DEFAULT NULL,
+    `gender` TINYINT(4) NULL,
+    `birth_year` SMALLINT(5) UNSIGNED DEFAULT '0',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `employees_shadow`.`student_0007`
+(
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uid` BIGINT(20) UNSIGNED NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `score` DECIMAL(6,2) DEFAULT '0',
+    `nickname` VARCHAR(255) DEFAULT NULL,
+    `gender` TINYINT(4) NULL,
+    `birth_year` SMALLINT(5) UNSIGNED DEFAULT '0',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `employees_shadow`.`student_0008`
+(
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uid` BIGINT(20) UNSIGNED NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `score` DECIMAL(6,2) DEFAULT '0',
+    `nickname` VARCHAR(255) DEFAULT NULL,
+    `gender` TINYINT(4) NULL,
+    `birth_year` SMALLINT(5) UNSIGNED DEFAULT '0',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `employees_shadow`.`student_0009`
+(
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uid` BIGINT(20) UNSIGNED NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `score` DECIMAL(6,2) DEFAULT '0',
+    `nickname` VARCHAR(255) DEFAULT NULL,
+    `gender` TINYINT(4) NULL,
+    `birth_year` SMALLINT(5) UNSIGNED DEFAULT '0',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `employees_shadow`.`student_0010`
+(
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uid` BIGINT(20) UNSIGNED NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `score` DECIMAL(6,2) DEFAULT '0',
+    `nickname` VARCHAR(255) DEFAULT NULL,
+    `gender` TINYINT(4) NULL,
+    `birth_year` SMALLINT(5) UNSIGNED DEFAULT '0',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `employees_shadow`.`student_0011`
+(
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uid` BIGINT(20) UNSIGNED NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `score` DECIMAL(6,2) DEFAULT '0',
+    `nickname` VARCHAR(255) DEFAULT NULL,
+    `gender` TINYINT(4) NULL,
+    `birth_year` SMALLINT(5) UNSIGNED DEFAULT '0',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `employees_shadow`.`student_0012`
+(
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uid` BIGINT(20) UNSIGNED NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `score` DECIMAL(6,2) DEFAULT '0',
+    `nickname` VARCHAR(255) DEFAULT NULL,
+    `gender` TINYINT(4) NULL,
+    `birth_year` SMALLINT(5) UNSIGNED DEFAULT '0',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `employees_shadow`.`student_0013`
+(
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uid` BIGINT(20) UNSIGNED NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `score` DECIMAL(6,2) DEFAULT '0',
+    `nickname` VARCHAR(255) DEFAULT NULL,
+    `gender` TINYINT(4) NULL,
+    `birth_year` SMALLINT(5) UNSIGNED DEFAULT '0',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `employees_shadow`.`student_0014`
+(
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uid` BIGINT(20) UNSIGNED NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `score` DECIMAL(6,2) DEFAULT '0',
+    `nickname` VARCHAR(255) DEFAULT NULL,
+    `gender` TINYINT(4) NULL,
+    `birth_year` SMALLINT(5) UNSIGNED DEFAULT '0',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `employees_shadow`.`student_0015`
+(
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uid` BIGINT(20) UNSIGNED NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `score` DECIMAL(6,2) DEFAULT '0',
+    `nickname` VARCHAR(255) DEFAULT NULL,
+    `gender` TINYINT(4) NULL,
+    `birth_year` SMALLINT(5) UNSIGNED DEFAULT '0',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `employees_shadow`.`student_0016`
+(
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uid` BIGINT(20) UNSIGNED NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `score` DECIMAL(6,2) DEFAULT '0',
+    `nickname` VARCHAR(255) DEFAULT NULL,
+    `gender` TINYINT(4) NULL,
+    `birth_year` SMALLINT(5) UNSIGNED DEFAULT '0',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `employees_shadow`.`student_0017`
+(
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uid` BIGINT(20) UNSIGNED NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `score` DECIMAL(6,2) DEFAULT '0',
+    `nickname` VARCHAR(255) DEFAULT NULL,
+    `gender` TINYINT(4) NULL,
+    `birth_year` SMALLINT(5) UNSIGNED DEFAULT '0',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `employees_shadow`.`student_0018`
+(
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uid` BIGINT(20) UNSIGNED NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `score` DECIMAL(6,2) DEFAULT '0',
+    `nickname` VARCHAR(255) DEFAULT NULL,
+    `gender` TINYINT(4) NULL,
+    `birth_year` SMALLINT(5) UNSIGNED DEFAULT '0',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `employees_shadow`.`student_0019`
+(
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uid` BIGINT(20) UNSIGNED NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `score` DECIMAL(6,2) DEFAULT '0',
+    `nickname` VARCHAR(255) DEFAULT NULL,
+    `gender` TINYINT(4) NULL,
+    `birth_year` SMALLINT(5) UNSIGNED DEFAULT '0',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `employees_shadow`.`student_0020`
+(
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uid` BIGINT(20) UNSIGNED NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `score` DECIMAL(6,2) DEFAULT '0',
+    `nickname` VARCHAR(255) DEFAULT NULL,
+    `gender` TINYINT(4) NULL,
+    `birth_year` SMALLINT(5) UNSIGNED DEFAULT '0',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `employees_shadow`.`student_0021`
+(
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uid` BIGINT(20) UNSIGNED NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `score` DECIMAL(6,2) DEFAULT '0',
+    `nickname` VARCHAR(255) DEFAULT NULL,
+    `gender` TINYINT(4) NULL,
+    `birth_year` SMALLINT(5) UNSIGNED DEFAULT '0',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `employees_shadow`.`student_0022`
+(
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uid` BIGINT(20) UNSIGNED NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `score` DECIMAL(6,2) DEFAULT '0',
+    `nickname` VARCHAR(255) DEFAULT NULL,
+    `gender` TINYINT(4) NULL,
+    `birth_year` SMALLINT(5) UNSIGNED DEFAULT '0',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `employees_shadow`.`student_0023`
+(
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uid` BIGINT(20) UNSIGNED NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `score` DECIMAL(6,2) DEFAULT '0',
+    `nickname` VARCHAR(255) DEFAULT NULL,
+    `gender` TINYINT(4) NULL,
+    `birth_year` SMALLINT(5) UNSIGNED DEFAULT '0',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `employees_shadow`.`student_0024`
+(
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uid` BIGINT(20) UNSIGNED NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `score` DECIMAL(6,2) DEFAULT '0',
+    `nickname` VARCHAR(255) DEFAULT NULL,
+    `gender` TINYINT(4) NULL,
+    `birth_year` SMALLINT(5) UNSIGNED DEFAULT '0',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `employees_shadow`.`student_0025`
+(
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uid` BIGINT(20) UNSIGNED NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `score` DECIMAL(6,2) DEFAULT '0',
+    `nickname` VARCHAR(255) DEFAULT NULL,
+    `gender` TINYINT(4) NULL,
+    `birth_year` SMALLINT(5) UNSIGNED DEFAULT '0',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `employees_shadow`.`student_0026`
+(
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uid` BIGINT(20) UNSIGNED NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `score` DECIMAL(6,2) DEFAULT '0',
+    `nickname` VARCHAR(255) DEFAULT NULL,
+    `gender` TINYINT(4) NULL,
+    `birth_year` SMALLINT(5) UNSIGNED DEFAULT '0',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `employees_shadow`.`student_0027`
+(
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uid` BIGINT(20) UNSIGNED NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `score` DECIMAL(6,2) DEFAULT '0',
+    `nickname` VARCHAR(255) DEFAULT NULL,
+    `gender` TINYINT(4) NULL,
+    `birth_year` SMALLINT(5) UNSIGNED DEFAULT '0',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `employees_shadow`.`student_0028`
+(
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uid` BIGINT(20) UNSIGNED NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `score` DECIMAL(6,2) DEFAULT '0',
+    `nickname` VARCHAR(255) DEFAULT NULL,
+    `gender` TINYINT(4) NULL,
+    `birth_year` SMALLINT(5) UNSIGNED DEFAULT '0',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `employees_shadow`.`student_0029`
+(
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uid` BIGINT(20) UNSIGNED NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `score` DECIMAL(6,2) DEFAULT '0',
+    `nickname` VARCHAR(255) DEFAULT NULL,
+    `gender` TINYINT(4) NULL,
+    `birth_year` SMALLINT(5) UNSIGNED DEFAULT '0',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `employees_shadow`.`student_0030`
+(
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uid` BIGINT(20) UNSIGNED NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `score` DECIMAL(6,2) DEFAULT '0',
+    `nickname` VARCHAR(255) DEFAULT NULL,
+    `gender` TINYINT(4) NULL,
+    `birth_year` SMALLINT(5) UNSIGNED DEFAULT '0',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `employees_shadow`.`student_0031`
+(
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uid` BIGINT(20) UNSIGNED NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `score` DECIMAL(6,2) DEFAULT '0',
+    `nickname` VARCHAR(255) DEFAULT NULL,
+    `gender` TINYINT(4) NULL,
+    `birth_year` SMALLINT(5) UNSIGNED DEFAULT '0',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `modified_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`),
+    KEY `nickname` (`nickname`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 INSERT INTO employees_0000.student_0001(id,uid,name,score,nickname,gender,birth_year,created_at,modified_at) VALUES (1, 1, 'arana', 95, 'Awesome Arana', 0, 2021, NOW(), NOW());

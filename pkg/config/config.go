@@ -47,6 +47,7 @@ var (
 		DefaultConfigDataListenersPath:      "data.listeners",
 		DefaultConfigDataSourceClustersPath: "data.clusters",
 		DefaultConfigDataShardingRulePath:   "data.sharding_rule",
+		DefaultConfigDataShadowRulePath:     "data.shadow_rule",
 	}
 
 	_configValSupplier map[PathKey]func(cfg *Configuration) interface{} = map[PathKey]func(cfg *Configuration) interface{}{
@@ -64,6 +65,9 @@ var (
 		},
 		DefaultConfigDataShardingRulePath: func(cfg *Configuration) interface{} {
 			return &cfg.Data.ShardingRule
+		},
+		DefaultConfigDataShadowRulePath: func(cfg *Configuration) interface{} {
+			return &cfg.Data.ShadowRule
 		},
 	}
 )
@@ -158,6 +162,9 @@ func (c *Center) loadFromStore(ctx context.Context) (*Configuration, error) {
 			Tenants:            make([]*Tenant, 0),
 			DataSourceClusters: make([]*DataSourceCluster, 0),
 			ShardingRule:       &ShardingRule{},
+			ShadowRule: &ShadowRule{
+				ShadowTables: make([]*ShadowTable, 0),
+			},
 		},
 	}
 

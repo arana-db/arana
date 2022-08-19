@@ -26,6 +26,7 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/constants"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/ast"
@@ -61,17 +62,21 @@ func optimizeUpdate(_ context.Context, o *optimize.Optimizer) (proto.Plan, error
 	}
 
 	var (
-		shards   rule.DatabaseTables
-		fullScan = true
-		err      error
+		shards      rule.DatabaseTables
+		fullScan    = true
+		err         error
+		matchShadow bool
 	)
 
 	// compute shards
 	if where := stmt.Where; where != nil {
 		if len(o.Hints) > 0 {
-			if shards, err = optimize.Hints(table, o.Hints, o.Rule); err != nil {
+			var hintLoader optimize.HintResultLoader
+			if hintLoader, err = optimize.Hints(table, o.Hints, o.Rule, o.ShadowRule); err != nil {
 				return nil, errors.Wrap(err, "calculate hints failed")
 			}
+			shards = hintLoader.GetShards()
+			matchShadow = hintLoader.GetMatchBy(table.Suffix(), constants.ShadowUpdate)
 		}
 
 		if shards == nil {
@@ -95,6 +100,10 @@ func optimizeUpdate(_ context.Context, o *optimize.Optimizer) (proto.Plan, error
 	if shards.IsFullScan() {
 		// compute all tables
 		shards = vt.Topology().Enumerate()
+	}
+
+	if matchShadow {
+		shards.ReplaceDb(o.ShadowRule.GetDatabase(stmt.Table.Suffix()))
 	}
 
 	ret := dml.NewUpdatePlan(stmt)

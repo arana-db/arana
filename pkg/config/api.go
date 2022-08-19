@@ -38,6 +38,7 @@ const (
 	DefaultConfigDataSourceClustersPath PathKey = "/arana-db/config/data/dataSourceClusters"
 	DefaultConfigDataShardingRulePath   PathKey = "/arana-db/config/data/shardingRule"
 	DefaultConfigDataTenantsPath        PathKey = "/arana-db/config/data/tenants"
+	DefaultConfigDataShadowRulePath     PathKey = "/arana-db/config/data/shadowRule"
 )
 
 const (
