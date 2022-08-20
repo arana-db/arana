@@ -31,7 +31,7 @@ type IndexKeyType int
 
 // Index key types.
 const (
-	IndexKeyTypeNone IndexKeyType = iota
+	_ IndexKeyType = iota
 	IndexKeyTypeUnique
 	IndexKeyTypeSpatial
 	IndexKeyTypeFullText
@@ -49,7 +49,7 @@ func (c *CreateIndexStatement) CntParams() int {
 }
 
 func (c *CreateIndexStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
-	sb.WriteString("CREATE INDEX ")
+	sb.WriteString("CREATE ")
 
 	switch c.KeyType {
 	case IndexKeyTypeUnique:
