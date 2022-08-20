@@ -18,13 +18,17 @@
 package router
 
 import (
-    "context"
-    "net/http"
+	"context"
+	"net/http"
+)
 
-    "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+)
 
-    "github.com/arana-db/arana/pkg/admin"
-    "github.com/arana-db/arana/pkg/boot"
+import (
+	"github.com/arana-db/arana/pkg/admin"
+	"github.com/arana-db/arana/pkg/boot"
 )
 
 func init() {
