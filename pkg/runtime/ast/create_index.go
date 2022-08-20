@@ -26,9 +26,21 @@ var (
 	_ Restorer  = (*CreateIndexStatement)(nil)
 )
 
+// IndexKeyType is the type for index key.
+type IndexKeyType int
+
+// Index key types.
+const (
+	IndexKeyTypeNone IndexKeyType = iota
+	IndexKeyTypeUnique
+	IndexKeyTypeSpatial
+	IndexKeyTypeFullText
+)
+
 type CreateIndexStatement struct {
 	IndexName string
 	Table     TableName
+	KeyType   IndexKeyType
 	Keys      []*IndexPartSpec
 }
 
@@ -38,6 +50,17 @@ func (c *CreateIndexStatement) CntParams() int {
 
 func (c *CreateIndexStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("CREATE INDEX ")
+
+	switch c.KeyType {
+	case IndexKeyTypeUnique:
+		sb.WriteString("UNIQUE ")
+	case IndexKeyTypeSpatial:
+		sb.WriteString("SPATIAL ")
+	case IndexKeyTypeFullText:
+		sb.WriteString("FULLTEXT ")
+
+	}
+	sb.WriteString("INDEX ")
 	sb.WriteString(c.IndexName)
 	if len(c.Table) == 0 {
 		return nil

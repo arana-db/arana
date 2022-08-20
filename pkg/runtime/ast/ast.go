@@ -150,6 +150,7 @@ func (cc *convCtx) convCreateIndexStmt(stmt *ast.CreateIndexStmt) *CreateIndexSt
 		Table:     tableName,
 		IndexName: stmt.IndexName,
 		Keys:      keys,
+		KeyType:   IndexKeyType(stmt.KeyType),
 	}
 }
 
