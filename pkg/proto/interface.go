@@ -19,7 +19,6 @@ package proto
 
 import (
 	"context"
-	"encoding/json"
 	"sort"
 )
 
@@ -33,8 +32,9 @@ type (
 	Context struct {
 		context.Context
 
-		Tenant string
-		Schema string
+		Tenant        string
+		Schema        string
+		ServerVersion string
 
 		ConnectionID uint32
 
@@ -50,32 +50,8 @@ type (
 		Close()
 	}
 
-	Filter interface {
-		GetName() string
-	}
-
-	// PreFilter
-	PreFilter interface {
-		Filter
-		PreHandle(ctx *Context)
-	}
-
-	// PostFilter
-	PostFilter interface {
-		Filter
-		PostHandle(ctx *Context, result Result)
-	}
-
-	FilterFactory interface {
-		NewFilter(config json.RawMessage) (Filter, error)
-	}
-
 	// Executor
 	Executor interface {
-		AddPreFilter(filter PreFilter)
-		AddPostFilter(filter PostFilter)
-		GetPreFilters() []PreFilter
-		GetPostFilters() []PostFilter
 		ProcessDistributedTransaction() bool
 		InLocalTransaction(ctx *Context) bool
 		InGlobalTransaction(ctx *Context) bool

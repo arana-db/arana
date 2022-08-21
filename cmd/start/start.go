@@ -45,14 +45,14 @@ import (
 
 // slogan is generated from 'figlet -f smslant ARANA'.
 const slogan = `
-   ___   ___  ___   _  _____ 
-  / _ | / _ \/ _ | / |/ / _ |
- / __ |/ , _/ __ |/    / __ |
-/_/ |_/_/|_/_/ |_/_/|_/_/ |_|
-Arana, A High performance & Powerful DB Mesh sidecar.
-_____________________________________________
-
-`
+	___   ___  ___   _  _____ 
+   / _ | / _ \/ _ | / |/ / _ |
+  / __ |/ , _/ __ |/    / __ |
+ /_/ |_/_/|_/_/ |_/_/|_/_/ |_|
+ Arana, A High performance & Powerful DB Mesh sidecar.
+ _____________________________________________
+ 
+ `
 
 func init() {
 	cmd := &cobra.Command{

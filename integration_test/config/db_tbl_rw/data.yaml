@@ -15,23 +15,16 @@
 # limitations under the License.
 #
 
-# See https://pre-commit.com for more information
-# See https://pre-commit.com/hooks.html for more hooks
-# See https://github.com/tekwizely/pre-commit-golang for golang hooks
-
-repos:
--   repo: https://github.com/tekwizely/pre-commit-golang
-    rev: v1.0.0-beta.5
-    hooks:
-        -   id: my-cmd-mod
-            name: imports-formatter
-            alias: imports-formatter
-            args: [imports-formatter]
-        -   id: my-cmd-mod
-            name: license-eye
-            alias: license-eye
-            args: [license-eye, header, fix]
--   repo: http://github.com/golangci/golangci-lint
-    rev: v1.46.2
-    hooks:
-        -   id: golangci-lint
+kind: DataSet
+metadata:
+  tables:
+    - name: "order"
+      columns:
+        - name: "name"
+          type: "string"
+        - name: "value"
+          type: "string"
+data:
+  - name: "order"
+    value:
+      - ["test", "test1"]

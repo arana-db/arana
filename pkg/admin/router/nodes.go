@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package router
 
 import (
@@ -33,43 +32,30 @@ import (
 
 func init() {
 	admin.Register(func(router gin.IRoutes) {
-		router.GET("/tenants", ListTenants)
-		router.POST("/tenants", CreateTenant)
-		router.GET("/tenants/:tenant", GetTenant)
-		router.PUT("/tenants/:tenant", UpdateTenant)
-		router.DELETE("/tenants/:tenant", RemoveTenant)
+		router.GET("/tenants/:tenant/nodes", ListNodes)
+		router.POST("/tenants/:tenant/nodes", CreateNode)
+		router.GET("/tenants/:tenant/nodes/:node", GetNode)
+		router.PUT("/tenants/:tenant/nodes/:node", UpdateNode)
+		router.DELETE("/tenants/:tenant/nodes/:node", RemoveNode)
 	})
 }
 
-func ListTenants(c *gin.Context) {
+func ListNodes(c *gin.Context) {
 	service := admin.GetService(c)
-	tenants, err := service.ListTenants(context.Background())
+	tenantName := c.Param("tenant")
+	nodes, err := service.ListNodes(context.Background(), tenantName)
 	if err != nil {
 		_ = c.Error(err)
 		return
 	}
-	c.JSON(http.StatusOK, tenants)
+	c.JSON(http.StatusOK, nodes)
 }
 
-func CreateTenant(c *gin.Context) {
-	service := admin.GetService(c)
-	var tenantBody *boot.TenantBody
-	if err := c.ShouldBindJSON(&tenantBody); err == nil {
-		err := service.UpsertTenant(context.Background(), "", tenantBody)
-		if err != nil {
-			_ = c.Error(err)
-			return
-		}
-		c.JSON(http.StatusCreated, nil)
-	} else {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-	}
-}
-
-func GetTenant(c *gin.Context) {
+func GetNode(c *gin.Context) {
 	service := admin.GetService(c)
 	tenant := c.Param("tenant")
-	data, err := service.GetTenant(context.Background(), tenant)
+	node := c.Param("node")
+	data, err := service.GetNode(context.Background(), tenant, node)
 	if err != nil {
 		_ = c.Error(err)
 		return
@@ -77,12 +63,13 @@ func GetTenant(c *gin.Context) {
 	c.JSON(http.StatusOK, data)
 }
 
-func UpdateTenant(c *gin.Context) {
+func CreateNode(c *gin.Context) {
 	service := admin.GetService(c)
 	tenant := c.Param("tenant")
-	var tenantBody *boot.TenantBody
-	if err := c.ShouldBindJSON(&tenantBody); err == nil {
-		err := service.UpsertTenant(context.Background(), tenant, tenantBody)
+	var node *boot.NodeBody
+	if err := c.ShouldBindJSON(&node); err == nil {
+		//TODO how to get cluster name?
+		err := service.UpsertNode(context.Background(), tenant, "", node)
 		if err != nil {
 			_ = c.Error(err)
 			return
@@ -93,10 +80,28 @@ func UpdateTenant(c *gin.Context) {
 	}
 }
 
-func RemoveTenant(c *gin.Context) {
+func UpdateNode(c *gin.Context) {
 	service := admin.GetService(c)
 	tenant := c.Param("tenant")
-	err := service.RemoveTenant(context.Background(), tenant)
+	node := c.Param("node")
+	var nodeBody *boot.NodeBody
+	if err := c.ShouldBindJSON(&nodeBody); err == nil {
+		err := service.UpsertNO(context.Background(), tenant, node, nodeBody)
+		if err != nil {
+			_ = c.Error(err)
+			return
+		}
+		c.JSON(http.StatusOK, nil)
+	} else {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	}
+}
+
+func RemoveNode(c *gin.Context) {
+	service := admin.GetService(c)
+	tenant := c.Param("tenant")
+	node := c.Param("node")
+	err := service.RemoveNode(context.Background(), tenant, node)
 	if err != nil {
 		_ = c.Error(err)
 		return

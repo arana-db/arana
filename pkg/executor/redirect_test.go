@@ -36,34 +36,6 @@ func TestIsErrMissingTx(t *testing.T) {
 	assert.True(t, IsErrMissingTx(err))
 }
 
-func TestAddPreFilter(t *testing.T) {
-	redirect := NewRedirectExecutor()
-	redirect.AddPreFilter(&PreFilterTest{})
-	assert.Equal(t, 1, len(redirect.preFilters))
-	assert.Equal(t, "PreFilterTest", redirect.preFilters[0].GetName())
-}
-
-func TestAddPostFilter(t *testing.T) {
-	redirect := NewRedirectExecutor()
-	redirect.AddPostFilter(&PostFilterTest{})
-	assert.Equal(t, 1, len(redirect.postFilters))
-	assert.Equal(t, "PostFilterTest", redirect.postFilters[0].GetName())
-}
-
-func TestGetPreFilters(t *testing.T) {
-	redirect := NewRedirectExecutor()
-	redirect.AddPreFilter(&PreFilterTest{})
-	assert.Equal(t, 1, len(redirect.GetPreFilters()))
-	assert.Equal(t, "PreFilterTest", redirect.GetPreFilters()[0].GetName())
-}
-
-func TestGetPostFilters(t *testing.T) {
-	redirect := NewRedirectExecutor()
-	redirect.AddPostFilter(&PostFilterTest{})
-	assert.Equal(t, 1, len(redirect.GetPostFilters()))
-	assert.Equal(t, "PostFilterTest", redirect.GetPostFilters()[0].GetName())
-}
-
 func TestProcessDistributedTransaction(t *testing.T) {
 	redirect := NewRedirectExecutor()
 	assert.False(t, redirect.ProcessDistributedTransaction())
@@ -87,20 +59,4 @@ func createContext() *proto.Context {
 		Stmt:         nil,
 	}
 	return result
-}
-
-type PreFilterTest struct {
-	proto.PreFilter
-}
-
-func (filter *PreFilterTest) GetName() string {
-	return "PreFilterTest"
-}
-
-type PostFilterTest struct {
-	proto.PostFilter
-}
-
-func (filter *PostFilterTest) GetName() string {
-	return "PostFilterTest"
 }
