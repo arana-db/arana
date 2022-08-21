@@ -25,12 +25,15 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
 )
 
 import (
+	pmysql "github.com/arana-db/parser/mysql"
+
 	gxnet "github.com/dubbogo/gost/net"
 
 	"github.com/pkg/errors"
@@ -692,11 +695,33 @@ func (c *Conn) writeOKPacketWithEOFHeader(affectedRows, lastInsertID uint64, fla
 	return c.writeEphemeralPacket()
 }
 
+func (c *Conn) fixErrNoSuchTable(errorMessage string) string {
+	// FIXME: workaround, need refinement in the future.
+	// Table 'employees_0000.teacher' doesn't exist
+	if matches := getFixErrNoSuchTableRegexp().FindStringSubmatch(errorMessage); len(matches) == 3 {
+		var sb strings.Builder
+		sb.Grow(len(errorMessage))
+		sb.WriteString("Table '")
+		sb.WriteString(c.Schema)
+		sb.WriteByte('.')
+		sb.WriteString(matches[2])
+		sb.WriteString("' doesn't exist")
+		return sb.String()
+	}
+
+	return errorMessage
+}
+
 // writeErrorPacket writes an error packet.
 // Server -> Client.
 // This method returns a generic error, not a SQLError.
 func (c *Conn) writeErrorPacket(errorCode uint16, sqlState string, format string, args ...interface{}) error {
 	errorMessage := fmt.Sprintf(format, args...)
+	switch errorCode {
+	case pmysql.ErrNoSuchTable:
+		errorMessage = c.fixErrNoSuchTable(errorMessage)
+	}
+
 	length := 1 + 2 + 1 + 5 + len(errorMessage)
 	data := c.startEphemeralPacket(length)
 	pos := 0
@@ -864,4 +889,16 @@ func (c *Conn) GetTLSClientCerts() []*x509.Certificate {
 
 func (c *Conn) GetNetConn() net.Conn {
 	return c.conn
+}
+
+var (
+	_fixErrNoSuchTableRegexp     *regexp.Regexp
+	_fixErrNoSuchTableRegexpOnce sync.Once
+)
+
+func getFixErrNoSuchTableRegexp() *regexp.Regexp {
+	_fixErrNoSuchTableRegexpOnce.Do(func() {
+		_fixErrNoSuchTableRegexp = regexp.MustCompile(`^Table '([^.']+)\.([^.']+)' doesn't exist$`)
+	})
+	return _fixErrNoSuchTableRegexp
 }
