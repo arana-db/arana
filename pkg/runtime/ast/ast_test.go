@@ -238,6 +238,11 @@ func TestParse_ShowStatement(t *testing.T) {
 		{"sHoW full columns from foo", (*ShowColumns)(nil), "SHOW FULL COLUMNS FROM `foo`"},
 		{"show extended full columns from foo", (*ShowColumns)(nil), "SHOW EXTENDED FULL COLUMNS FROM `foo`"},
 		{"show create table `foo`", (*ShowCreate)(nil), "SHOW CREATE TABLE `foo`"},
+		{"show table status", (*ShowTableStatus)(nil), "SHOW TABLE STATUS"},
+		{"show table status from foo", (*ShowTableStatus)(nil), "SHOW TABLE STATUS FROM `foo`"},
+		{"show table status in foo", (*ShowTableStatus)(nil), "SHOW TABLE STATUS FROM `foo`"},
+		{"show table status in foo like '%bar%'", (*ShowTableStatus)(nil), "SHOW TABLE STATUS FROM `foo` LIKE '%bar%'"},
+		{"show table status from foo where name='bar'", (*ShowTableStatus)(nil), "SHOW TABLE STATUS FROM `foo` WHERE `name` = 'bar'"},
 	} {
 		t.Run(it.input, func(t *testing.T) {
 			_, stmt, err := Parse(it.input)
