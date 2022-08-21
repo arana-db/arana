@@ -64,6 +64,7 @@ func (c *CreateIndexPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 			stmt.Table = ast.TableName{table}
 			stmt.IndexName = c.stmt.IndexName
 			stmt.Keys = c.stmt.Keys
+			stmt.KeyType = c.stmt.KeyType
 
 			if err := stmt.Restore(ast.RestoreDefault, &sb, &args); err != nil {
 				return nil, err
