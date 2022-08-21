@@ -69,49 +69,70 @@ func getRuleExprRegexp() *regexp.Regexp {
 	return _regexpRuleExpr
 }
 
-type Cluster struct {
-	Tenant string
-	Type   config.DataSourceType
-}
-
-type Discovery interface {
-	// Init init discovery with context
-	Init(ctx context.Context) error
-	// ListTenants list tenants name
-	ListTenants(ctx context.Context) ([]string, error)
-	// GetTenant returns the tenant info
-	GetTenant(ctx context.Context, tenant string) (*config.Tenant, error)
-
-	// ListListeners lists the listener names
-	ListListeners(ctx context.Context) ([]*config.Listener, error)
-
-	// ListClusters lists the cluster names.
-	ListClusters(ctx context.Context) ([]string, error)
-	// GetClusterObject returns the dataSourceCluster object
-	GetDataSourceCluster(ctx context.Context, cluster string) (*config.DataSourceCluster, error)
-	// GetCluster returns the cluster info
-	GetCluster(ctx context.Context, cluster string) (*Cluster, error)
-	// ListGroups lists the group names.
-	ListGroups(ctx context.Context, cluster string) ([]string, error)
-
-	// ListNodes lists the node names.
-	ListNodes(ctx context.Context, cluster, group string) ([]string, error)
-	// GetNode returns the node info.
-	GetNode(ctx context.Context, cluster, group, node string) (*config.Node, error)
-
-	// ListTables lists the table names.
-	ListTables(ctx context.Context, cluster string) ([]string, error)
-	// GetTable returns the table info.
-	GetTable(ctx context.Context, cluster, table string) (*rule.VTable, error)
-
-	// GetConfigCenter
-	GetConfigCenter() *config.Center
-}
-
 type discovery struct {
 	path    string
 	options *BootOptions
 	c       *config.Center
+}
+
+func (fp *discovery) UpsertTenant(ctx context.Context, tenant string, body *TenantBody) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (fp *discovery) RemoveTenant(ctx context.Context, tenant string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (fp *discovery) UpsertCluster(ctx context.Context, tenant, cluster string, body *ClusterBody) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (fp *discovery) RemoveCluster(ctx context.Context, tenant, cluster string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (fp *discovery) UpsertNode(ctx context.Context, tenant, node string, body *NodeBody) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (fp *discovery) RemoveNode(ctx context.Context, tenant, node string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (fp *discovery) UpsertGroup(ctx context.Context, tenant, cluster, group string, body *GroupBody) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (fp *discovery) RemoveGroup(ctx context.Context, tenant, cluster, group string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (fp *discovery) BindNode(ctx context.Context, tenant, cluster, group, node string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (fp *discovery) UnbindNode(ctx context.Context, tenant, cluster, group, node string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (fp *discovery) UpsertTable(ctx context.Context, tenant, cluster, table string, body *TableBody) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (fp *discovery) RemoveTable(ctx context.Context, tenant, cluster, table string) error {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (fp *discovery) Init(ctx context.Context) error {
@@ -171,7 +192,7 @@ func (fp *discovery) GetDataSourceCluster(ctx context.Context, cluster string) (
 	return dataSourceCluster, nil
 }
 
-func (fp *discovery) GetCluster(ctx context.Context, cluster string) (*Cluster, error) {
+func (fp *discovery) GetCluster(ctx context.Context, tenant, cluster string) (*Cluster, error) {
 	exist, ok := fp.loadCluster(cluster)
 	if !ok {
 		return nil, nil
@@ -219,7 +240,16 @@ func (fp *discovery) ListListeners(ctx context.Context) ([]*config.Listener, err
 	return cfg.Data.Listeners, nil
 }
 
-func (fp *discovery) ListClusters(ctx context.Context) ([]string, error) {
+func (fp *discovery) ListFilters(ctx context.Context) ([]*config.Filter, error) {
+	cfg, err := fp.c.Load()
+	if err != nil {
+		return nil, err
+	}
+
+	return cfg.Data.Filters, nil
+}
+
+func (fp *discovery) ListClusters(ctx context.Context, tenant string) ([]string, error) {
 	cfg, err := fp.c.Load()
 	if err != nil {
 		return nil, err
@@ -587,7 +617,7 @@ func parseTable(input string) (db, tbl string, err error) {
 	return
 }
 
-func NewProvider(path string) Discovery {
+func NewDiscovery(path string) Discovery {
 	return &discovery{
 		path: path,
 	}

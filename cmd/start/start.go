@@ -27,6 +27,8 @@ import (
 )
 
 import (
+	"github.com/pkg/errors"
+
 	"github.com/spf13/cobra"
 )
 
@@ -35,6 +37,7 @@ import (
 	"github.com/arana-db/arana/pkg/boot"
 	"github.com/arana-db/arana/pkg/constants"
 	"github.com/arana-db/arana/pkg/executor"
+	filter "github.com/arana-db/arana/pkg/filters"
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/server"
 	"github.com/arana-db/arana/pkg/util/log"
@@ -42,14 +45,14 @@ import (
 
 // slogan is generated from 'figlet -f smslant ARANA'.
 const slogan = `
-   ___   ___  ___   _  _____ 
-  / _ | / _ \/ _ | / |/ / _ |
- / __ |/ , _/ __ |/    / __ |
-/_/ |_/_/|_/_/ |_/_/|_/_/ |_|
-Arana, A High performance & Powerful DB Mesh sidecar.
-_____________________________________________
-
-`
+	___   ___  ___   _  _____ 
+   / _ | / _ \/ _ | / |/ / _ |
+  / __ |/ , _/ __ |/    / __ |
+ /_/ |_/_/|_/_/ |_/_/|_/_/ |_|
+ Arana, A High performance & Powerful DB Mesh sidecar.
+ _____________________________________________
+ 
+ `
 
 func init() {
 	cmd := &cobra.Command{
@@ -70,15 +73,33 @@ func Run(bootstrapConfigPath string) {
 	// print slogan
 	fmt.Printf("\033[92m%s\033[0m\n", slogan) // 92m: light green
 
-	provider := boot.NewProvider(bootstrapConfigPath)
-	if err := boot.Boot(context.Background(), provider); err != nil {
+	discovery := boot.NewDiscovery(bootstrapConfigPath)
+	if err := boot.Boot(context.Background(), discovery); err != nil {
 		log.Fatal("start failed: %v", err)
 		return
 	}
 
+	filters, err := discovery.ListFilters(context.Background())
+	if err != nil {
+		log.Fatal("start failed: %v", err)
+		return
+	}
+
+	for _, filterConf := range filters {
+		factory := filter.GetFilterFactory(filterConf.Name)
+		if factory == nil {
+			panic(errors.Errorf("there is no filter factory for filter: %s", filterConf.Name))
+		}
+		f, err := factory.NewFilter(filterConf.Config)
+		if err != nil {
+			panic(errors.WithMessagef(err, "failed to create filter: %s", filterConf.Name))
+		}
+		filter.RegisterFilter(f.GetName(), f)
+	}
+
 	propeller := server.NewServer()
 
-	listenersConf, err := provider.ListListeners(context.Background())
+	listenersConf, err := discovery.ListListeners(context.Background())
 	if err != nil {
 		log.Fatal("start failed: %v", err)
 		return
