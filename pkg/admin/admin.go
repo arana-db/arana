@@ -15,112 +15,91 @@
  * limitations under the License.
  */
 
-package admin
+package router
 
 import (
 	"context"
-	"errors"
-	"io"
-	"net"
 	"net/http"
-	"os"
-	"strings"
 )
 
 import (
 	"github.com/gin-gonic/gin"
-
-	perrors "github.com/pkg/errors"
-
-	uatomic "go.uber.org/atomic"
 )
 
 import (
+	"github.com/arana-db/arana/pkg/admin"
 	"github.com/arana-db/arana/pkg/boot"
-	"github.com/arana-db/arana/pkg/constants"
 )
 
-const K = "ARANA_ADMIN_SERVICE"
-
-var NotFoundError = errors.New("resource not found")
-
-var _hooks []Hook
-
-type Hook func(router gin.IRoutes)
-
-func Register(hook Hook) {
-	_hooks = append(_hooks, hook)
-}
-
 func init() {
-	switch strings.ToLower(os.Getenv(constants.EnvDevelopEnvironment)) {
-	case "1", "true", "yes", "on":
-		gin.SetMode(gin.DebugMode)
-	default:
-		gin.SetMode(gin.ReleaseMode)
-	}
-}
-
-type Service = boot.ConfigProvider
-
-type Server struct {
-	l       net.Listener
-	engine  *gin.Engine
-	service Service
-	started uatomic.Bool
-}
-
-func New(service Service) *Server {
-	return &Server{
-		service: service,
-		engine:  gin.New(),
-	}
-}
-
-func (srv *Server) Close() error {
-	if srv.l != nil {
-		return srv.l.Close()
-	}
-	return nil
-}
-
-func (srv *Server) Listen(addr string) error {
-	if !srv.started.CAS(false, true) {
-		return io.EOF
-	}
-
-	var (
-		c   net.ListenConfig
-		err error
-	)
-
-	srv.engine.Use(func(c *gin.Context) {
-		c.Set(K, srv.service)
-		c.Next()
+	admin.Register(func(router gin.IRoutes) {
+		router.GET("/tenants", ListTenants)
+		router.POST("/tenants", CreateTenant)
+		router.GET("/tenants/:tenant", GetTenant)
+		router.PUT("/tenants/:tenant", UpdateTenant)
+		router.DELETE("/tenants/:tenant", RemoveTenant)
 	})
-	srv.engine.Use(gin.Logger())
-	srv.engine.Use(gin.Recovery())
-	srv.engine.Use(
-		ErrorHandler(
-			Map(NotFoundError).
-				ToResponse(func(c *gin.Context, err error) {
-					c.Status(http.StatusNotFound)
-					_, _ = c.Writer.WriteString(err.Error())
-				}),
-		))
-
-	for _, hook := range _hooks {
-		hook(srv.engine)
-	}
-
-	if srv.l, err = c.Listen(context.Background(), "tcp", addr); err != nil {
-		return perrors.WithStack(err)
-	}
-	return srv.engine.RunListener(srv.l)
 }
 
-// GetService returns Service from gin context.
-func GetService(c *gin.Context) Service {
-	v, _ := c.Get(K)
-	return v.(Service)
+func ListTenants(c *gin.Context) {
+	service := admin.GetService(c)
+	tenants, err := service.ListTenants(context.Background())
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+	c.JSON(http.StatusOK, tenants)
+}
+
+func CreateTenant(c *gin.Context) {
+	service := admin.GetService(c)
+	var tenantBody *boot.TenantBody
+	if err := c.ShouldBindJSON(&tenantBody); err == nil {
+		err := service.UpsertTenant(context.Background(), "", tenantBody)
+		if err != nil {
+			_ = c.Error(err)
+			return
+		}
+		c.JSON(http.StatusCreated, nil)
+	} else {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	}
+}
+
+func GetTenant(c *gin.Context) {
+	service := admin.GetService(c)
+	tenant := c.Param("tenant")
+	data, err := service.GetTenant(context.Background(), tenant)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+	c.JSON(http.StatusOK, data)
+}
+
+func UpdateTenant(c *gin.Context) {
+	service := admin.GetService(c)
+	tenant := c.Param("tenant")
+	var tenantBody *boot.TenantBody
+	if err := c.ShouldBindJSON(&tenantBody); err == nil {
+		err := service.UpsertTenant(context.Background(), tenant, tenantBody)
+		if err != nil {
+			_ = c.Error(err)
+			return
+		}
+		c.JSON(http.StatusOK, nil)
+	} else {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	}
+}
+
+func RemoveTenant(c *gin.Context) {
+	service := admin.GetService(c)
+	tenant := c.Param("tenant")
+	err := service.RemoveTenant(context.Background(), tenant)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+	c.JSON(http.StatusNoContent, nil)
 }
