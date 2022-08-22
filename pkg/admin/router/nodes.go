@@ -34,6 +34,7 @@ import (
 func init() {
 	admin.Register(func(router gin.IRoutes) {
 		if e, ok := router.(*gin.RouterGroup); ok {
+
 			routerGroup := e.Group("/")
 			routerGroup.GET("/tenants/:tenant/nodes", ListNodes)
 			routerGroup.POST("/tenants/:tenant/nodes", CreateNode)
@@ -94,7 +95,7 @@ func GetNode(c *gin.Context) {
 			data, err = service.GetNode(c, cluster, group, node)
 			if err != nil {
 				_ = c.Error(err)
-				return
+				continue
 			}
 		}
 	}
