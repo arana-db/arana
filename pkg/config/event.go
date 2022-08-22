@@ -22,6 +22,7 @@ type EventType int32
 
 const (
 	_ EventType = iota
+	EventTypeTenants
 	EventTypeUsers
 	EventTypeNodes
 	EventTypeClusters
@@ -29,58 +30,97 @@ const (
 	EventTypeShadowRule
 )
 
-type Event interface {
-	Type() EventType
+type (
+	Event interface {
+		Type() EventType
+	}
+
+	//TenantsEvent
+	TenantsEvent struct {
+		AddTenants    Tenants
+		DeleteTenants Tenants
+	}
+
+	//UsersEvent
+	UsersEvent struct {
+		AddUsers    Users
+		UpdateUsers Users
+		DeleteUsers Users
+	}
+
+	//ClustersEvent
+	ClustersEvent struct {
+		AddCluster    Clusters
+		DeleteCluster Clusters
+		UpdateCluster []*ClusterEvent
+	}
+
+	//ClusterEvent
+	ClusterEvent struct {
+		Name        string
+		Type        DataSourceType
+		SqlMaxLimit int
+		Parameters  ParametersMap
+		GroupsEvent *GroupsEvent
+	}
+
+	//GroupsEvent
+	GroupsEvent struct {
+		AddGroups    Groups
+		UpdateGroups Groups
+		DeleteGroups Groups
+	}
+
+	//GroupEvent
+	GroupEvent struct {
+		Name        string
+		AddNodes    Nodes
+		UpdateNodes Nodes
+		DeleteNodes Nodes
+	}
+
+	//ShardingRuleEvent
+	ShardingRuleEvent struct {
+		AddTables    []*Table
+		UpdateTables []*Table
+		DeleteTables []*Table
+	}
+
+	//ShadowRuleEvent
+	ShadowRuleEvent struct {
+		AddTables    []*ShadowTable
+		UpdateTables []*ShadowTable
+		DeleteTables []*ShadowTable
+	}
+
+	//NodesEvent
+	NodesEvent struct {
+		AddNodes    []*Node
+		UpdateNodes []*Node
+		DeleteNodes []*Node
+	}
+)
+
+func (e TenantsEvent) Type() EventType {
+	return EventTypeTenants
 }
 
-//TenantsEvent
-type TenantsEvent struct {
-	AddTenants    Tenants
-	UpdateTenants Tenants
-	DeleteTenants Tenants
+func (e NodesEvent) Type() EventType {
+	return EventTypeNodes
 }
 
-//ClustersEvent
-type ClustersEvent struct {
-	AddCluster    Clusters
-	DeleteCluster Clusters
-	UpdateCluster []*ClusterEvent
+func (e UsersEvent) Type() EventType {
+	return EventTypeUsers
 }
 
-//ClusterEvent
-type ClusterEvent struct {
-	Name        string
-	Type        DataSourceType
-	SqlMaxLimit int
-	Parameters  ParametersMap
-	GroupsEvent *GroupsEvent
+func (e ClustersEvent) Type() EventType {
+	return EventTypeClusters
 }
 
-//GroupsEvent
-type GroupsEvent struct {
-	AddGroups    Groups
-	UpdateGroups Groups
-	DeleteGroups Groups
+func (e ShardingRuleEvent) Type() EventType {
+	return EventTypeShardingRule
 }
 
-//GroupEvent
-type GroupEvent struct {
-	Name        string
-	AddNodes    Nodes
-	UpdateNodes Nodes
-	DeleteNodes Nodes
-}
-
-//ShardingRuleEvent
-type ShardingRuleEvent struct {
-	AddTables    []*Table
-	UpdateTables []*Table
-	DeleteTables []*Table
-}
-
-//FiltersEvent
-type FiltersEvent struct {
-	AddFilters    Filters
-	UpdateFilters Filters
-	DeleteFilters Filters
+func (e ShadowRuleEvent) Type() EventType {
+	return EventTypeShadowRule
 }

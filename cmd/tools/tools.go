@@ -45,7 +45,7 @@ func init() {
 		Use:     "import",
 		Short:   "import arana config",
 		Example: "./arana import -c ../docker/conf/bootstrap.yaml -s ../docker/conf/config.yaml",
-		Run:     Run,
+		Run:     run,
 	}
 
 	cmd.PersistentFlags().
@@ -58,19 +58,37 @@ func init() {
 	})
 }
 
-func Run(cmd *cobra.Command, args []string) {
-	_, _ = cmd, args
+func run(_ *cobra.Command, _ []string) {
+	Run(importBootConfPath, sourceConfigPath)
+}
 
-	discovery := boot.NewDiscovery(importBootConfPath)
-	if err := discovery.Init(context.Background()); err != nil {
-		log.Fatal("init failed: %+v", err)
+func Run(importConfPath, configPath string) {
+	bootCfg, err := boot.LoadBootOptions(importConfPath)
+	if err != nil {
+		log.Fatalf("load bootstrap config failed: %+v", err)
+	}
+
+	if err := config.Init(*bootCfg.Config, bootCfg.APIVersion); err != nil {
+		log.Fatal()
+	}
+
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		log.Fatal("load config from %s failed: %+v", configPath, err)
 		return
 	}
 
-	cfg, err := config.Load(sourceConfigPath)
+	tenantOp, err := config.NewTenantOperate(config.GetStoreOperate())
 	if err != nil {
-		log.Fatal("load config from %s failed: %+v", sourceConfigPath, err)
+		log.Fatal("build tenant operator failed: %+v", configPath, err)
 		return
+	}
+
+	for i := range cfg.Data.Tenants {
+		if err := tenantOp.CreateTenant(cfg.Data.Tenants[i].Name); err != nil {
+			log.Fatal("create tenant failed: %+v", configPath, err)
+			return
+		}
 	}
 
 	for i := range cfg.Data.Tenants {
@@ -80,9 +98,13 @@ func Run(cmd *cobra.Command, args []string) {
 		tenant.APIVersion = cfg.APIVersion
 		tenant.Metadata = cfg.Metadata
 
-		if err := discovery.Import(context.Background(), tenant); err != nil {
-			log.Fatal("persist config to config.store failed: %+v", err)
+		op := config.NewCenter(tenant.Name, config.GetStoreOperate())
+
+		if err := op.Import(context.Background(), tenant); err != nil {
+			log.Fatalf("persist config to config.store failed: %+v", err)
 			return
 		}
 	}
+
+	log.Infof("finish import config into config_center")
 }

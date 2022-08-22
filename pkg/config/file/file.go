@@ -44,22 +44,43 @@ import (
 )
 
 var (
-	PluginName                             = "file"
-	configFilenameList                     = []string{"config.yaml", "config.yml"}
-	sp                 config.StoreOperate = &storeOperate{}
+	PluginName         = "file"
+	configFilenameList = []string{"config.yaml", "config.yml"}
 )
 
 func init() {
-	config.Register(PluginName, func() config.StoreOperate {
-		return sp
-	})
+	config.Regis(&storeOperate{})
+}
+
+type receiverBucket struct {
+	lock      sync.RWMutex
+	receivers map[config.PathKey][]chan<- []byte
+}
+
+func (b *receiverBucket) add(key config.PathKey, rec chan<- []byte) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	if _, ok := b.receivers[key]; !ok {
+		b.receivers[key] = make([]chan<- []byte, 0, 2)
+	}
+	b.receivers[key] = append(b.receivers[key], rec)
+}
+
+func (b *receiverBucket) notifyWatcher(k config.PathKey, val []byte) {
+	b.lock.RLock()
+	defer b.lock.RUnlock()
+
+	for i := range b.receivers[k] {
+		b.receivers[k][i] <- val
+	}
 }
 
 type storeOperate struct {
 	initialize int32
 	lock       sync.RWMutex
-	receivers  map[config.PathKey][]chan []byte
-	cfgJson    map[config.PathKey]string
+	contents   map[config.PathKey]string
+	receivers  *receiverBucket
 	cancels    []context.CancelFunc
 	mapping    map[string]*config.PathInfo
 }
@@ -73,7 +94,7 @@ func (s *storeOperate) Init(options map[string]interface{}) error {
 	s.cancels = append(s.cancels, cancel)
 
 	s.mapping = make(map[string]*config.PathInfo)
-	s.receivers = make(map[config.PathKey][]chan []byte)
+	s.receivers = &receiverBucket{receivers: map[config.PathKey][]chan<- []byte{}}
 	var (
 		content string
 		ok      bool
@@ -115,15 +136,15 @@ func (s *storeOperate) Init(options map[string]interface{}) error {
 		s.mapping[name] = config.NewPathInfo(name)
 	}
 
-	s.updateCfgJsonMap(cfg, false)
+	s.updateContents(cfg, false)
 	return nil
 }
 
-func (s *storeOperate) updateCfgJsonMap(cfg config.Configuration, notify bool) {
+func (s *storeOperate) updateContents(cfg config.Configuration, notify bool) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	s.cfgJson = make(map[config.PathKey]string)
+	s.contents = make(map[config.PathKey]string)
 
 	tenants := make([]string, 0, 4)
 	for i := range cfg.Data.Tenants {
@@ -135,46 +156,43 @@ func (s *storeOperate) updateCfgJsonMap(cfg config.Configuration, notify bool) {
 
 		for k, v := range mapping.ConfigKeyMapping {
 			val, _ := config.JSONToYAML(gjson.Get(ret, v).String())
-			s.cfgJson[k] = string(val)
+			s.contents[k] = string(val)
 			if notify {
-				for i := range s.receivers[k] {
-					s.receivers[k][i] <- val
-				}
+				s.receivers.notifyWatcher(k, val)
 			}
 		}
 	}
 
 	ret, _ := yaml.Marshal(tenants)
-
-	s.cfgJson[config.DefaultTenantsPath] = string(ret)
+	s.contents[config.DefaultTenantsPath] = string(ret)
 
 	if env.IsDevelopEnvironment() {
-		log.Debugf("[ConfigCenter][File] load config content : %#v", s.cfgJson)
+		log.Debugf("[ConfigCenter][File] load config content : %#v", s.contents)
 	}
 }
 
 func (s *storeOperate) Save(key config.PathKey, val []byte) error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	s.contents[key] = string(val)
+	s.receivers.notifyWatcher(key, val)
 	return nil
 }
 
+//Get
 func (s *storeOperate) Get(key config.PathKey) ([]byte, error) {
-	val := []byte(s.cfgJson[key])
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
+	val := []byte(s.contents[key])
 	return val, nil
 }
 
 // Watch
 func (s *storeOperate) Watch(key config.PathKey) (<-chan []byte, error) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
-	if _, ok := s.receivers[key]; !ok {
-		s.receivers[key] = make([]chan []byte, 0, 2)
-	}
-
 	rec := make(chan []byte)
-
-	s.receivers[key] = append(s.receivers[key], rec)
-
+	s.receivers.add(key, rec)
 	return rec, nil
 }
 
@@ -191,6 +209,7 @@ func (s *storeOperate) Close() error {
 	return nil
 }
 
+//readFromFile
 func (s *storeOperate) readFromFile(path string, cfg *config.Configuration) error {
 	var (
 		f   *os.File
@@ -238,6 +257,7 @@ func formatPath(path string) (string, error) {
 	return path, nil
 }
 
+//watchFileChange
 func (s *storeOperate) watchFileChange(ctx context.Context, path string) {
 
 	refreshT := time.NewTicker(30 * time.Second)
@@ -267,7 +287,7 @@ func (s *storeOperate) watchFileChange(ctx context.Context, path string) {
 			}
 
 			log.Errorf("[ConfigCenter][File] watch file=%s change : %+v", path, stat.ModTime())
-			s.updateCfgJsonMap(*cfg, true)
+			s.updateContents(*cfg, true)
 		case <-ctx.Done():
 
 		}

@@ -158,56 +158,50 @@ func (fp *discovery) Init(ctx context.Context) error {
 		return nil
 	}
 
-	if err := fp.loadBootOptions(); err != nil {
+	cfg, err := LoadBootOptions(fp.path)
+	if err != nil {
 		return err
 	}
+	fp.options = cfg
 
 	if err := config.Init(*fp.options.Config, fp.options.Spec.APIVersion); err != nil {
 		return err
 	}
 
-	op, err := config.GetStoreOperate(*fp.options.Config)
+	fp.tenantOp, err = config.NewTenantOperate(config.GetStoreOperate())
 	if err != nil {
 		return err
 	}
-
-	fp.tenantOp = config.NewTenantOperate(op)
 	if err := fp.initAllConfigCenter(); err != nil {
 		return err
 	}
-
 	return nil
 }
 
-func (fp *discovery) loadBootOptions() error {
-	content, err := ioutil.ReadFile(fp.path)
+func LoadBootOptions(path string) (*BootOptions, error) {
+	content, err := ioutil.ReadFile(path)
 	if err != nil {
 		err = errors.Wrap(err, "failed to load config")
-		return err
+		return nil, err
 	}
 
-	if !file.IsYaml(fp.path) {
-		err = errors.Errorf("invalid config file format: %s", filepath.Ext(fp.path))
-		return err
+	if !file.IsYaml(path) {
+		err = errors.Errorf("invalid config file format: %s", filepath.Ext(path))
+		return nil, err
 	}
 
 	var cfg BootOptions
 	if err = yaml.Unmarshal(content, &cfg); err != nil {
 		err = errors.Wrapf(err, "failed to unmarshal config")
-		return err
+		return nil, err
 	}
 
-	fp.options = &cfg
-	return nil
+	return &cfg, nil
 }
 
 func (fp *discovery) initAllConfigCenter() error {
 
-	tenants, err := fp.tenantOp.Tenants()
-	if err != nil {
-		return err
-	}
-
+	tenants := fp.tenantOp.ListTenants()
 	for i := range tenants {
 		tenant := tenants[i]
 
@@ -217,12 +211,7 @@ func (fp *discovery) initAllConfigCenter() error {
 		}
 		options.Options["tenant"] = tenant
 
-		op, err := config.GetStoreOperate(options)
-		if err != nil {
-			return err
-		}
-
-		fp.centers[tenant] = config.NewCenter(tenant, op)
+		fp.centers[tenant] = config.NewCenter(tenant, config.GetStoreOperate())
 	}
 
 	return nil
@@ -258,11 +247,21 @@ func (fp *discovery) GetCluster(ctx context.Context, tenant, cluster string) (*C
 
 func (fp *discovery) ListTenants(ctx context.Context) ([]string, error) {
 
-	return fp.tenantOp.Tenants()
+	return fp.tenantOp.ListTenants(), nil
 }
 
 func (fp *discovery) GetTenant(ctx context.Context, tenant string) (*config.Tenant, error) {
-	return nil, nil
+	op, ok := fp.centers[tenant]
+	if !ok {
+		return nil, ErrorNotTenant
+	}
+
+	cfg, err := op.Load(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
 }
 
 func (fp *discovery) ListUsers(ctx context.Context, tenant string) (config.Users, error) {
@@ -281,11 +280,6 @@ func (fp *discovery) ListUsers(ctx context.Context, tenant string) (config.Users
 
 func (fp *discovery) ListListeners(ctx context.Context) []*config.Listener {
 	return fp.options.Listeners
-}
-
-func (fp *discovery) ListFilters(ctx context.Context) ([]*config.Filter, error) {
-
-	return nil, nil
 }
 
 func (fp *discovery) ListClusters(ctx context.Context, tenant string) ([]string, error) {
@@ -336,8 +330,32 @@ func (fp *discovery) ListNodes(ctx context.Context, tenant, cluster, group strin
 }
 
 func (fp *discovery) ListTables(ctx context.Context, tenant, cluster string) ([]string, error) {
+	op, ok := fp.centers[tenant]
+	if !ok {
+		return nil, ErrorNotTenant
+	}
 
-	return nil, nil
+	cfg, err := op.Load(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	rule := cfg.ShardingRule
+	tables := make([]string, 0, 4)
+
+	for i := range rule.Tables {
+		db, tb, err := parseTable(rule.Tables[i].Name)
+		if err != nil {
+			return nil, err
+		}
+		if db != cluster {
+			continue
+		}
+
+		tables = append(tables, tb)
+	}
+
+	return tables, nil
 }
 
 func (fp *discovery) GetNode(ctx context.Context, tenant, cluster, group, node string) (*config.Node, error) {

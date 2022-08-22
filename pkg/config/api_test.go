@@ -30,46 +30,27 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/config"
+	_ "github.com/arana-db/arana/pkg/config/etcd"
+	_ "github.com/arana-db/arana/pkg/config/file"
+	_ "github.com/arana-db/arana/pkg/config/nacos"
 	"github.com/arana-db/arana/testdata"
 )
 
-func TestGetStoreOperate(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	// mockStore := NewMockStoreOperate(ctrl)
-	tests := []struct {
-		name    string
-		want    config.StoreOperate
-		wantErr assert.ErrorAssertionFunc
-	}{
-		{"GetStoreOperate_1", nil, assert.Error},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := config.GetStoreOperate()
-			if !tt.wantErr(t, err, fmt.Sprintf("GetStoreOperate()")) {
-				return
-			}
-			assert.Equalf(t, tt.want, got, "GetStoreOperate()")
-		})
-	}
-}
-
 func TestInit(t *testing.T) {
 	type args struct {
-		name    string
-		options map[string]interface{}
+		version string
+		options config.Options
 	}
 	tests := []struct {
 		name    string
 		args    args
 		wantErr assert.ErrorAssertionFunc
 	}{
-		{"Init_1", args{"file", nil}, assert.Error},
+		{"Init_1", args{"file", config.Options{}}, assert.Error},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.wantErr(t, config.Init(tt.args.name, tt.args.options), fmt.Sprintf("Init(%v, %v)", tt.args.name, tt.args.options))
+			tt.wantErr(t, config.Init(tt.args.options, tt.args.version), fmt.Sprintf("Init(%v, %v)", tt.args.options, tt.args.version))
 		})
 	}
 }
@@ -90,7 +71,7 @@ func TestRegister(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config.Register(tt.args.s)
+			config.Regis(tt.args.s)
 		})
 	}
 }
@@ -102,31 +83,34 @@ func Test_api(t *testing.T) {
 	mockEtcdStore := testdata.NewMockStoreOperate(ctrl)
 	mockFileStore.EXPECT().Name().Times(2).Return("file")
 	mockEtcdStore.EXPECT().Name().Times(2).Return("etcd")
-	config.Register(mockFileStore)
-	config.Register(mockEtcdStore)
+	config.Regis(mockFileStore)
+	config.Regis(mockEtcdStore)
 
 	mockFileStore2 := testdata.NewMockStoreOperate(ctrl)
 	mockFileStore2.EXPECT().Name().AnyTimes().Return("file")
 	assert.Panics(t, func() {
-		config.Register(mockFileStore2)
+		config.Regis(mockFileStore2)
 	}, "StoreOperate=[file] already exist")
 }
 
 func Test_Init(t *testing.T) {
-	options := make(map[string]interface{}, 0)
+	options := config.Options{
+		StoreName: "fake",
+		RootPath:  "",
+		Options:   nil,
+	}
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mockFileStore := testdata.NewMockStoreOperate(ctrl)
 	mockFileStore.EXPECT().Name().Times(2).Return("fake")
 	mockFileStore.EXPECT().Init(options).Return(nil)
-	err := config.Init("fake", options)
+	err := config.Init(options, "fake")
 	assert.Error(t, err)
 
-	config.Register(mockFileStore)
-	err = config.Init("fake", options)
+	config.Regis(mockFileStore)
+	err = config.Init(options, "fake")
 	assert.NoError(t, err)
 
-	store, err := config.GetStoreOperate()
-	assert.NoError(t, err)
+	store := config.GetStoreOperate()
 	assert.NotNil(t, store)
 }

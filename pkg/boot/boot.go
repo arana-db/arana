@@ -36,13 +36,14 @@ import (
 )
 
 func Boot(ctx context.Context, provider Discovery) error {
-	var err error
-
-	if err = provider.Init(ctx); err != nil {
+	if err := provider.Init(ctx); err != nil {
 		return err
 	}
 
-	var tenants []string
+	var (
+		err     error
+		tenants []string
+	)
 	if tenants, err = provider.ListTenants(ctx); err != nil {
 		return errors.Wrap(err, "no tenants found")
 	}

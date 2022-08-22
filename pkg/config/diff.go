@@ -22,80 +22,110 @@ import (
 	"reflect"
 )
 
-func (r Rules) Compare(o Rules) bool {
-	if len(r) == 0 && len(o) == 0 {
-		return true
+func (t Tenants) Diff(old Tenants) *TenantsEvent {
+	newN := make([]string, 0, 4)
+	deleteN := make([]string, 0, 4)
+
+	newTmp := map[string]struct{}{}
+	oldTmp := map[string]struct{}{}
+
+	for i := range t {
+		newTmp[t[i]] = struct{}{}
 	}
 
-	if len(r) != len(o) {
-		return false
+	for i := range old {
+		oldTmp[old[i]] = struct{}{}
 	}
 
-	newT := make([]*Rule, 0, 4)
-	updateT := make([]*Rule, 0, 4)
-	deleteT := make([]*Rule, 0, 4)
-
-	newTmp := map[string]*Rule{}
-	oldTmp := map[string]*Rule{}
-
-	for i := range r {
-		newTmp[r[i].Column] = r[i]
-	}
-	for i := range o {
-		oldTmp[o[i].Column] = o[i]
-	}
-
-	for i := range r {
-		if _, ok := oldTmp[o[i].Column]; !ok {
-			newT = append(newT, o[i])
+	for i := range newTmp {
+		if _, ok := oldTmp[i]; !ok {
+			newN = append(newN, i)
 		}
 	}
 
-	for i := range o {
-		val, ok := newTmp[o[i].Column]
-		if !ok {
-			deleteT = append(deleteT, o[i])
-			continue
-		}
-
-		if !reflect.DeepEqual(val, o[i]) {
-			updateT = append(updateT, val)
-			continue
+	for i := range oldTmp {
+		if _, ok := newTmp[i]; !ok {
+			deleteN = append(deleteN, i)
 		}
 	}
 
-	return len(newT) == 0 && len(updateT) == 0 && len(deleteT) == 0
+	return &TenantsEvent{
+		AddTenants:    newN,
+		DeleteTenants: deleteN,
+	}
 }
 
-func (t *Table) Compare(o *Table) bool {
-	if len(t.DbRules) != len(o.DbRules) {
-		return false
+func (n Nodes) Diff(old Nodes) *NodesEvent {
+	newN := make([]*Node, 0, 4)
+	updateN := make([]*Node, 0, 4)
+	deleteN := make([]*Node, 0, 4)
+
+	for i := range n {
+		if _, ok := old[i]; !ok {
+			newN = append(newN, n[i])
+		}
 	}
 
-	if len(t.TblRules) != len(o.TblRules) {
-		return false
+	for i := range old {
+		val, ok := n[old[i].Name]
+		if !ok {
+			deleteN = append(deleteN, old[i])
+			continue
+		}
+
+		if !val.Compare(old[i]) {
+			updateN = append(updateN, val)
+			continue
+		}
 	}
 
-	if !Rules(t.DbRules).Compare(o.DbRules) {
-		return false
+	return &NodesEvent{
+		AddNodes:    newN,
+		UpdateNodes: updateN,
+		DeleteNodes: deleteN,
 	}
-	if !Rules(t.TblRules).Compare(o.TblRules) {
-		return false
+}
+
+func (u Users) Diff(old Users) *UsersEvent {
+	newN := make([]*User, 0, 4)
+	updateN := make([]*User, 0, 4)
+	deleteN := make([]*User, 0, 4)
+
+	newTmp := map[string]*User{}
+	oldTmp := map[string]*User{}
+
+	for i := range u {
+		newTmp[u[i].Username] = u[i]
 	}
 
-	if !reflect.DeepEqual(t.Topology, o.Topology) || !reflect.DeepEqual(t.ShadowTopology, o.ShadowTopology) {
-		return false
+	for i := range old {
+		oldTmp[old[i].Username] = old[i]
 	}
 
-	if t.AllowFullScan == o.AllowFullScan {
-		return false
+	for i := range newTmp {
+		if _, ok := oldTmp[i]; !ok {
+			newN = append(newN, newTmp[i])
+		}
 	}
 
-	if !reflect.DeepEqual(t.Attributes, o.Attributes) {
-		return false
+	for i := range oldTmp {
+		val, ok := newTmp[oldTmp[i].Username]
+		if !ok {
+			deleteN = append(deleteN, oldTmp[i])
+			continue
+		}
+
+		if !val.Compare(oldTmp[i]) {
+			updateN = append(updateN, val)
+			continue
+		}
 	}
 
-	return true
+	return &UsersEvent{
+		AddUsers:    newN,
+		UpdateUsers: updateN,
+		DeleteUsers: deleteN,
+	}
 }
 
 func (c Clusters) Diff(old Clusters) *ClustersEvent {
@@ -229,6 +259,47 @@ func (s *ShardingRule) Diff(old *ShardingRule) *ShardingRuleEvent {
 	}
 
 	return &ShardingRuleEvent{
+		AddTables:    newT,
+		UpdateTables: updateT,
+		DeleteTables: deleteT,
+	}
+}
+
+func (s *ShadowRule) Diff(old *ShadowRule) *ShadowRuleEvent {
+	newT := make([]*ShadowTable, 0, 4)
+	updateT := make([]*ShadowTable, 0, 4)
+	deleteT := make([]*ShadowTable, 0, 4)
+
+	newTmp := map[string]*ShadowTable{}
+	oldTmp := map[string]*ShadowTable{}
+
+	for i := range s.ShadowTables {
+		newTmp[s.ShadowTables[i].Name] = s.ShadowTables[i]
+	}
+	for i := range old.ShadowTables {
+		oldTmp[old.ShadowTables[i].Name] = old.ShadowTables[i]
+	}
+
+	for i := range s.ShadowTables {
+		if _, ok := oldTmp[s.ShadowTables[i].Name]; !ok {
+			newT = append(newT, s.ShadowTables[i])
+		}
+	}
+
+	for i := range old.ShadowTables {
+		val, ok := newTmp[old.ShadowTables[i].Name]
+		if !ok {
+			deleteT = append(deleteT, old.ShadowTables[i])
+			continue
+		}
+
+		if !reflect.DeepEqual(val, old.ShadowTables[i]) {
+			updateT = append(updateT, val)
+			continue
+		}
+	}
+
+	return &ShadowRuleEvent{
 		AddTables:    newT,
 		UpdateTables: updateT,
 		DeleteTables: deleteT,

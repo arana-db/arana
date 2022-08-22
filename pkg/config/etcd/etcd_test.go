@@ -18,6 +18,7 @@
 package etcd
 
 import (
+	"context"
 	"encoding/json"
 	"net/url"
 	"testing"
@@ -30,6 +31,8 @@ import (
 	"github.com/tidwall/gjson"
 
 	"go.etcd.io/etcd/server/v3/embed"
+
+	"gopkg.in/yaml.v3"
 )
 
 import (
@@ -40,20 +43,23 @@ import (
 const _defaultEtcdV3WorkDir = "/tmp/arana/config"
 
 var (
-	mockConfData = map[config.PathKey]string{
-		config.DefaultConfigMetadataPath: "",
-	}
-
-	cfg *config.Configuration
+	mockConfData = map[config.PathKey]string{}
+	cfg          *config.Configuration
+	mockPath     = map[string]*config.PathInfo{}
 )
 
 func doDataMock() {
 	cfg, _ = config.Load(testdata.Path("fake_config.yaml"))
 
-	data, _ := json.Marshal(cfg)
+	for i := range cfg.Data.Tenants {
+		tenant := cfg.Data.Tenants[i]
+		mockPath[tenant.Name] = config.NewPathInfo(tenant.Name)
 
-	for k, v := range config.ConfigKeyMapping {
-		mockConfData[k] = string(gjson.GetBytes(data, v).String())
+		data, _ := json.Marshal(tenant)
+
+		for k, v := range mockPath[tenant.Name].ConfigKeyMapping {
+			mockConfData[k] = gjson.GetBytes(data, v).String()
+		}
 	}
 }
 
@@ -91,9 +97,11 @@ func Test_storeOpertae(t *testing.T) {
 
 	doDataMock()
 	cfg, _ := config.Load(testdata.Path("fake_config.yaml"))
-	data, _ := json.Marshal(cfg)
-	for k, v := range config.ConfigKeyMapping {
-		err := operate.Save(k, []byte(gjson.GetBytes(data, v).String()))
+
+	tenantName := cfg.Data.Tenants[0].Name
+
+	for k, v := range mockConfData {
+		err := operate.Save(k, []byte(v))
 		assert.NoError(t, err, "save must success")
 	}
 
@@ -104,30 +112,25 @@ func Test_storeOpertae(t *testing.T) {
 		t.Logf("%s => %s", k, string(ret))
 	}
 
-	receiver, err := operate.Watch(config.DefaultConfigDataFiltersPath)
+	receiver, err := operate.Watch(mockPath[tenantName].DefaultConfigDataUsersPath)
 	assert.NoError(t, err, "watch must success")
 
 	newCfg, _ := config.Load(testdata.Path("fake_config.yaml"))
-	newCfg.Data.Filters = append(newCfg.Data.Filters, &config.Filter{
-		Name:   "arana-etcd-watch",
-		Config: []byte("{\"arana-etcd-watch\":\"arana-etcd-watch\"}"),
-	})
-	data, _ = json.Marshal(newCfg)
-
-	expectVal := gjson.GetBytes(data, config.ConfigKeyMapping[config.DefaultConfigDataFiltersPath]).String()
-
-	for k := range config.ConfigKeyMapping {
-		if k == config.DefaultConfigDataFiltersPath {
-			err := operate.client.Put(string(k), expectVal)
-			assert.NoError(t, err, "put to etcd must success")
-			break
-		}
+	newCfg.Data.Tenants[0].Users = []*config.User{
+		{
+			Username: "arana",
+			Password: "arana",
+				},
 	}
+	data, _ := yaml.Marshal(newCfg.Data.Tenants[0].Users)
+
+	_, err = operate.client.Put(context.TODO(), string(mockPath[tenantName].DefaultConfigDataUsersPath), string(data))
+	assert.NoError(t, err, "put to etcd must success")
 
 	ret := <-receiver
 
-	t.Logf("expect val : %s", expectVal)
+	t.Logf("expect val : %s", string(data))
 	t.Logf("acutal val : %s", string(ret))
 
-	assert.Equal(t, expectVal, string(ret))
+	assert.Equal(t, string(data), string(ret))
 }

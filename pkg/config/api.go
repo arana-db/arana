@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"sync"
 )
 
 type (
@@ -33,12 +34,18 @@ type (
 )
 
 var (
-	_rootPathTemp      = "/%s/%s/arana-db/"
+	_rootPathTemp      = "/%s/%s/"
 	DefaultRootPath    PathKey
 	DefaultTenantsPath PathKey
 )
 
 func initPath(root, version string) {
+	if root == "" {
+		root = "arana-db"
+	}
+	if version == "" {
+		version = "1.0"
+	}
 	DefaultRootPath = PathKey(fmt.Sprintf(_rootPathTemp, root, version))
 	DefaultTenantsPath = PathKey(filepath.Join(string(DefaultRootPath), "tenants"))
 }
@@ -55,25 +62,33 @@ const (
 )
 
 var (
-	slots = make(map[string]func() StoreOperate)
+	slots = make(map[string]StoreOperate)
+
+	storeOperate StoreOperate
+
+	once sync.Once
 )
 
-// Register register store plugin
-func Register(name string, s func() StoreOperate) {
-	if _, ok := slots[name]; ok {
-		panic(fmt.Errorf("StoreOperate=[%s] already exist", name))
+// Regis register store plugin
+func Regis(s StoreOperate) {
+	if _, ok := slots[s.Name()]; ok {
+		panic(fmt.Errorf("StoreOperate=[%s] already exist", s.Name()))
 	}
 
-	slots[name] = s
+	slots[s.Name()] = s
 }
 
 type (
-	//EventSubscriber
-	EventSubscriber interface {
-		//OnEvent
-		OnEvent(event Event)
-		//Type
-		Type() EventType
+	callback func(e Event)
+
+	SubscribeResult struct {
+		EventChan <-chan Event
+		Cancel    context.CancelFunc
+	}
+
+	subscriber struct {
+		watch callback
+		ctx   context.Context
 	}
 
 	Options struct {
@@ -84,11 +99,15 @@ type (
 
 	//TenantOperate 专门针对租户空间的相关操作
 	TenantOperate interface {
-		Tenants() ([]string, error)
-
+		io.Closer
+		//ListTenants
+		ListTenants() []string
+		//CreateTenant
 		CreateTenant(string) error
-
+		//RemoveTenant
 		RemoveTenant(string) error
+		//Subscribe
+		Subscribe(ctx context.Context, c callback) context.CancelFunc
 	}
 
 	// Center
@@ -97,14 +116,11 @@ type (
 
 		//Load 每次都是拉取全量的配置数据
 		Load(ctx context.Context) (*Tenant, error)
-
 		//Import 导入配置，仅针对某个命名空间下
 		Import(ctx context.Context, cfg *Tenant) error
-
-		Subscribe(ctx context.Context, s ...EventSubscriber)
-
-		UnSubscribe(ctx context.Context, s ...EventSubscriber)
-
+		//Subscribe
+		Subscribe(ctx context.Context, et EventType, c callback) context.CancelFunc
+		//Tenant
 		Tenant() string
 	}
 

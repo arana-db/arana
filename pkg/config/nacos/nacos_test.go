@@ -33,6 +33,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/tidwall/gjson"
+
+	"gopkg.in/yaml.v3"
 )
 
 import (
@@ -41,25 +43,23 @@ import (
 )
 
 var (
-	mockConfData = map[config.PathKey]string{
-		config.DefaultConfigPath:                   "",
-		config.DefaultConfigMetadataPath:           "",
-		config.DefaultConfigDataListenersPath:      "",
-		config.DefaultConfigDataSourceClustersPath: "",
-		config.DefaultConfigDataShardingRulePath:   "",
-		config.DefaultConfigDataTenantsPath:        "",
-	}
-
-	cfg *config.Configuration
+	mockConfData = map[config.PathKey]string{}
+	cfg          *config.Configuration
+	mockPath     = map[string]*config.PathInfo{}
 )
 
 func doDataMock() {
 	cfg, _ = config.Load(testdata.Path("fake_config.yaml"))
 
-	data, _ := json.Marshal(cfg)
+	for i := range cfg.Data.Tenants {
+		tenant := cfg.Data.Tenants[i]
+		mockPath[tenant.Name] = config.NewPathInfo(tenant.Name)
 
-	for k, v := range config.ConfigKeyMapping {
-		mockConfData[k] = string(gjson.GetBytes(data, v).String())
+		data, _ := json.Marshal(tenant)
+
+		for k, v := range mockPath[tenant.Name].ConfigKeyMapping {
+			mockConfData[k] = gjson.GetBytes(data, v).String()
+		}
 	}
 }
 
@@ -177,9 +177,6 @@ func buildOperate() *storeOperate {
 	operate := &storeOperate{
 		groupName:  "arana",
 		client:     newNacosClient(),
-		confMap:    make(map[config.PathKey]string),
-		cfgLock:    &sync.RWMutex{},
-		lock:       &sync.RWMutex{},
 		receivers:  make(map[config.PathKey]*nacosWatcher),
 		cancelList: []context.CancelFunc{},
 	}
@@ -188,52 +185,42 @@ func buildOperate() *storeOperate {
 	return operate
 }
 
-func Test_loadDataFromServer(t *testing.T) {
-	operate := buildOperate()
-	defer operate.client.CloseClient()
-
-	err := operate.loadDataFromServer()
-	assert.NoError(t, err, "")
-
-	for k, v := range operate.confMap {
-		assert.Equalf(t, mockConfData[k], v, "%s should be equal", k)
-	}
-}
-
 func Test_watch(t *testing.T) {
 	operate := buildOperate()
 	defer operate.client.CloseClient()
 
-	err := operate.loadDataFromServer()
-	assert.NoError(t, err, "should be success")
-
-	assert.NoError(t, err, "should be success")
-
 	newCfg, _ := config.Load(testdata.Path("fake_config.yaml"))
 
-	receiver, err := operate.Watch(config.DefaultConfigDataTenantsPath)
+	newCfg.Data.Tenants[0].Nodes = map[string]*config.Node{
+		"node0": {
+			Name:     "node0",
+			Host:     "127.0.0.1",
+			Port:     3306,
+			Username: "arana",
+			Password: "arana",
+			Database: "mock_db",
+				},
+	}
+
+	receiver, err := operate.Watch(mockPath[newCfg.Data.Tenants[0].Name].DefaultConfigDataNodesPath)
 	assert.NoError(t, err, "should be success")
 
-	data, err := json.Marshal(newCfg)
+	data, err := yaml.Marshal(newCfg.Data.Tenants[0].Nodes)
 	assert.NoError(t, err, "should be marshal success")
 
-	for k, v := range config.ConfigKeyMapping {
-		if k == config.DefaultConfigDataTenantsPath {
-			operate.client.PublishConfig(vo.ConfigParam{
-				DataId:  string(config.DefaultConfigDataTenantsPath),
-				Content: string(gjson.GetBytes(data, v).String()),
-			})
-		}
-	}
+	ok, err := operate.client.PublishConfig(vo.ConfigParam{
+		DataId:  buildNacosDataId(string(mockPath[newCfg.Data.Tenants[0].Name].DefaultConfigDataNodesPath)),
+		Content: string(data),
+	})
+	assert.True(t, ok)
+	assert.NoError(t, err)
 
 	t.Logf("new config val : %s", string(data))
 
 	ret := <-receiver
 
-	expectVal := string(gjson.GetBytes(data, config.ConfigKeyMapping[config.DefaultConfigDataTenantsPath]).String())
-
-	t.Logf("expect val : %s", expectVal)
+	t.Logf("expect val : %s", string(data))
 	t.Logf("acutal val : %s", string(ret))
 
-	assert.Equal(t, expectVal, string(ret))
+	assert.Equal(t, string(data), string(ret))
 }

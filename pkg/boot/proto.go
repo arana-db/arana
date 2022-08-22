@@ -175,6 +175,22 @@ type ConfigUpdater interface {
 	RemoveTable(ctx context.Context, tenant, cluster, table string) error
 }
 
+//ConfigWatcher
+type ConfigWatcher interface {
+	//WatchTenants
+	WatchTenants(ctx context.Context) (<-chan config.TenantsEvent, context.CancelFunc, error)
+	//WatchNodes
+	WatchNodes(ctx context.Context, tenant string) (<-chan config.NodesEvent, context.CancelFunc, error)
+	//WatchUsers
+	WatchUsers(ctx context.Context, tenant string) (<-chan config.UsersEvent, context.CancelFunc, error)
+	//WatchClusters
+	WatchClusters(ctx context.Context, tenant string) (<-chan config.ClustersEvent, context.CancelFunc, error)
+	//WatchShardingRule
+	WatchShardingRule(ctx context.Context, tenant string) (<-chan config.ShardingRuleEvent, context.CancelFunc, error)
+	//WatchShadowRule
+	WatchShadowRule(ctx context.Context, tenant string) (<-chan config.ShadowRuleEvent, context.CancelFunc, error)
+}
+
 type Discovery interface {
 	ConfigProvider
 	// ListListeners lists the listener names

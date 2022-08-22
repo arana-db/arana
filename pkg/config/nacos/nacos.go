@@ -30,12 +30,12 @@ import (
 	"github.com/nacos-group/nacos-sdk-go/v2/clients/config_client"
 	"github.com/nacos-group/nacos-sdk-go/v2/common/constant"
 	"github.com/nacos-group/nacos-sdk-go/v2/vo"
+
+	"github.com/pkg/errors"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/config"
-	"github.com/arana-db/arana/pkg/util/env"
-	"github.com/arana-db/arana/pkg/util/log"
 )
 
 const (
@@ -48,46 +48,37 @@ const (
 	_server       string = "endpoints"
 	_contextPath  string = "contextPath"
 	_scheme       string = "scheme"
+
+	_pathSplit string = "::"
 )
 
 var (
 	PluginName = "nacos"
+
+	ErrorPublishConfigFail = errors.New("save config into nacos fail")
 )
 
 func init() {
-	config.Register(PluginName, func() config.StoreOperate {
-		return &storeOperate{}
-	})
+	config.Regis(&storeOperate{})
 }
 
 // StoreOperate config storage related plugins
 type storeOperate struct {
 	groupName  string
 	client     config_client.IConfigClient
-	confMap    map[config.PathKey]string
-	cfgLock    *sync.RWMutex
-	lock       *sync.RWMutex
+	cfgLock    sync.RWMutex
+	lock       sync.RWMutex
 	receivers  map[config.PathKey]*nacosWatcher
 	cancelList []context.CancelFunc
-
-	pathInfo *config.PathInfo
 }
 
 // Init plugin initialization
 func (s *storeOperate) Init(options map[string]interface{}) error {
-	s.pathInfo = config.NewPathInfo(options["tenant"].(string))
-	s.lock = &sync.RWMutex{}
-	s.cfgLock = &sync.RWMutex{}
-	s.confMap = make(map[config.PathKey]string)
 	s.receivers = make(map[config.PathKey]*nacosWatcher)
 
 	if err := s.initNacosClient(options); err != nil {
 		return err
 	}
-	if err := s.loadDataFromServer(); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -161,47 +152,35 @@ func parseClientConfig(options map[string]interface{}) constant.ClientConfig {
 	return cc
 }
 
-func (s *storeOperate) loadDataFromServer() error {
-	s.cfgLock.Lock()
-	defer s.cfgLock.Unlock()
-
-	for dataId := range s.pathInfo.ConfigKeyMapping {
-		data, err := s.client.GetConfig(vo.ConfigParam{
-			DataId: string(dataId),
-			Group:  s.groupName,
-		})
-		if err != nil {
-			return err
-		}
-
-		s.confMap[dataId] = data
-	}
-
-	return nil
-}
-
 // Save save a configuration data
 func (s *storeOperate) Save(key config.PathKey, val []byte) error {
-	_, err := s.client.PublishConfig(vo.ConfigParam{
+	ok, err := s.client.PublishConfig(vo.ConfigParam{
 		Group:   s.groupName,
-		DataId:  string(key),
+		DataId:  buildNacosDataId(string(key)),
 		Content: string(val),
 	})
+	if err != nil {
+		return err
+	}
 
-	return err
+	if !ok {
+		return ErrorPublishConfigFail
+	}
+	return nil
 }
 
 // Get get a configuration
 func (s *storeOperate) Get(key config.PathKey) ([]byte, error) {
-	s.cfgLock.RLock()
-	defer s.cfgLock.RUnlock()
+	ret, err := s.client.GetConfig(vo.ConfigParam{
+		DataId: buildNacosDataId(string(key)),
+		Group:  s.groupName,
+	})
 
-	val := []byte(s.confMap[key])
-
-	if env.IsDevelopEnvironment() {
-		log.Debugf("[ConfigCenter][nacos] load config content : %#v", string(val))
+	if err != nil {
+		return nil, err
 	}
-	return val, nil
+
+	return []byte(ret), nil
 }
 
 // Watch Monitor changes of the key
@@ -238,6 +217,7 @@ func (s *storeOperate) Name() string {
 
 // Close closes storeOperate
 func (s *storeOperate) Close() error {
+	s.client.CloseClient()
 	return nil
 }
 
@@ -254,13 +234,13 @@ func (s *storeOperate) newWatcher(key config.PathKey, client config_client.IConf
 	}
 
 	err := client.ListenConfig(vo.ConfigParam{
-		DataId: string(key),
+		DataId: buildNacosDataId(string(key)),
 		Group:  s.groupName,
 		OnChange: func(_, _, dataId, content string) {
 			s.cfgLock.Lock()
 			defer s.cfgLock.Unlock()
 
-			s.confMap[config.PathKey(dataId)] = content
+			dataId = revertNacosDataId(dataId)
 			s.receivers[config.PathKey(dataId)].ch <- []byte(content)
 		},
 	})
@@ -285,4 +265,12 @@ func (w *nacosWatcher) run(ctx context.Context) {
 			return
 		}
 	}
+}
+
+func buildNacosDataId(v string) string {
+	return strings.ReplaceAll(v, "/", _pathSplit)
+}
+
+func revertNacosDataId(v string) string {
+	return strings.ReplaceAll(v, _pathSplit, "/")
 }

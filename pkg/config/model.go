@@ -374,7 +374,7 @@ func GetConnPropIdleTime(connProps map[string]interface{}, defaultValue time.Dur
 
 type (
 	Clusters []*DataSourceCluster
-	Tenants  []*Tenant
+	Tenants  []string
 	Nodes    map[string]*Node
 	Groups   []*Group
 	Users    []*User
