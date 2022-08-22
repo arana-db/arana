@@ -18,7 +18,6 @@
 package router
 
 import (
-	"context"
 	"net/http"
 )
 
@@ -34,6 +33,7 @@ import (
 
 func init() {
 	admin.Register(func(router gin.IRoutes) {
+
 		router.GET("/tenants/:tenant/nodes", ListNodes)
 		router.POST("/tenants/:tenant/nodes", CreateNode)
 		router.GET("/tenants/:tenant/nodes/:node", GetNode)
@@ -45,23 +45,23 @@ func init() {
 func ListNodes(c *gin.Context) {
 	service := admin.GetService(c)
 	tenantName := c.Param("tenant")
-	clusters, err := service.ListClusters(context.Background(), tenantName)
+	clusters, err := service.ListClusters(c, tenantName)
 	if err != nil {
 		_ = c.Error(err)
 		return
 	}
 	var data []string
 	for _, cluster := range clusters {
-		groups, err := service.ListGroups(context.Background(), cluster)
+		groups, err := service.ListGroups(c, cluster)
 		if err != nil {
 			_ = c.Error(err)
-			return
+			continue
 		}
 		for _, group := range groups {
-			temp, err := service.ListNodes(context.Background(), cluster, group)
+			temp, err := service.ListNodes(c, cluster, group)
 			if err != nil {
 				_ = c.Error(err)
-				return
+				continue
 			} else {
 				data = append(data, temp...)
 			}
@@ -74,20 +74,20 @@ func GetNode(c *gin.Context) {
 	service := admin.GetService(c)
 	tenant := c.Param("tenant")
 	node := c.Param("node")
-	clusters, err := service.ListClusters(context.Background(), tenant)
+	clusters, err := service.ListClusters(c, tenant)
 	if err != nil {
 		_ = c.Error(err)
 		return
 	}
 	var data *config.Node
 	for _, cluster := range clusters {
-		groups, err := service.ListGroups(context.Background(), cluster)
+		groups, err := service.ListGroups(c, cluster)
 		if err != nil {
 			_ = c.Error(err)
 			return
 		}
 		for _, group := range groups {
-			data, err = service.GetNode(context.Background(), cluster, group, node)
+			data, err = service.GetNode(c, cluster, group, node)
 			if err != nil {
 				_ = c.Error(err)
 				return
@@ -102,7 +102,7 @@ func CreateNode(c *gin.Context) {
 	tenant := c.Param("tenant")
 	var node *boot.NodeBody
 	if err := c.ShouldBindJSON(&node); err == nil {
-		err := service.UpsertNode(context.Background(), tenant, "", node)
+		err := service.UpsertNode(c, tenant, "", node)
 		if err != nil {
 			_ = c.Error(err)
 			return
@@ -119,7 +119,7 @@ func UpdateNode(c *gin.Context) {
 	node := c.Param("node")
 	var nodeBody *boot.NodeBody
 	if err := c.ShouldBindJSON(&nodeBody); err == nil {
-		err := service.UpsertNode(context.Background(), tenant, node, nodeBody)
+		err := service.UpsertNode(c, tenant, node, nodeBody)
 		if err != nil {
 			_ = c.Error(err)
 			return
@@ -134,7 +134,7 @@ func RemoveNode(c *gin.Context) {
 	service := admin.GetService(c)
 	tenant := c.Param("tenant")
 	node := c.Param("node")
-	err := service.RemoveNode(context.Background(), tenant, node)
+	err := service.RemoveNode(c, tenant, node)
 	if err != nil {
 		_ = c.Error(err)
 		return
