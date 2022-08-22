@@ -681,20 +681,16 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 		}
 		return ret
 	case ast.ShowTableStatus:
-		const prefixFrom = "show table status from"
-		ret := &ShowTableStatus{Database: node.DBName}
-
-		if strings.HasPrefix(strings.ToLower(node.Text()), prefixFrom) {
-			ret.isFrom = true
+		ret := &ShowTableStatus{
+			baseShow: &baseShow{},
+			Database: node.DBName,
 		}
 
 		if where, ok := toWhere(node); ok {
-			ret.where = where
+			ret.baseShow.filter = where
 		}
-
 		if like, ok := toLike(node); ok {
-			ret.like.Valid = true
-			ret.like.String = like
+			ret.baseShow.filter = like
 		}
 		return ret
 	default:

@@ -51,9 +51,7 @@ func (bs *baseShow) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) 
 	switch val := bs.filter.(type) {
 	case string:
 		sb.WriteString(" IN ")
-		sb.WriteByte('`')
-		sb.WriteString(val)
-		sb.WriteByte('`')
+		WriteID(sb, val)
 		return nil
 	case FromTable:
 		sb.WriteString(val.String())
@@ -388,10 +386,6 @@ type ShowStatus struct {
 	global bool
 }
 
-func (s *ShowStatus) Validate() error {
-	return nil
-}
-
 func (s *ShowStatus) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("SHOW ")
 
@@ -416,38 +410,26 @@ func (s *ShowStatus) Mode() SQLType {
 type ShowTableStatus struct {
 	*baseShow
 	Database string
-	isFrom   bool
-	where    ExpressionNode
-	like     sql.NullString
-}
-
-func (s *ShowTableStatus) Validate() error {
-	return nil
 }
 
 func (s *ShowTableStatus) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("SHOW TABLE STATUS")
 
-	if s.isFrom {
+	if len(s.Database) > 0 {
 		sb.WriteString(" FROM ")
-	} else {
-		sb.WriteString(" IN ")
+		WriteID(sb, s.Database)
 	}
 
-	sb.WriteString(s.Database)
-
-	if s.where != nil {
+	if where, ok := s.Where(); ok {
 		sb.WriteString(" WHERE ")
-		if err := s.where.Restore(flag, sb, args); err != nil {
+		if err := where.Restore(flag, sb, args); err != nil {
 			return errors.WithStack(err)
 		}
 	}
 
-	if s.like.Valid {
+	if like, ok := s.Like(); ok {
 		sb.WriteString(" LIKE ")
-		sb.WriteString("'")
-		sb.WriteString(s.like.String)
-		sb.WriteString("'")
+		WriteString(sb, like)
 	}
 
 	return nil

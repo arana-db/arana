@@ -21,6 +21,10 @@ import (
 	"strings"
 )
 
+import (
+	"github.com/arana-db/arana/pkg/runtime/misc"
+)
+
 func WriteID(sb *strings.Builder, field string) {
 	sb.WriteByte('`')
 	for _, r := range field {
@@ -32,4 +36,10 @@ func WriteID(sb *strings.Builder, field string) {
 		}
 	}
 	sb.WriteByte('`')
+}
+
+func WriteString(sb *strings.Builder, str string) {
+	sb.WriteByte('\'')
+	misc.WriteEscape(sb, str, misc.EscapeSingleQuote)
+	sb.WriteByte('\'')
 }

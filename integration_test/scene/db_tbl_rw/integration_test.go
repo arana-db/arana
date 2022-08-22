@@ -34,7 +34,6 @@ import (
 )
 
 // register mysql
-
 type IntegrationSuite struct {
 	*test.MySuite
 }
