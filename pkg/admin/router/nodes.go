@@ -89,7 +89,7 @@ func GetNode(c *gin.Context) {
 		groups, err := service.ListGroups(c, cluster)
 		if err != nil {
 			_ = c.Error(err)
-			return
+			continue
 		}
 		for _, group := range groups {
 			data, err = service.GetNode(c, cluster, group, node)
