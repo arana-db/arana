@@ -696,6 +696,8 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 			ret.like.String = like
 		}
 		return ret
+	case ast.ShowWarnings:
+		return &ShowWarnings{baseShow: toBaseShow()}
 	default:
 		panic(fmt.Sprintf("unimplement: show type %v!", node.Tp))
 	}

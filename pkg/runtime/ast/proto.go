@@ -48,6 +48,7 @@ const (
 	SQLTypeCreateIndex             // CREATE INDEX
 	SQLTypeShowStatus              // SHOW STATUS
 	SQLTypeShowTableStatus         // SHOW TABLE STATUS
+	SQLTypeShowWarnings            // SHOW WARNINGS
 )
 
 var _sqlTypeNames = [...]string{

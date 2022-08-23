@@ -35,6 +35,7 @@ var (
 	_ Statement = (*ShowIndex)(nil)
 	_ Statement = (*ShowTopology)(nil)
 	_ Statement = (*ShowTableStatus)(nil)
+	_ Statement = (*ShowWarnings)(nil)
 )
 
 type FromTable string
@@ -455,4 +456,28 @@ func (s *ShowTableStatus) Restore(flag RestoreFlag, sb *strings.Builder, args *[
 
 func (s *ShowTableStatus) Mode() SQLType {
 	return SQLTypeShowTableStatus
+}
+
+type ShowWarnings struct {
+	*baseShow
+	Limit *LimitNode
+}
+
+func (s *ShowWarnings) Validate() error {
+	return nil
+}
+
+func (s *ShowWarnings) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	sb.WriteString("SHOW ")
+	sb.WriteString(" WARNINGS ")
+
+	if err := s.baseShow.Restore(flag, sb, args); err != nil {
+		return errors.WithStack(err)
+	}
+
+	return nil
+}
+
+func (s *ShowWarnings) Mode() SQLType {
+	return SQLTypeShowWarnings
 }
