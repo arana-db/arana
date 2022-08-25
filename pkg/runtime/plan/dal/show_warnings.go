@@ -19,6 +19,11 @@ package dal
 
 import (
 	"context"
+	"strings"
+)
+
+import (
+	"github.com/pkg/errors"
 )
 
 import (
@@ -26,8 +31,6 @@ import (
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/plan"
-	"github.com/pkg/errors"
-	"strings"
 )
 
 var _ proto.Plan = (*ShowWarningsPlan)(nil)

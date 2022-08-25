@@ -468,8 +468,8 @@ func (s *ShowWarnings) Validate() error {
 }
 
 func (s *ShowWarnings) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
-	sb.WriteString("SHOW ")
-	sb.WriteString(" WARNINGS ")
+	// Todo implements 1: SHOW WARNINGS [LIMIT [offset,] row_count],  2: SHOW COUNT(*) WARNINGS
+	sb.WriteString("SHOW WARNINGS")
 
 	if err := s.baseShow.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
