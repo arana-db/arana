@@ -49,7 +49,7 @@ func TestSuite(t *testing.T) {
 		WithMySQLDatabase("employees"),
 		WithConfig("../integration_test/config/db_tbl/config.yaml"),
 		WithScriptPath("../scripts"),
-		// WithDevMode(), // NOTICE: UNCOMMENT IF YOU WANT TO DEBUG LOCAL ARANA SERVER!!!
+		//WithDevMode(), // NOTICE: UNCOMMENT IF YOU WANT TO DEBUG LOCAL ARANA SERVER!!!
 	)
 	suite.Run(t, &IntegrationSuite{su})
 }
@@ -652,17 +652,21 @@ func (s *IntegrationSuite) TestOrderBy() {
 	}()
 
 	type tt struct {
-		sql  string
-		desc bool
+		columns []string
+		sql     string
+		desc    bool
 	}
 
 	for _, it := range []tt{
-		{"select uid,name,birth_year from student where uid between ? and ? order by birth_year", false},
-		{"select uid,name from student where uid between ? and ? order by birth_year", false},
-		{"select uid,name from student where uid between ? and ? order by birth_year desc", true},
-		{"select uid,name,birth_year as birth from student where uid between ? and ? order by birth_year desc", true},
-		// TODO: {"select uid,name,birth_year as birth from student where uid between ? and ? order by -birth_year", true},
-		// TODO: {"select uid,name,birth_year as birth from student where uid between ? and ? order by 2022-birth_year", true},
+		{[]string{"uid", "name", "birth_year"}, "select uid,name,birth_year from student where uid between ? and ? order by birth_year", false},
+		{[]string{"uid", "name"}, "select uid,name from student where uid between ? and ? order by birth_year", false},
+		{[]string{"uid", "name"}, "select uid,name from student where uid between ? and ? order by birth_year desc", true},
+		{[]string{"uid", "name", "birth"}, "select uid,name,birth_year as birth from student where uid between ? and ? order by birth_year desc", true},
+		{[]string{"uid", "name", "birth"}, "select uid,name,birth_year as birth from student where uid between ? and ? order by -birth_year", true},
+		{[]string{"uid", "name", "birth"}, "select uid,name,birth_year as birth from student where uid between ? and ? order by 2022-birth_year", true},
+		{[]string{"uid", "name", "age"}, "select uid,name,2022-birth_year as age from student where uid between ? and ? order by 2022-birth_year", true},
+		{[]string{"uid", "name"}, "select uid,name from student where uid between ? and ? order by 2022-birth_year", true},
+		{[]string{"uid", "name", "2022-birth_year"}, "select uid,name,2022-birth_year from student where uid between ? and ? order by 2022-birth_year", true},
 	} {
 		s.T().Run(it.sql, func(t *testing.T) {
 			begin := uids[0]
@@ -670,6 +674,9 @@ func (s *IntegrationSuite) TestOrderBy() {
 			rows, err := db.Query(it.sql, begin, end)
 			assert.NoError(t, err)
 			defer rows.Close()
+
+			columns, _ := rows.Columns()
+			assert.Equal(t, it.columns, columns)
 
 			records, _ := utils.PrintTable(rows)
 			assert.Len(t, records, len(uids))
