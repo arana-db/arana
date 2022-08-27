@@ -96,6 +96,21 @@ func TestMySQLToType(t *testing.T) {
 	}
 }
 
+func TestMySQLToType_error(t *testing.T) {
+	unitTests := []struct {
+		mysqlType int64
+		flags     int64
+		expected  FieldType
+	}{
+		{-1, 0, 0},
+	}
+	for _, unit := range unitTests {
+		fieldType, ok := MySQLToType(unit.mysqlType, unit.flags)
+		assert.Equal(t, unit.expected, fieldType)
+		assert.NotNil(t, ok)
+	}
+}
+
 func TestTypeToMySQL(t *testing.T) {
 	unitTests := []struct {
 		fieldType         FieldType
