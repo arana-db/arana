@@ -61,7 +61,7 @@ func TestRegister(t *testing.T) {
 	mockStore := testdata.NewMockStoreOperate(ctrl)
 	mockStore.EXPECT().Name().Times(2).Return("nacos")
 	type args struct {
-		s config.StoreOperate
+		s config.StoreOperator
 	}
 	tests := []struct {
 		name string
@@ -71,7 +71,7 @@ func TestRegister(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config.Regis(tt.args.s)
+			config.Register(tt.args.s)
 		})
 	}
 }
@@ -83,13 +83,13 @@ func Test_api(t *testing.T) {
 	mockEtcdStore := testdata.NewMockStoreOperate(ctrl)
 	mockFileStore.EXPECT().Name().Times(2).Return("file")
 	mockEtcdStore.EXPECT().Name().Times(2).Return("etcd")
-	config.Regis(mockFileStore)
-	config.Regis(mockEtcdStore)
+	config.Register(mockFileStore)
+	config.Register(mockEtcdStore)
 
 	mockFileStore2 := testdata.NewMockStoreOperate(ctrl)
 	mockFileStore2.EXPECT().Name().AnyTimes().Return("file")
 	assert.Panics(t, func() {
-		config.Regis(mockFileStore2)
+		config.Register(mockFileStore2)
 	}, "StoreOperate=[file] already exist")
 }
 
@@ -107,7 +107,7 @@ func Test_Init(t *testing.T) {
 	err := config.Init(options, "fake")
 	assert.Error(t, err)
 
-	config.Regis(mockFileStore)
+	config.Register(mockFileStore)
 	err = config.Init(options, "fake")
 	assert.NoError(t, err)
 
