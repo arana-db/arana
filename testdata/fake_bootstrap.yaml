@@ -30,6 +30,7 @@ config:
   # name: etcd
   # options:
   #   endpoints: "http://localhost:2379"
+
   # name: nacos
   # options:
   #   endpoints: "localhost:8080"

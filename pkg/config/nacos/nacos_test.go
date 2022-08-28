@@ -199,7 +199,7 @@ func Test_watch(t *testing.T) {
 			Username: "arana",
 			Password: "arana",
 			Database: "mock_db",
-				},
+		},
 	}
 
 	receiver, err := operate.Watch(mockPath[newCfg.Data.Tenants[0].Name].DefaultConfigDataNodesPath)

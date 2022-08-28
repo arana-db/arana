@@ -379,7 +379,6 @@ type (
 	Groups   []*Group
 	Users    []*User
 	Rules    []*Rule
-	Filters  []*Filter
 )
 
 func NewEmptyTenant() *Tenant {

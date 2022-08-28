@@ -49,7 +49,7 @@ var (
 )
 
 func init() {
-	config.Regis(&storeOperate{})
+	config.Register(&storeOperate{})
 }
 
 type receiverBucket struct {

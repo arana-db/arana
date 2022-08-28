@@ -23,8 +23,8 @@ import (
 )
 
 func (t Tenants) Diff(old Tenants) *TenantsEvent {
-	newN := make([]string, 0, 4)
-	deleteN := make([]string, 0, 4)
+	addTenants := make([]string, 0, 4)
+	deleteTenants := make([]string, 0, 4)
 
 	newTmp := map[string]struct{}{}
 	oldTmp := map[string]struct{}{}
@@ -39,57 +39,57 @@ func (t Tenants) Diff(old Tenants) *TenantsEvent {
 
 	for i := range newTmp {
 		if _, ok := oldTmp[i]; !ok {
-			newN = append(newN, i)
+			addTenants = append(addTenants, i)
 		}
 	}
 
 	for i := range oldTmp {
 		if _, ok := newTmp[i]; !ok {
-			deleteN = append(deleteN, i)
+			deleteTenants = append(deleteTenants, i)
 		}
 	}
 
 	return &TenantsEvent{
-		AddTenants:    newN,
-		DeleteTenants: deleteN,
+		AddTenants:    addTenants,
+		DeleteTenants: deleteTenants,
 	}
 }
 
 func (n Nodes) Diff(old Nodes) *NodesEvent {
-	newN := make([]*Node, 0, 4)
-	updateN := make([]*Node, 0, 4)
-	deleteN := make([]*Node, 0, 4)
+	addNodes := make([]*Node, 0, 4)
+	updateNodes := make([]*Node, 0, 4)
+	deleteNodes := make([]*Node, 0, 4)
 
 	for i := range n {
 		if _, ok := old[i]; !ok {
-			newN = append(newN, n[i])
+			addNodes = append(addNodes, n[i])
 		}
 	}
 
 	for i := range old {
 		val, ok := n[old[i].Name]
 		if !ok {
-			deleteN = append(deleteN, old[i])
+			deleteNodes = append(deleteNodes, old[i])
 			continue
 		}
 
-		if !val.Compare(old[i]) {
-			updateN = append(updateN, val)
+		if !val.Equals(old[i]) {
+			updateNodes = append(updateNodes, val)
 			continue
 		}
 	}
 
 	return &NodesEvent{
-		AddNodes:    newN,
-		UpdateNodes: updateN,
-		DeleteNodes: deleteN,
+		AddNodes:    addNodes,
+		UpdateNodes: updateNodes,
+		DeleteNodes: deleteNodes,
 	}
 }
 
 func (u Users) Diff(old Users) *UsersEvent {
-	newN := make([]*User, 0, 4)
-	updateN := make([]*User, 0, 4)
-	deleteN := make([]*User, 0, 4)
+	addUsers := make([]*User, 0, 4)
+	updateUsers := make([]*User, 0, 4)
+	deleteUsers := make([]*User, 0, 4)
 
 	newTmp := map[string]*User{}
 	oldTmp := map[string]*User{}
@@ -104,34 +104,34 @@ func (u Users) Diff(old Users) *UsersEvent {
 
 	for i := range newTmp {
 		if _, ok := oldTmp[i]; !ok {
-			newN = append(newN, newTmp[i])
+			addUsers = append(addUsers, newTmp[i])
 		}
 	}
 
 	for i := range oldTmp {
 		val, ok := newTmp[oldTmp[i].Username]
 		if !ok {
-			deleteN = append(deleteN, oldTmp[i])
+			deleteUsers = append(deleteUsers, oldTmp[i])
 			continue
 		}
 
-		if !val.Compare(oldTmp[i]) {
-			updateN = append(updateN, val)
+		if !val.Equals(oldTmp[i]) {
+			updateUsers = append(updateUsers, val)
 			continue
 		}
 	}
 
 	return &UsersEvent{
-		AddUsers:    newN,
-		UpdateUsers: updateN,
-		DeleteUsers: deleteN,
+		AddUsers:    addUsers,
+		UpdateUsers: updateUsers,
+		DeleteUsers: deleteUsers,
 	}
 }
 
 func (c Clusters) Diff(old Clusters) *ClustersEvent {
-	newC := make([]*DataSourceCluster, 0, 4)
-	updateC := make([]*ClusterEvent, 0, 4)
-	deleteC := make([]*DataSourceCluster, 0, 4)
+	addClusters := make([]*DataSourceCluster, 0, 4)
+	updateClusters := make([]*ClusterEvent, 0, 4)
+	deleteClusters := make([]*DataSourceCluster, 0, 4)
 
 	newTmp := map[string]*DataSourceCluster{}
 	oldTmp := map[string]*DataSourceCluster{}
@@ -146,27 +146,27 @@ func (c Clusters) Diff(old Clusters) *ClustersEvent {
 
 	for i := range c {
 		if _, ok := oldTmp[c[i].Name]; !ok {
-			newC = append(newC, c[i])
+			addClusters = append(addClusters, c[i])
 		}
 	}
 
 	for i := range old {
 		val, ok := newTmp[old[i].Name]
 		if !ok {
-			deleteC = append(deleteC, old[i])
+			deleteClusters = append(deleteClusters, old[i])
 			continue
 		}
 
 		if !reflect.DeepEqual(val, old[i]) {
-			updateC = append(updateC, val.Diff(old[i]))
+			updateClusters = append(updateClusters, val.Diff(old[i]))
 			continue
 		}
 	}
 
 	return &ClustersEvent{
-		AddCluster:    newC,
-		UpdateCluster: updateC,
-		DeleteCluster: deleteC,
+		AddCluster:    addClusters,
+		UpdateCluster: updateClusters,
+		DeleteCluster: deleteClusters,
 	}
 }
 
@@ -184,9 +184,9 @@ func (d *DataSourceCluster) Diff(old *DataSourceCluster) *ClusterEvent {
 }
 
 func (g Groups) Diff(old Groups) *GroupsEvent {
-	newG := make([]*Group, 0, 4)
-	updateG := make([]*Group, 0, 4)
-	deleteG := make([]*Group, 0, 4)
+	addGroups := make([]*Group, 0, 4)
+	updateGroups := make([]*Group, 0, 4)
+	deleteGroups := make([]*Group, 0, 4)
 
 	newTmp := map[string]*Group{}
 	oldTmp := map[string]*Group{}
@@ -200,34 +200,34 @@ func (g Groups) Diff(old Groups) *GroupsEvent {
 
 	for i := range g {
 		if _, ok := oldTmp[g[i].Name]; !ok {
-			newG = append(newG, g[i])
+			addGroups = append(addGroups, g[i])
 		}
 	}
 
 	for i := range old {
 		val, ok := newTmp[old[i].Name]
 		if !ok {
-			deleteG = append(deleteG, old[i])
+			deleteGroups = append(deleteGroups, old[i])
 			continue
 		}
 
 		if !reflect.DeepEqual(val, old[i]) {
-			updateG = append(updateG, val)
+			updateGroups = append(updateGroups, val)
 			continue
 		}
 	}
 
 	return &GroupsEvent{
-		AddGroups:    newG,
-		DeleteGroups: deleteG,
-		UpdateGroups: updateG,
+		AddGroups:    addGroups,
+		DeleteGroups: deleteGroups,
+		UpdateGroups: updateGroups,
 	}
 }
 
 func (s *ShardingRule) Diff(old *ShardingRule) *ShardingRuleEvent {
-	newT := make([]*Table, 0, 4)
-	updateT := make([]*Table, 0, 4)
-	deleteT := make([]*Table, 0, 4)
+	addTables := make([]*Table, 0, 4)
+	updateTables := make([]*Table, 0, 4)
+	deleteTables := make([]*Table, 0, 4)
 
 	newTmp := map[string]*Table{}
 	oldTmp := map[string]*Table{}
@@ -241,34 +241,34 @@ func (s *ShardingRule) Diff(old *ShardingRule) *ShardingRuleEvent {
 
 	for i := range s.Tables {
 		if _, ok := oldTmp[s.Tables[i].Name]; !ok {
-			newT = append(newT, s.Tables[i])
+			addTables = append(addTables, s.Tables[i])
 		}
 	}
 
 	for i := range old.Tables {
 		val, ok := newTmp[old.Tables[i].Name]
 		if !ok {
-			deleteT = append(deleteT, old.Tables[i])
+			deleteTables = append(deleteTables, old.Tables[i])
 			continue
 		}
 
 		if !reflect.DeepEqual(val, old.Tables[i]) {
-			updateT = append(updateT, val)
+			updateTables = append(updateTables, val)
 			continue
 		}
 	}
 
 	return &ShardingRuleEvent{
-		AddTables:    newT,
-		UpdateTables: updateT,
-		DeleteTables: deleteT,
+		AddTables:    addTables,
+		UpdateTables: updateTables,
+		DeleteTables: deleteTables,
 	}
 }
 
 func (s *ShadowRule) Diff(old *ShadowRule) *ShadowRuleEvent {
-	newT := make([]*ShadowTable, 0, 4)
-	updateT := make([]*ShadowTable, 0, 4)
-	deleteT := make([]*ShadowTable, 0, 4)
+	addTables := make([]*ShadowTable, 0, 4)
+	updateTables := make([]*ShadowTable, 0, 4)
+	deleteTables := make([]*ShadowTable, 0, 4)
 
 	newTmp := map[string]*ShadowTable{}
 	oldTmp := map[string]*ShadowTable{}
@@ -282,26 +282,26 @@ func (s *ShadowRule) Diff(old *ShadowRule) *ShadowRuleEvent {
 
 	for i := range s.ShadowTables {
 		if _, ok := oldTmp[s.ShadowTables[i].Name]; !ok {
-			newT = append(newT, s.ShadowTables[i])
+			addTables = append(addTables, s.ShadowTables[i])
 		}
 	}
 
 	for i := range old.ShadowTables {
 		val, ok := newTmp[old.ShadowTables[i].Name]
 		if !ok {
-			deleteT = append(deleteT, old.ShadowTables[i])
+			deleteTables = append(deleteTables, old.ShadowTables[i])
 			continue
 		}
 
 		if !reflect.DeepEqual(val, old.ShadowTables[i]) {
-			updateT = append(updateT, val)
+			updateTables = append(updateTables, val)
 			continue
 		}
 	}
 
 	return &ShadowRuleEvent{
-		AddTables:    newT,
-		UpdateTables: updateT,
-		DeleteTables: deleteT,
+		AddTables:    addTables,
+		UpdateTables: updateTables,
+		DeleteTables: deleteTables,
 	}
 }

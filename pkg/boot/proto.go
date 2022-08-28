@@ -175,19 +175,31 @@ type ConfigUpdater interface {
 	RemoveTable(ctx context.Context, tenant, cluster, table string) error
 }
 
-//ConfigWatcher
+// ConfigWatcher listens for changes in related configuration
 type ConfigWatcher interface {
-	//WatchTenants
+	// WatchTenants watches tenant change
+	// return <-chan config.TenantsEvent: listen to this chan to get related event
+	// return context.CancelFunc: used to cancel this monitoring, after execution, chan(<-chan config.TenantsEvent) will be closed
 	WatchTenants(ctx context.Context) (<-chan config.TenantsEvent, context.CancelFunc, error)
-	//WatchNodes
+	// WatchNodes watches nodes change
+	// return <-chan config.TenantsEvent: listen to this chan to get related event
+	// return context.CancelFunc: used to cancel this monitoring, after execution, chan(<-chan config.TenantsEvent) will be closed
 	WatchNodes(ctx context.Context, tenant string) (<-chan config.NodesEvent, context.CancelFunc, error)
-	//WatchUsers
+	// WatchUsers watches users change
+	// return <-chan config.TenantsEvent: listen to this chan to get related event
+	// return context.CancelFunc: used to cancel this monitoring, after execution, chan(<-chan config.TenantsEvent) will be closed
 	WatchUsers(ctx context.Context, tenant string) (<-chan config.UsersEvent, context.CancelFunc, error)
-	//WatchClusters
+	// WatchClusters watches cluster change
+	// return <-chan config.TenantsEvent: listen to this chan to get related event
+	// return context.CancelFunc: used to cancel this monitoring, after execution, chan(<-chan config.TenantsEvent) will be closed
 	WatchClusters(ctx context.Context, tenant string) (<-chan config.ClustersEvent, context.CancelFunc, error)
-	//WatchShardingRule
+	// WatchShardingRule watches sharding rule change
+	// return <-chan config.TenantsEvent: listen to this chan to get related event
+	// return context.CancelFunc: used to cancel this monitoring, after execution, chan(<-chan config.TenantsEvent) will be closed
 	WatchShardingRule(ctx context.Context, tenant string) (<-chan config.ShardingRuleEvent, context.CancelFunc, error)
-	//WatchShadowRule
+	// WatchShadowRule watches shadow rule change
+	// return <-chan config.TenantsEvent: listen to this chan to get related event
+	// return context.CancelFunc: used to cancel this monitoring, after execution, chan(<-chan config.TenantsEvent) will be closed
 	WatchShadowRule(ctx context.Context, tenant string) (<-chan config.ShadowRuleEvent, context.CancelFunc, error)
 }
 

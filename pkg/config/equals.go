@@ -22,12 +22,12 @@ import (
 	"reflect"
 )
 
-func (u *User) Compare(o *User) bool {
+func (u *User) Equals(o *User) bool {
 
 	return u.Username == o.Username && u.Password == o.Password
 }
 
-func (n *Node) Compare(o *Node) bool {
+func (n *Node) Equals(o *Node) bool {
 	if n.Name != o.Name {
 		return false
 	}
@@ -59,7 +59,7 @@ func (n *Node) Compare(o *Node) bool {
 	return true
 }
 
-func (r Rules) Compare(o Rules) bool {
+func (r Rules) Equals(o Rules) bool {
 	if len(r) == 0 && len(o) == 0 {
 		return true
 	}
@@ -104,7 +104,7 @@ func (r Rules) Compare(o Rules) bool {
 	return len(newT) == 0 && len(updateT) == 0 && len(deleteT) == 0
 }
 
-func (t *Table) Compare(o *Table) bool {
+func (t *Table) Equals(o *Table) bool {
 	if len(t.DbRules) != len(o.DbRules) {
 		return false
 	}
@@ -113,10 +113,10 @@ func (t *Table) Compare(o *Table) bool {
 		return false
 	}
 
-	if !Rules(t.DbRules).Compare(o.DbRules) {
+	if !Rules(t.DbRules).Equals(o.DbRules) {
 		return false
 	}
-	if !Rules(t.TblRules).Compare(o.TblRules) {
+	if !Rules(t.TblRules).Equals(o.TblRules) {
 		return false
 	}
 

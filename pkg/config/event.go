@@ -35,27 +35,27 @@ type (
 		Type() EventType
 	}
 
-	//TenantsEvent
+	// TenantsEvent tenants event
 	TenantsEvent struct {
 		AddTenants    Tenants
 		DeleteTenants Tenants
 	}
 
-	//UsersEvent
+	// UsersEvent users event
 	UsersEvent struct {
 		AddUsers    Users
 		UpdateUsers Users
 		DeleteUsers Users
 	}
 
-	//ClustersEvent
+	// ClustersEvent clusters event
 	ClustersEvent struct {
 		AddCluster    Clusters
 		DeleteCluster Clusters
 		UpdateCluster []*ClusterEvent
 	}
 
-	//ClusterEvent
+	// ClusterEvent cluster event
 	ClusterEvent struct {
 		Name        string
 		Type        DataSourceType
@@ -64,14 +64,14 @@ type (
 		GroupsEvent *GroupsEvent
 	}
 
-	//GroupsEvent
+	// GroupsEvent groups event
 	GroupsEvent struct {
 		AddGroups    Groups
 		UpdateGroups Groups
 		DeleteGroups Groups
 	}
 
-	//GroupEvent
+	// GroupEvent group event
 	GroupEvent struct {
 		Name        string
 		AddNodes    Nodes
@@ -79,21 +79,21 @@ type (
 		DeleteNodes Nodes
 	}
 
-	//ShardingRuleEvent
+	// ShardingRuleEvent sharding rule event
 	ShardingRuleEvent struct {
 		AddTables    []*Table
 		UpdateTables []*Table
 		DeleteTables []*Table
 	}
 
-	//ShadowRuleEvent
+	// ShadowRuleEvent shadow rule event
 	ShadowRuleEvent struct {
 		AddTables    []*ShadowTable
 		UpdateTables []*ShadowTable
 		DeleteTables []*ShadowTable
 	}
 
-	//NodesEvent
+	// NodesEvent nodes event
 	NodesEvent struct {
 		AddNodes    []*Node
 		UpdateNodes []*Node

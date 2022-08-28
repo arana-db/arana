@@ -19,15 +19,18 @@
 package config
 
 import (
-	"github.com/arana-db/arana/pkg/util/log"
 	"github.com/pkg/errors"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/util/log"
 )
 
 var (
 	ErrorNoStoreOperate = errors.New("no store operate")
 )
 
-func GetStoreOperate() StoreOperate {
+func GetStoreOperate() StoreOperator {
 	return storeOperate
 }
 

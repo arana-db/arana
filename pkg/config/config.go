@@ -24,13 +24,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
 )
 
 import (
+	"github.com/pkg/errors"
+
 	"github.com/tidwall/gjson"
 
 	"gopkg.in/yaml.v3"
@@ -126,7 +127,7 @@ func NewPathInfo(tenant string) *PathInfo {
 	return p
 }
 
-func NewTenantOperate(op StoreOperate) (TenantOperate, error) {
+func NewTenantOperator(op StoreOperator) (TenantOperator, error) {
 	tenantOp := &tenantOperate{
 		op:        op,
 		tenants:   map[string]struct{}{},
@@ -142,7 +143,7 @@ func NewTenantOperate(op StoreOperate) (TenantOperate, error) {
 }
 
 type tenantOperate struct {
-	op   StoreOperate
+	op   StoreOperator
 	lock sync.RWMutex
 
 	tenants   map[string]struct{}
@@ -339,7 +340,7 @@ type center struct {
 	tenant     string
 	initialize int32
 
-	storeOperate StoreOperate
+	storeOperate StoreOperator
 	pathInfo     *PathInfo
 	holders      map[PathKey]*atomic.Value
 
@@ -347,7 +348,7 @@ type center struct {
 	watchCancels []context.CancelFunc
 }
 
-func NewCenter(tenant string, op StoreOperate) Center {
+func NewCenter(tenant string, op StoreOperator) Center {
 
 	p := NewPathInfo(tenant)
 

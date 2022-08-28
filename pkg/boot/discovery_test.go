@@ -19,7 +19,6 @@ package boot
 
 import (
 	"context"
-	"github.com/arana-db/arana/pkg/constants"
 	"os"
 	"testing"
 )
@@ -29,6 +28,7 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/constants"
 	"github.com/arana-db/arana/testdata"
 )
 

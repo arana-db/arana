@@ -27,7 +27,6 @@ import (
 	"github.com/arana-db/arana/pkg/config"
 )
 
-//WatchTenants
 func (fp *discovery) WatchTenants(ctx context.Context) (<-chan config.TenantsEvent, context.CancelFunc, error) {
 	ch := make(chan config.TenantsEvent)
 
@@ -40,11 +39,10 @@ func (fp *discovery) WatchTenants(ctx context.Context) (<-chan config.TenantsEve
 	}), nil
 }
 
-//WatchNodes
 func (fp *discovery) WatchNodes(ctx context.Context, tenant string) (<-chan config.NodesEvent, context.CancelFunc, error) {
 	op, ok := fp.centers[tenant]
 	if !ok {
-		return nil, nil, ErrorNotTenant
+		return nil, nil, ErrorNoTenant
 	}
 
 	ch := make(chan config.NodesEvent)
@@ -58,11 +56,10 @@ func (fp *discovery) WatchNodes(ctx context.Context, tenant string) (<-chan conf
 	}), nil
 }
 
-//WatchUsers
 func (fp *discovery) WatchUsers(ctx context.Context, tenant string) (<-chan config.UsersEvent, context.CancelFunc, error) {
 	op, ok := fp.centers[tenant]
 	if !ok {
-		return nil, nil, ErrorNotTenant
+		return nil, nil, ErrorNoTenant
 	}
 
 	ch := make(chan config.UsersEvent)
@@ -76,11 +73,10 @@ func (fp *discovery) WatchUsers(ctx context.Context, tenant string) (<-chan conf
 	}), nil
 }
 
-//WatchClusters
 func (fp *discovery) WatchClusters(ctx context.Context, tenant string) (<-chan config.ClustersEvent, context.CancelFunc, error) {
 	op, ok := fp.centers[tenant]
 	if !ok {
-		return nil, nil, ErrorNotTenant
+		return nil, nil, ErrorNoTenant
 	}
 
 	ch := make(chan config.ClustersEvent)
@@ -94,11 +90,10 @@ func (fp *discovery) WatchClusters(ctx context.Context, tenant string) (<-chan c
 	}), nil
 }
 
-//WatchShardingRule
 func (fp *discovery) WatchShardingRule(ctx context.Context, tenant string) (<-chan config.ShardingRuleEvent, context.CancelFunc, error) {
 	op, ok := fp.centers[tenant]
 	if !ok {
-		return nil, nil, ErrorNotTenant
+		return nil, nil, ErrorNoTenant
 	}
 
 	ch := make(chan config.ShardingRuleEvent)
@@ -112,11 +107,10 @@ func (fp *discovery) WatchShardingRule(ctx context.Context, tenant string) (<-ch
 	}), nil
 }
 
-//WatchShadowRule
 func (fp *discovery) WatchShadowRule(ctx context.Context, tenant string) (<-chan config.ShadowRuleEvent, context.CancelFunc, error) {
 	op, ok := fp.centers[tenant]
 	if !ok {
-		return nil, nil, ErrorNotTenant
+		return nil, nil, ErrorNoTenant
 	}
 
 	ch := make(chan config.ShadowRuleEvent)

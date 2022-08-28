@@ -59,7 +59,7 @@ var (
 )
 
 func init() {
-	config.Regis(&storeOperate{})
+	config.Register(&storeOperate{})
 }
 
 // StoreOperate config storage related plugins

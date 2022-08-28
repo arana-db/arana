@@ -57,8 +57,8 @@ var (
 )
 
 var (
-	ErrorNotTenant            = errors.New("not tenant")
-	ErrorNotDataSourceCluster = errors.New("not datasourceCluster")
+	ErrorNoTenant            = errors.New("no tenant")
+	ErrorNoDataSourceCluster = errors.New("no datasourceCluster")
 )
 
 func getTableRegexp() *regexp.Regexp {
@@ -80,7 +80,7 @@ type discovery struct {
 	path    string
 	options *BootOptions
 
-	tenantOp config.TenantOperate
+	tenantOp config.TenantOperator
 	centers  map[string]config.Center
 }
 
@@ -147,7 +147,7 @@ func (fp *discovery) RemoveTable(ctx context.Context, tenant, cluster, table str
 func (fp *discovery) Import(ctx context.Context, info *config.Tenant) error {
 	op, ok := fp.centers[info.Name]
 	if !ok {
-		return ErrorNotTenant
+		return ErrorNoTenant
 	}
 
 	return op.Import(ctx, info)
@@ -168,7 +168,7 @@ func (fp *discovery) Init(ctx context.Context) error {
 		return err
 	}
 
-	fp.tenantOp, err = config.NewTenantOperate(config.GetStoreOperate())
+	fp.tenantOp, err = config.NewTenantOperator(config.GetStoreOperate())
 	if err != nil {
 		return err
 	}
@@ -253,7 +253,7 @@ func (fp *discovery) ListTenants(ctx context.Context) ([]string, error) {
 func (fp *discovery) GetTenant(ctx context.Context, tenant string) (*config.Tenant, error) {
 	op, ok := fp.centers[tenant]
 	if !ok {
-		return nil, ErrorNotTenant
+		return nil, ErrorNoTenant
 	}
 
 	cfg, err := op.Load(context.Background())
@@ -267,7 +267,7 @@ func (fp *discovery) GetTenant(ctx context.Context, tenant string) (*config.Tena
 func (fp *discovery) ListUsers(ctx context.Context, tenant string) (config.Users, error) {
 	op, ok := fp.centers[tenant]
 	if !ok {
-		return nil, ErrorNotTenant
+		return nil, ErrorNoTenant
 	}
 
 	cfg, err := op.Load(context.Background())
@@ -285,7 +285,7 @@ func (fp *discovery) ListListeners(ctx context.Context) []*config.Listener {
 func (fp *discovery) ListClusters(ctx context.Context, tenant string) ([]string, error) {
 	op, ok := fp.centers[tenant]
 	if !ok {
-		return nil, ErrorNotTenant
+		return nil, ErrorNoTenant
 	}
 
 	cfg, err := op.Load(context.Background())
@@ -332,7 +332,7 @@ func (fp *discovery) ListNodes(ctx context.Context, tenant, cluster, group strin
 func (fp *discovery) ListTables(ctx context.Context, tenant, cluster string) ([]string, error) {
 	op, ok := fp.centers[tenant]
 	if !ok {
-		return nil, ErrorNotTenant
+		return nil, ErrorNoTenant
 	}
 
 	cfg, err := op.Load(context.Background())
@@ -362,7 +362,7 @@ func (fp *discovery) GetNode(ctx context.Context, tenant, cluster, group, node s
 
 	op, ok := fp.centers[tenant]
 	if !ok {
-		return nil, ErrorNotTenant
+		return nil, ErrorNoTenant
 	}
 
 	var nodeId string
@@ -394,7 +394,7 @@ func (fp *discovery) GetNode(ctx context.Context, tenant, cluster, group, node s
 func (fp *discovery) GetTable(ctx context.Context, tenant, cluster, tableName string) (*rule.VTable, error) {
 	op, ok := fp.centers[tenant]
 	if !ok {
-		return nil, ErrorNotTenant
+		return nil, ErrorNoTenant
 	}
 
 	table, ok := fp.loadTables(cluster, op)[tableName]
@@ -549,7 +549,7 @@ func (fp *discovery) GetTable(ctx context.Context, tenant, cluster, tableName st
 func (fp *discovery) loadCluster(tenant, cluster string) (*config.DataSourceCluster, error) {
 	op, ok := fp.centers[tenant]
 	if !ok {
-		return nil, ErrorNotTenant
+		return nil, ErrorNoTenant
 	}
 
 	cfg, err := op.Load(context.Background())
@@ -562,7 +562,7 @@ func (fp *discovery) loadCluster(tenant, cluster string) (*config.DataSourceClus
 			return it, nil
 		}
 	}
-	return nil, ErrorNotDataSourceCluster
+	return nil, ErrorNoDataSourceCluster
 }
 
 func (fp *discovery) loadNodes(op config.Center) (config.Nodes, error) {

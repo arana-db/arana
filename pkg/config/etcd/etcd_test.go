@@ -120,7 +120,7 @@ func Test_storeOpertae(t *testing.T) {
 		{
 			Username: "arana",
 			Password: "arana",
-				},
+		},
 	}
 	data, _ := yaml.Marshal(newCfg.Data.Tenants[0].Users)
 

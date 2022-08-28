@@ -33,8 +33,11 @@ type (
 	PathKey string
 )
 
+const (
+	_rootPathTemp = "/%s/%s/"
+)
+
 var (
-	_rootPathTemp      = "/%s/%s/"
 	DefaultRootPath    PathKey
 	DefaultTenantsPath PathKey
 )
@@ -62,17 +65,17 @@ const (
 )
 
 var (
-	slots = make(map[string]StoreOperate)
+	slots = make(map[string]StoreOperator)
 
-	storeOperate StoreOperate
+	storeOperate StoreOperator
 
 	once sync.Once
 )
 
-// Regis register store plugin
-func Regis(s StoreOperate) {
+// Register register store plugin
+func Register(s StoreOperator) {
 	if _, ok := slots[s.Name()]; ok {
-		panic(fmt.Errorf("StoreOperate=[%s] already exist", s.Name()))
+		panic(fmt.Errorf("StoreOperator=[%s] already exist", s.Name()))
 	}
 
 	slots[s.Name()] = s
@@ -97,49 +100,44 @@ type (
 		Options   map[string]interface{} `yaml:"options"`
 	}
 
-	//TenantOperate 专门针对租户空间的相关操作
-	TenantOperate interface {
+	//TenantOperator actions specific to tenant spaces
+	TenantOperator interface {
 		io.Closer
-		//ListTenants
+		//ListTenants lists all tenants
 		ListTenants() []string
-		//CreateTenant
+		//CreateTenant creates tenant
 		CreateTenant(string) error
-		//RemoveTenant
+		//RemoveTenant removes tenant
 		RemoveTenant(string) error
-		//Subscribe
+		//Subscribe subscribes tenants change
 		Subscribe(ctx context.Context, c callback) context.CancelFunc
 	}
 
-	// Center
+	// Center Configuration center for each tenant, tenant-level isolation
 	Center interface {
 		io.Closer
-
-		//Load 每次都是拉取全量的配置数据
+		// Load loads the full Tenant configuration, the first time it will be loaded remotely,
+		// and then it will be directly assembled from the cache layer
 		Load(ctx context.Context) (*Tenant, error)
-		//Import 导入配置，仅针对某个命名空间下
+		// Import imports the configuration information of a tenant
 		Import(ctx context.Context, cfg *Tenant) error
-		//Subscribe
+		// Subscribe subscribes to all changes of an event by EventType
 		Subscribe(ctx context.Context, et EventType, c callback) context.CancelFunc
-		//Tenant
+		// Tenant tenant info
 		Tenant() string
 	}
 
-	// StoreOperate config storage related plugins
-	StoreOperate interface {
+	// StoreOperator config storage related plugins
+	StoreOperator interface {
 		io.Closer
-
 		// Init plugin initialization
 		Init(options map[string]interface{}) error
-
 		// Save save a configuration data
 		Save(key PathKey, val []byte) error
-
 		// Get get a configuration
 		Get(key PathKey) ([]byte, error)
-
 		// Watch Monitor changes of the key
 		Watch(key PathKey) (<-chan []byte, error)
-
 		// Name plugin name
 		Name() string
 	}

@@ -43,7 +43,7 @@ var (
 )
 
 func init() {
-	config.Regis(&storeOperate{
+	config.Register(&storeOperate{
 		cancelList: make([]context.CancelFunc, 0, 4),
 	})
 }
@@ -74,7 +74,6 @@ func (c *storeOperate) Init(options map[string]interface{}) error {
 	}
 
 	c.client = rawClient
-	c.lock = sync.RWMutex{}
 	c.receivers = make(map[config.PathKey]*etcdWatcher)
 
 	return nil
