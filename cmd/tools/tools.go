@@ -78,7 +78,7 @@ func Run(importConfPath, configPath string) {
 		return
 	}
 
-	tenantOp, err := config.NewTenantOperate(config.GetStoreOperate())
+	tenantOp, err := config.NewTenantOperator(config.GetStoreOperate())
 	if err != nil {
 		log.Fatal("build tenant operator failed: %+v", configPath, err)
 		return
