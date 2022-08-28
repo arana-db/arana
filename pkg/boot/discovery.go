@@ -32,6 +32,8 @@ import (
 import (
 	"github.com/pkg/errors"
 
+	uatomic "go.uber.org/atomic"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -75,7 +77,7 @@ type Cluster struct {
 }
 
 type Discovery interface {
-	// Init init discovery with context
+	// Init initializes discovery with context
 	Init(ctx context.Context) error
 	// ListTenants list tenants name
 	ListTenants(ctx context.Context) ([]string, error)
@@ -109,12 +111,17 @@ type Discovery interface {
 }
 
 type discovery struct {
+	inited  uatomic.Bool
 	path    string
 	options *BootOptions
 	c       *config.Center
 }
 
 func (fp *discovery) Init(ctx context.Context) error {
+	if !fp.inited.CAS(false, true) {
+		return nil
+	}
+
 	if err := fp.loadBootOptions(); err != nil {
 		return err
 	}

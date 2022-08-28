@@ -17,6 +17,19 @@
 
 version: "3"
 services:
+  etcd:
+    image: docker.io/bitnami/etcd:3.5
+    container_name: arana-etcd
+    networks:
+      - local
+    environment:
+      - ALLOW_NONE_AUTHENTICATION=yes
+    volumes:
+      - etcd_data:/bitnami/etcd
+    ports:
+      - "2379:2379"
+      - "2380:2380"
+
   mysql:
     image: mysql:5.7
     container_name: arana-mysql
@@ -31,9 +44,9 @@ services:
       - ./scripts/sequence.sql:/docker-entrypoint-initdb.d/1.sql:ro
       - ./scripts/sharding.sql:/docker-entrypoint-initdb.d/2.sql:ro
       - mysql_data:/var/lib/mysql
-    command: ['mysqld', '--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci']
+    command: [ "mysqld", "--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci" ]
     healthcheck:
-      test: ["CMD", "mysqladmin" ,"ping", "-h", "127.0.0.1"]
+      test: [ "CMD", "mysqladmin" ,"ping", "-h", "127.0.0.1" ]
       interval: 2s
       timeout: 1s
       retries: 5
@@ -42,15 +55,18 @@ services:
     build: .
     container_name: arana
     image: aranadb/arana:master
+    entrypoint: [ "arana", "start", "-c", "/etc/arana/bootstrap.yaml", "--import", "/etc/arana/config.yaml" ]
     networks:
       - local
     ports:
       - "3307:13306"
     volumes:
       - ./conf/config.yaml:/etc/arana/config.yaml:ro
-      - ./conf/bootstrap.yaml:/etc/arana/bootstrap.yaml:ro
+      - ./conf/bootstrap.docker.yaml:/etc/arana/bootstrap.yaml:ro
     depends_on:
+      - arana-admin
       - mysql
+      - etcd
 
 networks:
   local:
@@ -58,3 +74,4 @@ networks:
 
 volumes:
   mysql_data:
+  etcd_data:
