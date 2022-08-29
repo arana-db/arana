@@ -92,7 +92,7 @@ var (
 	_defaultStepBits uint8 = 12
 
 	stepMask      int64 = -1 ^ (-1 << _defaultStepBits)
-	timeShift           = _defaultNodeBits + _defaultNodeBits
+	timeShift           = _defaultNodeBits + _defaultStepBits
 	workIdShift         = _defaultStepBits
 	startWallTime       = time.Now()
 )
