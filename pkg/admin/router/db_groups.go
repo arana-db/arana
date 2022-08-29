@@ -23,12 +23,12 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/admin"
-	"github.com/arana-db/arana/pkg/boot"
+	"github.com/gin-gonic/gin"
 )
 
 import (
-	"github.com/gin-gonic/gin"
+	"github.com/arana-db/arana/pkg/admin"
+	"github.com/arana-db/arana/pkg/boot"
 )
 
 func init() {
