@@ -199,35 +199,20 @@ func (s *SimpleQueryPlan) generate(sb *strings.Builder, args *[]int) error {
 			}
 		}
 
-		if len(stmt.OrderBy) > 0 {
-			s.resetOrderBy(s.Stmt, sb, args)
+		if length := len(stmt.OrderBy); length > 0 {
+			sb.WriteString(" ORDER BY ")
+			if err := stmt.OrderBy[0].Restore(ast.RestoreDefault, sb, args); err != nil {
+				return errors.WithStack(err)
+			}
+
+			for i := 1; i < length; i++ {
+				sb.WriteString(", ")
+				if err := stmt.OrderBy[i].Restore(ast.RestoreDefault, sb, args); err != nil {
+					return errors.WithStack(err)
+				}
+			}
 		}
 	}
 
-	return nil
-}
-
-func (s *SimpleQueryPlan) resetOrderBy(tgt *ast.SelectStatement, sb *strings.Builder, args *[]int) error {
-	var builder strings.Builder
-	builder.WriteString("SELECT * FROM (")
-	builder.WriteString(sb.String())
-	builder.WriteString(") ")
-	if len(tgt.From[0].Alias) > 0 {
-		builder.WriteString(tgt.From[0].Alias)
-	} else {
-		builder.WriteString(" T ")
-	}
-	builder.WriteString(" ORDER BY ")
-	if err := tgt.OrderBy[0].Restore(ast.RestoreDefault, &builder, args); err != nil {
-		return errors.WithStack(err)
-	}
-	for i := 1; i < len(tgt.OrderBy); i++ {
-		builder.WriteString(", ")
-		if err := tgt.OrderBy[i].Restore(ast.RestoreDefault, &builder, args); err != nil {
-			return errors.WithStack(err)
-		}
-	}
-	sb.Reset()
-	sb.WriteString(builder.String())
 	return nil
 }

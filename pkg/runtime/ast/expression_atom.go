@@ -249,6 +249,10 @@ func (c *ConstantExpressionAtom) CntParams() int {
 
 type ColumnNameExpressionAtom []string
 
+func NewSingleColumnNameExpressionAtom(name string) ColumnNameExpressionAtom {
+	return ColumnNameExpressionAtom{name}
+}
+
 func (c ColumnNameExpressionAtom) Accept(visitor Visitor) (interface{}, error) {
 	return visitor.VisitAtomColumn(c)
 }
