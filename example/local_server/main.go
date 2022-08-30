@@ -24,5 +24,5 @@ import (
 
 func main() {
 	bootstrap := testdata.Path("../conf/bootstrap.yaml")
-	start.Run(bootstrap)
+	start.Run(bootstrap, "")
 }
