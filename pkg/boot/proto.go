@@ -83,6 +83,9 @@ type ConfigProvider interface {
 	// GetDataSourceCluster returns the dataSourceCluster object
 	GetDataSourceCluster(ctx context.Context, cluster string) (*config.DataSourceCluster, error)
 
+	// GetGroup returns the cluster info
+	GetGroup(ctx context.Context, tenant, cluster, group string) (*config.Group, error)
+
 	// GetCluster returns the cluster info
 	GetCluster(ctx context.Context, tenant, cluster string) (*Cluster, error)
 
