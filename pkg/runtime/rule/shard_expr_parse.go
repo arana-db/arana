@@ -84,7 +84,7 @@ func Parse(input string) (_ Expr, vars []Var, rerr error) {
 		}
 	}()
 
-	lex := new(lexer)
+	lex := &lexer{}
 	lex.scan.Init(strings.NewReader(input))
 	lex.scan.Mode = scanner.ScanIdents | scanner.ScanInts | scanner.ScanFloats | scanner.ScanStrings
 	lex.move() // initial lookahead

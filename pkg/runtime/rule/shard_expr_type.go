@@ -183,7 +183,7 @@ func (b binaryExpr) Eval(env Env) (Value, error) {
 		return yv, fmt.Errorf("gxbig.NewDecFromString(yv: %v), got error: %w", yv, err)
 	}
 
-	r = new(gxbig.Decimal)
+	r = &gxbig.Decimal{}
 	switch b.op {
 	case '+':
 		err = gxbig.DecimalAdd(x, y, r)
