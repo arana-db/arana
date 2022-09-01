@@ -27,6 +27,7 @@ import (
 
 import (
 	"github.com/dubbogo/gost/math/big"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -171,7 +172,7 @@ func (b binaryExpr) Eval(env Env) (Value, error) {
 	}
 	x, err = gxbig.NewDecFromString(xv.String())
 	if err != nil {
-		return xv, fmt.Errorf("gxbig.NewDecFromString(xv: %v), got error: %w", xv, err)
+		return xv, errors.Wrapf(err, "gxbig.NewDecFromString(xv: %v)", xv)
 	}
 
 	yv, err = b.y.Eval(env)
@@ -180,7 +181,7 @@ func (b binaryExpr) Eval(env Env) (Value, error) {
 	}
 	y, err = gxbig.NewDecFromString(yv.String())
 	if err != nil {
-		return yv, fmt.Errorf("gxbig.NewDecFromString(yv: %v), got error: %w", yv, err)
+		return yv, errors.Wrapf(err, "gxbig.NewDecFromString(yv: %v)", yv)
 	}
 
 	r = &gxbig.Decimal{}
