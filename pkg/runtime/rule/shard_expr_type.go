@@ -25,6 +25,10 @@ import (
 	"strings"
 )
 
+import (
+	"github.com/dubbogo/gost/math/big"
+)
+
 const (
 	defaultValue = ""
 )
@@ -65,6 +69,17 @@ type Value string
 
 func (v Value) String() string {
 	return string(v)
+}
+
+func (v Value) ToIntString() string {
+	//pos := strings.LastIndex(string(v), ".")
+	//if pos != -1 {
+	//	return string(v)[:pos]
+	//}
+	//return string(v)
+	decimal, _ := gxbig.NewDecFromString(string(v))
+	decimal.Round(decimal, 0, gxbig.ModeHalfEven)
+	return decimal.String()
 }
 
 // A constant is a numeric constant, e.g., 3.141.
@@ -115,11 +130,11 @@ func (u unary) Eval(env Env) (Value, error) {
 		if err != nil {
 			return defaultValue, err
 		}
-		fv, err := strconv.ParseFloat(xv.String(), 64)
+		x, err := gxbig.NewDecFromString(xv.String())
 		if err != nil {
-			return defaultValue, err
+			return defaultValue, fmt.Errorf("invalid value %s", xv.String())
 		}
-		return Value(fmt.Sprintf("%f", -fv)), nil
+		return Value("-" + x.String()), nil
 	}
 
 	return defaultValue, fmt.Errorf("unsupported unary operator: %q", u.op)
@@ -145,53 +160,66 @@ type binaryExpr struct {
 }
 
 func (b binaryExpr) Eval(env Env) (Value, error) {
-	xv, err := b.x.Eval(env)
+	var (
+		err     error
+		xv, yv  Value
+		x, y, r *gxbig.Decimal
+	)
+	xv, err = b.x.Eval(env)
 	if err != nil {
 		return xv, err
 	}
-	xf, err := strconv.ParseFloat(xv.String(), 64)
+	x, err = gxbig.NewDecFromString(xv.String())
 	if err != nil {
-		return xv, err
+		return xv, fmt.Errorf("gxbig.NewDecFromString(xv: %v), got error: %w", xv, err)
 	}
 
-	yv, err := b.y.Eval(env)
+	yv, err = b.y.Eval(env)
 	if err != nil {
 		return yv, err
 	}
-	yf, err := strconv.ParseFloat(yv.String(), 64)
+	y, err = gxbig.NewDecFromString(yv.String())
 	if err != nil {
-		return yv, err
+		return yv, fmt.Errorf("gxbig.NewDecFromString(yv: %v), got error: %w", yv, err)
 	}
 
-	var f float64
+	r = new(gxbig.Decimal)
 	switch b.op {
 	case '+':
-		f = xf + yf
+		err = gxbig.DecimalAdd(x, y, r)
+		if err != nil {
+			return defaultValue, fmt.Errorf("gxbig.DecimalAdd(x: %v, y: %v), got error: %w", x, y, err)
+		}
 
 	case '-':
-		f = xf - yf
+		err = gxbig.DecimalSub(x, y, r)
+		if err != nil {
+			return defaultValue, fmt.Errorf("gxbig.DecimalSub(x: %v, y: %v), got error: %w", x, y, err)
+		}
 
 	case '*':
-		f = xf * yf
+		err = gxbig.DecimalMul(x, y, r)
+		if err != nil {
+			return defaultValue, fmt.Errorf("gxbig.DecimalMul(x: %v, y: %v), got error: %w", x, y, err)
+		}
 
 	case '/':
-		if yf == 0 {
-			yf = 1.0
+		err = gxbig.DecimalDiv(x, y, r, gxbig.DivFracIncr)
+		if err != nil {
+			return defaultValue, fmt.Errorf("gxbig.DecimalDiv(x: %v, y: %v), got error: %w", x, y, err)
 		}
-		// f = float64(int(xf / yf))
-		f = xf / yf
 
 	case '%':
-		if yf == 0 {
-			yf = 1.0
+		err = gxbig.DecimalMod(x, y, r)
+		if err != nil {
+			return defaultValue, fmt.Errorf("gxbig.DecimalMod(x: %v, y: %v), got error: %w", x, y, err)
 		}
-		f = float64(int(xf) % int(yf))
 
 	default:
 		return defaultValue, fmt.Errorf("unsupported binary operator: %q", b.op)
 	}
 
-	return Value(fmt.Sprintf("%f", f)), nil
+	return Value(r.String()), nil
 }
 
 func (b binaryExpr) String() string {

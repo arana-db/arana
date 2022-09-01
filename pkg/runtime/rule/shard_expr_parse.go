@@ -224,7 +224,15 @@ func parsePrimary(lex *lexer, s *stack) (*stack, Expr, error) {
 		// return s, function{fn:id, args:args, vars: vars}, nil
 		return s, function{fn: id, args: args}, nil
 
-	case scanner.Int, scanner.Float:
+	case scanner.Int:
+		i, err := strconv.ParseInt(lex.text(), 10, 64)
+		if err != nil {
+			return s, nil, err
+		}
+		lex.move() // consume number
+		return s, constant(i), nil
+
+	case scanner.Float:
 		f, err := strconv.ParseFloat(lex.text(), 64)
 		if err != nil {
 			return s, nil, err

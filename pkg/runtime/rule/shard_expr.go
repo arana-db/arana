@@ -57,7 +57,7 @@ func (compute *exprShardComputer) Compute(value interface{}) (int, error) {
 	shardValue := fmt.Sprintf("%v", value)
 	eval, _ := expr.Eval(Env{Var(compute.column): Value(shardValue)})
 
-	result, err := strconv.ParseFloat(eval.String(), 64)
+	result, err := strconv.ParseInt(eval.ToIntString(), 10, 64)
 	if err != nil {
 		return 0, err
 	}
