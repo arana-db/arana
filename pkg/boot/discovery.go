@@ -226,7 +226,7 @@ func (fp *discovery) GetDataSourceCluster(ctx context.Context, tenant, cluster s
 }
 
 func (fp *discovery) GetGroup(ctx context.Context, tenant, cluster, group string) (*config.Group, error) {
-	exist, ok := fp.loadGroup(cluster, group)
+	exist, ok := fp.loadGroup(tenant, cluster, group)
 	if !ok {
 		return nil, nil
 	}
