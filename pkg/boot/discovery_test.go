@@ -36,7 +36,7 @@ func TestFileProvider(t *testing.T) {
 	err := Boot(context.Background(), provider)
 	assert.NoError(t, err, "should init ok")
 
-	clusters, err := provider.ListClusters(context.Background())
+	clusters, err := provider.ListClusters(context.Background(), "arana")
 	assert.NoError(t, err)
 	assert.NotEmpty(t, clusters, "clusters should not be empty")
 	t.Logf("clusters: %v\n", clusters)

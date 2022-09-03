@@ -52,7 +52,6 @@ services:
       retries: 5
 
   arana:
-    build: .
     container_name: arana
     image: aranadb/arana:master
     entrypoint: [ "arana", "start", "-c", "/etc/arana/bootstrap.yaml", "--import", "/etc/arana/config.yaml" ]
@@ -64,8 +63,21 @@ services:
       - ./conf/config.yaml:/etc/arana/config.yaml:ro
       - ./conf/bootstrap.docker.yaml:/etc/arana/bootstrap.yaml:ro
     depends_on:
-      - arana-admin
       - mysql
+      - etcd
+
+  arana-admin:
+    container_name: arana-admin
+    image: aranadb/arana:master
+    entrypoint: [ "arana", "admin", "-c", "/etc/arana/bootstrap.yaml", "-p", "8088" ]
+    networks:
+      - local
+    ports:
+      - "8088:8088"
+    volumes:
+      - ./conf/config.yaml:/etc/arana/config.yaml:ro
+      - ./conf/bootstrap.docker.yaml:/etc/arana/bootstrap.yaml:ro
+    depends_on:
       - etcd
 
 networks:
