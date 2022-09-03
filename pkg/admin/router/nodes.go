@@ -48,6 +48,9 @@ func init() {
 }
 
 func ListNodes(c *gin.Context) {
+
+	var results []config.Node
+
 	service := admin.GetService(c)
 	tenantName := c.Param("tenant")
 	clusters, err := service.ListClusters(c, tenantName)
@@ -55,24 +58,32 @@ func ListNodes(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	var data []string
 	for _, cluster := range clusters {
 		groups, err := service.ListGroups(c, cluster)
 		if err != nil {
 			_ = c.Error(err)
 			continue
 		}
+
 		for _, group := range groups {
-			temp, err := service.ListNodes(c, cluster, group)
+			nodesArray, err := service.ListNodes(c, cluster, group)
 			if err != nil {
 				_ = c.Error(err)
 				continue
-			} else {
-				data = append(data, temp...)
 			}
+			for _, node := range nodesArray {
+				result, err := service.GetNode(c, cluster, group, node)
+				if err != nil {
+					_ = c.Error(err)
+					continue
+				} else {
+					results = append(results, *result)
+				}
+			}
+
 		}
 	}
-	c.JSON(http.StatusOK, data)
+	c.JSON(http.StatusOK, results)
 }
 
 func GetNode(c *gin.Context) {
