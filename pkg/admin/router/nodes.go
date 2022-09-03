@@ -33,24 +33,17 @@ import (
 
 func init() {
 	admin.Register(func(router gin.IRoutes) {
-		if e, ok := router.(*gin.RouterGroup); ok {
-
-			routerGroup := e.Group("/")
-			routerGroup.GET("/tenants/:tenant/nodes", ListNodes)
-			routerGroup.POST("/tenants/:tenant/nodes", CreateNode)
-			routerGroup.GET("/tenants/:tenant/nodes/:node", GetNode)
-			routerGroup.PUT("/tenants/:tenant/nodes/:node", UpdateNode)
-			routerGroup.DELETE("/tenants/:tenant/nodes/:node", RemoveNode)
-
-		}
-
+		router.GET("/tenants/:tenant/nodes", ListNodes)
+		router.POST("/tenants/:tenant/nodes", CreateNode)
+		router.GET("/tenants/:tenant/nodes/:node", GetNode)
+		router.PUT("/tenants/:tenant/nodes/:node", UpdateNode)
+		router.DELETE("/tenants/:tenant/nodes/:node", RemoveNode)
 	})
 }
 
 func ListNodes(c *gin.Context) {
 
 	var results []config.Node
-
 	service := admin.GetService(c)
 	tenantName := c.Param("tenant")
 	clusters, err := service.ListClusters(c, tenantName)
@@ -64,12 +57,11 @@ func ListNodes(c *gin.Context) {
 			_ = c.Error(err)
 			continue
 		}
-
 		for _, group := range groups {
 			nodesArray, err := service.ListNodes(c, cluster, group)
 			if err != nil {
 				_ = c.Error(err)
-				continue
+				break
 			}
 			for _, node := range nodesArray {
 				result, err := service.GetNode(c, cluster, group, node)
@@ -80,7 +72,6 @@ func ListNodes(c *gin.Context) {
 					results = append(results, *result)
 				}
 			}
-
 		}
 	}
 	c.JSON(http.StatusOK, results)
