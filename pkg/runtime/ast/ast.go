@@ -695,6 +695,8 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 		return ret
 	case ast.ShowWarnings:
 		return &ShowWarnings{baseShow: toBaseShow()}
+	case ast.ShowCharset:
+		return &ShowCharset{baseShow: toBaseShow()}
 	default:
 		panic(fmt.Sprintf("unimplement: show type %v!", node.Tp))
 	}

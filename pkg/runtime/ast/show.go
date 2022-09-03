@@ -463,3 +463,25 @@ func (s *ShowWarnings) Restore(flag RestoreFlag, sb *strings.Builder, args *[]in
 func (s *ShowWarnings) Mode() SQLType {
 	return SQLTypeShowWarnings
 }
+
+type ShowCharset struct {
+	*baseShow
+}
+
+func (s *ShowCharset) Mode() SQLType {
+	return SQLTypeShowCharacterSet
+}
+
+func (s *ShowCharset) Validate() error {
+	return nil
+}
+
+func (s *ShowCharset) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	sb.WriteString("SHOW CHARACTER SET")
+
+	if err := s.baseShow.Restore(flag, sb, args); err != nil {
+		return errors.WithStack(err)
+	}
+
+	return nil
+}
