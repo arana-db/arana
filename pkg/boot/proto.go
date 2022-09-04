@@ -208,9 +208,6 @@ type Discovery interface {
 	// ListListeners lists the listener names
 	ListListeners(ctx context.Context) []*config.Listener
 
-	// ListFilters list the filter names
-	ListFilters(ctx context.Context) ([]*config.Filter, error)
-
 	// Init initializes discovery with context
 	Init(ctx context.Context) error
 }

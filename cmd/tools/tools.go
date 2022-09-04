@@ -18,7 +18,7 @@
 package tools
 
 import (
-	"context"
+	"github.com/arana-db/arana/pkg/boot"
 	"os"
 )
 
@@ -28,10 +28,7 @@ import (
 
 import (
 	"github.com/arana-db/arana/cmd/cmds"
-	"github.com/arana-db/arana/pkg/boot"
-	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/constants"
-	"github.com/arana-db/arana/pkg/util/log"
 )
 
 var (
@@ -63,48 +60,5 @@ func run(_ *cobra.Command, _ []string) {
 }
 
 func Run(importConfPath, configPath string) {
-	bootCfg, err := boot.LoadBootOptions(importConfPath)
-	if err != nil {
-		log.Fatalf("load bootstrap config failed: %+v", err)
-	}
-
-	if err := config.Init(*bootCfg.Config, bootCfg.APIVersion); err != nil {
-		log.Fatal()
-	}
-
-	cfg, err := config.Load(configPath)
-	if err != nil {
-		log.Fatal("load config from %s failed: %+v", configPath, err)
-		return
-	}
-
-	tenantOp, err := config.NewTenantOperator(config.GetStoreOperate())
-	if err != nil {
-		log.Fatal("build tenant operator failed: %+v", configPath, err)
-		return
-	}
-
-	for i := range cfg.Data.Tenants {
-		if err := tenantOp.CreateTenant(cfg.Data.Tenants[i].Name); err != nil {
-			log.Fatal("create tenant failed: %+v", configPath, err)
-			return
-		}
-	}
-
-	for i := range cfg.Data.Tenants {
-
-		tenant := cfg.Data.Tenants[i]
-
-		tenant.APIVersion = cfg.APIVersion
-		tenant.Metadata = cfg.Metadata
-
-		op := config.NewCenter(tenant.Name, config.GetStoreOperate())
-
-		if err := op.Import(context.Background(), tenant); err != nil {
-			log.Fatalf("persist config to config.store failed: %+v", err)
-			return
-		}
-	}
-
-	log.Infof("finish import config into config_center")
+	boot.RunImport(importConfPath, configPath)
 }
