@@ -60,7 +60,8 @@ func CreateGroup(c *gin.Context) {
 func ListGroups(c *gin.Context) {
 	service := admin.GetService(c)
 	tenantName := c.Param("tenant")
-	groups, err := service.ListGroups(context.Background(), tenantName)
+	cluster := c.Param("cluster")
+	groups, err := service.ListGroups(context.Background(), tenantName, cluster)
 	if err != nil {
 		_ = c.Error(err)
 		return
