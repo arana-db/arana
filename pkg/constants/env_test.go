@@ -18,9 +18,12 @@
 package constants
 
 import (
-	"github.com/stretchr/testify/assert"
 	"strings"
 	"testing"
+)
+
+import (
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetConfigSearchPathList(t *testing.T) {

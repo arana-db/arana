@@ -731,7 +731,7 @@ func Parse(sql string, options ...ParseOption) ([]*hint.Hint, Statement, error) 
 	}
 
 	p := parser.New()
-	s, hintStrs, err := p.ParseOneStmtHints(sql, o.charset, o.collation)
+	s, err := p.ParseOneStmt(sql, o.charset, o.collation)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -740,6 +740,8 @@ func Parse(sql string, options ...ParseOption) ([]*hint.Hint, Statement, error) 
 	if err != nil {
 		return nil, nil, err
 	}
+
+	hintStrs := s.Hints()
 
 	if len(hintStrs) < 1 {
 		return nil, stmt, nil
