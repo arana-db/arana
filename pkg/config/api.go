@@ -73,12 +73,13 @@ var (
 )
 
 // Register register store plugin
-func Register(s StoreOperator) {
+func Register(s StoreOperator) error {
 	if _, ok := slots[s.Name()]; ok {
-		panic(fmt.Errorf("StoreOperator=[%s] already exist", s.Name()))
+		return fmt.Errorf("StoreOperator=[%s] already exist", s.Name())
 	}
 
 	slots[s.Name()] = s
+	return nil
 }
 
 type (

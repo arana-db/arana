@@ -104,7 +104,7 @@ func TestShardingRuleConf(t *testing.T) {
 	assert.Equal(t, "student_${0000..0031}", table.Topology.TblPattern)
 	// assert.Equal(t, "employee_0000", table.ShadowTopology.DbPattern)
 	// assert.Equal(t, "__test_student_${0000...0007}", table.ShadowTopology.TblPattern)
-	assert.Len(t, table.Attributes, 2)
+	assert.Len(t, table.Attributes, 1)
 }
 
 func TestUnmarshalTextForProtocolTypeNil(t *testing.T) {

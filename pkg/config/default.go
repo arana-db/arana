@@ -37,16 +37,22 @@ func GetStoreOperate() StoreOperator {
 func Init(options Options, version string) error {
 	initPath(options.RootPath, version)
 
+	var err error
 	once.Do(func() {
-		op, ok := slots[options.StoreName]
-		if !ok {
-			log.Panic(ErrorNoStoreOperate)
-		}
-		if err := op.Init(options.Options); err != nil {
-			log.Panic(err)
-		}
-		log.Infof("[StoreOperate] use plugin : %s", options.StoreName)
-		storeOperate = op
+		err = InitStoreOperate(options)
 	})
+	return err
+}
+
+func InitStoreOperate(options Options) error {
+	op, ok := slots[options.StoreName]
+	if !ok {
+		return ErrorNoStoreOperate
+	}
+	if err := op.Init(options.Options); err != nil {
+		return err
+	}
+	log.Infof("[StoreOperate] use plugin : %s", options.StoreName)
+	storeOperate = op
 	return nil
 }
