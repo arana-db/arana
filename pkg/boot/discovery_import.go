@@ -20,6 +20,9 @@ package boot
 
 import (
 	"context"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/util/log"
 )

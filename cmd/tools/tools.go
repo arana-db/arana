@@ -18,7 +18,6 @@
 package tools
 
 import (
-	"github.com/arana-db/arana/pkg/boot"
 	"os"
 )
 
@@ -28,6 +27,7 @@ import (
 
 import (
 	"github.com/arana-db/arana/cmd/cmds"
+	"github.com/arana-db/arana/pkg/boot"
 	"github.com/arana-db/arana/pkg/constants"
 )
 

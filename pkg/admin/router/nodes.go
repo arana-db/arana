@@ -63,7 +63,7 @@ func ListNodes(c *gin.Context) {
 				return
 			}
 			for _, node := range nodesArray {
-				result, err := service.GetNode(c, cluster, group, node)
+				result, err := service.GetNode(c, tenantName, cluster, group, node)
 				if err != nil {
 					_ = c.Error(err)
 					return
