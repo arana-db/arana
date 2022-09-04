@@ -51,13 +51,13 @@ func ListNodes(c *gin.Context) {
 		return
 	}
 	for _, cluster := range clusters {
-		groups, err := service.ListGroups(c, cluster)
+		groups, err := service.ListGroups(c, tenantName, cluster)
 		if err != nil {
 			_ = c.Error(err)
 			return
 		}
 		for _, group := range groups {
-			nodesArray, err := service.ListNodes(c, cluster, group)
+			nodesArray, err := service.ListNodes(c, tenantName, cluster, group)
 			if err != nil {
 				_ = c.Error(err)
 				return
@@ -86,13 +86,13 @@ func GetNode(c *gin.Context) {
 	}
 	var data *config.Node
 	for _, cluster := range clusters {
-		groups, err := service.ListGroups(c, cluster)
+		groups, err := service.ListGroups(c, tenant, cluster)
 		if err != nil {
 			_ = c.Error(err)
 			return
 		}
 		for _, group := range groups {
-			data, err = service.GetNode(c, cluster, group, node)
+			data, err = service.GetNode(c, tenant, cluster, group, node)
 			if err != nil {
 				_ = c.Error(err)
 				continue

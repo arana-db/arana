@@ -29,7 +29,6 @@ import (
 	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime"
-	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/runtime/namespace"
 	_ "github.com/arana-db/arana/pkg/schema"
 	"github.com/arana-db/arana/pkg/security"
@@ -41,62 +40,62 @@ func Boot(ctx context.Context, provider Discovery) error {
 		return err
 	}
 
-	clusters, err := provider.ListClusters(ctx, "")
-	if err != nil {
-		return err
-	}
-
-	for _, cluster := range clusters {
-		var (
-			c  *Cluster
-			ns *namespace.Namespace
-		)
-
-		if c, err = provider.GetCluster(ctx, "", cluster); err != nil {
-			continue
-		}
-
-		ctx = rcontext.WithTenant(ctx, c.Tenant)
-
-		if ns, err = buildNamespace(ctx, provider, cluster); err != nil {
-			log.Errorf("build namespace %s failed: %v", cluster, err)
-			continue
-		}
-		if err = namespace.Register(ns); err != nil {
-			log.Errorf("register namespace %s failed: %v", cluster, err)
-			continue
-		}
-		log.Infof("register namespace %s successfully", cluster)
-		security.DefaultTenantManager().PutCluster(c.Tenant, cluster)
-	}
-
-	var tenants []string
+	var (
+		err     error
+		tenants []string
+	)
 	if tenants, err = provider.ListTenants(ctx); err != nil {
 		return errors.Wrap(err, "no tenants found")
 	}
 
 	for _, tenant := range tenants {
-		var t *config.Tenant
-		if t, err = provider.GetTenant(ctx, tenant); err != nil {
+		clusters, err := provider.ListClusters(ctx, tenant)
+		if err != nil {
+			return err
+		}
+
+		for _, cluster := range clusters {
+			var (
+				ns *namespace.Namespace
+			)
+
+			if _, err = provider.GetCluster(ctx, tenant, cluster); err != nil {
+				continue
+			}
+
+			if ns, err = buildNamespace(ctx, tenant, provider, cluster); err != nil {
+				log.Errorf("build namespace %s failed: %v", cluster, err)
+				continue
+			}
+			if err = namespace.Register(ns); err != nil {
+				log.Errorf("register namespace %s failed: %v", cluster, err)
+				continue
+			}
+			log.Infof("register namespace %s successfully", cluster)
+			security.DefaultTenantManager().PutCluster(tenant, cluster)
+		}
+
+		var users config.Users
+		if users, err = provider.ListUsers(ctx, tenant); err != nil {
 			log.Errorf("failed to get tenant %s: %v", tenant, err)
 			continue
 		}
-		for _, it := range t.Users {
-			security.DefaultTenantManager().PutUser(tenant, it)
+		for i := range users {
+			security.DefaultTenantManager().PutUser(tenant, users[i])
 		}
 	}
 
 	return nil
 }
 
-func buildNamespace(ctx context.Context, provider Discovery, clusterName string) (*namespace.Namespace, error) {
+func buildNamespace(ctx context.Context, tenant string, provider Discovery, clusterName string) (*namespace.Namespace, error) {
 	var (
 		cluster *config.DataSourceCluster
 		groups  []string
 		err     error
 	)
 
-	cluster, err = provider.GetDataSourceCluster(ctx, clusterName)
+	cluster, err = provider.GetDataSourceCluster(ctx, tenant, clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -105,19 +104,19 @@ func buildNamespace(ctx context.Context, provider Discovery, clusterName string)
 		parameters = cluster.Parameters
 	}
 
-	if groups, err = provider.ListGroups(ctx, clusterName); err != nil {
+	if groups, err = provider.ListGroups(ctx, tenant, clusterName); err != nil {
 		return nil, err
 	}
 
 	var initCmds []namespace.Command
 	for _, group := range groups {
 		var nodes []string
-		if nodes, err = provider.ListNodes(ctx, clusterName, group); err != nil {
+		if nodes, err = provider.ListNodes(ctx, tenant, clusterName, group); err != nil {
 			return nil, err
 		}
 		for _, it := range nodes {
 			var node *config.Node
-			if node, err = provider.GetNode(ctx, clusterName, group, it); err != nil {
+			if node, err = provider.GetNode(ctx, tenant, clusterName, group, it); err != nil {
 				return nil, errors.WithStack(err)
 			}
 			if node.Parameters == nil {
@@ -129,14 +128,14 @@ func buildNamespace(ctx context.Context, provider Discovery, clusterName string)
 	}
 
 	var tables []string
-	if tables, err = provider.ListTables(ctx, clusterName); err != nil {
+	if tables, err = provider.ListTables(ctx, tenant, clusterName); err != nil {
 		return nil, errors.WithStack(err)
 	}
 
 	var ru rule.Rule
 	for _, table := range tables {
 		var vt *rule.VTable
-		if vt, err = provider.GetTable(ctx, clusterName, table); err != nil {
+		if vt, err = provider.GetTable(ctx, tenant, clusterName, table); err != nil {
 			return nil, err
 		}
 		if vt == nil {

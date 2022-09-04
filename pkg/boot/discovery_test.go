@@ -19,6 +19,7 @@ package boot
 
 import (
 	"context"
+	"os"
 	"testing"
 )
 
@@ -27,10 +28,12 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/constants"
 	"github.com/arana-db/arana/testdata"
 )
 
 func TestFileProvider(t *testing.T) {
+	os.Setenv(constants.EnvConfigPath, testdata.Path("fake_config.yaml"))
 	provider := NewDiscovery(testdata.Path("fake_bootstrap.yaml"))
 
 	err := Boot(context.Background(), provider)
@@ -41,25 +44,25 @@ func TestFileProvider(t *testing.T) {
 	assert.NotEmpty(t, clusters, "clusters should not be empty")
 	t.Logf("clusters: %v\n", clusters)
 
-	groups, err := provider.ListGroups(context.Background(), clusters[0])
+	groups, err := provider.ListGroups(context.Background(), "arana", clusters[0])
 	assert.NoError(t, err)
 	assert.NotEmpty(t, groups, "groups should not be empty")
 	t.Logf("groups: %v\n", groups)
 
-	nodes, err := provider.ListNodes(context.Background(), clusters[0], groups[0])
+	nodes, err := provider.ListNodes(context.Background(), "arana", clusters[0], groups[0])
 	assert.NoError(t, err)
 	assert.NotEmpty(t, nodes, "nodes should not be empty")
 
-	node, err := provider.GetNode(context.Background(), clusters[0], groups[0], nodes[0])
+	node, err := provider.GetNode(context.Background(), "arana", clusters[0], groups[0], nodes[0])
 	assert.NoError(t, err)
 	t.Logf("node: %s\n", node)
 
-	tables, err := provider.ListTables(context.Background(), clusters[0])
+	tables, err := provider.ListTables(context.Background(), "arana", clusters[0])
 	assert.NoError(t, err)
 	assert.NotEmpty(t, tables, "tables should not be empty")
 	t.Logf("tables: %v\n", tables)
 
-	table, err := provider.GetTable(context.Background(), clusters[0], tables[0])
+	table, err := provider.GetTable(context.Background(), "arana", clusters[0], tables[0])
 	assert.NoError(t, err)
 	assert.True(t, table.AllowFullScan())
 	t.Logf("vtable: %v\n", table)

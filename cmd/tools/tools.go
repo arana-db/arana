@@ -18,7 +18,7 @@
 package tools
 
 import (
-	"context"
+	"github.com/arana-db/arana/pkg/boot"
 	"os"
 )
 
@@ -28,10 +28,7 @@ import (
 
 import (
 	"github.com/arana-db/arana/cmd/cmds"
-	"github.com/arana-db/arana/pkg/boot"
-	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/constants"
-	"github.com/arana-db/arana/pkg/util/log"
 )
 
 var (
@@ -45,7 +42,7 @@ func init() {
 		Use:     "import",
 		Short:   "import arana config",
 		Example: "./arana import -c ../docker/conf/bootstrap.yaml -s ../docker/conf/config.yaml",
-		Run:     Run,
+		Run:     run,
 	}
 
 	cmd.PersistentFlags().
@@ -58,25 +55,10 @@ func init() {
 	})
 }
 
-func Run(cmd *cobra.Command, args []string) {
-	_, _ = cmd, args
+func run(_ *cobra.Command, _ []string) {
+	Run(importBootConfPath, sourceConfigPath)
+}
 
-	discovery := boot.NewDiscovery(importBootConfPath)
-	if err := discovery.Init(context.Background()); err != nil {
-		log.Fatal("init failed: %+v", err)
-		return
-	}
-
-	cfg, err := config.Load(sourceConfigPath)
-	if err != nil {
-		log.Fatal("load config from %s failed: %+v", sourceConfigPath, err)
-		return
-	}
-
-	c := discovery.GetConfigCenter()
-
-	if err := c.ImportConfiguration(cfg); err != nil {
-		log.Fatal("persist config to config.store failed: %+v", err)
-		return
-	}
+func Run(importConfPath, configPath string) {
+	boot.RunImport(importConfPath, configPath)
 }

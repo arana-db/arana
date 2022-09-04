@@ -26,65 +26,79 @@ import (
 )
 
 import (
-	etcdv3 "github.com/dubbogo/gost/database/kv/etcd/v3"
-
 	"go.etcd.io/etcd/api/v3/mvccpb"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
+
+	"google.golang.org/grpc"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/config"
-	"github.com/arana-db/arana/pkg/util/env"
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
+var (
+	PluginName = "etcd"
+)
+
 func init() {
-	config.Register(&storeOperate{})
+	config.Register(&storeOperate{
+		cancelList: make([]context.CancelFunc, 0, 4),
+	})
 }
 
 type storeOperate struct {
-	client     *etcdv3.Client
-	lock       *sync.RWMutex
+	client     *clientv3.Client
+	lock       sync.RWMutex
 	receivers  map[config.PathKey]*etcdWatcher
 	cancelList []context.CancelFunc
 }
 
 func (c *storeOperate) Init(options map[string]interface{}) error {
 	endpoints, _ := options["endpoints"].(string)
-	tmpClient, err := etcdv3.NewConfigClientWithErr(
-		etcdv3.WithName(etcdv3.RegistryETCDV3Client),
-		etcdv3.WithTimeout(10*time.Second),
-		etcdv3.WithEndpoints(strings.Split(endpoints, ",")...),
-	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	c.cancelList = append(c.cancelList, cancel)
+
+	rawClient, err := clientv3.New(clientv3.Config{
+		Context:     ctx,
+		Endpoints:   strings.Split(endpoints, ","),
+		DialTimeout: 10 * time.Second,
+		DialOptions: []grpc.DialOption{grpc.WithBlock()},
+	})
+
 	if err != nil {
 		log.Errorf("failed to initialize etcd client error: %s", err.Error())
 		return err
 	}
 
-	c.client = tmpClient
-	c.lock = &sync.RWMutex{}
+	c.client = rawClient
 	c.receivers = make(map[config.PathKey]*etcdWatcher)
-	c.cancelList = make([]context.CancelFunc, 0, 2)
 
 	return nil
 }
 
 func (c *storeOperate) Save(key config.PathKey, val []byte) error {
-	return c.client.Put(string(key), string(val))
+	_, err := c.client.Put(context.Background(), string(key), string(val))
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (c *storeOperate) Get(key config.PathKey) ([]byte, error) {
-	v, err := c.client.Get(string(key))
+	resp, err := c.client.Get(context.Background(), string(key))
 	if err != nil {
 		return nil, err
 	}
 
-	if env.IsDevelopEnvironment() {
-		log.Infof("[ConfigCenter][etcd] load config content : %#v", v)
+	if len(resp.Kvs) == 0 {
+		return nil, err
 	}
 
-	return []byte(v), nil
+	return resp.Kvs[0].Value, nil
 }
 
 type etcdWatcher struct {
@@ -128,14 +142,12 @@ func (w *etcdWatcher) run(ctx context.Context) {
 }
 
 func (c *storeOperate) Watch(key config.PathKey) (<-chan []byte, error) {
+
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
 	if _, ok := c.receivers[key]; !ok {
-		watchCh, err := c.client.Watch(string(key))
-		if err != nil {
-			return nil, err
-		}
+		watchCh := c.client.Watch(context.Background(), string(key))
 		w := newWatcher(watchCh)
 		c.receivers[key] = w
 
@@ -156,7 +168,7 @@ func (c *storeOperate) Watch(key config.PathKey) (<-chan []byte, error) {
 }
 
 func (c *storeOperate) Name() string {
-	return "etcd"
+	return PluginName
 }
 
 func (c *storeOperate) Close() error {

@@ -77,29 +77,38 @@ type ConfigProvider interface {
 	// GetTenant returns the tenant info
 	GetTenant(ctx context.Context, tenant string) (*config.Tenant, error)
 
+	// ListUsers returns the user list
+	ListUsers(ctx context.Context, tenant string) (config.Users, error)
+
 	// ListClusters lists the cluster names.
 	ListClusters(ctx context.Context, tenant string) ([]string, error)
 
 	// GetDataSourceCluster returns the dataSourceCluster object
-	GetDataSourceCluster(ctx context.Context, cluster string) (*config.DataSourceCluster, error)
+	GetDataSourceCluster(ctx context.Context, tenant, cluster string) (*config.DataSourceCluster, error)
+
+	// GetGroup returns the cluster info
+	GetGroup(ctx context.Context, tenant, cluster, group string) (*config.Group, error)
 
 	// GetCluster returns the cluster info
 	GetCluster(ctx context.Context, tenant, cluster string) (*Cluster, error)
 
 	// ListGroups lists the group names.
-	ListGroups(ctx context.Context, cluster string) ([]string, error)
+	ListGroups(ctx context.Context, tenant, cluster string) ([]string, error)
 
 	// ListNodes lists the node names.
-	ListNodes(ctx context.Context, cluster, group string) ([]string, error)
+	ListNodes(ctx context.Context, tenant, cluster, group string) ([]string, error)
 
 	// GetNode returns the node info.
-	GetNode(ctx context.Context, cluster, group, node string) (*config.Node, error)
+	GetNode(ctx context.Context, tenant, cluster, group, node string) (*config.Node, error)
 
 	// ListTables lists the table names.
-	ListTables(ctx context.Context, cluster string) ([]string, error)
+	ListTables(ctx context.Context, tenant, cluster string) ([]string, error)
 
 	// GetTable returns the table info.
-	GetTable(ctx context.Context, cluster, table string) (*rule.VTable, error)
+	GetTable(ctx context.Context, tenant, cluster, table string) (*rule.VTable, error)
+
+	// Import import config into config_center
+	Import(ctx context.Context, info *config.Tenant) error
 }
 
 // ConfigUpdater represents the mutations of configurations.
@@ -166,13 +175,38 @@ type ConfigUpdater interface {
 	RemoveTable(ctx context.Context, tenant, cluster, table string) error
 }
 
+// ConfigWatcher listens for changes in related configuration
+type ConfigWatcher interface {
+	// WatchTenants watches tenant change
+	// return <-chan config.TenantsEvent: listen to this chan to get related event
+	// return context.CancelFunc: used to cancel this monitoring, after execution, chan(<-chan config.TenantsEvent) will be closed
+	WatchTenants(ctx context.Context) (<-chan config.TenantsEvent, context.CancelFunc, error)
+	// WatchNodes watches nodes change
+	// return <-chan config.TenantsEvent: listen to this chan to get related event
+	// return context.CancelFunc: used to cancel this monitoring, after execution, chan(<-chan config.TenantsEvent) will be closed
+	WatchNodes(ctx context.Context, tenant string) (<-chan config.NodesEvent, context.CancelFunc, error)
+	// WatchUsers watches users change
+	// return <-chan config.TenantsEvent: listen to this chan to get related event
+	// return context.CancelFunc: used to cancel this monitoring, after execution, chan(<-chan config.TenantsEvent) will be closed
+	WatchUsers(ctx context.Context, tenant string) (<-chan config.UsersEvent, context.CancelFunc, error)
+	// WatchClusters watches cluster change
+	// return <-chan config.TenantsEvent: listen to this chan to get related event
+	// return context.CancelFunc: used to cancel this monitoring, after execution, chan(<-chan config.TenantsEvent) will be closed
+	WatchClusters(ctx context.Context, tenant string) (<-chan config.ClustersEvent, context.CancelFunc, error)
+	// WatchShardingRule watches sharding rule change
+	// return <-chan config.TenantsEvent: listen to this chan to get related event
+	// return context.CancelFunc: used to cancel this monitoring, after execution, chan(<-chan config.TenantsEvent) will be closed
+	WatchShardingRule(ctx context.Context, tenant string) (<-chan config.ShardingRuleEvent, context.CancelFunc, error)
+	// WatchShadowRule watches shadow rule change
+	// return <-chan config.TenantsEvent: listen to this chan to get related event
+	// return context.CancelFunc: used to cancel this monitoring, after execution, chan(<-chan config.TenantsEvent) will be closed
+	WatchShadowRule(ctx context.Context, tenant string) (<-chan config.ShadowRuleEvent, context.CancelFunc, error)
+}
+
 type Discovery interface {
 	ConfigProvider
 	// ListListeners lists the listener names
-	ListListeners(ctx context.Context) ([]*config.Listener, error)
-
-	// GetConfigCenter returns the config center.
-	GetConfigCenter() *config.Center
+	ListListeners(ctx context.Context) []*config.Listener
 
 	// Init initializes discovery with context
 	Init(ctx context.Context) error

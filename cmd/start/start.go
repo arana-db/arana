@@ -33,7 +33,6 @@ import (
 import (
 	"github.com/arana-db/arana/cmd/cmds"
 	"github.com/arana-db/arana/pkg/boot"
-	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/constants"
 	"github.com/arana-db/arana/pkg/executor"
 	"github.com/arana-db/arana/pkg/mysql"
@@ -85,13 +84,7 @@ func Run(bootstrapConfigPath string, importPath string) {
 	}
 
 	if len(importPath) > 0 {
-		c, err := config.Load(importPath)
-		if err != nil {
-			log.Fatal("failed to import configuration from %s: %v", importPath, err)
-			return
-		}
-		if err := discovery.GetConfigCenter().ImportConfiguration(c); err != nil {
-			log.Fatal("failed to import configuration from %s: %v", importPath, err)
+		if !boot.RunImport(bootstrapConfigPath, importPath) {
 			return
 		}
 	}
@@ -103,12 +96,7 @@ func Run(bootstrapConfigPath string, importPath string) {
 
 	propeller := server.NewServer()
 
-	listenersConf, err := discovery.ListListeners(context.Background())
-	if err != nil {
-		log.Fatal("start failed: %v", err)
-		return
-	}
-
+	listenersConf := discovery.ListListeners(context.Background())
 	for _, listenerConf := range listenersConf {
 		listener, err := mysql.NewListener(listenerConf)
 		if err != nil {
