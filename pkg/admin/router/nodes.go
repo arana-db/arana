@@ -33,21 +33,16 @@ import (
 
 func init() {
 	admin.Register(func(router gin.IRoutes) {
-		if e, ok := router.(*gin.RouterGroup); ok {
-
-			routerGroup := e.Group("/")
-			routerGroup.GET("/tenants/:tenant/nodes", ListNodes)
-			routerGroup.POST("/tenants/:tenant/nodes", CreateNode)
-			routerGroup.GET("/tenants/:tenant/nodes/:node", GetNode)
-			routerGroup.PUT("/tenants/:tenant/nodes/:node", UpdateNode)
-			routerGroup.DELETE("/tenants/:tenant/nodes/:node", RemoveNode)
-
-		}
-
+		router.GET("/tenants/:tenant/nodes", ListNodes)
+		router.POST("/tenants/:tenant/nodes", CreateNode)
+		router.GET("/tenants/:tenant/nodes/:node", GetNode)
+		router.PUT("/tenants/:tenant/nodes/:node", UpdateNode)
+		router.DELETE("/tenants/:tenant/nodes/:node", RemoveNode)
 	})
 }
 
 func ListNodes(c *gin.Context) {
+	var results []config.Node
 	service := admin.GetService(c)
 	tenantName := c.Param("tenant")
 	clusters, err := service.ListClusters(c, tenantName)
@@ -55,24 +50,29 @@ func ListNodes(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	var data []string
 	for _, cluster := range clusters {
 		groups, err := service.ListGroups(c, tenantName, cluster)
 		if err != nil {
 			_ = c.Error(err)
-			continue
+			return
 		}
 		for _, group := range groups {
-			temp, err := service.ListNodes(c, tenantName, cluster, group)
+			nodesArray, err := service.ListNodes(c, tenantName, cluster, group)
 			if err != nil {
 				_ = c.Error(err)
-				continue
-			} else {
-				data = append(data, temp...)
+				return
+			}
+			for _, node := range nodesArray {
+				result, err := service.GetNode(c, cluster, group, node)
+				if err != nil {
+					_ = c.Error(err)
+					return
+				}
+				results = append(results, *result)
 			}
 		}
 	}
-	c.JSON(http.StatusOK, data)
+	c.JSON(http.StatusOK, results)
 }
 
 func GetNode(c *gin.Context) {
@@ -89,7 +89,7 @@ func GetNode(c *gin.Context) {
 		groups, err := service.ListGroups(c, tenant, cluster)
 		if err != nil {
 			_ = c.Error(err)
-			continue
+			return
 		}
 		for _, group := range groups {
 			data, err = service.GetNode(c, tenant, cluster, group, node)
