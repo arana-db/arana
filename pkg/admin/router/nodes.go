@@ -95,7 +95,7 @@ func GetNode(c *gin.Context) {
 			data, err = service.GetNode(c, cluster, group, node)
 			if err != nil {
 				_ = c.Error(err)
-				return
+				continue
 			}
 		}
 	}
