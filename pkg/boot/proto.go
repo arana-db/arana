@@ -171,9 +171,12 @@ type Discovery interface {
 	// ListListeners lists the listener names
 	ListListeners(ctx context.Context) ([]*config.Listener, error)
 
+<<<<<<< HEAD
 	// ListFilters list the filter names
 	ListFilters(ctx context.Context) ([]*config.Filter, error)
 
+=======
+>>>>>>> 12a827425364d5486d44234e022c75428b7b4cea
 	// GetConfigCenter returns the config center.
 	GetConfigCenter() *config.Center
 

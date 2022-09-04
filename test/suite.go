@@ -229,7 +229,7 @@ func (ms *MySuite) SetupSuite() {
 	}
 	go func() {
 		_ = os.Setenv(constants.EnvConfigPath, ms.tmpFile)
-		start.Run(testdata.Path("../conf/bootstrap.yaml"))
+		start.Run(testdata.Path("../conf/bootstrap.yaml"), "")
 	}()
 
 	// waiting for arana server started

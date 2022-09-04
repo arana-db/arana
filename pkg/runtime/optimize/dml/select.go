@@ -253,6 +253,17 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		}
 	}
 
+	// FIXME: tuning, avoid rename everytime.
+
+	// Rename return fields as normalized:
+	// For the query of "SELECT foo+1, avg(score) FROM xxx WHERE ...", will return columns:
+	//   BEFORE: | `foo`+1 | AVG(`score`) |
+	//      NOW: | foo+1 | avg(score) |
+	tmpPlan = &dml.RenamePlan{
+		Plan:       tmpPlan,
+		RenameList: analysis.normalizedFields,
+	}
+
 	return tmpPlan, nil
 }
 

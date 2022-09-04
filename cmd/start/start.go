@@ -27,17 +27,15 @@ import (
 )
 
 import (
-	"github.com/pkg/errors"
-
 	"github.com/spf13/cobra"
 )
 
 import (
 	"github.com/arana-db/arana/cmd/cmds"
 	"github.com/arana-db/arana/pkg/boot"
+	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/constants"
 	"github.com/arana-db/arana/pkg/executor"
-	filter "github.com/arana-db/arana/pkg/filters"
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/server"
 	"github.com/arana-db/arana/pkg/util/log"
@@ -54,6 +52,11 @@ _____________________________________________
 
 `
 
+const (
+	_keyBootstrap = "config"
+	_keyImport    = "import"
+)
+
 func init() {
 	cmd := &cobra.Command{
 		Use:     "start",
@@ -62,39 +65,40 @@ func init() {
 		Run:     run,
 	}
 	cmd.PersistentFlags().
-		StringP(constants.ConfigPathKey, "c", os.Getenv(constants.EnvBootstrapPath), "bootstrap configuration file path")
+		StringP(_keyBootstrap, "c", os.Getenv(constants.EnvBootstrapPath), "bootstrap configuration file path")
+	cmd.PersistentFlags().
+		String(_keyImport, "", "import configuration yaml file path")
 
 	cmds.Handle(func(root *cobra.Command) {
 		root.AddCommand(cmd)
 	})
 }
 
-func Run(bootstrapConfigPath string) {
+func Run(bootstrapConfigPath string, importPath string) {
 	// print slogan
 	fmt.Printf("\033[92m%s\033[0m\n", slogan) // 92m: light green
 
 	discovery := boot.NewDiscovery(bootstrapConfigPath)
+	if err := discovery.Init(context.Background()); err != nil {
+		log.Fatal("start failed: %v", err)
+		return
+	}
+
+	if len(importPath) > 0 {
+		c, err := config.Load(importPath)
+		if err != nil {
+			log.Fatal("failed to import configuration from %s: %v", importPath, err)
+			return
+		}
+		if err := discovery.GetConfigCenter().ImportConfiguration(c); err != nil {
+			log.Fatal("failed to import configuration from %s: %v", importPath, err)
+			return
+		}
+	}
+
 	if err := boot.Boot(context.Background(), discovery); err != nil {
 		log.Fatal("start failed: %v", err)
 		return
-	}
-
-	filters, err := discovery.ListFilters(context.Background())
-	if err != nil {
-		log.Fatal("start failed: %v", err)
-		return
-	}
-
-	for _, filterConf := range filters {
-		factory := filter.GetFilterFactory(filterConf.Name)
-		if factory == nil {
-			panic(errors.Errorf("there is no filter factory for filter: %s", filterConf.Name))
-		}
-		f, err := factory.NewFilter(filterConf.Config)
-		if err != nil {
-			panic(errors.WithMessagef(err, "failed to create filter: %s", filterConf.Name))
-		}
-		filter.RegisterFilter(f.GetName(), f)
 	}
 
 	propeller := server.NewServer()
@@ -133,7 +137,12 @@ func Run(bootstrapConfigPath string) {
 
 func run(cmd *cobra.Command, args []string) {
 	_ = args
-	bootstrapConfigPath, _ := cmd.PersistentFlags().GetString(constants.ConfigPathKey)
+
+	var (
+		bootstrapConfigPath, _ = cmd.PersistentFlags().GetString(_keyBootstrap)
+		importPath, _          = cmd.PersistentFlags().GetString(_keyImport)
+	)
+
 	if len(bootstrapConfigPath) < 1 {
 		// search bootstrap yaml
 		for _, path := range constants.GetConfigSearchPathList() {
@@ -148,5 +157,5 @@ func run(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	Run(bootstrapConfigPath)
+	Run(bootstrapConfigPath, importPath)
 }

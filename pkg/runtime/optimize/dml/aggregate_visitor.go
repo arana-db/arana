@@ -48,12 +48,17 @@ func (av *aggregateVisitor) VisitSelectStatement(node *ast.SelectStatement) (int
 			return nil, errors.WithStack(err)
 		}
 
-		switch next.(type) {
+		switch val := next.(type) {
 		case *ext.WeakSelectElement:
 			rebuilds = append(rebuilds, &ext.WeakSelectElement{
 				SelectElement: res.(ast.SelectElement),
 			})
 			av.hasWeak = true
+		case *ext.WeakAliasSelectElement:
+			rebuilds = append(rebuilds, &ext.WeakAliasSelectElement{
+				SelectElement: res.(ast.SelectElement),
+				WeakAlias:     val.WeakAlias,
+			})
 		default:
 			rebuilds = append(rebuilds, res.(ast.SelectElement))
 		}

@@ -38,15 +38,25 @@ type selectElementPhantom struct{}
 type SelectElement interface {
 	Node
 	Restorer
+
 	// Alias returns the alias if available.
 	Alias() string
+
 	// ToSelectString converts current SelectElement to SQL SELECT string and return it.
 	ToSelectString() string
+
+	// DisplayName returns the actual display name of field.
+	DisplayName() string
+
 	phantom() selectElementPhantom
 }
 
 type SelectElementAll struct {
 	prefix string
+}
+
+func (s *SelectElementAll) DisplayName() string {
+	return s.ToSelectString()
 }
 
 func (s *SelectElementAll) Accept(visitor Visitor) (interface{}, error) {
@@ -85,8 +95,19 @@ func (s *SelectElementAll) phantom() selectElementPhantom {
 }
 
 type SelectElementExpr struct {
-	inner ExpressionNode
-	alias string
+	inner        ExpressionNode
+	alias        string
+	originalText string
+}
+
+func (s *SelectElementExpr) DisplayName() string {
+	if len(s.alias) > 0 {
+		return s.alias
+	}
+	if len(s.originalText) > 0 {
+		return s.originalText
+	}
+	return s.ToSelectString()
 }
 
 func (s *SelectElementExpr) Accept(visitor Visitor) (interface{}, error) {
@@ -123,8 +144,19 @@ func (s *SelectElementExpr) phantom() selectElementPhantom {
 }
 
 type SelectElementFunction struct {
-	inner Node // *Function or *AggrFunction
-	alias string
+	inner        Node // *Function or *AggrFunction
+	alias        string
+	originalText string
+}
+
+func (s *SelectElementFunction) DisplayName() string {
+	if len(s.alias) > 0 {
+		return s.alias
+	}
+	if len(s.originalText) > 0 {
+		return s.originalText
+	}
+	return s.ToSelectString()
 }
 
 func (s *SelectElementFunction) Accept(visitor Visitor) (interface{}, error) {
@@ -215,6 +247,13 @@ func (s *SelectElementFunction) Alias() string {
 type SelectElementColumn struct {
 	Name  []string
 	alias string
+}
+
+func (s *SelectElementColumn) DisplayName() string {
+	if len(s.alias) > 0 {
+		return s.alias
+	}
+	return s.Suffix()
 }
 
 func (s *SelectElementColumn) Accept(visitor Visitor) (interface{}, error) {

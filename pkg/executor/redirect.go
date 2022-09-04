@@ -60,29 +60,11 @@ func IsErrMissingTx(err error) bool {
 }
 
 type RedirectExecutor struct {
-	preFilters          []proto.PreFilter
-	postFilters         []proto.PostFilter
 	localTransactionMap sync.Map // map[uint32]proto.Tx, (ConnectionID,Tx)
 }
 
 func NewRedirectExecutor() *RedirectExecutor {
 	return &RedirectExecutor{}
-}
-
-func (executor *RedirectExecutor) AddPreFilter(filter proto.PreFilter) {
-	executor.preFilters = append(executor.preFilters, filter)
-}
-
-func (executor *RedirectExecutor) AddPostFilter(filter proto.PostFilter) {
-	executor.postFilters = append(executor.postFilters, filter)
-}
-
-func (executor *RedirectExecutor) GetPreFilters() []proto.PreFilter {
-	return executor.preFilters
-}
-
-func (executor *RedirectExecutor) GetPostFilters() []proto.PostFilter {
-	return executor.postFilters
 }
 
 func (executor *RedirectExecutor) ProcessDistributedTransaction() bool {
@@ -197,8 +179,6 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 		warn uint16
 	)
 
-	executor.doPreFilter(ctx)
-
 	switch stmt := act.(type) {
 	case *ast.BeginStmt:
 		if schemaless {
@@ -259,7 +239,7 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 	case *ast.ShowStmt:
 		allowSchemaless := func(stmt *ast.ShowStmt) bool {
 			switch stmt.Tp {
-			case ast.ShowDatabases, ast.ShowVariables, ast.ShowTopology, ast.ShowStatus, ast.ShowTableStatus:
+			case ast.ShowDatabases, ast.ShowVariables, ast.ShowTopology, ast.ShowStatus, ast.ShowTableStatus, ast.ShowWarnings:
 				return true
 			default:
 				return false
@@ -289,8 +269,6 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 		}
 	}
 
-	executor.doPostFilter(ctx, res)
-
 	return res, warn, err
 }
 
@@ -304,8 +282,6 @@ func executeStmt(ctx *proto.Context, schemaless bool, rt runtime.Runtime) (proto
 func (executor *RedirectExecutor) ExecutorComStmtExecute(ctx *proto.Context) (proto.Result, uint16, error) {
 	var (
 		executable proto.Executable
-		result     proto.Result
-		warn       uint16
 		err        error
 	)
 
@@ -328,10 +304,7 @@ func (executor *RedirectExecutor) ExecutorComStmtExecute(ctx *proto.Context) (pr
 	query := ctx.Stmt.StmtNode.Text()
 	log.Debugf("ComStmtExecute: %s", query)
 
-	executor.doPreFilter(ctx)
-	result, warn, err = executable.Execute(ctx)
-	executor.doPostFilter(ctx, result)
-	return result, warn, err
+	return executable.Execute(ctx)
 }
 
 func (executor *RedirectExecutor) ConnectionClose(ctx *proto.Context) {
@@ -375,32 +348,4 @@ func (executor *RedirectExecutor) getTx(ctx *proto.Context) (proto.Tx, bool) {
 		return nil, false
 	}
 	return exist.(proto.Tx), true
-}
-
-func (executor *RedirectExecutor) doPreFilter(ctx *proto.Context) {
-	for i := 0; i < len(executor.preFilters); i++ {
-		func(ctx *proto.Context) {
-			defer func() {
-				if err := recover(); err != nil {
-					log.Errorf("failed to execute filter: %s, err: %v", executor.preFilters[i].GetName(), err)
-				}
-			}()
-			filter := executor.preFilters[i]
-			filter.PreHandle(ctx)
-		}(ctx)
-	}
-}
-
-func (executor *RedirectExecutor) doPostFilter(ctx *proto.Context, result proto.Result) {
-	for i := 0; i < len(executor.postFilters); i++ {
-		func(ctx *proto.Context) {
-			defer func() {
-				if err := recover(); err != nil {
-					log.Errorf("failed to execute filter: %s, err: %v", executor.postFilters[i].GetName(), err)
-				}
-			}()
-			filter := executor.postFilters[i]
-			filter.PostHandle(ctx, result)
-		}(ctx)
-	}
 }

@@ -85,11 +85,17 @@ header: # `header` section is configurations for source codes license header.
     - ".golangci.yml"
     - '.pre-commit-config.yaml'
     - '.github'
+    - '.go-version'
   comment: on-failure # on what condition license-eye will comment on the pull request, `on-failure`, `always`, `never`.
 
   # license-location-threshold specifies the index threshold where the license header can be located,
   # after all, a "header" cannot be TOO far from the file start.
   license-location-threshold: 80
+  language:
+    Go:
+      extensions:
+        - ".go"
+      comment_style_id: SlashAsterisk
 
 dependency:
   files:

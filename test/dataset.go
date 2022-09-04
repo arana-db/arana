@@ -80,6 +80,7 @@ type (
 	Cases struct {
 		Kind           string  `yaml:"kind"` // dataset, expected
 		ExecCases      []*Case `yaml:"exec_cases"`
+		DeleteCases    []*Case `yaml:"delete_cases"`
 		QueryRowsCases []*Case `yaml:"query_rows_cases"`
 		QueryRowCases  []*Case `yaml:"query_row_cases"`
 	}
@@ -93,7 +94,7 @@ type (
 	}
 
 	Expected struct {
-		ResultType string `yaml:"resultType"`
+		ResultType string `yaml:"type"`
 		Value      string `yaml:"value"`
 	}
 )

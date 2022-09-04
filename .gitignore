@@ -25,3 +25,4 @@ vendor/
 
 .codecc
 .vscode
+.go-version

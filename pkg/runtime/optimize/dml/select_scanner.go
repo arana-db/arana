@@ -18,24 +18,31 @@
 package dml
 
 import (
+	"reflect"
 	"strings"
 )
 
 import (
+	"github.com/cespare/xxhash/v2"
+
 	"github.com/pkg/errors"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/optimize/dml/ext"
+	"github.com/arana-db/arana/third_party/base58"
 )
 
+const _autoPrefix = "__arana_"
+
 type selectResult struct {
-	hasAggregate bool
-	hasMapping   bool
-	hasWeak      bool
-	orders       []*ext.OrderedSelectElement
-	groups       []*ext.OrderedSelectElement
+	hasAggregate     bool
+	hasMapping       bool
+	hasWeak          bool
+	orders           []*ext.OrderedSelectElement
+	groups           []*ext.OrderedSelectElement
+	normalizedFields []string
 }
 
 type selectScanner struct {
@@ -55,6 +62,10 @@ func newSelectScanner(stmt *ast.SelectStatement, args []interface{}) *selectScan
 }
 
 func (sc *selectScanner) scan(result *selectResult) error {
+	for _, next := range sc.stmt.Select {
+		result.normalizedFields = append(result.normalizedFields, next.DisplayName())
+	}
+
 	if err := sc.probe(); err != nil {
 		return errors.WithStack(err)
 	}
@@ -107,7 +118,10 @@ func (sc *selectScanner) anaOrderBy(dst *selectResult) error {
 		return nil
 	}
 
-	var rf ast.RestoreFlag
+	var (
+		rf ast.RestoreFlag
+		xh *xxhash.Digest
+	)
 	for i, orderBy := range sc.stmt.OrderBy {
 		if err := orderBy.Expr.Restore(rf, &sc.sb, nil); err != nil {
 			return errors.WithStack(err)
@@ -115,21 +129,74 @@ func (sc *selectScanner) anaOrderBy(dst *selectResult) error {
 		search := sc.sb.String()
 		sc.sb.Reset()
 
-		var (
-			sel ast.SelectElement
-			ok  bool
-		)
+		genAlias := func() string {
+			if xh == nil {
+				xh = xxhash.New()
+			} else {
+				xh.Reset()
+			}
+
+			writeAutoAlias(xh, &sc.sb, search)
+
+			s := sc.sb.String()
+			sc.sb.Reset()
+			return s
+		}
+
+		sel, isAlias, ok := sc.indexOfSelect(search)
 
 		// 1. order-by exists in select elements
 		// 2. order-by is missing, will create and append a weak select element.
-		if sel, ok = sc.indexOfSelect(search); !ok {
-			sel = &ext.WeakSelectElement{
-				SelectElement: sc.createSelectFromOrderBy(orderBy.Expr),
+		if !ok {
+			switch expr := orderBy.Expr.(type) {
+			case ast.ColumnNameExpressionAtom:
+				// order by some_column => select ..., some_column from ...
+				sel = &ext.WeakSelectElement{
+					SelectElement: sc.createSelectFromOrderBy(expr, ""),
+				}
+			default:
+				// select id,uid,name from student where ... order by 2022-year
+				//    => select id,uid,name,2022-birth_year as weak_field from student where ... order by weak_field
+				newAlias := genAlias()
+				orderBy.Expr = ast.NewSingleColumnNameExpressionAtom(newAlias)
+
+				sel = &ext.WeakSelectElement{
+					SelectElement: sc.createSelectFromOrderBy(expr, newAlias),
+				}
 			}
+
 			if err := sc.appendSelectElement(sel); err != nil {
 				return errors.WithStack(err)
 			}
 			dst.hasWeak = true
+		} else if !isAlias {
+			if len(sel.Alias()) > 0 {
+				// select 2022-birth_year as age from student ... order by age
+				orderBy.Expr = ast.NewSingleColumnNameExpressionAtom(sel.Alias())
+			} else if _, isColumn := orderBy.Expr.(ast.ColumnNameExpressionAtom); !isColumn {
+				// select 2022-birth_year from student ... order by 2022-birth_year
+				// 1. select 2022-birth_year as fake_alias from student ... order by fake_alias
+				// 2. rename fake_alias to 2022-birth_year
+				newAlias := genAlias()
+				orderBy.Expr = ast.NewSingleColumnNameExpressionAtom(newAlias)
+
+				replaceIndex := -1
+				for j := 0; j < len(sc.stmt.Select); j++ {
+					if reflect.DeepEqual(sc.stmt.Select[j], sel) {
+						replaceIndex = j
+						break
+					}
+				}
+
+				sel = &ext.WeakAliasSelectElement{
+					SelectElement: sel,
+					WeakAlias:     newAlias,
+				}
+
+				if replaceIndex != -1 {
+					sc.stmt.Select[replaceIndex] = sel
+				}
+			}
 		}
 
 		dst.orders = append(dst.orders, &ext.OrderedSelectElement{
@@ -142,17 +209,17 @@ func (sc *selectScanner) anaOrderBy(dst *selectResult) error {
 	return nil
 }
 
-func (sc *selectScanner) createSelectFromOrderBy(exprAtom ast.ExpressionAtom) ast.SelectElement {
+func (sc *selectScanner) createSelectFromOrderBy(exprAtom ast.ExpressionAtom, alias string) ast.SelectElement {
 	switch it := exprAtom.(type) {
 	case ast.ColumnNameExpressionAtom:
-		return ast.NewSelectElementColumn(it, "")
+		return ast.NewSelectElementColumn(it, alias)
 	default:
 		expr := &ast.PredicateExpressionNode{
 			P: &ast.AtomPredicateNode{
 				A: it,
 			},
 		}
-		return ast.NewSelectElementExpr(expr, "")
+		return ast.NewSelectElementExpr(expr, alias)
 	}
 }
 
@@ -164,14 +231,15 @@ func (sc *selectScanner) appendSelectElement(sel ast.SelectElement) error {
 	return nil
 }
 
-func (sc *selectScanner) indexOfSelect(search string) (ast.SelectElement, bool) {
-	if exist, ok := sc.selectAliasIndex[search]; ok {
-		return exist, true
+func (sc *selectScanner) indexOfSelect(search string) (ret ast.SelectElement, isAlias, ok bool) {
+	if ret, ok = sc.selectAliasIndex[search]; ok {
+		isAlias = true
+		return
 	}
-	if exist, ok := sc.selectIndex[search]; ok {
-		return exist, true
+	if ret, ok = sc.selectIndex[search]; ok {
+		return
 	}
-	return nil, false
+	return
 }
 
 func (sc *selectScanner) anaAggregate(result *selectResult) error {
@@ -185,4 +253,10 @@ func (sc *selectScanner) anaAggregate(result *selectResult) error {
 	result.hasWeak = result.hasWeak || av.hasWeak
 
 	return nil
+}
+
+func writeAutoAlias(xh *xxhash.Digest, sb *strings.Builder, name string) {
+	_, _ = xh.WriteString(name)
+	sb.WriteString(_autoPrefix)
+	sb.WriteString(base58.Encode(xh.Sum(nil)))
 }

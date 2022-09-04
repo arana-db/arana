@@ -35,7 +35,6 @@ const (
 	DefaultConfigPath                   PathKey = "/arana-db/config"
 	DefaultConfigMetadataPath           PathKey = "/arana-db/config/metadata"
 	DefaultConfigDataListenersPath      PathKey = "/arana-db/config/data/listeners"
-	DefaultConfigDataFiltersPath        PathKey = "/arana-db/config/data/filters"
 	DefaultConfigDataSourceClustersPath PathKey = "/arana-db/config/data/dataSourceClusters"
 	DefaultConfigDataShardingRulePath   PathKey = "/arana-db/config/data/shardingRule"
 	DefaultConfigDataTenantsPath        PathKey = "/arana-db/config/data/tenants"

@@ -55,22 +55,37 @@ func ListNodes(c *gin.Context) {
 		groups, err := service.ListGroups(c, cluster)
 		if err != nil {
 			_ = c.Error(err)
+<<<<<<< HEAD
 			return
+=======
+			continue
+>>>>>>> 12a827425364d5486d44234e022c75428b7b4cea
 		}
 		for _, group := range groups {
 			nodesArray, err := service.ListNodes(c, cluster, group)
 			if err != nil {
 				_ = c.Error(err)
+<<<<<<< HEAD
 				return
+=======
+				break
+>>>>>>> 12a827425364d5486d44234e022c75428b7b4cea
 			}
 			for _, node := range nodesArray {
 				result, err := service.GetNode(c, cluster, group, node)
 				if err != nil {
 					_ = c.Error(err)
+<<<<<<< HEAD
 					return
 				}
 				results = append(results, *result)
 
+=======
+					continue
+				} else {
+					results = append(results, *result)
+				}
+>>>>>>> 12a827425364d5486d44234e022c75428b7b4cea
 			}
 		}
 	}
@@ -91,13 +106,21 @@ func GetNode(c *gin.Context) {
 		groups, err := service.ListGroups(c, cluster)
 		if err != nil {
 			_ = c.Error(err)
+<<<<<<< HEAD
 			return
+=======
+			continue
+>>>>>>> 12a827425364d5486d44234e022c75428b7b4cea
 		}
 		for _, group := range groups {
 			data, err = service.GetNode(c, cluster, group, node)
 			if err != nil {
 				_ = c.Error(err)
+<<<<<<< HEAD
 				return
+=======
+				continue
+>>>>>>> 12a827425364d5486d44234e022c75428b7b4cea
 			}
 		}
 	}

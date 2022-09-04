@@ -32,6 +32,8 @@ import (
 import (
 	"github.com/pkg/errors"
 
+	uatomic "go.uber.org/atomic"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -70,6 +72,12 @@ func getRuleExprRegexp() *regexp.Regexp {
 }
 
 type discovery struct {
+<<<<<<< HEAD
+	path    string
+	options *BootOptions
+	c       *config.Center
+=======
+	inited  uatomic.Bool
 	path    string
 	options *BootOptions
 	c       *config.Center
@@ -133,9 +141,74 @@ func (fp *discovery) UpsertTable(ctx context.Context, tenant, cluster, table str
 func (fp *discovery) RemoveTable(ctx context.Context, tenant, cluster, table string) error {
 	//TODO implement me
 	panic("implement me")
+>>>>>>> 12a827425364d5486d44234e022c75428b7b4cea
+}
+
+func (fp *discovery) UpsertTenant(ctx context.Context, tenant string, body *TenantBody) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (fp *discovery) RemoveTenant(ctx context.Context, tenant string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (fp *discovery) UpsertCluster(ctx context.Context, tenant, cluster string, body *ClusterBody) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (fp *discovery) RemoveCluster(ctx context.Context, tenant, cluster string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (fp *discovery) UpsertNode(ctx context.Context, tenant, node string, body *NodeBody) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (fp *discovery) RemoveNode(ctx context.Context, tenant, node string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (fp *discovery) UpsertGroup(ctx context.Context, tenant, cluster, group string, body *GroupBody) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (fp *discovery) RemoveGroup(ctx context.Context, tenant, cluster, group string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (fp *discovery) BindNode(ctx context.Context, tenant, cluster, group, node string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (fp *discovery) UnbindNode(ctx context.Context, tenant, cluster, group, node string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (fp *discovery) UpsertTable(ctx context.Context, tenant, cluster, table string, body *TableBody) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (fp *discovery) RemoveTable(ctx context.Context, tenant, cluster, table string) error {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (fp *discovery) Init(ctx context.Context) error {
+	if !fp.inited.CAS(false, true) {
+		return nil
+	}
+
 	if err := fp.loadBootOptions(); err != nil {
 		return err
 	}
@@ -240,6 +313,7 @@ func (fp *discovery) ListListeners(ctx context.Context) ([]*config.Listener, err
 	return cfg.Data.Listeners, nil
 }
 
+<<<<<<< HEAD
 func (fp *discovery) ListFilters(ctx context.Context) ([]*config.Filter, error) {
 	cfg, err := fp.c.Load()
 	if err != nil {
@@ -249,6 +323,8 @@ func (fp *discovery) ListFilters(ctx context.Context) ([]*config.Filter, error) 
 	return cfg.Data.Filters, nil
 }
 
+=======
+>>>>>>> 12a827425364d5486d44234e022c75428b7b4cea
 func (fp *discovery) ListClusters(ctx context.Context, tenant string) ([]string, error) {
 	cfg, err := fp.c.Load()
 	if err != nil {

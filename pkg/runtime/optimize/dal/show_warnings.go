@@ -15,29 +15,35 @@
  * limitations under the License.
  */
 
-package filter
+package dal
+
+import (
+	"context"
+)
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/proto/rule"
+	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/runtime/optimize"
+	"github.com/arana-db/arana/pkg/runtime/plan/dal"
 )
 
-var (
-	filterFactories = make(map[string]proto.FilterFactory)
-	filters         = make(map[string]proto.Filter)
-)
-
-func RegistryFilterFactory(name string, factory proto.FilterFactory) {
-	filterFactories[name] = factory
+func init() {
+	optimize.Register(ast.SQLTypeShowWarnings, optimizeShowWarnings)
 }
 
-func GetFilterFactory(name string) proto.FilterFactory {
-	return filterFactories[name]
-}
+func optimizeShowWarnings(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error) {
+	shards := rule.DatabaseTables{}
+	for _, table := range o.Rule.VTables() {
+		shards = table.Topology().Enumerate()
+		break
+	}
 
-func RegisterFilter(name string, filter proto.Filter) {
-	filters[name] = filter
-}
+	stmt := o.Stmt.(*ast.ShowWarnings)
 
-func GetFilter(name string) proto.Filter {
-	return filters[name]
+	ret := dal.NewShowWarningsPlan(stmt, shards)
+	ret.BindArgs(o.Args)
+
+	return ret, nil
 }

@@ -49,7 +49,7 @@ func TestSuite(t *testing.T) {
 	suite.Run(t, &IntegrationSuite{su})
 }
 
-func (s *IntegrationSuite) TestDBTBLScene() {
+func (s *IntegrationSuite) TestTBLScene() {
 	var (
 		db = s.DB()
 		t  = s.T()
@@ -60,7 +60,7 @@ func (s *IntegrationSuite) TestDBTBLScene() {
 	cases := s.TestCases()
 	for _, sqlCase := range cases.ExecCases {
 		for _, sense := range sqlCase.Sense {
-			if strings.Compare(strings.TrimSpace(sense), "tbl") == 1 {
+			if strings.Compare(strings.TrimSpace(sense), "tbl") == 0 {
 				params := strings.Split(sqlCase.Parameters, ",")
 				args := make([]interface{}, 0, len(params))
 				for _, param := range params {
@@ -79,7 +79,7 @@ func (s *IntegrationSuite) TestDBTBLScene() {
 
 	for _, sqlCase := range cases.QueryRowCases {
 		for _, sense := range sqlCase.Sense {
-			if strings.Compare(strings.TrimSpace(sense), "tbl") == 1 {
+			if strings.Compare(strings.TrimSpace(sense), "tbl") == 0 {
 				params := strings.Split(sqlCase.Parameters, ",")
 				args := make([]interface{}, 0, len(params))
 				for _, param := range params {
