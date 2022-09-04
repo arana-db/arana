@@ -19,6 +19,7 @@ package file
 
 import (
 	"reflect"
+	"sync"
 	"testing"
 )
 
@@ -299,7 +300,13 @@ func Test_storeOperate_Save(t *testing.T) {
 		args    args
 		wantErr bool
 	}{
-		{"Save", fields{}, args{}, false},
+		{"Save", fields{
+			receivers: &receiverBucket{
+				lock:      sync.RWMutex{},
+				receivers: map[config.PathKey][]chan<- []byte{},
+			},
+			contents: map[config.PathKey]string{},
+		}, args{}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
