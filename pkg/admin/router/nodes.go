@@ -55,22 +55,22 @@ func ListNodes(c *gin.Context) {
 		groups, err := service.ListGroups(c, cluster)
 		if err != nil {
 			_ = c.Error(err)
-			continue
+			return
 		}
 		for _, group := range groups {
 			nodesArray, err := service.ListNodes(c, cluster, group)
 			if err != nil {
 				_ = c.Error(err)
-				break
+				return
 			}
 			for _, node := range nodesArray {
 				result, err := service.GetNode(c, cluster, group, node)
 				if err != nil {
 					_ = c.Error(err)
-					continue
-				} else {
-					results = append(results, *result)
+					return
 				}
+				results = append(results, *result)
+
 			}
 		}
 	}
@@ -91,13 +91,13 @@ func GetNode(c *gin.Context) {
 		groups, err := service.ListGroups(c, cluster)
 		if err != nil {
 			_ = c.Error(err)
-			continue
+			return
 		}
 		for _, group := range groups {
 			data, err = service.GetNode(c, cluster, group, node)
 			if err != nil {
 				_ = c.Error(err)
-				continue
+				return
 			}
 		}
 	}
