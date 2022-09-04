@@ -48,11 +48,11 @@ func (n *Node) Equals(o *Node) bool {
 		return false
 	}
 
-	if len(n.Labels) != 0 && len(o.Labels) != 0 && !reflect.DeepEqual(n.Labels, o.Labels) {
+	if len(n.Labels) != len(o.Labels) || !reflect.DeepEqual(n.Labels, o.Labels) {
 		return false
 	}
 
-	if len(n.Parameters) != 0 && len(o.Parameters) != 0 && !reflect.DeepEqual(n.Parameters, o.Parameters) {
+	if len(n.Parameters) != len(o.Parameters) || !reflect.DeepEqual(n.Parameters, o.Parameters) {
 		return false
 	}
 
