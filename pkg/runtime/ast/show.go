@@ -472,10 +472,6 @@ func (s *ShowCharset) Mode() SQLType {
 	return SQLTypeShowCharacterSet
 }
 
-func (s *ShowCharset) Validate() error {
-	return nil
-}
-
 func (s *ShowCharset) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("SHOW CHARACTER SET")
 
