@@ -132,7 +132,7 @@ func (u *UnaryExpressionAtom) Accept(visitor Visitor) (interface{}, error) {
 }
 
 func (u *UnaryExpressionAtom) IsOperatorNot() bool {
-	switch u.Operator {
+	switch strings.ToUpper(strings.Trim(u.Operator, " ")) {
 	case "!", "NOT":
 		return true
 	}

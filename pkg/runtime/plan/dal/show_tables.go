@@ -28,6 +28,7 @@ import (
 )
 
 import (
+	constdb "github.com/arana-db/arana/pkg/constants"
 	constant "github.com/arana-db/arana/pkg/constants/mysql"
 	"github.com/arana-db/arana/pkg/dataset"
 	"github.com/arana-db/arana/pkg/mysql"
@@ -40,11 +41,6 @@ import (
 )
 
 var _ proto.Plan = (*ShowTablesPlan)(nil)
-
-const (
-	headerPrefix           = "Tables_in_"
-	aranaSystemTablePrefix = "__arana_"
-)
 
 type ShowTablesPlan struct {
 	plan.BasePlan
@@ -94,7 +90,7 @@ func (st *ShowTablesPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 
 	fields, _ := ds.Fields()
 
-	fields[0] = mysql.NewField(headerPrefix+rcontext.Schema(ctx), constant.FieldTypeVarString)
+	fields[0] = mysql.NewField(constdb.HeaderPrefix+rcontext.Schema(ctx), constant.FieldTypeVarString)
 
 	// filter duplicates
 	duplicates := make(map[string]struct{})
@@ -132,7 +128,10 @@ func (st *ShowTablesPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 			}
 
 			tableName := vr.Values()[0].(string)
-			if strings.HasPrefix(tableName, aranaSystemTablePrefix) {
+			if strings.HasPrefix(tableName, constdb.AranaSystemTablePrefix) {
+				return false
+			}
+			if strings.HasPrefix(tableName, constdb.ShadowTablePrefix) {
 				return false
 			}
 			if _, ok := duplicates[tableName]; ok {

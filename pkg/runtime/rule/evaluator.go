@@ -317,6 +317,54 @@ func (t *KeyedEvaluator) Not() Evaluator {
 	return ret
 }
 
+func EvalShadow(l logical.Logical, tableName, action string, rule *rule.ShadowRule) (Evaluator, error) {
+	ret, err := logical.Eval(l, func(a, b interface{}) (interface{}, error) {
+		x := a.(Evaluator)
+		y := b.(Evaluator)
+		return mergeShadow(tableName, action, rule, x, y)
+	}, func(a, b interface{}) (interface{}, error) {
+		x := a.(Evaluator)
+		y := b.(Evaluator)
+		return mergeShadow(tableName, action, rule, x, y)
+	}, func(i interface{}) interface{} {
+		x := i.(Evaluator)
+		return x.Not()
+	})
+	if err != nil {
+		return nil, err
+	}
+	//check atom logical, again
+	ret, err = mergeShadow(tableName, action, rule, ret.(Evaluator), _noopEvaluator)
+	if err != nil {
+		return nil, err
+	}
+	if ret == _emptyEvaluator || ret == _noopEvaluator {
+		return nil, nil
+	}
+
+	return ret.(Evaluator), nil
+}
+
+func mergeShadow(tableName, action string, rule *rule.ShadowRule, first, second Evaluator) (Evaluator, error) {
+	k1, ok1 := first.(*KeyedEvaluator)
+	k2, ok2 := second.(*KeyedEvaluator)
+
+	if ok1 {
+		s1, ok := k1.v.(string)
+		if ok && k1.op == cmp.Ceq && rule.MatchRegexBy(tableName, action, k1.k, s1) {
+			return k1, nil
+		}
+	}
+	if ok2 {
+		s2, ok := k2.v.(string)
+		if ok && k2.op == cmp.Ceq && rule.MatchRegexBy(tableName, action, k2.k, s2) {
+			return k2, nil
+		}
+	}
+
+	return _noopEvaluator, nil
+}
+
 func Eval(l logical.Logical, tableName string, rule *rule.Rule) (Evaluator, error) {
 	ret, err := logical.Eval(l, func(a, b interface{}) (interface{}, error) {
 		x := a.(Evaluator)

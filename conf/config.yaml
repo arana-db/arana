@@ -87,15 +87,6 @@ data:
               password: "123456"
               database: employees_0003
               weight: r10w10
-        - name: employees_shadow
-          nodes:
-            - name: node_shadow
-              host: arana-mysql
-              port: 3306
-              username: root
-              password: "123456"
-              database: employees_shadow
-              weight: r10w10
   sharding_rule:
     tables:
       - name: employees.student
@@ -121,8 +112,7 @@ data:
   shadow_rule:
     tables:
       - name: employees.student
-        enable: false
-        group_node: employees_shadow
+        enable: true
         match_rules:
           - operation: [insert,update]
             match_type: value

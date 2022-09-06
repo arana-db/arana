@@ -60,13 +60,15 @@ func optimizeDelete(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 	if shards == nil {
 		transparent := plan.Transparent(stmt, o.Args)
 		if matchShadow {
-			transparent.SetDB(o.ShadowRule.GetDatabase(stmt.Table.Suffix()))
+			//TODO: fix it
+			//transparent.SetDB(o.ShadowRule.GetDatabase(stmt.Table.Suffix()))
 		}
 		return transparent, nil
 	}
 
 	if matchShadow {
-		shards.ReplaceDb(o.ShadowRule.GetDatabase(stmt.Table.Suffix()))
+		//TODO: fix it
+		//shards.ReplaceDb(o.ShadowRule.GetDatabase(stmt.Table.Suffix()))
 	}
 
 	ret := dml.NewSimpleDeletePlan(stmt)

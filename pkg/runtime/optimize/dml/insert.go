@@ -133,7 +133,8 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 
 		for k, v := range shards {
 			if matchShadow {
-				k = o.ShadowRule.GetDatabase(tableName.Suffix())
+				//TODO: fix it
+				//k = o.ShadowRule.GetDatabase(tableName.Suffix())
 			}
 			db = k
 			table = v[0]
@@ -148,7 +149,8 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 
 	for db, slot := range slots {
 		if matchShadow {
-			db = o.ShadowRule.GetDatabase(tableName.Suffix())
+			//TODO: fix it
+			//db = o.ShadowRule.GetDatabase(tableName.Suffix())
 		}
 		for table, indexes := range slot {
 			// clone insert stmt without values

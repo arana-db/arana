@@ -103,7 +103,8 @@ func optimizeUpdate(_ context.Context, o *optimize.Optimizer) (proto.Plan, error
 	}
 
 	if matchShadow {
-		shards.ReplaceDb(o.ShadowRule.GetDatabase(stmt.Table.Suffix()))
+		//TODO: fix it
+		//shards.ReplaceDb(o.ShadowRule.GetDatabase(stmt.Table.Suffix()))
 	}
 
 	ret := dml.NewUpdatePlan(stmt)
