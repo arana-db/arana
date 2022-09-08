@@ -25,17 +25,12 @@ import (
 	"strings"
 	"testing"
 	"time"
-)
 
-import (
+	"github.com/arana-db/arana/pkg/util/rand2"
 	_ "github.com/go-sql-driver/mysql"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
-)
 
-import (
-	"github.com/arana-db/arana/pkg/util/rand2"
 	utils "github.com/arana-db/arana/pkg/util/tableprint"
 )
 
@@ -910,6 +905,28 @@ func (s *IntegrationSuite) TestShowTableStatus() {
 		{"SHOW TABLE STATUS FROM employees"},
 		{"SHOW TABLE STATUS FROM employees WHERE name='student'"},
 		{"SHOW TABLE STATUS FROM employees LIKE '%stu%'"},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			rows, err := db.Query(it.sql)
+			assert.NoError(t, err)
+			defer rows.Close()
+		})
+	}
+}
+
+func (s *IntegrationSuite) TestShowCharacterSet() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql string
+	}
+
+	for _, it := range [...]tt{
+		{"SHOW CHARACTER SET;"},
+		{"SHOW CHARACTER SET LIKE '%utf%'"},
 	} {
 		t.Run(it.sql, func(t *testing.T) {
 			rows, err := db.Query(it.sql)
