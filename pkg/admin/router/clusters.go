@@ -28,11 +28,12 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/admin"
+	"github.com/arana-db/arana/pkg/admin/exception"
 	"github.com/arana-db/arana/pkg/boot"
 )
 
 func init() {
-	admin.Register(func(router gin.IRoutes) {
+	admin.Register(func(router admin.Router) {
 		router.GET("/tenants/:tenant/clusters", ListClusters)
 		router.POST("/tenants/:tenant/clusters", CreateCluster)
 		router.GET("/tenants/:tenant/clusters/:cluster", GetCluster)
@@ -41,71 +42,73 @@ func init() {
 	})
 }
 
-func ListClusters(c *gin.Context) {
+func ListClusters(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenantName := c.Param("tenant")
 	clusters, err := service.ListClusters(context.Background(), tenantName)
 	if err != nil {
-		_ = c.Error(err)
-		return
+		return err
 	}
 	c.JSON(http.StatusOK, clusters)
+	return nil
 }
 
-func GetCluster(c *gin.Context) {
+func GetCluster(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenant := c.Param("tenant")
 	cluster := c.Param("cluster")
 	data, err := service.GetCluster(context.Background(), tenant, cluster)
 	if err != nil {
-		_ = c.Error(err)
-		return
+		return err
 	}
 	c.JSON(http.StatusOK, data)
+	return nil
 }
 
-func CreateCluster(c *gin.Context) {
+func CreateCluster(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenant := c.Param("tenant")
 	var cluster *boot.ClusterBody
-	if err := c.ShouldBindJSON(&cluster); err == nil {
-		//TODO how to get cluster name?
-		err := service.UpsertCluster(context.Background(), tenant, "", cluster)
-		if err != nil {
-			_ = c.Error(err)
-			return
-		}
-		c.JSON(http.StatusOK, nil)
-	} else {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := c.ShouldBindJSON(&cluster); err != nil {
+		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
+
+	//TODO how to get cluster name?
+	err := service.UpsertCluster(context.Background(), tenant, "", cluster)
+	if err != nil {
+		return err
+	}
+
+	c.JSON(http.StatusOK, "ok")
+
+	return nil
 }
 
-func UpdateCluster(c *gin.Context) {
+func UpdateCluster(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenant := c.Param("tenant")
 	cluster := c.Param("cluster")
 	var clusterBody *boot.ClusterBody
-	if err := c.ShouldBindJSON(&clusterBody); err == nil {
-		err := service.UpsertCluster(context.Background(), tenant, cluster, clusterBody)
-		if err != nil {
-			_ = c.Error(err)
-			return
-		}
-		c.JSON(http.StatusOK, nil)
-	} else {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := c.ShouldBindJSON(&clusterBody); err != nil {
+		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
+
+	err := service.UpsertCluster(context.Background(), tenant, cluster, clusterBody)
+	if err != nil {
+		return err
+	}
+	c.JSON(http.StatusOK, nil)
+	return nil
 }
 
-func RemoveCluster(c *gin.Context) {
+func RemoveCluster(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenant := c.Param("tenant")
 	cluster := c.Param("cluster")
 	err := service.RemoveCluster(context.Background(), tenant, cluster)
 	if err != nil {
-		_ = c.Error(err)
-		return
+		return err
 	}
-	c.JSON(http.StatusOK, nil)
+	c.JSON(http.StatusNoContent, nil)
+	return nil
 }

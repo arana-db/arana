@@ -22,7 +22,6 @@ import (
 	"errors"
 	"io"
 	"net"
-	"net/http"
 	"os"
 	"strings"
 )
@@ -36,6 +35,7 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/admin/exception"
 	"github.com/arana-db/arana/pkg/boot"
 	"github.com/arana-db/arana/pkg/constants"
 )
@@ -46,7 +46,17 @@ var NotFoundError = errors.New("resource not found")
 
 var _hooks []Hook
 
-type Hook func(router gin.IRoutes)
+type Hook func(Router)
+
+type Handler func(*gin.Context) error
+
+type Router interface {
+	GET(string, Handler)
+	POST(string, Handler)
+	DELETE(string, Handler)
+	PATCH(string, Handler)
+	PUT(string, Handler)
+}
 
 func Register(hook Hook) {
 	_hooks = append(_hooks, hook)
@@ -100,17 +110,10 @@ func (srv *Server) Listen(addr string) error {
 	})
 	srv.engine.Use(gin.Logger())
 	srv.engine.Use(gin.Recovery())
-	srv.engine.Use(
-		ErrorHandler(
-			Map(NotFoundError).
-				ToResponse(func(c *gin.Context, err error) {
-					c.Status(http.StatusNotFound)
-					_, _ = c.Writer.WriteString(err.Error())
-				}),
-		))
+	srv.engine.Use(CORSMiddleware())
 
 	for _, hook := range _hooks {
-		hook(srv.engine)
+		hook((*myRouter)(srv.engine))
 	}
 
 	if srv.l, err = c.Listen(context.Background(), "tcp", addr); err != nil {
@@ -123,4 +126,44 @@ func (srv *Server) Listen(addr string) error {
 func GetService(c *gin.Context) Service {
 	v, _ := c.Get(K)
 	return v.(Service)
+}
+
+type myRouter gin.Engine
+
+func (w *myRouter) GET(s string, handler Handler) {
+	(*gin.Engine)(w).GET(s, w.wrapper(handler))
+}
+
+func (w *myRouter) POST(s string, handler Handler) {
+	(*gin.Engine)(w).POST(s, w.wrapper(handler))
+}
+
+func (w *myRouter) DELETE(s string, handler Handler) {
+	(*gin.Engine)(w).DELETE(s, w.wrapper(handler))
+}
+
+func (w *myRouter) PATCH(s string, handler Handler) {
+	(*gin.Engine)(w).PATCH(s, w.wrapper(handler))
+}
+
+func (w *myRouter) PUT(s string, handler Handler) {
+	(*gin.Engine)(w).PUT(s, w.wrapper(handler))
+}
+
+func (w *myRouter) wrapper(handler Handler) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		err := handler(c)
+		if err == nil {
+			return
+		}
+		switch e := err.(type) {
+		case exception.APIException:
+			c.JSON(e.Code.HttpStatus(), e)
+		case *exception.APIException:
+			c.JSON(e.Code.HttpStatus(), e)
+		default:
+			ee := exception.Wrap(exception.CodeUnknownError, e)
+			c.JSON(ee.Code.HttpStatus(), ee)
+		}
+	}
 }

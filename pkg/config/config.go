@@ -389,7 +389,9 @@ func (c *center) Load(ctx context.Context) (*Tenant, error) {
 }
 
 func (c *center) compositeConfiguration() *Tenant {
-	conf := &Tenant{}
+	conf := &Tenant{
+		Name: c.tenant,
+	}
 
 	if val := c.holders[c.pathInfo.DefaultConfigDataUsersPath].Load(); val != nil {
 		conf.Users = val.(*Tenant).Users
