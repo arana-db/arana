@@ -136,13 +136,13 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 	p := parser.New()
 	query := ctx.GetQuery()
 	start := time.Now()
-	act, hts, err := p.ParseOneStmtHints(query, "", "")
+	act, err := p.ParseOneStmt(query, "", "")
 	if err != nil {
 		return nil, 0, errors.WithStack(err)
 	}
 
 	var hints []*hint.Hint
-	for _, next := range hts {
+	for _, next := range act.Hints() {
 		var h *hint.Hint
 		if h, err = hint.Parse(next); err != nil {
 			return nil, 0, err
