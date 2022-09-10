@@ -84,7 +84,7 @@ func Parse(input string) (_ Expr, vars []Var, rerr error) {
 		}
 	}()
 
-	lex := new(lexer)
+	lex := &lexer{}
 	lex.scan.Init(strings.NewReader(input))
 	lex.scan.Mode = scanner.ScanIdents | scanner.ScanInts | scanner.ScanFloats | scanner.ScanStrings
 	lex.move() // initial lookahead
@@ -224,7 +224,15 @@ func parsePrimary(lex *lexer, s *stack) (*stack, Expr, error) {
 		// return s, function{fn:id, args:args, vars: vars}, nil
 		return s, function{fn: id, args: args}, nil
 
-	case scanner.Int, scanner.Float:
+	case scanner.Int:
+		i, err := strconv.ParseInt(lex.text(), 10, 64)
+		if err != nil {
+			return s, nil, err
+		}
+		lex.move() // consume number
+		return s, constant(i), nil
+
+	case scanner.Float:
 		f, err := strconv.ParseFloat(lex.text(), 64)
 		if err != nil {
 			return s, nil, err
