@@ -130,7 +130,7 @@ type MySuite struct {
 	db     *sql.DB
 	dbSync sync.Once
 
-	tmpFile, bootstrapConfig, configPath, scriptPath string
+	tmpBootFile, tmpFile, bootstrapConfig, configPath, scriptPath string
 
 	cases           *Cases
 	actualDataset   *Message
@@ -193,7 +193,8 @@ func (ms *MySuite) DB() *sql.DB {
 }
 
 func (ms *MySuite) SetupSuite() {
-	if ms.devMode {
+	devMode := os.Getenv("ARANA_DEBUG_MODE")
+	if ms.devMode || devMode == "true" || devMode == "on" || devMode == "1" {
 		return
 	}
 
@@ -212,6 +213,8 @@ func (ms *MySuite) SetupSuite() {
 	require.NoError(ms.T(), err)
 
 	mysqlAddr := fmt.Sprintf("%s:%d", ms.container.Host, ms.container.Port)
+	// random port
+	ms.port = 13306 + int(rand2.Int31n(10000))
 
 	ms.T().Logf("====== mysql is listening on %s ======\n", mysqlAddr)
 	ms.T().Logf("====== arana will listen on 127.0.0.1:%d ======\n", ms.port)
@@ -220,8 +223,9 @@ func (ms *MySuite) SetupSuite() {
 		ms.configPath = "../conf/config.yaml"
 	}
 	cfgPath := testdata.Path(ms.configPath)
+	bootPath := testdata.Path("../conf/bootstrap.yaml")
 
-	err = ms.createConfigFile(cfgPath, ms.container.Host, ms.container.Port)
+	err = ms.createConfigFile(cfgPath, bootPath, ms.container.Host, ms.container.Port)
 	require.NoError(ms.T(), err)
 
 	if ms.bootstrapConfig == "" {
@@ -229,7 +233,7 @@ func (ms *MySuite) SetupSuite() {
 	}
 	go func() {
 		_ = os.Setenv(constants.EnvConfigPath, ms.tmpFile)
-		start.Run(testdata.Path("../conf/bootstrap.yaml"), "")
+		start.Run(ms.tmpBootFile, "")
 	}()
 
 	// waiting for arana server started
@@ -251,10 +255,12 @@ func (ms *MySuite) TearDownSuite() {
 	if ms.db != nil {
 		_ = ms.db.Close()
 	}
-	_ = ms.container.Terminate(context.Background())
+	if ms.container != nil {
+		_ = ms.container.Terminate(context.Background())
+	}
 }
 
-func (ms *MySuite) createConfigFile(cfgPath, host string, port int) error {
+func (ms *MySuite) createConfigFile(cfgPath, bootCfgPath, host string, port int) error {
 	b, err := ioutil.ReadFile(cfgPath)
 	if err != nil {
 		return err
@@ -285,6 +291,34 @@ func (ms *MySuite) createConfigFile(cfgPath, host string, port int) error {
 		return err
 	}
 
+	// resolve host and ports
+	bb, err := ioutil.ReadFile(bootCfgPath)
+	if err != nil {
+		return err
+	}
+
+	bootContent := strings.
+		NewReplacer(
+			"arana-mysql", host,
+			"13306", strconv.Itoa(ms.port), // arana port
+			"3306", strconv.Itoa(port), // mysql port
+		).
+		Replace(string(bb))
+
+	// clone temp config file
+	bf, err := ioutil.TempFile("", "arana-boot.*.yaml")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = bf.Close()
+	}()
+	if _, err = bf.WriteString(bootContent); err != nil {
+		return err
+	}
+
+	ms.tmpBootFile = bf.Name()
+	ms.T().Logf("====== generate temp arana bootstrap config: %s ======\n", ms.tmpBootFile)
 	ms.tmpFile = f.Name()
 	ms.T().Logf("====== generate temp arana config: %s ======\n", ms.tmpFile)
 

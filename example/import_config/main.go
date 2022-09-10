@@ -15,16 +15,15 @@
  * limitations under the License.
  */
 
-package boot
+package main
 
 import (
-	"github.com/arana-db/arana/pkg/config"
+	"github.com/arana-db/arana/cmd/tools"
+	"github.com/arana-db/arana/testdata"
 )
 
-type (
-	BootOptions struct {
-		config.Spec `yaml:",inline"`
-		Config      *config.Options    `yaml:"config"`
-		Listeners   []*config.Listener `validate:"required,dive" yaml:"listeners" json:"listeners"`
-	}
-)
+func main() {
+	bootstrap := testdata.Path("../conf/bootstrap.yaml")
+	config := testdata.Path("../conf/config.yaml")
+	tools.Run(bootstrap, config)
+}

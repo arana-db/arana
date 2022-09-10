@@ -13,18 +13,46 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
-package boot
+package config
 
 import (
-	"github.com/arana-db/arana/pkg/config"
+	"github.com/pkg/errors"
 )
 
-type (
-	BootOptions struct {
-		config.Spec `yaml:",inline"`
-		Config      *config.Options    `yaml:"config"`
-		Listeners   []*config.Listener `validate:"required,dive" yaml:"listeners" json:"listeners"`
-	}
+import (
+	"github.com/arana-db/arana/pkg/util/log"
 )
+
+var (
+	ErrorNoStoreOperate = errors.New("no store operate")
+)
+
+func GetStoreOperate() StoreOperator {
+	return storeOperate
+}
+
+func Init(options Options, version string) error {
+	initPath(options.RootPath, version)
+
+	var err error
+	once.Do(func() {
+		err = InitStoreOperate(options)
+	})
+	return err
+}
+
+func InitStoreOperate(options Options) error {
+	op, ok := slots[options.StoreName]
+	if !ok {
+		return ErrorNoStoreOperate
+	}
+	if err := op.Init(options.Options); err != nil {
+		return err
+	}
+	log.Infof("[StoreOperate] use plugin : %s", options.StoreName)
+	storeOperate = op
+	return nil
+}

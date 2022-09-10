@@ -22,6 +22,7 @@ import (
 )
 
 import (
+	_ "github.com/arana-db/arana/cmd/admin"
 	"github.com/arana-db/arana/cmd/cmds"
 	_ "github.com/arana-db/arana/cmd/start"
 	_ "github.com/arana-db/arana/cmd/tools"
