@@ -373,7 +373,13 @@ func Test_storeOperate_initContentsMap(t *testing.T) {
 		fields fields
 		args   args
 	}{
-		{"initContentsMap", fields{}, args{yamlConfig}},
+		{"initContentsMap", fields{
+			receivers: &receiverBucket{
+				lock:      sync.RWMutex{},
+				receivers: map[config.PathKey][]chan<- []byte{},
+			},
+			contents: map[config.PathKey]string{},
+		}, args{yamlConfig}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -381,6 +387,10 @@ func Test_storeOperate_initContentsMap(t *testing.T) {
 				receivers: tt.fields.receivers,
 				contents:  tt.fields.contents,
 			}
+
+			s.Init(map[string]interface{}{
+				"content": yamlConfig,
+			})
 
 			cfg := new(config.Configuration)
 			_ = yaml.Unmarshal([]byte(tt.args.val), cfg)
