@@ -918,3 +918,25 @@ func (s *IntegrationSuite) TestShowTableStatus() {
 		})
 	}
 }
+
+func (s *IntegrationSuite) TestShowCharacterSet() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql string
+	}
+
+	for _, it := range [...]tt{
+		{"SHOW CHARACTER SET;"},
+		{"SHOW CHARACTER SET LIKE '%utf%'"},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			rows, err := db.Query(it.sql)
+			assert.NoError(t, err)
+			defer rows.Close()
+		})
+	}
+}
