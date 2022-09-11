@@ -93,7 +93,7 @@ type (
 	}
 
 	Expected struct {
-		ResultType string `yaml:"resultType"`
+		ResultType string `yaml:"type"`
 		Value      string `yaml:"value"`
 	}
 )

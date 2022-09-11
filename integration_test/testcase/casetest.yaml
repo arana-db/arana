@@ -42,6 +42,35 @@ query_row_cases:
     expected:
       type: "valueInt"
       value: "1"
+  - sql: "SELECT COUNT(1) FROM student WHERE uid=1"
+    parameters: "1:int"
+    sense:
+      - shadow
+    expected:
+      type: "valueInt"
+      value: "1"
+  - sql: "/*A! shadow(shadow) */ SELECT COUNT(1) FROM student WHERE uid=1"
+    parameters: "1:int"
+    sense:
+      - shadow
+    expected:
+      type: "valueInt"
+      value: "0"
+  - sql: "SELECT COUNT(1) FROM student WHERE name='lilei'"
+    parameters: "lilei:string"
+    sense:
+      - shadow
+    expected:
+      type: "valueInt"
+      value: "0"
+  - sql: "SELECT COUNT(1) FROM student WHERE name='hanmeimei'"
+    parameters: "hanmeimei:string"
+    sense:
+      - shadow
+    expected:
+      type: "valueInt"
+      value: "0"
+
 exec_cases:
   - sql: "INSERT INTO sequence(name,value,modified_at) VALUES(?,?,NOW())"
     parameters: "1:string, 2:string"
@@ -60,9 +89,9 @@ exec_cases:
       value: 1
   - sql: "/*A! shadow(shadow) */ update student set score=100.0 where uid = ?"
     parameters: "2:int"
-      sense:
+    sense:
         - shadow
-      expected:
+    expected:
         type: "rowAffect"
         value: 1
   - sql: "/*A! shadow(shadow) */ delete from student"

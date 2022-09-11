@@ -58,28 +58,9 @@ func (s *IntegrationSuite) TestShadowScene() {
 	assert.NoError(t, err, "should begin a new tx")
 
 	cases := s.TestCases()
-	for _, sqlCase := range cases.ExecCases {
-		for _, sense := range sqlCase.Sense {
-			if strings.Compare(strings.TrimSpace(sense), "shadow") == 1 {
-				params := strings.Split(sqlCase.Parameters, ",")
-				args := make([]interface{}, 0, len(params))
-				for _, param := range params {
-					k, _ := test.GetValueByType(param)
-					args = append(args, k)
-				}
-
-				// Execute sql
-				result, err := tx.Exec(sqlCase.SQL, args...)
-				assert.NoError(t, err, "exec not right")
-				err = sqlCase.ExpectedResult.CompareRow(result)
-				assert.NoError(t, err, err)
-			}
-		}
-	}
-
 	for _, sqlCase := range cases.QueryRowCases {
 		for _, sense := range sqlCase.Sense {
-			if strings.Compare(strings.TrimSpace(sense), "shadow") == 1 {
+			if strings.Compare(strings.TrimSpace(sense), "shadow") == 0 {
 				params := strings.Split(sqlCase.Parameters, ",")
 				args := make([]interface{}, 0, len(params))
 				for _, param := range params {
@@ -87,8 +68,8 @@ func (s *IntegrationSuite) TestShadowScene() {
 					args = append(args, k)
 				}
 
-				result := tx.QueryRow(sqlCase.SQL, args...)
-				err = sqlCase.ExpectedResult.CompareRow(result)
+				result := tx.QueryRow(sqlCase.SQL)
+				err := sqlCase.ExpectedResult.CompareRow(result)
 				assert.NoError(t, err, err)
 			}
 		}

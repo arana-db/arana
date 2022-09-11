@@ -123,7 +123,7 @@ data:
             match_type: regex
             attributes:
               - column: name
-                regex: "^hanmeimei$"
+                value: "^hanmeimei$"
           - operation: [select]
             match_type: hint
             attributes:
