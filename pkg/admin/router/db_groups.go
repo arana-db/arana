@@ -28,11 +28,12 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/admin"
+	"github.com/arana-db/arana/pkg/admin/exception"
 	"github.com/arana-db/arana/pkg/boot"
 )
 
 func init() {
-	admin.Register(func(router gin.IRoutes) {
+	admin.Register(func(router admin.Router) {
 		router.POST("/tenants/:tenant/groups", CreateGroup)
 		router.GET("/tenants/:tenant/groups", ListGroups)
 		router.GET("/tenants/:tenant/groups/:group", GetGroup)
@@ -41,71 +42,71 @@ func init() {
 	})
 }
 
-func CreateGroup(c *gin.Context) {
+func CreateGroup(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenantName := c.Param("tenant")
 	var group *boot.GroupBody
-	if err := c.ShouldBindJSON(&group); err == nil {
-		err := service.UpsertGroup(context.Background(), tenantName, "", "", group)
-		if err != nil {
-			_ = c.Error(err)
-			return
-		}
-		c.JSON(http.StatusOK, nil)
-	} else {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := c.ShouldBindJSON(&group); err != nil {
+		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
+
+	err := service.UpsertGroup(context.Background(), tenantName, "", "", group)
+	if err != nil {
+		return err
+	}
+	c.JSON(http.StatusOK, nil)
+	return nil
 }
 
-func ListGroups(c *gin.Context) {
+func ListGroups(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenantName := c.Param("tenant")
 	cluster := c.Param("cluster")
 	groups, err := service.ListGroups(context.Background(), tenantName, cluster)
 	if err != nil {
-		_ = c.Error(err)
-		return
+		return err
 	}
 	c.JSON(http.StatusOK, groups)
+	return nil
 }
 
-func GetGroup(c *gin.Context) {
+func GetGroup(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenant := c.Param("tenant")
 	group := c.Param("group")
 	data, err := service.GetGroup(context.Background(), tenant, "", group)
 	if err != nil {
-		_ = c.Error(err)
-		return
+		return err
 	}
 	c.JSON(http.StatusOK, data)
+	return nil
 }
 
-func UpdateGroup(c *gin.Context) {
+func UpdateGroup(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenant := c.Param("tenant")
 	group := c.Param("group")
 	var groupBody *boot.GroupBody
-	if err := c.ShouldBindJSON(&groupBody); err == nil {
-		err := service.UpsertGroup(context.Background(), tenant, "", group, groupBody)
-		if err != nil {
-			_ = c.Error(err)
-			return
-		}
-		c.JSON(http.StatusOK, nil)
-	} else {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := c.ShouldBindJSON(&groupBody); err != nil {
+		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
+
+	err := service.UpsertGroup(context.Background(), tenant, "", group, groupBody)
+	if err != nil {
+		return err
+	}
+	c.JSON(http.StatusOK, nil)
+	return nil
 }
 
-func RemoveGroup(c *gin.Context) {
+func RemoveGroup(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenant, group := c.Param("tenant"), c.Param("group")
 
 	err := service.RemoveGroup(context.Background(), tenant, "", group)
 	if err != nil {
-		_ = c.Error(err)
-		return
+		return err
 	}
 	c.JSON(http.StatusOK, nil)
+	return nil
 }

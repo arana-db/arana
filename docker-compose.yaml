@@ -65,6 +65,7 @@ services:
     depends_on:
       - mysql
       - etcd
+    restart: on-failure
 
   arana-admin:
     container_name: arana-admin
@@ -79,6 +80,7 @@ services:
       - ./conf/bootstrap.docker.yaml:/etc/arana/bootstrap.yaml:ro
     depends_on:
       - etcd
+    restart: on-failure
 
 networks:
   local:

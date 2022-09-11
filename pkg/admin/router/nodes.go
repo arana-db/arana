@@ -27,12 +27,13 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/admin"
+	"github.com/arana-db/arana/pkg/admin/exception"
 	"github.com/arana-db/arana/pkg/boot"
 	"github.com/arana-db/arana/pkg/config"
 )
 
 func init() {
-	admin.Register(func(router gin.IRoutes) {
+	admin.Register(func(router admin.Router) {
 		router.GET("/tenants/:tenant/nodes", ListNodes)
 		router.POST("/tenants/:tenant/nodes", CreateNode)
 		router.GET("/tenants/:tenant/nodes/:node", GetNode)
@@ -41,108 +42,103 @@ func init() {
 	})
 }
 
-func ListNodes(c *gin.Context) {
+func ListNodes(c *gin.Context) error {
 	var results []config.Node
 	service := admin.GetService(c)
 	tenantName := c.Param("tenant")
 	clusters, err := service.ListClusters(c, tenantName)
 	if err != nil {
-		_ = c.Error(err)
-		return
+		return err
 	}
 	for _, cluster := range clusters {
 		groups, err := service.ListGroups(c, tenantName, cluster)
 		if err != nil {
-			_ = c.Error(err)
-			return
+			return err
 		}
 		for _, group := range groups {
 			nodesArray, err := service.ListNodes(c, tenantName, cluster, group)
 			if err != nil {
-				_ = c.Error(err)
-				return
+				return err
 			}
 			for _, node := range nodesArray {
 				result, err := service.GetNode(c, tenantName, cluster, group, node)
 				if err != nil {
-					_ = c.Error(err)
-					return
+					return err
 				}
 				results = append(results, *result)
 			}
 		}
 	}
 	c.JSON(http.StatusOK, results)
+	return nil
 }
 
-func GetNode(c *gin.Context) {
+func GetNode(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenant := c.Param("tenant")
 	node := c.Param("node")
 	clusters, err := service.ListClusters(c, tenant)
 	if err != nil {
-		_ = c.Error(err)
-		return
+		return err
 	}
 	var data *config.Node
 	for _, cluster := range clusters {
 		groups, err := service.ListGroups(c, tenant, cluster)
 		if err != nil {
-			_ = c.Error(err)
-			return
+			return err
 		}
 		for _, group := range groups {
 			data, err = service.GetNode(c, tenant, cluster, group, node)
 			if err != nil {
-				_ = c.Error(err)
-				continue
+				return err
 			}
 		}
 	}
 	c.JSON(http.StatusOK, data)
+	return nil
 }
 
-func CreateNode(c *gin.Context) {
+func CreateNode(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenant := c.Param("tenant")
 	var node *boot.NodeBody
-	if err := c.ShouldBindJSON(&node); err == nil {
-		err := service.UpsertNode(c, tenant, "", node)
-		if err != nil {
-			_ = c.Error(err)
-			return
-		}
-		c.JSON(http.StatusOK, nil)
-	} else {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := c.ShouldBindJSON(&node); err != nil {
+		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
+
+	err := service.UpsertNode(c, tenant, "", node)
+	if err != nil {
+		return err
+	}
+	c.JSON(http.StatusOK, nil)
+	return nil
 }
 
-func UpdateNode(c *gin.Context) {
+func UpdateNode(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenant := c.Param("tenant")
 	node := c.Param("node")
 	var nodeBody *boot.NodeBody
 	if err := c.ShouldBindJSON(&nodeBody); err == nil {
-		err := service.UpsertNode(c, tenant, node, nodeBody)
-		if err != nil {
-			_ = c.Error(err)
-			return
-		}
-		c.JSON(http.StatusOK, nil)
-	} else {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
+
+	err := service.UpsertNode(c, tenant, node, nodeBody)
+	if err != nil {
+		return err
+	}
+	c.JSON(http.StatusOK, nil)
+	return nil
 }
 
-func RemoveNode(c *gin.Context) {
+func RemoveNode(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenant := c.Param("tenant")
 	node := c.Param("node")
 	err := service.RemoveNode(c, tenant, node)
 	if err != nil {
-		_ = c.Error(err)
-		return
+		return err
 	}
 	c.JSON(http.StatusNoContent, nil)
+	return nil
 }
