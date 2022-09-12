@@ -93,11 +93,17 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 			return nil, errors.Wrap(err, "calculate hints failed")
 		}
 
-		shards = hintLoader.GetShards()
 		matchShadow = hintLoader.GetMatchBy(tableName.Suffix(), constants.ShadowSelect)
 	}
 
 	if shards == nil {
+		//first shadow_rule, and then sharding_rule
+		if o.ShadowRule != nil && !matchShadow {
+			if matchShadow, err = (*optimize.ShadowSharder)(o.ShadowRule).Shard(tableName, constants.ShadowSelect, stmt.Where, o.Args...); err != nil && fullScan == false {
+				return nil, errors.Wrap(err, "calculate shards failed")
+			}
+		}
+
 		if shards, fullScan, err = (*optimize.Sharder)(o.Rule).Shard(tableName, stmt.Where, o.Args...); err != nil && fullScan == false {
 			return nil, errors.Wrap(err, "calculate shards failed")
 		}
@@ -137,7 +143,7 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		}
 
 		if matchShadow {
-			db0 = o.ShadowRule.GetDatabase(tableName.Suffix())
+			tbl0 = o.ShadowRule.GetTableName(tbl0)
 		}
 		return toSingle(db0, tbl0)
 	}
@@ -147,10 +153,10 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		var db, tbl string
 		for k, v := range shards {
 			db = k
-			if matchShadow {
-				db = o.ShadowRule.GetDatabase(tableName.Suffix())
-			}
 			tbl = v[0]
+			if matchShadow {
+				tbl = o.ShadowRule.GetTableName(v[0])
+			}
 		}
 		return toSingle(db, tbl)
 	}
@@ -178,7 +184,9 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 	plans := make([]proto.Plan, 0, len(shards))
 	for k, v := range shards {
 		if matchShadow {
-			k = o.ShadowRule.GetDatabase(tableName.Suffix())
+			for vi, vt := range v {
+				v[vi] = o.ShadowRule.GetTableName(vt)
+			}
 		}
 		next := &dml.SimpleQueryPlan{
 			Database: k,

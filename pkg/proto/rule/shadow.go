@@ -18,6 +18,7 @@
 package rule
 
 import (
+	"regexp"
 	"sync"
 )
 
@@ -30,6 +31,7 @@ type ShadowRuleManager interface {
 	MatchHintBy(action, hint string) bool
 	MatchRegexBy(action, column, value string) bool
 	GetDatabase() string
+	GetTableName() string
 }
 
 // ShadowRule represents the shadow of databases and tables.
@@ -70,11 +72,18 @@ func (s *ShadowRule) MatchRegexBy(tableName, action, column, value string) bool 
 	return rule.MatchRegexBy(action, column, value)
 }
 
-func (s *ShadowRule) GetDatabase(tableName string) string {
+func (s *ShadowRule) GetDatabase(database string) string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return s.rules[tableName].GetDatabase()
+	return database
+}
+
+func (s *ShadowRule) GetTableName(tableName string) string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return constants.ShadowTablePrefix + tableName
 }
 
 func (s *ShadowRule) SetRuleManager(tableName string, ruleManager ShadowRuleManager) {
@@ -91,13 +100,18 @@ func NewShadowRule() *ShadowRule {
 }
 
 type Operation struct {
-	enable   bool
-	database string
-	actions  map[string][]*Attribute // map[action][]*Attribute, action in (select, update, delete, update)
+	enable    bool
+	database  string
+	tablename string
+	actions   map[string][]*Attribute // map[action][]*Attribute, action in (select, update, delete, update)
 }
 
 func (o *Operation) GetDatabase() string {
 	return o.database
+}
+
+func (o *Operation) GetTableName() string {
+	return o.tablename
 }
 
 func (o *Operation) MatchValueBy(action, column, value string) bool {
@@ -140,11 +154,20 @@ func (o *Operation) MatchRegexBy(action, column, value string) bool {
 	if !o.enable {
 		return false
 	}
-	_, ok := o.actions[action]
+	attrs, ok := o.actions[action]
 	if !ok {
 		return false
 	}
 	// TODO impl regex rule below
+	for _, attr := range attrs {
+		if attr.typ == constants.ShadowMatchRegex {
+			reg, err := regexp.Compile(attr.value)
+			if err != nil {
+				return false
+			}
+			return reg.MatchString(value)
+		}
+	}
 
 	return false
 }

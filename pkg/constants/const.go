@@ -29,6 +29,12 @@ const (
 )
 
 const (
+	HeaderPrefix           = "Tables_in_"
+	AranaSystemTablePrefix = "__arana_"
+	ShadowTablePrefix      = "__shadow_"
+)
+
+const (
 	ShadowMatchRegex = "regex"
 	ShadowMatchValue = "value"
 	ShadowMatchHint  = "hint"

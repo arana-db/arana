@@ -46,6 +46,43 @@ func IsErrArgumentOutOfRange(err error) bool {
 
 // Sharder computes the shards from a SQL statement.
 type Sharder rule.Rule
+type ShadowSharder rule.ShadowRule
+
+func (ss *ShadowSharder) rule() *rule.ShadowRule {
+	return (*rule.ShadowRule)(ss)
+}
+
+// Shard returns shards.
+func (ss *ShadowSharder) Shard(tableName ast.TableName, action string, filter ast.ExpressionNode, args ...interface{}) (matchShadow bool, err error) {
+	var (
+		sh Sharder
+		sc shardCtx
+		lo logical.Logical
+		ev rrule.Evaluator
+	)
+
+	// 0. prepare shard context
+	sc.tableName = tableName
+	sc.args = args
+
+	// 1. expression to logical
+	if lo, err = sh.processExpression(&sc, filter); err != nil {
+		err = errors.Wrap(err, "compute shard logical failed")
+		return
+	}
+	// 2. logical to evaluator
+	if ev, err = rrule.EvalShadow(lo, tableName.Suffix(), action, ss.rule()); err != nil {
+		err = errors.Wrap(err, "compute shard evaluator failed")
+		return
+	}
+	// 3. match regex
+	matchShadow = false
+	if ev != nil {
+		matchShadow = true
+	}
+
+	return
+}
 
 // Shard returns shards.
 func (sh *Sharder) Shard(tableName ast.TableName, filter ast.ExpressionNode, args ...interface{}) (shards rule.DatabaseTables, fullScan bool, err error) {
