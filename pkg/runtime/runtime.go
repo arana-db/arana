@@ -33,6 +33,7 @@ import (
 	perrors "github.com/pkg/errors"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
 	"go.uber.org/atomic"
@@ -615,6 +616,7 @@ func (pi *defaultRuntime) Exec(ctx context.Context, db string, query string, arg
 func (pi *defaultRuntime) Execute(ctx *proto.Context) (res proto.Result, warn uint16, err error) {
 	var span trace.Span
 	ctx.Context, span = Tracer.Start(ctx.Context, "defaultRuntime.Execute")
+	span.SetAttributes(attribute.Key("sql").String(ctx.GetQuery()))
 	execStart := time.Now()
 	defer func() {
 		span.End()

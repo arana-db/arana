@@ -714,6 +714,7 @@ func (s *IntegrationSuite) TestHints() {
 		{"/*A! master */ SELECT * FROM student WHERE uid = ?", []interface{}{1}, 1},
 		{"/*A! master */ SELECT * FROM student WHERE uid in (?)", []interface{}{1}, 1},
 		{"/*A! master */ SELECT * FROM student where uid between 1 and 10", nil, 1},
+		{"/*A! trace(faf96a9c3d2d697d79967d8e21d81a6c) */ SELECT * FROM student WHERE uid = 42 AND 1=2", nil, 0},
 	} {
 		t.Run(it.sql, func(t *testing.T) {
 			// select from logical table
