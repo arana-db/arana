@@ -29,6 +29,7 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/dataset"
+	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/mysql/rows"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
@@ -112,6 +113,18 @@ func (s *ShowTableStatusPlan) ExecIn(ctx context.Context, conn proto.VConn) (pro
 		}
 		sm.Store(dest[0], "")
 		return true
+	}), dataset.Filter(func(next proto.Row) bool {
+		var vr rows.VirtualRow
+		switch val := next.(type) {
+		case mysql.TextRow, mysql.BinaryRow:
+			return true
+		case rows.VirtualRow:
+			vr = val
+		default:
+			return true
+		}
+		tableName := vr.Values()[0].(string)
+		return strings.HasPrefix(tableName, aranaSystemTablePrefix)
 	}))
 
 	return resultx.New(resultx.WithDataset(ds)), nil
