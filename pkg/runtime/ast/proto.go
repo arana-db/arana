@@ -49,6 +49,7 @@ const (
 	SQLTypeShowStatus              // SHOW STATUS
 	SQLTypeShowTableStatus         // SHOW TABLE STATUS
 	SQLTypeShowWarnings            // SHOW WARNINGS
+	SQLTypeAnalyzeTable            // ANALYZE TABLE
 )
 
 var _sqlTypeNames = [...]string{

@@ -255,6 +255,12 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 		res, warn, err = executeStmt(ctx, schemaless, rt)
 	case *ast.DropTriggerStmt:
 		res, warn, err = rt.Execute(ctx)
+	case *ast.AnalyzeTableStmt:
+		if schemaless {
+			err = errNoDatabaseSelected
+		} else {
+			res, warn, err = rt.Execute(ctx)
+		}
 	default:
 		if schemaless {
 			err = errNoDatabaseSelected
