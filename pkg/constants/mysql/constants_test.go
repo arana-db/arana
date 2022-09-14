@@ -18,8 +18,11 @@
 package mysql
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+)
+
+import (
+	"github.com/stretchr/testify/assert"
 )
 
 func TestIsNum(t *testing.T) {

@@ -19,7 +19,12 @@ package file
 
 import (
 	"reflect"
+	"sync"
 	"testing"
+)
+
+import (
+	"gopkg.in/yaml.v3"
 )
 
 import (
@@ -30,263 +35,115 @@ import (
 var (
 	FakeConfigPath  = testdata.Path("fake_config.yaml")
 	EmptyConfigPath = testdata.Path("fake_empty_config.yaml")
-)
 
-var jsonConfig = `{
-    "kind":"ConfigMap",
-    "apiVersion":"1.0",
-    "metadata":{
-        "name":"arana-config"
-    },
-    "data":{
-        "listeners":[
-            {
-                "protocol_type":"mysql",
-                "socket_address":{
-                    "address":"0.0.0.0",
-                    "port":13306
-                },
-                "server_version":"5.7.0"
-            }
-        ],
-        "tenants":[
-            {
-                "name":"arana",
-                "users":[
-                    {
-                        "username":"arana",
-                        "password":"123456"
-                    },
-                    {
-                        "username":"dksl",
-                        "password":"123456"
-                    }
-                ]
-            }
-        ],
-        "clusters":[
-            {
-                "name":"employees",
-                "type":"mysql",
-                "sql_max_limit":-1,
-                "tenant":"arana",
-                "parameters":{
-                    "max_allowed_packet":"256M"
-                },
-                "groups":[
-                    {
-                        "name":"employees_0000",
-                        "nodes":[
-                            {
-                                "name":"node0",
-                                "host":"arana-mysql",
-                                "port":3306,
-                                "username":"root",
-                                "password":"123456",
-                                "database":"employees_0000",
-                                "parameters":null,
-                                "weight":"r10w10"
-                            },
-                            {
-                                "name":"node0_r_0",
-                                "host":"arana-mysql",
-                                "port":3306,
-                                "username":"root",
-                                "password":"123456",
-                                "database":"employees_0000_r",
-                                "parameters":null,
-                                "weight":"r0w0"
-                            }
-                        ]
-                    },
-                    {
-                        "name":"employees_0001",
-                        "nodes":[
-                            {
-                                "name":"node1",
-                                "host":"arana-mysql",
-                                "port":3306,
-                                "username":"root",
-                                "password":"123456",
-                                "database":"employees_0001",
-                                "parameters":null,
-                                "weight":"r10w10"
-                            }
-                        ]
-                    },
-                    {
-                        "name":"employees_0002",
-                        "nodes":[
-                            {
-                                "name":"node2",
-                                "host":"arana-mysql",
-                                "port":3306,
-                                "username":"root",
-                                "password":"123456",
-                                "database":"employees_0002",
-                                "parameters":null,
-                                "weight":"r10w10"
-                            }
-                        ]
-                    },
-                    {
-                        "name":"employees_0003",
-                        "nodes":[
-                            {
-                                "name":"node3",
-                                "host":"arana-mysql",
-                                "port":3306,
-                                "username":"root",
-                                "password":"123456",
-                                "database":"employees_0003",
-                                "parameters":null,
-                                "weight":"r10w10"
-                            }
-                        ]
-                    }
-                ]
-            }
-        ],
-        "sharding_rule":{
-            "tables":[
-                {
-                    "name":"employees.student",
-                    "sequence":{
-                        "type":"snowflake",
-                        "option":null
-                    },
-                    "allow_full_scan":true,
-                    "db_rules":[
-                        {
-                            "column":"uid",
-                            "type":"scriptExpr",
-                            "expr":"parseInt($value % 32 / 8)",
-                            "step":0
-                        }
-                    ],
-                    "tbl_rules":[
-                        {
-                            "column":"uid",
-                            "type":"scriptExpr",
-                            "expr":"$value % 32",
-                            "step":32
-                        }
-                    ],
-                    "topology":{
-                        "db_pattern":"employees_${0000..0003}",
-                        "tbl_pattern":"student_${0000..0031}"
-                    },
-                    "shadow_topology":null,
-                    "attributes":{
-                        "sqlMaxLimit":"-1"
-                    }
-                }
-            ]
-        }
-    }
-}`
-
-var yamlConfig = `
+	yamlConfig = `
 kind: ConfigMap
 apiVersion: "1.0"
 metadata:
   name: arana-config
 data:
-  listeners:
-    - protocol_type: mysql
-      server_version: 5.7.0
-      socket_address:
-        address: 0.0.0.0
-        port: 13306
-
   tenants:
     - name: arana
       users:
+        - username: root
+          password: "123456"
         - username: arana
           password: "123456"
-        - username: dksl
+      clusters:
+        - name: employees
+          type: mysql
+          sql_max_limit: -1
+          tenant: arana
+          parameters:
+            max_allowed_packet: 256M
+          groups:
+            - name: employees_0000
+              nodes:
+                - node0
+                - node0_r_0
+            - name: employees_0001
+              nodes:
+                - node1
+            - name: employees_0002
+              nodes:
+                - node2
+            - name: employees_0003
+              nodes:
+                - node3
+      sharding_rule:
+        tables:
+          - name: employees.student
+            allow_full_scan: true
+            sequence:
+              type: snowflake
+              option:
+            db_rules:
+              - column: uid
+                type: scriptExpr
+                expr: parseInt($value % 32 / 8)
+            tbl_rules:
+              - column: uid
+                type: scriptExpr
+                expr: $value % 32
+                step: 32
+            topology:
+              db_pattern: employees_${0000..0003}
+              tbl_pattern: student_${0000..0031}
+            attributes:
+              sqlMaxLimit: -1
+      nodes:
+        node0:
+          name: node0
+          host: arana-mysql
+          port: 3306
+          username: root
           password: "123456"
-
-  clusters:
-    - name: employees
-      type: mysql
-      sql_max_limit: -1
-      tenant: arana
-      parameters:
-        max_allowed_packet: 256M
-      groups:
-        - name: employees_0000
-          nodes:
-            - name: node0
-              host: arana-mysql
-              port: 3306
-              username: root
-              password: "123456"
-              database: employees_0000
-              weight: r10w10
-              parameters:
-            - name: node0_r_0
-              host: arana-mysql
-              port: 3306
-              username: root
-              password: "123456"
-              database: employees_0000_r
-              weight: r0w0
-              parameters:
-        - name: employees_0001
-          nodes:
-            - name: node1
-              host: arana-mysql
-              port: 3306
-              username: root
-              password: "123456"
-              database: employees_0001
-              weight: r10w10
-              parameters:
-        - name: employees_0002
-          nodes:
-            - name: node2
-              host: arana-mysql
-              port: 3306
-              username: root
-              password: "123456"
-              database: employees_0002
-              weight: r10w10
-              parameters:
-        - name: employees_0003
-          nodes:
-            - name: node3
-              host: arana-mysql
-              port: 3306
-              username: root
-              password: "123456"
-              database: employees_0003
-              weight: r10w10
-              parameters:
-  sharding_rule:
-    tables:
-      - name: employees.student
-        allow_full_scan: true
-        db_rules:
-          - column: uid
-            type: scriptExpr
-            expr: parseInt($value % 32 / 8)
-        tbl_rules:
-          - column: uid
-            type: scriptExpr
-            expr: $value % 32
-            step: 32
-        topology:
-          db_pattern: employees_${0000..0003}
-          tbl_pattern: student_${0000..0031}
-        attributes:
-          sqlMaxLimit: -1
+          database: employees_0000
+          weight: r10w10
+          parameters:
+        node0_r_0:
+          name: node0_r_0
+          host: arana-mysql
+          port: 3306
+          username: root
+          password: "123456"
+          database: employees_0000_r
+          weight: r0w0
+          parameters:
+        node1:
+          name: node1
+          host: arana-mysql
+          port: 3306
+          username: root
+          password: "123456"
+          database: employees_0001
+          weight: r10w10
+          parameters:
+        node2:
+          name: node2
+          host: arana-mysql
+          port: 3306
+          username: root
+          password: "123456"
+          database: employees_0002
+          weight: r10w10
+          parameters:
+        node3:
+          name: node3
+          host: arana-mysql
+          port: 3306
+          username: root
+          password: "123456"
+          database: employees_0003
+          weight: r10w10
+          parameters:
 `
+)
 
 func Test_storeOperate_Close(t *testing.T) {
 	type fields struct {
-		receivers map[config.PathKey][]chan []byte
-		cfgJson   map[config.PathKey]string
+		receivers *receiverBucket
+		contents  map[config.PathKey]string
 	}
 	tests := []struct {
 		name    string
@@ -299,7 +156,7 @@ func Test_storeOperate_Close(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &storeOperate{
 				receivers: tt.fields.receivers,
-				cfgJson:   tt.fields.cfgJson,
+				contents:  tt.fields.contents,
 			}
 			if err := s.Close(); (err != nil) != tt.wantErr {
 				t.Errorf("Close() error = %v, wantErr %v", err, tt.wantErr)
@@ -310,8 +167,8 @@ func Test_storeOperate_Close(t *testing.T) {
 
 func Test_storeOperate_Get(t *testing.T) {
 	type fields struct {
-		receivers map[config.PathKey][]chan []byte
-		cfgJson   map[config.PathKey]string
+		receivers *receiverBucket
+		contents  map[config.PathKey]string
 	}
 	type args struct {
 		key config.PathKey
@@ -335,7 +192,7 @@ func Test_storeOperate_Get(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &storeOperate{
 				receivers: tt.fields.receivers,
-				cfgJson:   tt.fields.cfgJson,
+				contents:  tt.fields.contents,
 			}
 			got, err := s.Get(tt.args.key)
 			if (err != nil) != tt.wantErr {
@@ -351,8 +208,8 @@ func Test_storeOperate_Get(t *testing.T) {
 
 func Test_storeOperate_Init(t *testing.T) {
 	type fields struct {
-		receivers map[config.PathKey][]chan []byte
-		cfgJson   map[config.PathKey]string
+		receivers *receiverBucket
+		contents  map[config.PathKey]string
 	}
 	type args struct {
 		options map[string]interface{}
@@ -394,7 +251,7 @@ func Test_storeOperate_Init(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &storeOperate{
 				receivers: tt.fields.receivers,
-				cfgJson:   tt.fields.cfgJson,
+				contents:  tt.fields.contents,
 			}
 			if err := s.Init(tt.args.options); (err != nil) != tt.wantErr {
 				t.Errorf("Init() error = %v, wantErr %v", err, tt.wantErr)
@@ -405,8 +262,8 @@ func Test_storeOperate_Init(t *testing.T) {
 
 func Test_storeOperate_Name(t *testing.T) {
 	type fields struct {
-		receivers map[config.PathKey][]chan []byte
-		cfgJson   map[config.PathKey]string
+		receivers *receiverBucket
+		contents  map[config.PathKey]string
 	}
 	tests := []struct {
 		name   string
@@ -419,7 +276,7 @@ func Test_storeOperate_Name(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &storeOperate{
 				receivers: tt.fields.receivers,
-				cfgJson:   tt.fields.cfgJson,
+				contents:  tt.fields.contents,
 			}
 			if got := s.Name(); got != tt.want {
 				t.Errorf("Name() = %v, want %v", got, tt.want)
@@ -430,8 +287,8 @@ func Test_storeOperate_Name(t *testing.T) {
 
 func Test_storeOperate_Save(t *testing.T) {
 	type fields struct {
-		receivers map[config.PathKey][]chan []byte
-		cfgJson   map[config.PathKey]string
+		receivers *receiverBucket
+		contents  map[config.PathKey]string
 	}
 	type args struct {
 		key config.PathKey
@@ -443,13 +300,19 @@ func Test_storeOperate_Save(t *testing.T) {
 		args    args
 		wantErr bool
 	}{
-		{"Save", fields{}, args{}, false},
+		{"Save", fields{
+			receivers: &receiverBucket{
+				lock:      sync.RWMutex{},
+				receivers: map[config.PathKey][]chan<- []byte{},
+			},
+			contents: map[config.PathKey]string{},
+		}, args{}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &storeOperate{
 				receivers: tt.fields.receivers,
-				cfgJson:   tt.fields.cfgJson,
+				contents:  tt.fields.contents,
 			}
 			if err := s.Save(tt.args.key, tt.args.val); (err != nil) != tt.wantErr {
 				t.Errorf("Save() error = %v, wantErr %v", err, tt.wantErr)
@@ -460,8 +323,8 @@ func Test_storeOperate_Save(t *testing.T) {
 
 func Test_storeOperate_Watch(t *testing.T) {
 	type fields struct {
-		receivers map[config.PathKey][]chan []byte
-		cfgJson   map[config.PathKey]string
+		receivers *receiverBucket
+		contents  map[config.PathKey]string
 	}
 	type args struct {
 		key config.PathKey
@@ -474,7 +337,7 @@ func Test_storeOperate_Watch(t *testing.T) {
 	}{
 		{
 			"Watch",
-			fields{make(map[config.PathKey][]chan []byte), make(map[config.PathKey]string)},
+			fields{&receiverBucket{receivers: map[config.PathKey][]chan<- []byte{}}, make(map[config.PathKey]string)},
 			args{"/arana-db/config/data/dataSourceClusters"},
 			false,
 		},
@@ -483,7 +346,7 @@ func Test_storeOperate_Watch(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &storeOperate{
 				receivers: tt.fields.receivers,
-				cfgJson:   tt.fields.cfgJson,
+				contents:  tt.fields.contents,
 			}
 			got, err := s.Watch(tt.args.key)
 			if (err != nil) != tt.wantErr {
@@ -497,10 +360,10 @@ func Test_storeOperate_Watch(t *testing.T) {
 	}
 }
 
-func Test_storeOperate_initCfgJsonMap(t *testing.T) {
+func Test_storeOperate_initContentsMap(t *testing.T) {
 	type fields struct {
-		receivers map[config.PathKey][]chan []byte
-		cfgJson   map[config.PathKey]string
+		receivers *receiverBucket
+		contents  map[config.PathKey]string
 	}
 	type args struct {
 		val string
@@ -510,23 +373,37 @@ func Test_storeOperate_initCfgJsonMap(t *testing.T) {
 		fields fields
 		args   args
 	}{
-		{"initCfgJsonMap", fields{}, args{jsonConfig}},
+		{"initContentsMap", fields{
+			receivers: &receiverBucket{
+				lock:      sync.RWMutex{},
+				receivers: map[config.PathKey][]chan<- []byte{},
+			},
+			contents: map[config.PathKey]string{},
+		}, args{yamlConfig}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &storeOperate{
 				receivers: tt.fields.receivers,
-				cfgJson:   tt.fields.cfgJson,
+				contents:  tt.fields.contents,
 			}
-			s.initCfgJsonMap(tt.args.val)
+
+			s.Init(map[string]interface{}{
+				"content": yamlConfig,
+			})
+
+			cfg := new(config.Configuration)
+			_ = yaml.Unmarshal([]byte(tt.args.val), cfg)
+
+			s.updateContents(*cfg, false)
 		})
 	}
 }
 
 func Test_storeOperate_readFromFile(t *testing.T) {
 	type fields struct {
-		receivers map[config.PathKey][]chan []byte
-		cfgJson   map[config.PathKey]string
+		receivers *receiverBucket
+		contents  map[config.PathKey]string
 	}
 	type args struct {
 		path string
@@ -554,7 +431,7 @@ func Test_storeOperate_readFromFile(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &storeOperate{
 				receivers: tt.fields.receivers,
-				cfgJson:   tt.fields.cfgJson,
+				contents:  tt.fields.contents,
 			}
 			if err := s.readFromFile(tt.args.path, tt.args.cfg); (err != nil) != tt.wantErr {
 				t.Errorf("readFromFile() error = %v, wantErr %v", err, tt.wantErr)
@@ -565,8 +442,8 @@ func Test_storeOperate_readFromFile(t *testing.T) {
 
 func Test_storeOperate_searchDefaultConfigFile(t *testing.T) {
 	type fields struct {
-		receivers map[config.PathKey][]chan []byte
-		cfgJson   map[config.PathKey]string
+		receivers *receiverBucket
+		contents  map[config.PathKey]string
 	}
 	tests := []struct {
 		name   string
@@ -580,7 +457,7 @@ func Test_storeOperate_searchDefaultConfigFile(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &storeOperate{
 				receivers: tt.fields.receivers,
-				cfgJson:   tt.fields.cfgJson,
+				contents:  tt.fields.contents,
 			}
 			got, got1 := s.searchDefaultConfigFile()
 			if got != tt.want {

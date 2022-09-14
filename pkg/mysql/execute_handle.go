@@ -273,7 +273,7 @@ func (l *Listener) handlePrepare(c *Conn, ctx *proto.Context) error {
 		PrepareStmt: query,
 	}
 	p := parser.New()
-	act, hts, err := p.ParseOneStmtHints(stmt.PrepareStmt, "", "")
+	act, err := p.ParseOneStmt(stmt.PrepareStmt, "", "")
 	if err != nil {
 		log.Errorf("Conn %v: Error parsing prepared statement: %v", c, err)
 		if wErr := c.writeErrorPacketFromError(err); wErr != nil {
@@ -282,7 +282,7 @@ func (l *Listener) handlePrepare(c *Conn, ctx *proto.Context) error {
 		}
 	}
 
-	for _, it := range hts {
+	for _, it := range act.Hints() {
 		var h *hint.Hint
 		if h, err = hint.Parse(it); err != nil {
 			if wErr := c.writeErrorPacketFromError(err); wErr != nil {

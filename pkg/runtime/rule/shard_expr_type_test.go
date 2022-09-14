@@ -20,7 +20,6 @@ package rule
 import (
 	"fmt"
 	"math"
-	"strconv"
 	"testing"
 	"text/scanner"
 )
@@ -64,8 +63,12 @@ func TestNumEval(t *testing.T) {
 		}
 		// got := fmt.Sprintf("%.6g", )
 		evalRes, _ := expr.Eval(test.env)
-		evalResFloat, _ := strconv.ParseFloat(evalRes.String(), 64)
-		got := fmt.Sprintf("%.6g", evalResFloat)
+		got := ""
+		if len(evalRes.String()) > 0 {
+			//evalResFloat, _ := strconv.ParseFloat(evalRes.String(), 64)
+			//got = fmt.Sprintf("%.6g", evalResFloat)
+			got = evalRes.ToIntString()
+		}
 		fmt.Printf("\t%v => %s\n", test.env, got)
 		if got != test.want {
 			t.Errorf("%s.Eval() in %v = %q, want %q\n",
@@ -186,8 +189,9 @@ func TestCheck(t *testing.T) {
 		if test.want != "" {
 			// got := fmt.Sprintf("%.6g", expr.Eval(test.env))
 			evalRes, _ := expr.Eval(test.env)
-			evalResFloat, _ := strconv.ParseFloat(evalRes.String(), 64)
-			got := fmt.Sprintf("%.6g", evalResFloat)
+			//evalResFloat, _ := strconv.ParseFloat(evalRes.String(), 64)
+			//got := fmt.Sprintf("%.6g", evalResFloat)
+			got := evalRes.ToIntString()
 			if got != test.want {
 				t.Errorf("%s: %v => %s, want %s",
 					test.input, test.env, got, test.want)

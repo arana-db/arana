@@ -18,11 +18,14 @@
 package file
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"time"
 )
 
 import (
@@ -40,20 +43,58 @@ import (
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
-var configFilenameList = []string{"config.yaml", "config.yml"}
+var (
+	PluginName         = "file"
+	configFilenameList = []string{"config.yaml", "config.yml"}
+)
 
 func init() {
 	config.Register(&storeOperate{})
 }
 
-type storeOperate struct {
+type receiverBucket struct {
 	lock      sync.RWMutex
-	receivers map[config.PathKey][]chan []byte
-	cfgJson   map[config.PathKey]string
+	receivers map[config.PathKey][]chan<- []byte
+}
+
+func (b *receiverBucket) add(key config.PathKey, rec chan<- []byte) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	if _, ok := b.receivers[key]; !ok {
+		b.receivers[key] = make([]chan<- []byte, 0, 2)
+	}
+	b.receivers[key] = append(b.receivers[key], rec)
+}
+
+func (b *receiverBucket) notifyWatcher(k config.PathKey, val []byte) {
+	b.lock.RLock()
+	defer b.lock.RUnlock()
+
+	for i := range b.receivers[k] {
+		b.receivers[k][i] <- val
+	}
+}
+
+type storeOperate struct {
+	initialize int32
+	lock       sync.RWMutex
+	contents   map[config.PathKey]string
+	receivers  *receiverBucket
+	cancels    []context.CancelFunc
+	mapping    map[string]*config.PathInfo
 }
 
 func (s *storeOperate) Init(options map[string]interface{}) error {
-	s.receivers = make(map[config.PathKey][]chan []byte)
+	if !atomic.CompareAndSwapInt32(&s.initialize, 0, 1) {
+		return nil
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	s.cancels = append(s.cancels, cancel)
+
+	s.mapping = make(map[string]*config.PathInfo)
+	s.receivers = &receiverBucket{receivers: map[config.PathKey][]chan<- []byte{}}
 	var (
 		content string
 		ok      bool
@@ -79,79 +120,101 @@ func (s *storeOperate) Init(options map[string]interface{}) error {
 			return errors.New("no config file found")
 		}
 
+		path, err := formatPath(path)
+		if err != nil {
+			return err
+		}
 		if err := s.readFromFile(path, &cfg); err != nil {
 			return err
 		}
+
+		go s.watchFileChange(ctx, path)
 	}
 
-	configJson, err := json.Marshal(cfg)
-	if err != nil {
-		return errors.Wrap(err, "config json.marshal failed")
+	for i := range cfg.Data.Tenants {
+		name := cfg.Data.Tenants[i].Name
+		s.mapping[name] = config.NewPathInfo(name)
 	}
-	s.initCfgJsonMap(string(configJson))
+
+	s.updateContents(cfg, false)
 	return nil
 }
 
-func (s *storeOperate) initCfgJsonMap(val string) {
-	s.cfgJson = make(map[config.PathKey]string)
+func (s *storeOperate) updateContents(cfg config.Configuration, notify bool) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
 
-	for k, v := range config.ConfigKeyMapping {
-		s.cfgJson[k] = gjson.Get(val, v).String()
+	s.contents = make(map[config.PathKey]string)
+
+	tenants := make([]string, 0, 4)
+	for i := range cfg.Data.Tenants {
+		tenants = append(tenants, cfg.Data.Tenants[i].Name)
+
+		tmp, _ := json.Marshal(cfg.Data.Tenants[i])
+		ret := string(tmp)
+		mapping := s.mapping[cfg.Data.Tenants[i].Name]
+
+		for k, v := range mapping.ConfigKeyMapping {
+			val, _ := config.JSONToYAML(gjson.Get(ret, v).String())
+			s.contents[k] = string(val)
+			if notify {
+				s.receivers.notifyWatcher(k, val)
+			}
+		}
 	}
 
+	ret, _ := yaml.Marshal(tenants)
+	s.contents[config.DefaultTenantsPath] = string(ret)
+
 	if env.IsDevelopEnvironment() {
-		log.Infof("[ConfigCenter][File] load config content : %#v", s.cfgJson)
+		log.Debugf("[ConfigCenter][File] load config content : %#v", s.contents)
 	}
 }
 
 func (s *storeOperate) Save(key config.PathKey, val []byte) error {
-	return nil
-}
-
-func (s *storeOperate) Get(key config.PathKey) ([]byte, error) {
-	val := []byte(s.cfgJson[key])
-	return val, nil
-}
-
-// Watch TODO change notification through file inotify mechanism
-func (s *storeOperate) Watch(key config.PathKey) (<-chan []byte, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	if _, ok := s.receivers[key]; !ok {
-		s.receivers[key] = make([]chan []byte, 0, 2)
-	}
+	s.contents[key] = string(val)
+	s.receivers.notifyWatcher(key, val)
+	return nil
+}
 
+//Get
+func (s *storeOperate) Get(key config.PathKey) ([]byte, error) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
+	val := []byte(s.contents[key])
+	return val, nil
+}
+
+// Watch
+func (s *storeOperate) Watch(key config.PathKey) (<-chan []byte, error) {
 	rec := make(chan []byte)
-
-	s.receivers[key] = append(s.receivers[key], rec)
-
+	s.receivers.add(key, rec)
 	return rec, nil
 }
 
 func (s *storeOperate) Name() string {
-	return "file"
+	return PluginName
 }
 
 func (s *storeOperate) Close() error {
+
+	for i := range s.cancels {
+		s.cancels[i]()
+	}
+
 	return nil
 }
 
+//readFromFile
 func (s *storeOperate) readFromFile(path string, cfg *config.Configuration) error {
 	var (
 		f   *os.File
 		err error
 	)
-
-	if strings.HasPrefix(path, "~") {
-		var home string
-		if home, err = os.UserHomeDir(); err != nil {
-			return err
-		}
-		path = strings.Replace(path, "~", home, 1)
-	}
-
-	path = filepath.Clean(path)
 
 	if f, err = os.Open(path); err != nil {
 		return errors.Wrapf(err, "failed to open arana config file '%s'", path)
@@ -178,4 +241,56 @@ func (s *storeOperate) searchDefaultConfigFile() (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func formatPath(path string) (string, error) {
+	if strings.HasPrefix(path, "~") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		path = strings.Replace(path, "~", home, 1)
+	}
+
+	path = filepath.Clean(path)
+
+	return path, nil
+}
+
+//watchFileChange
+func (s *storeOperate) watchFileChange(ctx context.Context, path string) {
+
+	refreshT := time.NewTicker(30 * time.Second)
+
+	oldStat, err := os.Stat(path)
+	if err != nil {
+		log.Errorf("[ConfigCenter][File] get file=%s stat fail : %s", path, err.Error())
+	}
+
+	for {
+		select {
+		case <-refreshT.C:
+			stat, err := os.Stat(path)
+			if err != nil {
+				log.Errorf("[ConfigCenter][File] get file=%s stat fail : %s", path, err.Error())
+				continue
+			}
+
+			if stat.ModTime().Equal(oldStat.ModTime()) {
+				continue
+			}
+
+			cfg := &config.Configuration{}
+			if err := s.readFromFile(path, cfg); err != nil {
+				log.Errorf("[ConfigCenter][File] read file=%s and marshal to Configuration fail : %s", path, err.Error())
+				return
+			}
+
+			log.Errorf("[ConfigCenter][File] watch file=%s change : %+v", path, stat.ModTime())
+			s.updateContents(*cfg, true)
+		case <-ctx.Done():
+
+		}
+	}
+
 }

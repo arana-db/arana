@@ -311,9 +311,10 @@ func (t *KeyedEvaluator) Not() Evaluator {
 		panic("unreachable")
 	}
 
-	ret := new(KeyedEvaluator)
+	ret := &KeyedEvaluator{}
 	*ret = *t
 	ret.op = op
+
 	return ret
 }
 

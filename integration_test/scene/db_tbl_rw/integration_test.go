@@ -55,8 +55,8 @@ func (s *IntegrationSuite) TestDBTBLRWScene() {
 		db = s.DB()
 		t  = s.T()
 	)
-	//tx, err := db.Begin()
-	//assert.NoError(t, err, "should begin a new tx")
+	// tx, err := db.Begin()
+	// assert.NoError(t, err, "should begin a new tx")
 
 	cases := s.TestCases()
 	for _, sqlCase := range cases.ExecCases {

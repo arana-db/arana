@@ -697,6 +697,8 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 		return ret
 	case ast.ShowWarnings:
 		return &ShowWarnings{baseShow: toBaseShow()}
+	case ast.ShowCharset:
+		return &ShowCharset{baseShow: toBaseShow()}
 	default:
 		panic(fmt.Sprintf("unimplement: show type %v!", node.Tp))
 	}
@@ -733,7 +735,7 @@ func Parse(sql string, options ...ParseOption) ([]*hint.Hint, Statement, error) 
 	}
 
 	p := parser.New()
-	s, hintStrs, err := p.ParseOneStmtHints(sql, o.charset, o.collation)
+	s, err := p.ParseOneStmt(sql, o.charset, o.collation)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -742,6 +744,8 @@ func Parse(sql string, options ...ParseOption) ([]*hint.Hint, Statement, error) 
 	if err != nil {
 		return nil, nil, err
 	}
+
+	hintStrs := s.Hints()
 
 	if len(hintStrs) < 1 {
 		return nil, stmt, nil
@@ -897,6 +901,10 @@ func (cc *convCtx) convFieldList(node *ast.FieldList) []SelectElement {
 			continue
 		}
 
+		getOriginalText := func() string {
+			return field.Text()
+		}
+
 		alias := field.AsName.String()
 		switch t := cc.convExpr(field.Expr).(type) {
 		case *AtomPredicateNode:
@@ -908,33 +916,39 @@ func (cc *convCtx) convFieldList(node *ast.FieldList) []SelectElement {
 				})
 			case *FunctionCallExpressionAtom:
 				ret = append(ret, &SelectElementFunction{
-					inner: a.F,
-					alias: alias,
+					inner:        a.F,
+					alias:        alias,
+					originalText: getOriginalText(),
 				})
 			case *ConstantExpressionAtom:
 				ret = append(ret, &SelectElementExpr{
-					inner: exprAtomToNode(a),
-					alias: alias,
+					inner:        exprAtomToNode(a),
+					alias:        alias,
+					originalText: getOriginalText(),
 				})
 			case *MathExpressionAtom:
 				ret = append(ret, &SelectElementExpr{
-					inner: exprAtomToNode(a),
-					alias: alias,
+					inner:        exprAtomToNode(a),
+					alias:        alias,
+					originalText: getOriginalText(),
 				})
 			case *UnaryExpressionAtom:
 				ret = append(ret, &SelectElementExpr{
-					inner: exprAtomToNode(a),
-					alias: alias,
+					inner:        exprAtomToNode(a),
+					alias:        alias,
+					originalText: getOriginalText(),
 				})
 			case *NestedExpressionAtom:
 				ret = append(ret, &SelectElementExpr{
-					inner: exprAtomToNode(a),
-					alias: alias,
+					inner:        exprAtomToNode(a),
+					alias:        alias,
+					originalText: getOriginalText(),
 				})
 			case *SystemVariableExpressionAtom:
 				ret = append(ret, &SelectElementExpr{
-					inner: exprAtomToNode(a),
-					alias: alias,
+					inner:        exprAtomToNode(a),
+					alias:        alias,
+					originalText: getOriginalText(),
 				})
 			default:
 				panic(fmt.Sprintf("todo: unsupported select element type %T!", a))

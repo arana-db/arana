@@ -20,13 +20,6 @@ apiVersion: "1.0"
 metadata:
   name: arana-config
 data:
-  listeners:
-    - protocol_type: mysql
-      server_version: 5.7.0
-      socket_address:
-        address: 0.0.0.0
-        port: 13306
-
   tenants:
     - name: arana
       users:
@@ -34,40 +27,41 @@ data:
           password: "123456"
         - username: arana
           password: "123456"
-
-  clusters:
-    - name: employees
-      type: mysql
-      sql_max_limit: -1
-      tenant: arana
-      groups:
-        - name: employees_0000
-          nodes:
-            - name: node0
-              host: arana-mysql
-              port: 3306
-              username: root
-              password: "123456"
-              database: employees_0000
-              weight: r10w10
-
-  sharding_rule:
-    tables:
-      - name: employees.student
-        allow_full_scan: true
-        sequence:
-          type: snowflake
-          option:
-        db_rules:
-          - column: uid
-            type: scriptExpr
-            expr: parseInt(0)
-        tbl_rules:
-          - column: uid
-            type: scriptExpr
-            expr: $value % 32
-        topology:
-          db_pattern: employees_0000
-          tbl_pattern: student_${0000..0031}
-        attributes:
-          sqlMaxLimit: -1
+      clusters:
+        - name: employees
+          type: mysql
+          sql_max_limit: -1
+          tenant: arana
+          groups:
+            - name: employees_0000
+              nodes:
+                - node0
+      sharding_rule:
+        tables:
+          - name: employees.student
+            allow_full_scan: true
+            sequence:
+              type: snowflake
+              option:
+            db_rules:
+              - column: uid
+                type: scriptExpr
+                expr: parseInt(0)
+            tbl_rules:
+              - column: uid
+                type: scriptExpr
+                expr: $value % 32
+            topology:
+              db_pattern: employees_0000
+              tbl_pattern: student_${0000..0031}
+            attributes:
+              sqlMaxLimit: -1
+      nodes:
+        node0:
+          name: node0
+          host: arana-mysql
+          port: 3306
+          username: root
+          password: "123456"
+          database: employees_0000
+          weight: r10w10

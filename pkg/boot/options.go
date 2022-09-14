@@ -21,6 +21,10 @@ import (
 	"github.com/arana-db/arana/pkg/config"
 )
 
-type BootOptions struct {
-	Config *config.ConfigOptions `yaml:"config"`
-}
+type (
+	BootOptions struct {
+		config.Spec `yaml:",inline"`
+		Config      *config.Options    `yaml:"config"`
+		Listeners   []*config.Listener `validate:"required,dive" yaml:"listeners" json:"listeners"`
+	}
+)

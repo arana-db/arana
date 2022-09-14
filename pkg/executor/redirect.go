@@ -136,13 +136,13 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 	p := parser.New()
 	query := ctx.GetQuery()
 	start := time.Now()
-	act, hts, err := p.ParseOneStmtHints(query, "", "")
+	act, err := p.ParseOneStmt(query, "", "")
 	if err != nil {
 		return nil, 0, errors.WithStack(err)
 	}
 
 	var hints []*hint.Hint
-	for _, next := range hts {
+	for _, next := range act.Hints() {
 		var h *hint.Hint
 		if h, err = hint.Parse(next); err != nil {
 			return nil, 0, err
@@ -239,7 +239,7 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 	case *ast.ShowStmt:
 		allowSchemaless := func(stmt *ast.ShowStmt) bool {
 			switch stmt.Tp {
-			case ast.ShowDatabases, ast.ShowVariables, ast.ShowTopology, ast.ShowStatus, ast.ShowTableStatus, ast.ShowWarnings:
+			case ast.ShowDatabases, ast.ShowVariables, ast.ShowTopology, ast.ShowStatus, ast.ShowTableStatus, ast.ShowWarnings, ast.ShowCharset:
 				return true
 			default:
 				return false

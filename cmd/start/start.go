@@ -33,7 +33,6 @@ import (
 import (
 	"github.com/arana-db/arana/cmd/cmds"
 	"github.com/arana-db/arana/pkg/boot"
-	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/constants"
 	"github.com/arana-db/arana/pkg/executor"
 	"github.com/arana-db/arana/pkg/mysql"
@@ -78,37 +77,26 @@ func Run(bootstrapConfigPath string, importPath string) {
 	// print slogan
 	fmt.Printf("\033[92m%s\033[0m\n", slogan) // 92m: light green
 
-	provider := boot.NewProvider(bootstrapConfigPath)
-	if err := provider.Init(context.Background()); err != nil {
+	discovery := boot.NewDiscovery(bootstrapConfigPath)
+	if err := discovery.Init(context.Background()); err != nil {
 		log.Fatal("start failed: %v", err)
 		return
 	}
 
 	if len(importPath) > 0 {
-		c, err := config.Load(importPath)
-		if err != nil {
-			log.Fatal("failed to import configuration from %s: %v", importPath, err)
-			return
-		}
-		if err := provider.GetConfigCenter().ImportConfiguration(c); err != nil {
-			log.Fatal("failed to import configuration from %s: %v", importPath, err)
+		if !boot.RunImport(bootstrapConfigPath, importPath) {
 			return
 		}
 	}
 
-	if err := boot.Boot(context.Background(), provider); err != nil {
+	if err := boot.Boot(context.Background(), discovery); err != nil {
 		log.Fatal("start failed: %v", err)
 		return
 	}
 
 	propeller := server.NewServer()
 
-	listenersConf, err := provider.ListListeners(context.Background())
-	if err != nil {
-		log.Fatal("start failed: %v", err)
-		return
-	}
-
+	listenersConf := discovery.ListListeners(context.Background())
 	for _, listenerConf := range listenersConf {
 		listener, err := mysql.NewListener(listenerConf)
 		if err != nil {

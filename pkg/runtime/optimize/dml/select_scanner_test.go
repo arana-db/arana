@@ -18,10 +18,13 @@
 package dml
 
 import (
+	"strings"
 	"testing"
 )
 
 import (
+	"github.com/cespare/xxhash/v2"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -34,6 +37,19 @@ func TestSelectScanner_Scan(t *testing.T) {
 		sql      string
 		selects  []string
 		orderBys []string
+	}
+
+	genAlias := func(name string) string {
+		var (
+			xh = xxhash.New()
+			sb strings.Builder
+		)
+		sb.WriteString(name)
+		sb.WriteString(" AS ")
+		sb.WriteByte('`')
+		writeAutoAlias(xh, &sb, name)
+		sb.WriteByte('`')
+		return sb.String()
 	}
 
 	for _, it := range []tt{
@@ -59,13 +75,13 @@ func TestSelectScanner_Scan(t *testing.T) {
 		},
 		{
 			"select id,name from student order by 2022-birth_year",
-			[]string{"`id`", "`name`", "2022-`birth_year`"},
-			[]string{"2022-`birth_year`"},
+			[]string{"`id`", "`name`", genAlias("2022-`birth_year`")},
+			[]string{genAlias("2022-`birth_year`")},
 		},
 		{
 			"select id,name from student order by -birth_year",
-			[]string{"`id`", "`name`", "-`birth_year`"},
-			[]string{"-`birth_year`"},
+			[]string{"`id`", "`name`", genAlias("-`birth_year`")},
+			[]string{genAlias("-`birth_year`")},
 		},
 	} {
 		t.Run(it.sql, func(t *testing.T) {

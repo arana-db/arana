@@ -42,16 +42,15 @@ import (
 )
 
 type (
-	// Configuration represents an Arana configuration.
-	Configuration struct {
+	DataRevision interface {
+		Revision() string
+	}
+
+	Spec struct {
 		Kind       string                 `yaml:"kind" json:"kind,omitempty"`
 		APIVersion string                 `yaml:"apiVersion" json:"apiVersion,omitempty"`
 		Metadata   map[string]interface{} `yaml:"metadata" json:"metadata"`
-		Data       *Data                  `validate:"required,structonly" yaml:"data" json:"data"`
 	}
-
-	// DataSourceType is the data source type
-	DataSourceType string
 
 	// SocketAddress specify either a logical or physical address and port, which are
 	// used to tell server where to bind/listen, connect to upstream and find
@@ -61,31 +60,46 @@ type (
 		Port    int    `default:"13306" yaml:"port" json:"port"`
 	}
 
+	Listener struct {
+		ProtocolType  string         `yaml:"protocol_type" json:"protocol_type"`
+		SocketAddress *SocketAddress `yaml:"socket_address" json:"socket_address"`
+		ServerVersion string         `yaml:"server_version" json:"server_version"`
+	}
+
+	// Configuration represents an Arana configuration.
+	Configuration struct {
+		Spec `yaml:",inline"`
+		Data *Data `validate:"required,structonly" yaml:"data" json:"data"`
+	}
+
+	// DataSourceType is the data source type
+	DataSourceType string
+
 	Data struct {
-		Listeners          []*Listener          `validate:"required,dive" yaml:"listeners" json:"listeners"`
-		Tenants            []*Tenant            `validate:"required,dive" yaml:"tenants" json:"tenants"`
-		DataSourceClusters []*DataSourceCluster `validate:"required,dive" yaml:"clusters" json:"clusters"`
-		ShardingRule       *ShardingRule        `validate:"required,dive" yaml:"sharding_rule,omitempty" json:"sharding_rule,omitempty"`
-		ShadowRule         *ShadowRule          `yaml:"shadow_rule,omitempty" json:"shadow_rule,omitempty"`
+		Tenants []*Tenant `validate:"required,dive" yaml:"tenants" json:"tenants"`
 	}
 
 	Tenant struct {
-		Name  string  `validate:"required" yaml:"name" json:"name"`
-		Users []*User `validate:"required" yaml:"users" json:"users"`
+		Spec
+		Name               string               `validate:"required" yaml:"name" json:"name"`
+		Users              []*User              `validate:"required" yaml:"users" json:"users"`
+		DataSourceClusters []*DataSourceCluster `validate:"required,dive" yaml:"clusters" json:"clusters"`
+		ShardingRule       *ShardingRule        `validate:"required,dive" yaml:"sharding_rule,omitempty" json:"sharding_rule,omitempty"`
+		ShadowRule         *ShadowRule          `yaml:"shadow_rule,omitempty" json:"shadow_rule,omitempty"`
+		Nodes              map[string]*Node     `validate:"required" yaml:"nodes" json:"nodes"`
 	}
 
 	DataSourceCluster struct {
 		Name        string         `yaml:"name" json:"name"`
 		Type        DataSourceType `yaml:"type" json:"type"`
 		SqlMaxLimit int            `default:"-1" yaml:"sql_max_limit" json:"sql_max_limit,omitempty"`
-		Tenant      string         `yaml:"tenant" json:"tenant"`
 		Parameters  ParametersMap  `yaml:"parameters" json:"parameters"`
 		Groups      []*Group       `yaml:"groups" json:"groups"`
 	}
 
 	Group struct {
-		Name  string  `yaml:"name" json:"name"`
-		Nodes []*Node `yaml:"nodes" json:"nodes"`
+		Name  string   `yaml:"name" json:"name"`
+		Nodes []string `yaml:"nodes" json:"nodes"`
 	}
 
 	Node struct {
@@ -133,12 +147,6 @@ type (
 		Column    string `yaml:"column" json:"column"`
 		Value     string `yaml:"value" json:"value"`
 		Regex     string `yaml:"regex" json:"regex"`
-	}
-
-	Listener struct {
-		ProtocolType  string         `yaml:"protocol_type" json:"protocol_type"`
-		SocketAddress *SocketAddress `yaml:"socket_address" json:"socket_address"`
-		ServerVersion string         `yaml:"server_version" json:"server_version"`
 	}
 
 	User struct {
@@ -244,6 +252,12 @@ func Load(path string) (*Configuration, error) {
 		return nil, errors.Wrap(err, "failed to unmarshal config")
 	}
 	return &cfg, nil
+}
+
+func (t *Tenant) Empty() bool {
+	return len(t.Users) == 0 &&
+		len(t.Nodes) == 0 &&
+		len(t.DataSourceClusters) == 0
 }
 
 var _weightRegexp = regexp.MustCompile(`^[rR]([0-9]+)[wW]([0-9]+)$`)
@@ -356,4 +370,26 @@ func GetConnPropIdleTime(connProps map[string]interface{}, defaultValue time.Dur
 	}
 
 	return time.Duration(n) * time.Second
+}
+
+type (
+	Clusters []*DataSourceCluster
+	Tenants  []string
+	Nodes    map[string]*Node
+	Groups   []*Group
+	Users    []*User
+	Rules    []*Rule
+)
+
+func NewEmptyTenant() *Tenant {
+	return &Tenant{
+		Spec: Spec{
+			Metadata: map[string]interface{}{},
+		},
+		Users:              make([]*User, 0, 1),
+		DataSourceClusters: make([]*DataSourceCluster, 0, 1),
+		ShardingRule:       new(ShardingRule),
+		ShadowRule:         new(ShadowRule),
+		Nodes:              map[string]*Node{},
+	}
 }

@@ -18,9 +18,11 @@
 package config
 
 import (
-	"errors"
+	"context"
 	"fmt"
 	"io"
+	"path/filepath"
+	"sync"
 )
 
 type (
@@ -32,13 +34,24 @@ type (
 )
 
 const (
-	DefaultConfigPath                   PathKey = "/arana-db/config"
-	DefaultConfigMetadataPath           PathKey = "/arana-db/config/metadata"
-	DefaultConfigDataListenersPath      PathKey = "/arana-db/config/data/listeners"
-	DefaultConfigDataSourceClustersPath PathKey = "/arana-db/config/data/dataSourceClusters"
-	DefaultConfigDataShardingRulePath   PathKey = "/arana-db/config/data/shardingRule"
-	DefaultConfigDataTenantsPath        PathKey = "/arana-db/config/data/tenants"
+	_rootPathTemp = "/%s/%s/"
 )
+
+var (
+	DefaultRootPath    PathKey
+	DefaultTenantsPath PathKey
+)
+
+func initPath(root, version string) {
+	if root == "" {
+		root = "arana-db"
+	}
+	if version == "" {
+		version = "1.0"
+	}
+	DefaultRootPath = PathKey(fmt.Sprintf(_rootPathTemp, root, version))
+	DefaultTenantsPath = PathKey(filepath.Join(string(DefaultRootPath), "tenants"))
+}
 
 const (
 	Http ProtocolType = iota
@@ -52,54 +65,81 @@ const (
 )
 
 var (
-	slots        = make(map[string]StoreOperate)
-	storeOperate StoreOperate
+	slots = make(map[string]StoreOperator)
+
+	storeOperate StoreOperator
+
+	once sync.Once
 )
 
-func GetStoreOperate() (StoreOperate, error) {
-	if storeOperate != nil {
-		return storeOperate, nil
-	}
-
-	return nil, errors.New("StoreOperate not init")
-}
-
-func Init(name string, options map[string]interface{}) error {
-	s, exist := slots[name]
-	if !exist {
-		return fmt.Errorf("StoreOperate solt=[%s] not exist", name)
-	}
-
-	storeOperate = s
-
-	return storeOperate.Init(options)
-}
-
 // Register register store plugin
-func Register(s StoreOperate) {
+func Register(s StoreOperator) error {
 	if _, ok := slots[s.Name()]; ok {
-		panic(fmt.Errorf("StoreOperate=[%s] already exist", s.Name()))
+		return fmt.Errorf("StoreOperator=[%s] already exist", s.Name())
 	}
 
 	slots[s.Name()] = s
+	return nil
 }
 
-// StoreOperate config storage related plugins
-type StoreOperate interface {
-	io.Closer
+type (
+	callback func(e Event)
 
-	// Init plugin initialization
-	Init(options map[string]interface{}) error
+	SubscribeResult struct {
+		EventChan <-chan Event
+		Cancel    context.CancelFunc
+	}
 
-	// Save save a configuration data
-	Save(key PathKey, val []byte) error
+	subscriber struct {
+		watch callback
+		ctx   context.Context
+	}
 
-	// Get get a configuration
-	Get(key PathKey) ([]byte, error)
+	Options struct {
+		StoreName string                 `yaml:"name"`
+		RootPath  string                 `yaml:"root_path"`
+		Options   map[string]interface{} `yaml:"options"`
+	}
 
-	// Watch Monitor changes of the key
-	Watch(key PathKey) (<-chan []byte, error)
+	//TenantOperator actions specific to tenant spaces
+	TenantOperator interface {
+		io.Closer
+		//ListTenants lists all tenants
+		ListTenants() []string
+		//CreateTenant creates tenant
+		CreateTenant(string) error
+		//RemoveTenant removes tenant
+		RemoveTenant(string) error
+		//Subscribe subscribes tenants change
+		Subscribe(ctx context.Context, c callback) context.CancelFunc
+	}
 
-	// Name plugin name
-	Name() string
-}
+	// Center Configuration center for each tenant, tenant-level isolation
+	Center interface {
+		io.Closer
+		// Load loads the full Tenant configuration, the first time it will be loaded remotely,
+		// and then it will be directly assembled from the cache layer
+		Load(ctx context.Context) (*Tenant, error)
+		// Import imports the configuration information of a tenant
+		Import(ctx context.Context, cfg *Tenant) error
+		// Subscribe subscribes to all changes of an event by EventType
+		Subscribe(ctx context.Context, et EventType, c callback) context.CancelFunc
+		// Tenant tenant info
+		Tenant() string
+	}
+
+	// StoreOperator config storage related plugins
+	StoreOperator interface {
+		io.Closer
+		// Init plugin initialization
+		Init(options map[string]interface{}) error
+		// Save save a configuration data
+		Save(key PathKey, val []byte) error
+		// Get get a configuration
+		Get(key PathKey) ([]byte, error)
+		// Watch Monitor changes of the key
+		Watch(key PathKey) (<-chan []byte, error)
+		// Name plugin name
+		Name() string
+	}
+)

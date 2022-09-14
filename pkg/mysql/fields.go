@@ -62,6 +62,15 @@ type Field struct {
 	defaultValue       []byte
 }
 
+func (mf *Field) SetOrgName(name string) {
+	mf.orgName = name
+}
+
+func (mf *Field) SetName(name string) {
+	// TODO: should resize columnLength???
+	mf.name = name
+}
+
 func (mf *Field) FieldType() mysql.FieldType {
 	return mf.fieldType
 }

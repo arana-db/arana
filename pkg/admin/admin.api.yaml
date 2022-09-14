@@ -1,0 +1,359 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+openapi: 3.0.3
+info:
+  title: Arana
+  description: Arana
+  version: 1.0.0
+servers:
+  - url: 'http://127.0.0.1:8080/'
+paths:
+  /tenants:
+    get:
+      operationId: listTenants
+      summary: List all tenants
+      responses:
+        '200':
+          description: All Tenants
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tenants'
+
+    post:
+      operationId: createTenant
+      summary: Create a tenant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Tenant'
+      responses:
+        '201':
+          description: OK
+
+  /tenants/{tenantName}:
+    get:
+      operationId: getTenant
+      summary: Get a tenant
+      responses:
+        '200':
+          description: Single Tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tenant'
+    delete:
+      operationId: deleteTenant
+      summary: Delete a tenant
+      responses:
+        '204':
+          description: NONE
+    put:
+      operationId: putTenant
+      summary: Update a tenant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Tenant'
+      responses:
+        '200':
+          description: OK
+
+  /tenants/{tenantName}/nodes:
+    get:
+      operationId: listNodes
+      summary: List mysql nodes
+      responses:
+        '200':
+          description: All MySQL Nodes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Nodes'
+
+    post:
+      operationId: createNode
+      summary: Create mysql node
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Node'
+      responses:
+        '200':
+          description: OK
+
+  /tenants/{tenantName}/nodes/{nodeName}:
+    get:
+      operationId: getNode
+      summary: Get a mysql node
+      responses:
+        '200':
+          description: Single MySQL Node
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Node'
+    delete:
+      operationId: deleteNode
+      summary: Delete a mysql node
+      responses:
+        '204':
+          description: NONE
+
+    put:
+      operationId: putNode
+      summary: Update a mysql node
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Node'
+      responses:
+        '200':
+          description: OK
+
+  /tenants/{tenantName}/groups:
+    post:
+      operationId: createGroup
+      summary: Create a DB group
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Group'
+      responses:
+        '201':
+          description: OK
+
+    get:
+      operationId: listGroups
+      summary: List all DB groups
+      responses:
+        '200':
+          description: All groups
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Groups'
+
+  /tenants/{tenantName}/groups/{groupName}:
+    get:
+      operationId: getGroup
+      summary: Get a DB group
+      responses:
+        '200':
+          description: Single DB group
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+    put:
+      operationId: putGroup
+      summary: Update a DB group
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Group'
+      responses:
+        '200':
+          description: OK
+
+    delete:
+      operationId: deleteGroup
+      summary: Delete a DB group
+      responses:
+        '204':
+          description: NONE
+
+  /tenants/{tenantName}/clusters:
+    post:
+      operationId: createCluster
+      summary: Create a cluster
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Cluster'
+      responses:
+        '200':
+          description: OK
+
+    get:
+      operationId: listClusters
+      summary: List all clusters
+      responses:
+        '200':
+          description: All Clusters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Clusters'
+
+  /tenants/{tenantName}/clusters/{clusterName}:
+    get:
+      operationId: getCluster
+      summary: Get a cluster
+      responses:
+        '200':
+          description: Single Cluster
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cluster'
+
+    put:
+      operationId: putCluster
+      summary: Update a cluster
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Cluster'
+      responses:
+        '200':
+          description: OK
+
+    delete:
+      operationId: deleteCluster
+      summary: Delete a cluster
+      responses:
+        '204':
+          description: NONE
+
+components:
+  schemas:
+    Tenant:
+      type: object
+      properties:
+        name:
+          type: string
+        users:
+          type: array
+          items:
+            type: object
+            properties:
+              username:
+                type: string
+              password:
+                type: string
+      example:
+        name: "foobar"
+        users:
+          - username: "tom"
+            password: "12345678"
+          - username: "john"
+            password: "12345678"
+    Tenants:
+      type: array
+      items:
+        $ref: '#/components/schemas/Tenant'
+
+    Node:
+      type: object
+      required:
+        - name
+        - host
+        - username
+        - password
+        - database
+        - weight
+      properties:
+        name:
+          type: string
+        host:
+          type: string
+        port:
+          type: integer
+        username:
+          type: string
+        password:
+          type: string
+        database:
+          type: string
+        weight:
+          type: string
+        parameters:
+          type: object
+      example:
+        name: mysql-axfwq87
+        host: 1.2.3.4
+        port: 3306
+        username: root
+        password: 12345678
+        database: employees_0000
+        weight: r10w10
+
+    Nodes:
+      type: array
+      items:
+        $ref: '#/components/schemas/Node'
+
+    Group:
+      type: object
+      required:
+        - name
+        - nodes
+      properties:
+        name:
+          type: string
+        nodes:
+          type: array
+          items:
+            type: string
+      example:
+        name: employees_0000
+        nodes:
+          - mysql-fwijfo8
+          - mysql-we7nvil
+          - mysql-vjm24if
+
+    Groups:
+      type: array
+      items:
+        $ref: '#/components/schemas/Group'
+
+    Cluster:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        groups:
+          type: array
+          items:
+            type: string
+      example:
+        name: employees
+        type: mysql
+        groups:
+          - employees_0000
+          - employees_0001
+          - employees_0002
+          - employees_0003
+          - employees_0004
+          - employees_0005
+          - employees_0006
+          - employees_0007
+
+    Clusters:
+      type: array
+      items:
+        $ref: '#/components/schemas/Cluster'

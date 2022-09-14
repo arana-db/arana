@@ -59,18 +59,18 @@ func TestDataSourceClustersConf(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEqual(t, nil, conf)
 
-	assert.Equal(t, 1, len(conf.Data.DataSourceClusters))
-	dataSourceCluster := conf.Data.DataSourceClusters[0]
+	assert.Equal(t, 1, len(conf.Data.Tenants[0].DataSourceClusters))
+	dataSourceCluster := conf.Data.Tenants[0].DataSourceClusters[0]
 	assert.Equal(t, "employees", dataSourceCluster.Name)
 	assert.Equal(t, config.DBMySQL, dataSourceCluster.Type)
 	assert.Equal(t, -1, dataSourceCluster.SqlMaxLimit)
-	assert.Equal(t, "arana", dataSourceCluster.Tenant)
+	assert.Equal(t, "arana", conf.Data.Tenants[0].Name)
 
 	assert.Equal(t, 4, len(dataSourceCluster.Groups))
 	group := dataSourceCluster.Groups[0]
 	assert.Equal(t, "employees_0000", group.Name)
 	assert.Equal(t, 2, len(group.Nodes))
-	node := group.Nodes[0]
+	node := conf.Data.Tenants[0].Nodes["node0"]
 	assert.Equal(t, "arana-mysql", node.Host)
 	assert.Equal(t, 3306, node.Port)
 	assert.Equal(t, "root", node.Username)
@@ -86,9 +86,9 @@ func TestShardingRuleConf(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEqual(t, nil, conf)
 
-	assert.NotNil(t, conf.Data.ShardingRule)
-	assert.Equal(t, 1, len(conf.Data.ShardingRule.Tables))
-	table := conf.Data.ShardingRule.Tables[0]
+	assert.NotNil(t, conf.Data.Tenants[0].ShardingRule)
+	assert.Equal(t, 1, len(conf.Data.Tenants[0].ShardingRule.Tables))
+	table := conf.Data.Tenants[0].ShardingRule.Tables[0]
 	assert.Equal(t, "employees.student", table.Name)
 	assert.Equal(t, true, table.AllowFullScan)
 
@@ -104,7 +104,7 @@ func TestShardingRuleConf(t *testing.T) {
 	assert.Equal(t, "student_${0000..0031}", table.Topology.TblPattern)
 	// assert.Equal(t, "employee_0000", table.ShadowTopology.DbPattern)
 	// assert.Equal(t, "__test_student_${0000...0007}", table.ShadowTopology.TblPattern)
-	assert.Len(t, table.Attributes, 2)
+	assert.Len(t, table.Attributes, 1)
 }
 
 func TestUnmarshalTextForProtocolTypeNil(t *testing.T) {
