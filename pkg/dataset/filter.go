@@ -18,11 +18,11 @@
 package dataset
 
 import (
-	"github.com/arana-db/arana/pkg/proto"
+	"strings"
 )
 
 import (
-	"strings"
+	"github.com/arana-db/arana/pkg/proto"
 )
 
 var (
