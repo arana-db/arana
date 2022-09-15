@@ -125,7 +125,7 @@ func (s *ShowTableStatusPlan) ExecIn(ctx context.Context, conn proto.VConn) (pro
 			return true
 		}
 		tableName := vr.Values()[0].(string)
-		return strings.HasPrefix(tableName, constants.AranaSystemTablePrefix)
+		return !strings.HasPrefix(tableName, constants.AranaSystemTablePrefix)
 	}))
 
 	return resultx.New(resultx.WithDataset(ds)), nil
