@@ -28,6 +28,7 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/constants"
 	constant "github.com/arana-db/arana/pkg/constants/mysql"
 	"github.com/arana-db/arana/pkg/dataset"
 	"github.com/arana-db/arana/pkg/mysql"
@@ -42,8 +43,7 @@ import (
 var _ proto.Plan = (*ShowTablesPlan)(nil)
 
 const (
-	headerPrefix           = "Tables_in_"
-	aranaSystemTablePrefix = "__arana_"
+	headerPrefix = "Tables_in_"
 )
 
 type ShowTablesPlan struct {
@@ -132,7 +132,7 @@ func (st *ShowTablesPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 			}
 
 			tableName := vr.Values()[0].(string)
-			if strings.HasPrefix(tableName, aranaSystemTablePrefix) {
+			if strings.HasPrefix(tableName, constants.AranaSystemTablePrefix) {
 				return false
 			}
 			if _, ok := duplicates[tableName]; ok {

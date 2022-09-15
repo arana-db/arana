@@ -28,6 +28,7 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/constants"
 	"github.com/arana-db/arana/pkg/dataset"
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/mysql/rows"
@@ -124,7 +125,7 @@ func (s *ShowTableStatusPlan) ExecIn(ctx context.Context, conn proto.VConn) (pro
 			return true
 		}
 		tableName := vr.Values()[0].(string)
-		return strings.HasPrefix(tableName, aranaSystemTablePrefix)
+		return strings.HasPrefix(tableName, constants.AranaSystemTablePrefix)
 	}))
 
 	return resultx.New(resultx.WithDataset(ds)), nil

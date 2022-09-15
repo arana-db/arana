@@ -27,3 +27,6 @@ const (
 
 	VariableNameMaxAllowedPacket = "max_allowed_packet"
 )
+const (
+	AranaSystemTablePrefix = "__arana_"
+)
