@@ -55,6 +55,3 @@ func (a *AnalyzeTableStatement) Restore(flag RestoreFlag, sb *strings.Builder, a
 func (a *AnalyzeTableStatement) Mode() SQLType {
 	return SQLTypeAnalyzeTable
 }
-
-// LogicTableToPhysicalTable If there is a sub-table, convert the corresponding logical table name into a physical table name
-// example analyze table student transfer to analyze table student_0000, student_0001
