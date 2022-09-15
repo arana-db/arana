@@ -22,6 +22,10 @@ import (
 	"strings"
 )
 
+import (
+	"github.com/arana-db/arana/pkg/constants"
+)
+
 // DatabaseTable represents the pair of database and table.
 type DatabaseTable struct {
 	Database, Table string
@@ -329,15 +333,17 @@ func (dt DatabaseTables) String() string {
 	return sb.String()
 }
 
-func (dt DatabaseTables) ReplaceDb(new string) {
+func (dt DatabaseTables) ReplaceDb() {
 	if dt.IsEmpty() {
 		return
 	}
 	newTbls := make([]string, 0)
 	for db, tbls := range dt {
-		newTbls = append(newTbls, tbls...)
+		for _, tb := range tbls {
+			newTb := constants.ShadowTablePrefix + tb
+			newTbls = append(newTbls, newTb)
+		}
 		delete(dt, db)
+		dt[db] = newTbls
 	}
-
-	dt[new] = newTbls
 }

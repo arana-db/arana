@@ -28,6 +28,7 @@ import (
 import (
 	"github.com/arana-db/arana/pkg/constants"
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/optimize"
 	"github.com/arana-db/arana/pkg/runtime/plan"
@@ -41,10 +42,10 @@ func init() {
 func optimizeDelete(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error) {
 	stmt := o.Stmt.(*ast.DeleteStatement)
 
-	shards, err := o.ComputeShards(stmt.Table, stmt.Where, o.Args)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to optimize DELETE statement")
-	}
+	var (
+		shards rule.DatabaseTables
+		err    error
+	)
 
 	var matchShadow bool
 	if len(o.Hints) > 0 {
@@ -56,19 +57,26 @@ func optimizeDelete(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 	}
 
 	// TODO: delete from a child sharding-table directly
+	if shards == nil {
+		//first shadow_rule, and then sharding_rule
+		if o.ShadowRule != nil && !matchShadow {
+			if matchShadow, err = (*optimize.ShadowSharder)(o.ShadowRule).Shard(stmt.Table, constants.ShadowDelete, stmt.Where, o.Args...); err != nil {
+				return nil, errors.Wrap(err, "calculate shards failed")
+			}
+		}
+
+		if shards, _, err = (*optimize.Sharder)(o.Rule).Shard(stmt.Table, stmt.Where, o.Args...); err != nil {
+			return nil, errors.Wrap(err, "failed to optimize DELETE statement")
+		}
+	}
 
 	if shards == nil {
 		transparent := plan.Transparent(stmt, o.Args)
-		if matchShadow {
-			//TODO: fix it
-			//transparent.SetDB(o.ShadowRule.GetDatabase(stmt.Table.Suffix()))
-		}
 		return transparent, nil
 	}
 
 	if matchShadow {
-		//TODO: fix it
-		//shards.ReplaceDb(o.ShadowRule.GetDatabase(stmt.Table.Suffix()))
+		shards.ReplaceDb()
 	}
 
 	ret := dml.NewSimpleDeletePlan(stmt)

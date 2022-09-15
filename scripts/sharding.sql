@@ -137,4 +137,3 @@ CREATE TABLE IF NOT EXISTS `employees_0000_r`.`__shadow_student_0006` LIKE `empl
 CREATE TABLE IF NOT EXISTS `employees_0000_r`.`__shadow_student_0007` LIKE `employees_0000`.`student_0000`;
 
 INSERT INTO employees_0000.student_0001(id,uid,name,score,nickname,gender,birth_year,created_at,modified_at) VALUES (1, 1, 'arana', 95, 'Awesome Arana', 0, 2021, NOW(), NOW());
-INSERT INTO employees_0000.__shadow_student_0002(id,uid,name,score,nickname,gender,birth_year,created_at,modified_at) VALUES (2, 2, 'hanmeimei', 97, 'Shadow Arana', 0, 2021, NOW(), NOW());

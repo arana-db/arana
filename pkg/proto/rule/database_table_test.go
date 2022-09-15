@@ -165,8 +165,7 @@ func TestDatabaseTables_Replace(t *testing.T) {
 	} {
 		t.Run(it.input, func(t *testing.T) {
 			dt := parseDatabaseTablesFromString(it.input)
-			dt.ReplaceDb("shadow")
-			assert.Equal(t, 6, len(dt["shadow"]))
+			dt.ReplaceDb()
 			assert.Equal(t, 1, len(dt))
 		})
 	}
