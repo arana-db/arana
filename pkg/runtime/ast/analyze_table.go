@@ -39,10 +39,6 @@ func (a *AnalyzeTableStatement) CntParams() int {
 	return 0
 }
 
-func (a *AnalyzeTableStatement) Validate() error {
-	return nil
-}
-
 func (a *AnalyzeTableStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("ANALYZE TABLE ")
 	for index, table := range a.Tables {
@@ -50,7 +46,7 @@ func (a *AnalyzeTableStatement) Restore(flag RestoreFlag, sb *strings.Builder, a
 			sb.WriteString(", ")
 		}
 		if err := table.Restore(flag, sb, args); err != nil {
-			return errors.Errorf("An error occurred while restore DropTableStatement.Tables[%d],error:%s", index, err)
+			return errors.Wrapf(err, "an error occurred while restore AnalyzeTableStatement.Tables[%d]", index)
 		}
 	}
 	return nil
@@ -59,3 +55,6 @@ func (a *AnalyzeTableStatement) Restore(flag RestoreFlag, sb *strings.Builder, a
 func (a *AnalyzeTableStatement) Mode() SQLType {
 	return SQLTypeAnalyzeTable
 }
+
+// LogicTableToPhysicalTable If there is a sub-table, convert the corresponding logical table name into a physical table name
+// example analyze table student transfer to analyze table student_0000, student_0001

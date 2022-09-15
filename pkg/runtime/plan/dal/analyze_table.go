@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package ddl
+package dal
 
 import (
 	"context"
@@ -68,12 +68,16 @@ func (a *AnalyzeTablePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.
 	}
 
 	// currently, only implemented db0
-	db, _ := a.Shards.Smallest()
+	db, tb := a.Shards.Smallest()
 	if db == "" {
 		return nil, errors.New("no found db")
 	}
 
-	ret, err := conn.Query(ctx, db, sb.String(), a.ToArgs(args)...)
+	sql := sb.String()
+	logicTb := tb[:strings.LastIndex(tb, "_")]
+	sql = strings.ReplaceAll(sql, logicTb, tb)
+
+	ret, err := conn.Query(ctx, db, sql, a.ToArgs(args)...)
 	if err != nil {
 		return nil, err
 	}
@@ -94,12 +98,25 @@ func (a *AnalyzeTablePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.
 			return next, nil
 		}
 
+		// format physical database name to logic database name
 		if strings.Contains(dest[0].(string), ".") {
 			dbTable := strings.Split(dest[0].(string), ".")
-			dbName := strings.Split(dbTable[0], "_")
-			dest[0] = dbName[0] + "." + dbTable[1]
+			dbName := dbTable[0]
+			dbNameIndex := strings.LastIndex(dbTable[0], "_")
+			if dbNameIndex > 0 {
+				dbName = dbName[:dbNameIndex]
+			}
+
+			tbName := dbTable[1]
+			tbNameIndex := strings.LastIndex(dbTable[1], "_")
+			if tbNameIndex > 0 {
+				tbName = tbName[:tbNameIndex]
+			}
+
+			dest[0] = dbName + "." + tbName
 		}
 
+		// msg text transfer to string
 		if v, ok := dest[len(dest)-1].([]byte); ok {
 			dest[len(dest)-1] = string(v)
 		}
