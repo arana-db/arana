@@ -41,11 +41,6 @@ import (
 
 var _ proto.Plan = (*ShowTablesPlan)(nil)
 
-const (
-	headerPrefix           = "Tables_in_"
-	aranaSystemTablePrefix = "__arana_"
-)
-
 type ShowTablesPlan struct {
 	plan.BasePlan
 	Database       string
@@ -120,7 +115,7 @@ func (st *ShowTablesPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 			}
 			return rows.NewTextVirtualRow(fields, dest), nil
 		}),
-		dataset.Filter(func(next proto.Row) bool {
+		dataset.FilterPrefix(func(next proto.Row) bool {
 			var vr rows.VirtualRow
 			switch val := next.(type) {
 			case mysql.TextRow, mysql.BinaryRow:
@@ -132,15 +127,12 @@ func (st *ShowTablesPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 			}
 
 			tableName := vr.Values()[0].(string)
-			if strings.HasPrefix(tableName, aranaSystemTablePrefix) {
-				return false
-			}
 			if _, ok := duplicates[tableName]; ok {
 				return false
 			}
 			duplicates[tableName] = struct{}{}
 			return true
-		}),
+		}, systemTablePrefix),
 	)
 
 	return resultx.New(resultx.WithDataset(ds)), nil

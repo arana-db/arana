@@ -102,7 +102,7 @@ func (s *ShowTableStatusPlan) ExecIn(ctx context.Context, conn proto.VConn) (pro
 			return rows.NewBinaryVirtualRow(fields, dest), nil
 		}
 		return rows.NewTextVirtualRow(fields, dest), nil
-	}), dataset.Filter(func(next proto.Row) bool {
+	}), dataset.FilterPrefix(func(next proto.Row) bool {
 		dest := make([]proto.Value, len(fields))
 		if next.Scan(dest) != nil {
 			return false
@@ -112,7 +112,7 @@ func (s *ShowTableStatusPlan) ExecIn(ctx context.Context, conn proto.VConn) (pro
 		}
 		sm.Store(dest[0], "")
 		return true
-	}))
+	}, systemTablePrefix))
 
 	return resultx.New(resultx.WithDataset(ds)), nil
 }

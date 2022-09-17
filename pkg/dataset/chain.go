@@ -46,6 +46,14 @@ func Filter(predicate PredicateFunc) Option {
 	}
 }
 
+func FilterPrefix(predicate PredicateFunc, prefix string) Option {
+	return func(option *pipeOption) {
+		*option = append(*option, func(prev proto.Dataset) proto.Dataset {
+			return FilterDatasetPrefix{Dataset: prev, Predicate: predicate, Prefix: prefix}
+		})
+	}
+}
+
 func Map(generateFields FieldsFunc, transform TransformFunc) Option {
 	return func(option *pipeOption) {
 		*option = append(*option, func(dataset proto.Dataset) proto.Dataset {
