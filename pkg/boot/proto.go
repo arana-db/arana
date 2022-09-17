@@ -28,6 +28,7 @@ import (
 
 type Cluster struct {
 	Tenant string                `yaml:"tenant" json:"tenant"`
+	Name string                `yaml:"name" json:"name"`
 	Type   config.DataSourceType `yaml:"type" json:"type"`
 }
 

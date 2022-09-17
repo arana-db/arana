@@ -19,6 +19,7 @@ package router
 
 import (
 	"context"
+	"github.com/arana-db/arana/pkg/config"
 	"net/http"
 )
 
@@ -49,7 +50,16 @@ func ListClusters(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
-	c.JSON(http.StatusOK, clusters)
+	var res []*config.DataSourceCluster
+	for _, it := range clusters{
+		cluster, err := service.GetDataSourceCluster(context.Background(), tenantName, it)
+		if err != nil {
+			return err
+		}
+		res = append(res, cluster)
+	}
+
+	c.JSON(http.StatusOK, res)
 	return nil
 }
 
