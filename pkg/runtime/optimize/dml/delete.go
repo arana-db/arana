@@ -51,22 +51,21 @@ func optimizeDelete(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 	if len(o.Hints) > 0 {
 		shadowLoader, err := optimize.Hints(stmt.Table, o.Hints, o.Rule, o.ShadowRule)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to optimize hint DELETE statement")
+			return nil, errors.Wrap(err, "calculate hits failed")
 		}
 		matchShadow = shadowLoader.GetMatchBy(stmt.Table.Suffix(), constants.ShadowDelete)
 	}
 
 	// TODO: delete from a child sharding-table directly
 	if shards == nil {
-		//first shadow_rule, and then sharding_rule
 		if o.ShadowRule != nil && !matchShadow {
 			if matchShadow, err = (*optimize.ShadowSharder)(o.ShadowRule).Shard(stmt.Table, constants.ShadowDelete, stmt.Where, o.Args...); err != nil {
-				return nil, errors.Wrap(err, "calculate shards failed")
+				return nil, errors.Wrap(err, "calculate shadow regex failed")
 			}
 		}
 
 		if shards, _, err = (*optimize.Sharder)(o.Rule).Shard(stmt.Table, stmt.Where, o.Args...); err != nil {
-			return nil, errors.Wrap(err, "failed to optimize DELETE statement")
+			return nil, errors.Wrap(err, "calculate shards failed")
 		}
 	}
 

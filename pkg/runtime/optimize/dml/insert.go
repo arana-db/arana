@@ -114,13 +114,12 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		}
 
 		if shards == nil {
-			//first shadow_rule, and then sharding_rule
 			for v := range values {
 				value := values[v]
 				resetFilter(stmt.Columns[v], value)
 				if o.ShadowRule != nil && !matchShadow {
 					if matchShadow, err = (*optimize.ShadowSharder)(o.ShadowRule).Shard(tableName, constants.ShadowInsert, filter, o.Args...); err != nil {
-						return nil, errors.Wrap(err, "calculate shards failed")
+						return nil, errors.Wrap(err, "calculate shadow regex failed")
 					}
 				}
 			}
@@ -128,7 +127,7 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 			value := values[bingo]
 			resetFilter(stmt.Columns[bingo], value)
 			if shards, _, err = sharder.Shard(tableName, filter, o.Args...); err != nil {
-				return nil, errors.WithStack(err)
+				return nil, errors.Wrap(err, "calculate shards failed")
 			}
 		}
 

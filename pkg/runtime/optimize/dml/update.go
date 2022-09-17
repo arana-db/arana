@@ -79,15 +79,14 @@ func optimizeUpdate(_ context.Context, o *optimize.Optimizer) (proto.Plan, error
 		}
 
 		if shards == nil {
-			//first shadow_rule, and then sharding_rule
 			if o.ShadowRule != nil && !matchShadow {
 				if matchShadow, err = (*optimize.ShadowSharder)(o.ShadowRule).Shard(table, constants.ShadowUpdate, stmt.Where, o.Args...); err != nil {
-					return nil, errors.Wrap(err, "calculate shards failed")
+					return nil, errors.Wrap(err, "calculate shadow regex failed")
 				}
 			}
 
 			if shards, fullScan, err = (*optimize.Sharder)(o.Rule).Shard(table, where, o.Args...); err != nil {
-				return nil, errors.Wrap(err, "failed to update")
+				return nil, errors.Wrap(err, "calculate shards failed")
 			}
 		}
 	}

@@ -97,10 +97,9 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 	}
 
 	if shards == nil {
-		//first shadow_rule, and then sharding_rule
 		if o.ShadowRule != nil && !matchShadow {
 			if matchShadow, err = (*optimize.ShadowSharder)(o.ShadowRule).Shard(tableName, constants.ShadowSelect, stmt.Where, o.Args...); err != nil && fullScan == false {
-				return nil, errors.Wrap(err, "calculate shards failed")
+				return nil, errors.Wrap(err, "calculate shadow regex failed")
 			}
 		}
 
