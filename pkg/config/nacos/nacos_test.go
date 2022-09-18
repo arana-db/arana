@@ -224,3 +224,19 @@ func Test_watch(t *testing.T) {
 
 	assert.Equal(t, string(data), string(ret))
 }
+
+func Test_storeOpertae(t *testing.T) {
+	operate := buildOperate()
+	defer operate.client.CloseClient()
+
+	newCfg, _ := config.Load(testdata.Path("fake_config.yaml"))
+
+	err := operate.Save(mockPath[newCfg.Data.Tenants[0].Name].DefaultConfigDataShadowRulePath, []byte(""))
+
+	assert.NoError(t, err, "empty string should be success")
+
+	err = operate.Save(mockPath[newCfg.Data.Tenants[0].Name].DefaultConfigDataShadowRulePath, []byte(" "))
+
+	assert.NoError(t, err, "blank string should be success")
+
+}

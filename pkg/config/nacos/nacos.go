@@ -36,6 +36,7 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/config"
+	"github.com/arana-db/arana/pkg/util/bytesconv"
 )
 
 const (
@@ -154,10 +155,14 @@ func parseClientConfig(options map[string]interface{}) constant.ClientConfig {
 
 // Save save a configuration data
 func (s *storeOperate) Save(key config.PathKey, val []byte) error {
+	content := bytesconv.BytesToString(val)
+	if strings.TrimSpace(content) == "" {
+		content = "null"
+	}
 	ok, err := s.client.PublishConfig(vo.ConfigParam{
 		Group:   s.groupName,
 		DataId:  buildNacosDataId(string(key)),
-		Content: string(val),
+		Content: content,
 	})
 	if err != nil {
 		return err
