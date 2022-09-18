@@ -80,23 +80,49 @@ exec_cases:
     expected:
       type: "rowAffect"
       value: 1
-  - sql: "/*A! shadow(shadow) */ INSERT INTO student(id,uid,score,name,nickname,gender,birth_year) values (?,?,?,?,?,?,?)"
-    parameters: "1:int, 2:int, 100:int, test:string, test:string, 1:int, 1980:int"
+
+exec_shadow_hint_cases:
+  - sql: "/*A! shadow(shadow) */ INSERT INTO student(id,uid,score,name,nickname,gender,birth_year) values (1,3,100,'lilei','shadow test',1,1980)"
+    parameters: "1:int"
     sense:
       - shadow
     expected:
       type: "rowAffect"
       value: 1
-  - sql: "/*A! shadow(shadow) */ update student set score=100.0 where uid = ?"
-    parameters: "2:int"
+  - sql: "/*A! shadow(shadow) */ UPDATE student SET score = 98 WHERE uid = 3"
+    parameters: "1:int"
     sense:
-        - shadow
+      - shadow
     expected:
         type: "rowAffect"
         value: 1
-  - sql: "/*A! shadow(shadow) */ delete from student"
+  - sql: "/*A! shadow(shadow) */ DELETE FROM student WHERE uid = 3"
+    parameters: "1:int"
     sense:
       - shadow
     expected:
       type: "rowAffect"
-      value: 0
+      value: 1
+
+exec_shadow_regex_cases:
+  - sql: "INSERT INTO student(id,uid,score,name,nickname,gender,birth_year) values (1,2,100,'hanmeimei','shadow test',1,1981)"
+    parameters: "1:int"
+    sense:
+      - shadow
+    expected:
+      type: "rowAffect"
+      value: 1
+  - sql: "UPDATE student SET score = 98 WHERE uid = 2 AND name = 'hanmeimei'"
+    parameters: "1:int"
+    sense:
+      - shadow
+    expected:
+        type: "rowAffect"
+        value: 1
+  - sql: "DELETE FROM student WHERE uid = 2 AND name = 'hanmeimei'"
+    parameters: "1:int"
+    sense:
+      - shadow
+    expected:
+      type: "rowAffect"
+      value: 1

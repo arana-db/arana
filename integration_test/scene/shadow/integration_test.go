@@ -61,17 +61,34 @@ func (s *IntegrationSuite) TestShadowScene() {
 	for _, sqlCase := range cases.QueryRowCases {
 		for _, sense := range sqlCase.Sense {
 			if strings.Compare(strings.TrimSpace(sense), "shadow") == 0 {
-				params := strings.Split(sqlCase.Parameters, ",")
-				args := make([]interface{}, 0, len(params))
-				for _, param := range params {
-					k, _ := test.GetValueByType(param)
-					args = append(args, k)
-				}
-
 				result := tx.QueryRow(sqlCase.SQL)
 				err := sqlCase.ExpectedResult.CompareRow(result)
 				assert.NoError(t, err, err)
 			}
 		}
 	}
+
+	for _, sqlCase := range cases.ExShHintCases {
+		for _, sense := range sqlCase.Sense {
+			if strings.Compare(strings.TrimSpace(sense), "shadow") == 0 {
+				result, err := tx.Exec(sqlCase.SQL)
+				assert.NoError(t, err, err)
+				err = sqlCase.ExpectedResult.CompareRow(result)
+				assert.NoError(t, err, err)
+			}
+		}
+	}
+
+	/*
+		for _, sqlCase := range cases.ExShRegexCases {
+			for _, sense := range sqlCase.Sense {
+				if strings.Compare(strings.TrimSpace(sense), "shadow") == 0 {
+					result, err := tx.Exec(sqlCase.SQL)
+					assert.NoError(t, err, err)
+					err = sqlCase.ExpectedResult.CompareRow(result)
+					assert.NoError(t, err, err)
+				}
+			}
+		}
+	*/
 }

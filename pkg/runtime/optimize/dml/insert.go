@@ -103,8 +103,6 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 
 	for i, values := range stmt.Values {
 		var shards rule.DatabaseTables
-		value := values[bingo]
-		resetFilter(stmt.Columns[bingo], value)
 
 		if len(o.Hints) > 0 {
 			var hintLoader optimize.HintResultLoader
@@ -112,13 +110,24 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 				return nil, errors.Wrap(err, "calculate hints failed")
 			}
 
-			shards = hintLoader.GetShards()
 			matchShadow = hintLoader.GetMatchBy(tableName.Suffix(), constants.ShadowInsert)
 		}
 
 		if shards == nil {
+			for v := range values {
+				value := values[v]
+				resetFilter(stmt.Columns[v], value)
+				if o.ShadowRule != nil && !matchShadow {
+					if matchShadow, err = (*optimize.ShadowSharder)(o.ShadowRule).Shard(tableName, constants.ShadowInsert, filter, o.Args...); err != nil {
+						return nil, errors.Wrap(err, "calculate shadow regex failed")
+					}
+				}
+			}
+
+			value := values[bingo]
+			resetFilter(stmt.Columns[bingo], value)
 			if shards, _, err = sharder.Shard(tableName, filter, o.Args...); err != nil {
-				return nil, errors.WithStack(err)
+				return nil, errors.Wrap(err, "calculate shards failed")
 			}
 		}
 
@@ -133,8 +142,7 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 
 		for k, v := range shards {
 			if matchShadow {
-				//TODO: fix it
-				//k = o.ShadowRule.GetDatabase(tableName.Suffix())
+				v[0] = o.ShadowRule.GetTableName(v[0])
 			}
 			db = k
 			table = v[0]
@@ -148,10 +156,6 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 	}
 
 	for db, slot := range slots {
-		if matchShadow {
-			//TODO: fix it
-			//db = o.ShadowRule.GetDatabase(tableName.Suffix())
-		}
 		for table, indexes := range slot {
 			// clone insert stmt without values
 			newborn := ast.NewInsertStatement(ast.TableName{table}, stmt.Columns)

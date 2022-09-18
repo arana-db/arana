@@ -75,13 +75,18 @@ func optimizeUpdate(_ context.Context, o *optimize.Optimizer) (proto.Plan, error
 			if hintLoader, err = optimize.Hints(table, o.Hints, o.Rule, o.ShadowRule); err != nil {
 				return nil, errors.Wrap(err, "calculate hints failed")
 			}
-			shards = hintLoader.GetShards()
 			matchShadow = hintLoader.GetMatchBy(table.Suffix(), constants.ShadowUpdate)
 		}
 
 		if shards == nil {
+			if o.ShadowRule != nil && !matchShadow {
+				if matchShadow, err = (*optimize.ShadowSharder)(o.ShadowRule).Shard(table, constants.ShadowUpdate, stmt.Where, o.Args...); err != nil {
+					return nil, errors.Wrap(err, "calculate shadow regex failed")
+				}
+			}
+
 			if shards, fullScan, err = (*optimize.Sharder)(o.Rule).Shard(table, where, o.Args...); err != nil {
-				return nil, errors.Wrap(err, "failed to update")
+				return nil, errors.Wrap(err, "calculate shards failed")
 			}
 		}
 	}
@@ -103,8 +108,7 @@ func optimizeUpdate(_ context.Context, o *optimize.Optimizer) (proto.Plan, error
 	}
 
 	if matchShadow {
-		//TODO: fix it
-		//shards.ReplaceDb(o.ShadowRule.GetDatabase(stmt.Table.Suffix()))
+		shards.ReplaceDb()
 	}
 
 	ret := dml.NewUpdatePlan(stmt)
