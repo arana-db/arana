@@ -53,7 +53,7 @@ func RunImport(importConfPath, configPath string) bool {
 
 	for i := range cfg.Data.Tenants {
 		if err := tenantOp.CreateTenant(cfg.Data.Tenants[i].Name); err != nil {
-			log.Fatal("create tenant failed: %+v", configPath, err)
+			log.Fatal("create tenant failed, configPath:%s, err: %+v", configPath, err)
 			return false
 		}
 	}
