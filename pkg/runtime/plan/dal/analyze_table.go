@@ -63,21 +63,20 @@ func (a *AnalyzeTablePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.
 	ctx, span := plan.Tracer.Start(ctx, "AnalyzeTable.ExecIn")
 	defer span.End()
 
-	if err := a.Stmt.Restore(ast.RestoreDefault, &sb, &args); err != nil {
-		return nil, errors.Wrap(err, "failed to execute ANALYZE TABLE statement")
-	}
-
 	// currently, only implemented db0
 	db, tb := a.Shards.Smallest()
 	if db == "" {
 		return nil, errors.New("no found db")
 	}
 
-	sql := sb.String()
-	logicTb := tb[:strings.LastIndex(tb, "_")]
-	sql = strings.ReplaceAll(sql, logicTb, tb)
+	// deal partition table
+	a.tableReplace(tb)
 
-	ret, err := conn.Query(ctx, db, sql, a.ToArgs(args)...)
+	if err := a.Stmt.Restore(ast.RestoreDefault, &sb, &args); err != nil {
+		return nil, errors.Wrap(err, "failed to execute ANALYZE TABLE statement")
+	}
+
+	ret, err := conn.Query(ctx, db, sb.String(), a.ToArgs(args)...)
 	if err != nil {
 		return nil, err
 	}
@@ -125,4 +124,24 @@ func (a *AnalyzeTablePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.
 	}))
 
 	return resultx.New(resultx.WithDataset(ds)), nil
+}
+
+func (a *AnalyzeTablePlan) tableReplace(tb string) {
+	if tb == "" {
+		return
+	}
+
+	logicTb := tb[:strings.LastIndex(tb, "_")]
+
+	stmt := ast.NewAnalyzeTableStatement()
+
+	for _, tables := range a.Stmt.Tables {
+		if strings.Trim(tables.String(), "`") == logicTb {
+			stmt.Tables = append(stmt.Tables, &ast.TableName{tb})
+		} else {
+			stmt.Tables = append(stmt.Tables, tables)
+		}
+	}
+
+	a.Stmt = stmt
 }

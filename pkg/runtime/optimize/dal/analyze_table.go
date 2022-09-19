@@ -19,7 +19,6 @@ package dal
 
 import (
 	"context"
-	"github.com/arana-db/arana/pkg/runtime/plan/dal"
 )
 
 import (
@@ -27,6 +26,7 @@ import (
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/optimize"
+	"github.com/arana-db/arana/pkg/runtime/plan/dal"
 )
 
 func init() {
