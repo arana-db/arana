@@ -50,6 +50,7 @@ const (
 	SQLTypeShowTableStatus          // SHOW TABLE STATUS
 	SQLTypeShowWarnings             // SHOW WARNINGS
 	SQLTypeShowCharacterSet         // SHOW CHARACTER SET
+	SQLTypeSetVariable              // SET VARIABLE
 )
 
 var _sqlTypeNames = [...]string{
@@ -76,6 +77,7 @@ var _sqlTypeNames = [...]string{
 	SQLTypeCreateIndex:     "CREATE INDEX",
 	SQLTypeShowStatus:      "SHOW STATUS",
 	SQLTypeShowTableStatus: "SHOW TABLE STATUS",
+	SQLTypeSetVariable:     "SET VARIABLE",
 }
 
 // SQLType represents the type of SQL.

@@ -253,7 +253,7 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 		}
 	case *ast.TruncateTableStmt, *ast.DropTableStmt, *ast.ExplainStmt, *ast.DropIndexStmt, *ast.CreateIndexStmt:
 		res, warn, err = executeStmt(ctx, schemaless, rt)
-	case *ast.DropTriggerStmt:
+	case *ast.DropTriggerStmt, *ast.SetStmt:
 		res, warn, err = rt.Execute(ctx)
 	default:
 		if schemaless {
