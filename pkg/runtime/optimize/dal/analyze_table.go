@@ -35,11 +35,14 @@ func init() {
 
 func optimizeAnalyzeTable(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error) {
 	shards := rule.DatabaseTables{}
+	shardsByName := make(map[string]rule.DatabaseTables)
+
 	for _, table := range o.Rule.VTables() {
 		shards = table.Topology().Enumerate()
+		shardsByName[table.Name()] = shards
 		break
 	}
 
 	stmt := o.Stmt.(*ast.AnalyzeTableStatement)
-	return dal.NewAnalyzeTablePlan(stmt, shards), nil
+	return dal.NewAnalyzeTablePlan(stmt, shards, shardsByName), nil
 }

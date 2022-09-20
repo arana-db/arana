@@ -38,14 +38,19 @@ import (
 
 type AnalyzeTablePlan struct {
 	plan.BasePlan
-	Stmt   *ast.AnalyzeTableStatement
-	Shards rule.DatabaseTables
+	Stmt         *ast.AnalyzeTableStatement
+	Shards       rule.DatabaseTables
+	ShardsByName map[string]rule.DatabaseTables
 }
 
-func NewAnalyzeTablePlan(stmt *ast.AnalyzeTableStatement, shards rule.DatabaseTables) *AnalyzeTablePlan {
+func NewAnalyzeTablePlan(
+	stmt *ast.AnalyzeTableStatement,
+	shards rule.DatabaseTables,
+	shardsByName map[string]rule.DatabaseTables) *AnalyzeTablePlan {
 	return &AnalyzeTablePlan{
-		Stmt:   stmt,
-		Shards: shards,
+		Stmt:         stmt,
+		Shards:       shards,
+		ShardsByName: shardsByName,
 	}
 }
 
@@ -126,12 +131,15 @@ func (a *AnalyzeTablePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.
 	return resultx.New(resultx.WithDataset(ds)), nil
 }
 
+// tableReplace tb physical table name
 func (a *AnalyzeTablePlan) tableReplace(tb string) {
 	if tb == "" {
 		return
 	}
 
-	logicTb := tb[:strings.LastIndex(tb, "_")]
+	// logical to physical table map
+	tableMap := a.physicalToLogicTable(tb)
+	logicTb := tableMap[tb]
 
 	stmt := ast.NewAnalyzeTableStatement()
 
@@ -144,4 +152,23 @@ func (a *AnalyzeTablePlan) tableReplace(tb string) {
 	}
 
 	a.Stmt = stmt
+}
+
+// physicalToLogicTable logical to physical table map
+func (a *AnalyzeTablePlan) physicalToLogicTable(tbName string) map[string]string {
+	res := make(map[string]string)
+
+L1:
+	for logicTableName, shards := range a.ShardsByName {
+		for _, tbs := range shards {
+			for _, tb := range tbs {
+				if tb == tbName {
+					res[tb] = logicTableName
+					continue L1
+				}
+			}
+		}
+	}
+
+	return res
 }
