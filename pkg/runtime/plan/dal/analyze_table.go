@@ -143,11 +143,11 @@ func (a *AnalyzeTablePlan) tableReplace(tb string) {
 
 	stmt := ast.NewAnalyzeTableStatement()
 
-	for _, tables := range a.Stmt.Tables {
-		if strings.Trim(tables.String(), "`") == logicTb {
+	for _, table := range a.Stmt.Tables {
+		if strings.Trim(table.String(), "`") == logicTb {
 			stmt.Tables = append(stmt.Tables, &ast.TableName{tb})
 		} else {
-			stmt.Tables = append(stmt.Tables, tables)
+			stmt.Tables = append(stmt.Tables, table)
 		}
 	}
 
