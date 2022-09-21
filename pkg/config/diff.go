@@ -164,9 +164,9 @@ func (c Clusters) Diff(old Clusters) *ClustersEvent {
 	}
 
 	return &ClustersEvent{
-		AddCluster:    addClusters,
-		UpdateCluster: updateClusters,
-		DeleteCluster: deleteClusters,
+		AddClusters:    addClusters,
+		UpdateClusters: updateClusters,
+		DeleteClusters: deleteClusters,
 	}
 }
 

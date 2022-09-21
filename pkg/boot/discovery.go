@@ -85,8 +85,17 @@ type discovery struct {
 }
 
 func (fp *discovery) UpsertTenant(ctx context.Context, tenant string, body *TenantBody) error {
-	//TODO implement me
-	panic("implement me")
+	if err := fp.tenantOp.CreateTenant(tenant); err != nil {
+		return errors.Wrapf(err, "failed to create tenant '%s'", tenant)
+	}
+
+	for _, next := range body.Users {
+		if err := fp.tenantOp.CreateTenantUser(tenant, next.Username, next.Password); err != nil {
+			return errors.WithStack(err)
+		}
+	}
+
+	return nil
 }
 
 func (fp *discovery) RemoveTenant(ctx context.Context, tenant string) error {
@@ -199,21 +208,24 @@ func LoadBootOptions(path string) (*BootOptions, error) {
 	return &cfg, nil
 }
 
-func (fp *discovery) initAllConfigCenter() error {
+func (fp *discovery) InitTenant(tenant string) error {
+	options := *fp.options.Config
+	if len(options.Options) == 0 {
+		options.Options = map[string]interface{}{}
+	}
+	options.Options["tenant"] = tenant
 
+	fp.centers[tenant] = config.NewCenter(tenant, config.GetStoreOperate())
+	return nil
+}
+
+func (fp *discovery) initAllConfigCenter() error {
 	tenants := fp.tenantOp.ListTenants()
 	for i := range tenants {
-		tenant := tenants[i]
-
-		options := *fp.options.Config
-		if len(options.Options) == 0 {
-			options.Options = map[string]interface{}{}
+		if err := fp.InitTenant(tenants[i]); err != nil {
+			return errors.WithStack(err)
 		}
-		options.Options["tenant"] = tenant
-
-		fp.centers[tenant] = config.NewCenter(tenant, config.GetStoreOperate())
 	}
-
 	return nil
 }
 
@@ -275,6 +287,10 @@ func (fp *discovery) ListUsers(ctx context.Context, tenant string) (config.Users
 		return nil, err
 	}
 
+	if cfg == nil {
+		return nil, nil
+	}
+
 	return cfg.Users, nil
 }
 
@@ -293,8 +309,11 @@ func (fp *discovery) ListClusters(ctx context.Context, tenant string) ([]string,
 		return nil, err
 	}
 
-	ret := make([]string, 0, 4)
+	if cfg == nil || len(cfg.DataSourceClusters) == 0 {
+		return nil, nil
+	}
 
+	ret := make([]string, 0, len(cfg.DataSourceClusters))
 	for _, it := range cfg.DataSourceClusters {
 		ret = append(ret, it.Name)
 	}
@@ -402,148 +421,7 @@ func (fp *discovery) GetTable(ctx context.Context, tenant, cluster, tableName st
 		return nil, nil
 	}
 
-	var (
-		vt                 rule.VTable
-		topology           rule.Topology
-		dbFormat, tbFormat string
-		dbBegin, tbBegin   int
-		dbEnd, tbEnd       int
-		err                error
-	)
-
-	if table.Topology != nil {
-		if len(table.Topology.DbPattern) > 0 {
-			if dbFormat, dbBegin, dbEnd, err = parseTopology(table.Topology.DbPattern); err != nil {
-				return nil, errors.WithStack(err)
-			}
-		}
-		if len(table.Topology.TblPattern) > 0 {
-			if tbFormat, tbBegin, tbEnd, err = parseTopology(table.Topology.TblPattern); err != nil {
-				return nil, errors.WithStack(err)
-			}
-		}
-	}
-	topology.SetRender(getRender(dbFormat), getRender(tbFormat))
-
-	var (
-		keys                 map[string]struct{}
-		dbSharder, tbSharder map[string]rule.ShardComputer
-		dbSteps, tbSteps     map[string]int
-	)
-	for _, it := range table.DbRules {
-		var shd rule.ShardComputer
-		if shd, err = toSharder(it); err != nil {
-			return nil, err
-		}
-		if dbSharder == nil {
-			dbSharder = make(map[string]rule.ShardComputer)
-		}
-		if keys == nil {
-			keys = make(map[string]struct{})
-		}
-		if dbSteps == nil {
-			dbSteps = make(map[string]int)
-		}
-		dbSharder[it.Column] = shd
-		keys[it.Column] = struct{}{}
-		dbSteps[it.Column] = it.Step
-	}
-
-	for _, it := range table.TblRules {
-		var shd rule.ShardComputer
-		if shd, err = toSharder(it); err != nil {
-			return nil, err
-		}
-		if tbSharder == nil {
-			tbSharder = make(map[string]rule.ShardComputer)
-		}
-		if keys == nil {
-			keys = make(map[string]struct{})
-		}
-		if tbSteps == nil {
-			tbSteps = make(map[string]int)
-		}
-		tbSharder[it.Column] = shd
-		keys[it.Column] = struct{}{}
-		tbSteps[it.Column] = it.Step
-	}
-
-	for k := range keys {
-		var (
-			shd                    rule.ShardComputer
-			dbMetadata, tbMetadata *rule.ShardMetadata
-		)
-		if shd, ok = dbSharder[k]; ok {
-			dbMetadata = &rule.ShardMetadata{
-				Computer: shd,
-				Stepper:  rule.DefaultNumberStepper,
-			}
-			if s, ok := dbSteps[k]; ok && s > 0 {
-				dbMetadata.Steps = s
-			} else if dbBegin >= 0 && dbEnd >= 0 {
-				dbMetadata.Steps = 1 + dbEnd - dbBegin
-			}
-		}
-		if shd, ok = tbSharder[k]; ok {
-			tbMetadata = &rule.ShardMetadata{
-				Computer: shd,
-				Stepper:  rule.DefaultNumberStepper,
-			}
-			if s, ok := tbSteps[k]; ok && s > 0 {
-				tbMetadata.Steps = s
-			} else if tbBegin >= 0 && tbEnd >= 0 {
-				tbMetadata.Steps = 1 + tbEnd - tbBegin
-			}
-		}
-		vt.SetShardMetadata(k, dbMetadata, tbMetadata)
-
-		tpRes := make(map[int][]int)
-		step := tbMetadata.Steps
-		if dbMetadata.Steps > step {
-			step = dbMetadata.Steps
-		}
-		rng, _ := tbMetadata.Stepper.Ascend(0, step)
-		for rng.HasNext() {
-			var (
-				seed  = rng.Next()
-				dbIdx = -1
-				tbIdx = -1
-			)
-			if dbMetadata != nil {
-				if dbIdx, err = dbMetadata.Computer.Compute(seed); err != nil {
-					return nil, errors.WithStack(err)
-				}
-			}
-			if tbMetadata != nil {
-				if tbIdx, err = tbMetadata.Computer.Compute(seed); err != nil {
-					return nil, errors.WithStack(err)
-				}
-			}
-			tpRes[dbIdx] = append(tpRes[dbIdx], tbIdx)
-		}
-
-		for dbIndex, tbIndexes := range tpRes {
-			topology.SetTopology(dbIndex, tbIndexes...)
-		}
-	}
-
-	if table.AllowFullScan {
-		vt.SetAllowFullScan(true)
-	}
-	if table.Sequence != nil {
-		vt.SetAutoIncrement(&rule.AutoIncrement{
-			Type:   table.Sequence.Type,
-			Option: table.Sequence.Option,
-		})
-	}
-
-	// TODO: process attributes
-	_ = table.Attributes["sql_max_limit"]
-
-	vt.SetTopology(&topology)
-	vt.SetName(tableName)
-
-	return &vt, nil
+	return makeVTable(tableName, table)
 }
 
 func (fp *discovery) loadCluster(tenant, cluster string) (*config.DataSourceCluster, error) {

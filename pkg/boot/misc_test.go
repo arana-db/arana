@@ -15,14 +15,31 @@
  * limitations under the License.
  */
 
-package main
+package boot
 
 import (
-	"github.com/arana-db/arana/cmd/start"
-	"github.com/arana-db/arana/testdata"
+	"testing"
 )
 
-func main() {
-	bootstrap := testdata.Path("../conf/bootstrap.local-etcd.yaml")
-	start.Run(bootstrap, "")
+import (
+	"github.com/stretchr/testify/assert"
+)
+
+func TestParseDatabaseAndTable(t *testing.T) {
+	type tt struct {
+		name  string
+		db    string
+		table string
+	}
+	for _, it := range []tt{
+		{"employee.student", "employee", "student"},
+		{"fake-db.fake_table", "fake-db", "fake_table"},
+	} {
+		t.Run(it.name, func(t *testing.T) {
+			db, table, err := parseDatabaseAndTable(it.name)
+			assert.NoError(t, err)
+			assert.Equal(t, it.db, db)
+			assert.Equal(t, it.table, table)
+		})
+	}
 }
