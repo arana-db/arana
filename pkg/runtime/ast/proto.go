@@ -50,6 +50,7 @@ const (
 	SQLTypeShowTableStatus          // SHOW TABLE STATUS
 	SQLTypeShowWarnings             // SHOW WARNINGS
 	SQLTypeShowCharacterSet         // SHOW CHARACTER SET
+	SQLTypeAnalyzeTable             // ANALYZE TABLE
 )
 
 var _sqlTypeNames = [...]string{

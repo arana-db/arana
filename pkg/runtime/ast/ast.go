@@ -113,6 +113,8 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		return cc.convDropTrigger(stmt), nil
 	case *ast.CreateIndexStmt:
 		return cc.convCreateIndexStmt(stmt), nil
+	case *ast.AnalyzeTableStmt:
+		return cc.convAnalyzeTable(stmt), nil
 	default:
 		return nil, errors.Errorf("unimplement: stmt type %T!", stmt)
 	}
@@ -1582,4 +1584,15 @@ func isColumnAtom(expr PredicateNode) bool {
 		}
 	}
 	return false
+}
+
+func (cc *convCtx) convAnalyzeTable(stmt *ast.AnalyzeTableStmt) Statement {
+	tables := make([]*TableName, len(stmt.TableNames))
+	for i, table := range stmt.TableNames {
+		tables[i] = &TableName{
+			table.Name.String(),
+		}
+	}
+
+	return &AnalyzeTableStatement{Tables: tables}
 }
