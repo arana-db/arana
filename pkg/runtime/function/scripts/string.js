@@ -258,4 +258,3 @@ function $LPAD(s, l, pad) {
 function $RPAD(s, l, pad) {
     return __rpad(s, l, pad)
 }
-

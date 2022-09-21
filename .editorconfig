@@ -15,28 +15,24 @@
 # limitations under the License.
 #
 
-# See https://pre-commit.com for more information
-# See https://pre-commit.com/hooks.html for more hooks
-# See https://github.com/tekwizely/pre-commit-golang for golang hooks
+root = true
 
-repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v2.3.0
-    hooks:
-      - id: end-of-file-fixer
-      - id: trailing-whitespace
-  - repo: https://github.com/tekwizely/pre-commit-golang
-    rev: v1.0.0-beta.5
-    hooks:
-      - id: my-cmd-mod
-        name: imports-formatter
-        alias: imports-formatter
-        args: [imports-formatter]
-      - id: my-cmd-mod
-        name: license-eye
-        alias: license-eye
-        args: [license-eye, header, fix]
-  - repo: https://github.com/golangci/golangci-lint
-    rev: v1.46.2
-    hooks:
-      - id: golangci-lint
+# Unix-style newlines with a newline ending every file
+[*]
+end_of_line = lf
+insert_final_newline = true
+charset = utf-8
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+[{Makefile,go.mod,go.sum,*.go,.gitmodules}]
+indent_style = tab
+indent_size = 4
+
+[*.md]
+indent_size = 4
+trim_trailing_whitespace = false
+
+[Dockerfile]
+indent_size = 4
