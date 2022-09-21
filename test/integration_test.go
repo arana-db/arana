@@ -964,3 +964,26 @@ func (s *IntegrationSuite) TestSetVariable() {
 		})
 	}
 }
+
+// TestAnalyzeTable
+func (s *IntegrationSuite) TestAnalyzeTable() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql string
+	}
+
+	for _, it := range [...]tt{
+		{"Analyze table student"},
+		{"Analyze table student, departments"},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			rows, err := db.Query(it.sql)
+			assert.NoError(t, err)
+			defer rows.Close()
+		})
+	}
+}
