@@ -42,7 +42,7 @@ import (
 
 // slogan is generated from 'figlet -f smslant ARANA'.
 const slogan = `
-   ___   ___  ___   _  _____ 
+   ___   ___  ___   _  _____
   / _ | / _ \/ _ | / |/ / _ |
  / __ |/ , _/ __ |/    / __ |
 /_/ |_/_/|_/_/ |_/_/|_/_/ |_|

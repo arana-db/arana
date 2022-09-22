@@ -15,5 +15,5 @@ cli-raw:
     @mycli -h127.0.0.1 -uroot employees -p123456
 
 fix:
-  @imports-formatter .
-  @license-eye header fix
+    @imports-formatter .
+    @license-eye header fix

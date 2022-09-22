@@ -1,4 +1,4 @@
-<!--  Thanks for sending a pull request! 
+<!--  Thanks for sending a pull request!
 -->
 
 **What this PR does**:

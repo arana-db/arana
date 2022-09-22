@@ -205,13 +205,13 @@ func (s *IntegrationSuite) TestInsertOnDuplicateKey() {
 	)
 
 	i := 32
-	result, err := db.Exec(`INSERT IGNORE INTO student(id,uid,score,name,nickname,gender,birth_year) 
+	result, err := db.Exec(`INSERT IGNORE INTO student(id,uid,score,name,nickname,gender,birth_year)
      values (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE nickname='dump' `, 1654008174496657000, i, 3.14, fmt.Sprintf("fake_name_%d", i), fmt.Sprintf("fake_nickname_%d", i), 1, 2022-rand2.Intn(40))
 	assert.NoErrorf(t, err, "insert row error: %v", err)
 	_, err = result.RowsAffected()
 	assert.NoErrorf(t, err, "insert row error: %v", err)
 
-	_, err = db.Exec(`INSERT IGNORE INTO student(id,uid,score,name,nickname,gender,birth_year) 
+	_, err = db.Exec(`INSERT IGNORE INTO student(id,uid,score,name,nickname,gender,birth_year)
      values (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE uid=32 `, 1654008174496657000, i, 3.14, fmt.Sprintf("fake_name_%d", i), fmt.Sprintf("fake_nickname_%d", i), 1, 2022-rand2.Intn(40))
 	assert.Error(t, err, "insert row error: %v", err)
 }
@@ -222,7 +222,7 @@ func (s *IntegrationSuite) TestSelect() {
 		t  = s.T()
 	)
 
-	rows, err := db.Query(`SELECT emp_no, birth_date, first_name, last_name, gender, hire_date FROM employees 
+	rows, err := db.Query(`SELECT emp_no, birth_date, first_name, last_name, gender, hire_date FROM employees
 		WHERE emp_no = ?`, "100001")
 	assert.NoErrorf(t, err, "select row error: %v", err)
 
