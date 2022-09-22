@@ -15,48 +15,25 @@
  * limitations under the License.
  */
 
-package dal
+package ddl
 
 import (
 	"context"
-	"strings"
-)
-
-import (
-	"github.com/pkg/errors"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime/ast"
-	"github.com/arana-db/arana/pkg/runtime/plan"
+	"github.com/arana-db/arana/pkg/runtime/optimize"
+	"github.com/arana-db/arana/pkg/runtime/plan/ddl"
 )
 
-var _ proto.Plan = (*ShowVariablesPlan)(nil)
-
-type ShowVariablesPlan struct {
-	plan.BasePlan
-	stmt *ast.ShowVariables
+func init() {
+	optimize.Register(ast.SQLTypeSetVariable, optimizeSetVariable)
 }
 
-func NewShowVariablesPlan(stmt *ast.ShowVariables) *ShowVariablesPlan {
-	return &ShowVariablesPlan{stmt: stmt}
-}
-
-func (s *ShowVariablesPlan) Type() proto.PlanType {
-	return proto.PlanTypeQuery
-}
-
-func (s *ShowVariablesPlan) ExecIn(ctx context.Context, vConn proto.VConn) (proto.Result, error) {
-	var (
-		sb   strings.Builder
-		args []int
-	)
-	ctx, span := plan.Tracer.Start(ctx, "ShowVariablesPlan.ExecIn")
-	defer span.End()
-
-	if err := s.stmt.Restore(ast.RestoreDefault, &sb, &args); err != nil {
-		return nil, errors.Wrap(err, "failed to execute show variables statement")
-	}
-	return vConn.Query(ctx, "", sb.String(), s.ToArgs(args)...)
+func optimizeSetVariable(_ context.Context, o *optimize.Optimizer) (proto.Plan, error) {
+	ret := &ddl.SetVariablePlan{Stmt: o.Stmt.(*ast.SetVariable)}
+	ret.BindArgs(o.Args)
+	return ret, nil
 }

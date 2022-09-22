@@ -15,15 +15,11 @@
  * limitations under the License.
  */
 
-package dal
+package ddl
 
 import (
 	"context"
 	"strings"
-)
-
-import (
-	"github.com/pkg/errors"
 )
 
 import (
@@ -32,31 +28,28 @@ import (
 	"github.com/arana-db/arana/pkg/runtime/plan"
 )
 
-var _ proto.Plan = (*ShowVariablesPlan)(nil)
+var _ proto.Plan = (*SetVariablePlan)(nil)
 
-type ShowVariablesPlan struct {
+type SetVariablePlan struct {
 	plan.BasePlan
-	stmt *ast.ShowVariables
+	Stmt *ast.SetVariable
 }
 
-func NewShowVariablesPlan(stmt *ast.ShowVariables) *ShowVariablesPlan {
-	return &ShowVariablesPlan{stmt: stmt}
+func (d *SetVariablePlan) Type() proto.PlanType {
+	return proto.PlanTypeExec
 }
 
-func (s *ShowVariablesPlan) Type() proto.PlanType {
-	return proto.PlanTypeQuery
-}
-
-func (s *ShowVariablesPlan) ExecIn(ctx context.Context, vConn proto.VConn) (proto.Result, error) {
+func (d *SetVariablePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
 	var (
 		sb   strings.Builder
 		args []int
 	)
-	ctx, span := plan.Tracer.Start(ctx, "ShowVariablesPlan.ExecIn")
+	ctx, span := plan.Tracer.Start(ctx, "SetVariablePlan.ExecIn")
 	defer span.End()
 
-	if err := s.stmt.Restore(ast.RestoreDefault, &sb, &args); err != nil {
-		return nil, errors.Wrap(err, "failed to execute show variables statement")
+	if err := d.Stmt.Restore(ast.RestoreDefault, &sb, &args); err != nil {
+		return nil, err
 	}
-	return vConn.Query(ctx, "", sb.String(), s.ToArgs(args)...)
+
+	return conn.Query(ctx, "", sb.String(), d.ToArgs(args)...)
 }

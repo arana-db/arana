@@ -113,6 +113,8 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		return cc.convDropTrigger(stmt), nil
 	case *ast.CreateIndexStmt:
 		return cc.convCreateIndexStmt(stmt), nil
+	case *ast.SetStmt:
+		return &SetVariable{Stmt: stmt}, nil
 	case *ast.AnalyzeTableStmt:
 		return cc.convAnalyzeTable(stmt), nil
 	default:

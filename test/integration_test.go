@@ -941,6 +941,30 @@ func (s *IntegrationSuite) TestShowCharacterSet() {
 	}
 }
 
+func (s *IntegrationSuite) TestSetVariable() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql  string
+		flag bool
+	}
+
+	for _, it := range [...]tt{
+		{sql: "SET @t1=1;", flag: true},
+		{sql: "SET @t1=2,@t2='arana'", flag: true},
+		{sql: "SET @@t1=4,@t2='arana'"},
+		{sql: "SET @@t1=4,@@t2='arana'"},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			_, err := db.Exec(it.sql)
+			assert.Equal(t, err == nil, it.flag)
+		})
+	}
+}
+
 // TestAnalyzeTable
 func (s *IntegrationSuite) TestAnalyzeTable() {
 	var (
