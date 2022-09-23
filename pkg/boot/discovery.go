@@ -29,6 +29,8 @@ import (
 )
 
 import (
+	"github.com/creasty/defaults"
+
 	"github.com/pkg/errors"
 
 	uatomic "go.uber.org/atomic"
@@ -40,6 +42,7 @@ import (
 	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	rrule "github.com/arana-db/arana/pkg/runtime/rule"
+	"github.com/arana-db/arana/pkg/trace"
 	"github.com/arana-db/arana/pkg/util/file"
 	"github.com/arana-db/arana/pkg/util/log"
 )
@@ -276,6 +279,16 @@ func (fp *discovery) ListUsers(ctx context.Context, tenant string) (config.Users
 	}
 
 	return cfg.Users, nil
+}
+
+func (fp *discovery) InitTrace(ctx context.Context) error {
+	if fp.options.Trace == nil {
+		fp.options.Trace = &config.Trace{}
+	}
+	if err := defaults.Set(fp.options.Trace); err != nil {
+		return err
+	}
+	return trace.Initialize(ctx, fp.options.Trace)
 }
 
 func (fp *discovery) ListListeners(ctx context.Context) []*config.Listener {

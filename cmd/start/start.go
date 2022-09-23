@@ -106,6 +106,11 @@ func Run(bootstrapConfigPath string, importPath string) {
 		listener.SetExecutor(executor.NewRedirectExecutor())
 		propeller.AddListener(listener)
 	}
+
+	if err := discovery.InitTrace(context.Background()); err != nil {
+		log.Warnf("init trace provider failed: %v", err)
+	}
+
 	propeller.Start()
 
 	ctx, cancel := context.WithCancel(context.Background())

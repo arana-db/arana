@@ -18,12 +18,11 @@
 package trace
 
 import (
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/jaeger"
-	"go.opentelemetry.io/otel/propagation"
-	"go.opentelemetry.io/otel/sdk/resource"
-	tracesdk "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	"context"
+)
+
+import (
+	"github.com/pkg/errors"
 )
 
 import (
@@ -33,52 +32,36 @@ import (
 )
 
 const (
-	parentKey = "traceparent"
-	service   = "arana"
+	Service              = "arana"
+	Jaeger  ProviderType = "jaeger"
 )
 
-func Initialize(traceCfg *config.Trace) error {
-	tp, err := tracerProvider(traceCfg)
-	if err != nil {
-		return err
-	}
+type ProviderType string
 
-	// Register our TracerProvider as the global so any imported
-	// instrumentation in the future will default to using it.
-	otel.SetTracerProvider(tp)
-	return nil
+var (
+	providers       = make(map[ProviderType]Provider, 8)
+	currentProvider Provider
+)
+
+func RegisterProviders(pType ProviderType, p Provider) {
+	providers[pType] = p
 }
 
-func tracerProvider(traceCfg *config.Trace) (*tracesdk.TracerProvider, error) {
-	// Create the Jaeger exporter
-	exp, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(traceCfg.Address)))
-	if err != nil {
-		return nil, err
+func Initialize(ctx context.Context, traceCfg *config.Trace) error {
+	v, ok := providers[ProviderType(traceCfg.Type)]
+	if !ok {
+		return errors.Errorf("not supported %s trace provider", traceCfg.Type)
 	}
-	tp := tracesdk.NewTracerProvider(
-		// Always be sure to batch in production.
-		tracesdk.WithBatcher(exp),
-		// Record information about this application in a Resource.
-		tracesdk.WithResource(resource.NewWithAttributes(
-			semconv.SchemaURL,
-			semconv.ServiceNameKey.String(service),
-		)),
-	)
-	return tp, nil
+	currentProvider = v
+
+	return currentProvider.Initialize(ctx, traceCfg)
 }
 
 func Extract(ctx *proto.Context, hints []*hint.Hint) {
-	var traceId string
-	for _, h := range hints {
-		if h.Type != hint.TypeTrace {
-			continue
-		}
-		traceId = h.Inputs[0].V
-		break
-	}
-	if len(traceId) == 0 {
-		return
-	}
-	ctx.Context = otel.GetTextMapPropagator().Extract(ctx.Context, propagation.MapCarrier{parentKey: traceId})
-	return
+	currentProvider.Extract(ctx, hints)
+}
+
+type Provider interface {
+	Initialize(ctx context.Context, traceCfg *config.Trace) error
+	Extract(ctx *proto.Context, hints []*hint.Hint)
 }

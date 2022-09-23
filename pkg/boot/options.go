@@ -24,7 +24,8 @@ import (
 type (
 	BootOptions struct {
 		config.Spec `yaml:",inline"`
-		Config      *config.Options    `yaml:"config"`
+		Config      *config.Options    `yaml:"config" json:"config"`
 		Listeners   []*config.Listener `validate:"required,dive" yaml:"listeners" json:"listeners"`
+		Trace       *config.Trace      `yaml:"trace" json:"trace"`
 	}
 )
