@@ -67,8 +67,8 @@ func ListGroups(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
-	var res [] *config.Group
-	for _, it := range clusters{
+	var res []*config.Group
+	for _, it := range clusters {
 		cluster, err := service.GetDataSourceCluster(context.Background(), tenantName, it)
 		if err != nil {
 			return err

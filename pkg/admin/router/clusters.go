@@ -51,7 +51,7 @@ func ListClusters(c *gin.Context) error {
 		return err
 	}
 	var res []*config.DataSourceCluster
-	for _, it := range clusters{
+	for _, it := range clusters {
 		cluster, err := service.GetDataSourceCluster(context.Background(), tenantName, it)
 		if err != nil {
 			return err
