@@ -18,7 +18,6 @@
 #
 
 name: CI
-
 on:
   push:
     branches:
@@ -29,7 +28,6 @@ on:
   pull_request_target:
     branches:
       - master
-
 jobs:
   build:
     name: ${{ matrix.os }} - Go ${{ matrix.go_version }}
@@ -41,43 +39,28 @@ jobs:
           - 1.18
         os:
           - ubuntu-latest
-
     steps:
-      - name: Set up Go 1.x
-        uses: actions/setup-go@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go_version }}
-        id: go
-
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
-
-      - name: Cache dependencies
-        uses: actions/cache@v2
+      - run: go version
+      - uses: actions/cache@v3
         with:
-          # Cache
-          path: ~/go/pkg/mod
-          # Cache key
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          # An ordered list of keys to use for restoring the cache if no cache hit occurred for key
           restore-keys: |
             ${{ runner.os }}-go-
-
       - name: Go Fmt
         run: |
           go fmt ./... && git status && [[ -z `git status -s` ]]
           # diff -u <(echo -n) <(gofmt -d -s .)
-
       - name: Go Test
         run: |
-          go mod vendor && go test ./pkg/... -coverprofile=coverage.txt -covermode=atomic
-
-      - name: Shutdown Ubuntu MySQL (SUDOx)
-        run: sudo service mysql stop
-
+          go test ./pkg/... -coverprofile=coverage.txt -covermode=atomic
+      - uses: codecov/codecov-action@v3
       - name: Makefile integration-test
         shell: bash
         run: make integration-test
-
-      - name: Coverage
-        run: bash <(curl -s https://codecov.io/bash)

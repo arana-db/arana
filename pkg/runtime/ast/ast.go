@@ -774,15 +774,7 @@ func MustParse(sql string) ([]*hint.Hint, Statement) {
 	return hints, stmt
 }
 
-type convCtx struct {
-	paramsCnt int32
-}
-
-func (cc *convCtx) getParamIndex() int32 {
-	cur := cc.paramsCnt
-	cc.paramsCnt++
-	return cur
-}
+type convCtx struct{}
 
 func (cc *convCtx) convFrom(from *ast.TableRefsClause) (ret []*TableSourceNode) {
 	if from == nil {
@@ -971,7 +963,7 @@ func (cc *convCtx) convLimit(li *ast.Limit) *LimitNode {
 		switch t := offset.(type) {
 		case *test_driver.ParamMarkerExpr:
 			n.SetOffsetVar()
-			n.SetOffset(int64(cc.getParamIndex()))
+			n.SetOffset(int64(t.Order))
 		case ast.ValueExpr:
 			n.SetOffset(int64(t.GetValue().(uint64)))
 		default:
@@ -982,7 +974,7 @@ func (cc *convCtx) convLimit(li *ast.Limit) *LimitNode {
 	switch t := li.Count.(type) {
 	case *test_driver.ParamMarkerExpr:
 		n.SetLimitVar()
-		n.SetLimit(int64(cc.getParamIndex()))
+		n.SetLimit(int64(t.Order))
 	case ast.ValueExpr:
 		n.SetLimit(int64(t.GetValue().(uint64)))
 	default:
@@ -1348,7 +1340,7 @@ func (cc *convCtx) convValueExpr(expr ast.ValueExpr) PredicateNode {
 	var atom ExpressionAtom
 	switch t := expr.(type) {
 	case *test_driver.ParamMarkerExpr:
-		atom = VariableExpressionAtom(cc.getParamIndex())
+		atom = VariableExpressionAtom(t.Order)
 	default:
 		switch val := t.GetValue().(type) {
 		case *test_driver.MyDecimal:
