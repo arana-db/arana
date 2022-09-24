@@ -28,7 +28,7 @@ import (
 
 type Cluster struct {
 	Tenant string                `yaml:"tenant" json:"tenant"`
-	Name string                `yaml:"name" json:"name"`
+	Name   string                `yaml:"Name" json:"name"`
 	Type   config.DataSourceType `yaml:"type" json:"type"`
 }
 

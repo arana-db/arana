@@ -19,7 +19,6 @@ package router
 
 import (
 	"context"
-	"github.com/arana-db/arana/pkg/config"
 	"net/http"
 )
 
@@ -31,6 +30,7 @@ import (
 	"github.com/arana-db/arana/pkg/admin"
 	"github.com/arana-db/arana/pkg/admin/exception"
 	"github.com/arana-db/arana/pkg/boot"
+	"github.com/arana-db/arana/pkg/config"
 )
 
 func init() {
@@ -67,7 +67,7 @@ func ListGroups(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
-	var res[] *config.Group
+	var res [] *config.Group
 	for _, it := range clusters{
 		cluster, err := service.GetDataSourceCluster(context.Background(), tenantName, it)
 		if err != nil {
