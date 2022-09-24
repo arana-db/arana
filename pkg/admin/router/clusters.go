@@ -30,6 +30,7 @@ import (
 	"github.com/arana-db/arana/pkg/admin"
 	"github.com/arana-db/arana/pkg/admin/exception"
 	"github.com/arana-db/arana/pkg/boot"
+	"github.com/arana-db/arana/pkg/config"
 )
 
 func init() {
@@ -49,7 +50,16 @@ func ListClusters(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
-	c.JSON(http.StatusOK, clusters)
+	var res []*config.DataSourceCluster
+	for _, it := range clusters {
+		cluster, err := service.GetDataSourceCluster(context.Background(), tenantName, it)
+		if err != nil {
+			return err
+		}
+		res = append(res, cluster)
+	}
+
+	c.JSON(http.StatusOK, res)
 	return nil
 }
 

@@ -253,7 +253,9 @@ func (fp *discovery) GetCluster(ctx context.Context, tenant, cluster string) (*C
 	}
 
 	return &Cluster{
-		Type: exist.Type,
+		Name:   exist.Name,
+		Tenant: tenant,
+		Type:   exist.Type,
 	}, nil
 }
 
