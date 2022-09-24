@@ -79,6 +79,7 @@ var _sqlTypeNames = [...]string{
 	SQLTypeShowStatus:      "SHOW STATUS",
 	SQLTypeShowTableStatus: "SHOW TABLE STATUS",
 	SQLTypeSetVariable:     "SET VARIABLE",
+	SQLTypeAnalyzeTable:    "ANALYZE TABLE",
 }
 
 // SQLType represents the type of SQL.

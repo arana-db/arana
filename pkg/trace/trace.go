@@ -19,6 +19,7 @@ package trace
 
 import (
 	"context"
+	"sync"
 )
 
 import (
@@ -41,6 +42,7 @@ type ProviderType string
 var (
 	providers       = make(map[ProviderType]Provider, 8)
 	currentProvider Provider
+	once            sync.Once
 )
 
 func RegisterProviders(pType ProviderType, p Provider) {
@@ -48,13 +50,17 @@ func RegisterProviders(pType ProviderType, p Provider) {
 }
 
 func Initialize(ctx context.Context, traceCfg *config.Trace) error {
-	v, ok := providers[ProviderType(traceCfg.Type)]
-	if !ok {
-		return errors.Errorf("not supported %s trace provider", traceCfg.Type)
-	}
-	currentProvider = v
-
-	return currentProvider.Initialize(ctx, traceCfg)
+	var err error
+	once.Do(func() {
+		v, ok := providers[ProviderType(traceCfg.Type)]
+		if !ok {
+			err = errors.Errorf("not supported %s trace provider", traceCfg.Type)
+			return
+		}
+		currentProvider = v
+		err = currentProvider.Initialize(ctx, traceCfg)
+	})
+	return err
 }
 
 func Extract(ctx *proto.Context, hints []*hint.Hint) {
