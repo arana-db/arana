@@ -23,8 +23,13 @@ docs/
 /docker-compose.yaml
 .golangci.yml
 .licenserc.yaml
+.editorconfig
+.linelint.yml
 .pre-commit-config.yaml
 .github/
+.chglog/
 justfile
 Makefile
+CHANGELOG.md
+CONTRIBUTING.md
 README*.md

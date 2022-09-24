@@ -69,8 +69,6 @@ type TableBody struct {
 
 // ConfigProvider provides configurations.
 type ConfigProvider interface {
-	ConfigUpdater
-
 	// ListTenants list tenants name
 	ListTenants(ctx context.Context) ([]string, error)
 
@@ -204,7 +202,9 @@ type ConfigWatcher interface {
 }
 
 type Discovery interface {
+	ConfigUpdater
 	ConfigProvider
+	ConfigWatcher
 	// ListListeners lists the listener names
 	ListListeners(ctx context.Context) []*config.Listener
 
@@ -213,4 +213,7 @@ type Discovery interface {
 
 	// InitTrace distributed tracing
 	InitTrace(ctx context.Context) error
+
+	// InitTenant initializes tenant (just a workaround, TBD)
+	InitTenant(tenant string) error
 }

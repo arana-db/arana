@@ -121,6 +121,14 @@ func Load(schema string) (Runtime, error) {
 	return (*defaultRuntime)(ns), nil
 }
 
+// Unload unloads a Runtime, here schema means logical database name.
+func Unload(schema string) error {
+	if err := namespace.Unregister(schema); err != nil {
+		return perrors.Wrapf(err, "cannot unload schema '%s'", schema)
+	}
+	return nil
+}
+
 var (
 	_ proto.DB       = (*AtomDB)(nil)
 	_ proto.Callable = (*atomTx)(nil)

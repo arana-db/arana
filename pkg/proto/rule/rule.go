@@ -182,10 +182,14 @@ func (ru *Rule) Has(table string) bool {
 }
 
 // RemoveVTable removes the VTable with given table.
-func (ru *Rule) RemoveVTable(table string) {
+func (ru *Rule) RemoveVTable(table string) bool {
 	ru.mu.Lock()
-	delete(ru.vtabs, table)
+	_, ok := ru.vtabs[table]
+	if ok {
+		delete(ru.vtabs, table)
+	}
 	ru.mu.Unlock()
+	return ok
 }
 
 // SetVTable sets a VTable.

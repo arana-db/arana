@@ -127,6 +127,18 @@ func (ns *Namespace) DBGroups() []string {
 	return groups
 }
 
+func (ns *Namespace) DBs(group string) []proto.DB {
+	dss := ns.dss.Load().(map[string][]proto.DB)
+	exist, ok := dss[group]
+	if !ok {
+		return nil
+	}
+
+	ret := make([]proto.DB, len(exist))
+	copy(ret, exist)
+	return ret
+}
+
 func (ns *Namespace) DB0(ctx context.Context) proto.DB {
 	groups := ns.DBGroups()
 	if len(groups) < 1 {

@@ -142,6 +142,8 @@ func NewTenantOperator(op StoreOperator) (TenantOperator, error) {
 	return tenantOp, nil
 }
 
+var _ TenantOperator = (*tenantOperate)(nil)
+
 type tenantOperate struct {
 	op   StoreOperator
 	lock sync.RWMutex
@@ -266,6 +268,45 @@ func (tp *tenantOperate) CreateTenant(name string) error {
 		}
 	}
 
+	return nil
+}
+
+func (tp *tenantOperate) CreateTenantUser(tenant, username, password string) error {
+	p := NewPathInfo(tenant)
+
+	prev, err := tp.op.Get(p.DefaultConfigDataUsersPath)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	var users Users
+	if err := yaml.Unmarshal(prev, &users); err != nil {
+		return errors.WithStack(err)
+	}
+	var found bool
+	for i := 0; i < len(users); i++ {
+		if users[i].Username == username {
+			users[i].Password = password
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		users = append(users, &User{
+			Username: username,
+			Password: password,
+		})
+	}
+
+	b, err := yaml.Marshal(users)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	if err := tp.op.Save(p.DefaultConfigDataUsersPath, b); err != nil {
+		return errors.WithStack(err)
+	}
 	return nil
 }
 

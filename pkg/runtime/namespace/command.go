@@ -59,6 +59,74 @@ func UpdateWeight(group, id string, weight proto.Weight) Command {
 	}
 }
 
+// RemoveNode returns a command to remove an existing node from namespace.
+func RemoveNode(group, node string) Command {
+	return func(ns *Namespace) error {
+		ns.Lock()
+		defer ns.Unlock()
+		dss, ok := ns.dss.Load().(map[string][]proto.DB)
+		if !ok {
+			return nil
+		}
+
+		var (
+			newborn = make(map[string][]proto.DB)
+			removed proto.DB
+		)
+		for k, v := range dss {
+			if k != group {
+				newborn[k] = v
+				continue
+			}
+			newVal := make([]proto.DB, 0, len(v))
+			for i := range v {
+				if v[i].ID() == node {
+					removed = v[i]
+					continue
+				}
+				newVal = append(newVal, v[i])
+			}
+			newborn[k] = newVal
+		}
+		ns.dss.Store(newborn)
+
+		if removed != nil {
+			_ = removed.Close()
+		}
+
+		log.Infof("[%s] remove node '%s' from group '%s' successfully", ns.name, node, group)
+
+		return nil
+	}
+}
+
+// RemoveGroup returns a command to remove an existing DB group.
+func RemoveGroup(group string) Command {
+	return func(ns *Namespace) error {
+		ns.Lock()
+		defer ns.Unlock()
+
+		dss, ok := ns.dss.Load().(map[string][]proto.DB)
+		if !ok {
+			return nil
+		}
+
+		newborn := make(map[string][]proto.DB)
+		for k, v := range dss {
+			if k == group {
+				continue
+			}
+			k, v := k, v
+			newborn[k] = v
+		}
+		ns.dss.Store(newborn)
+
+		log.Infof("[%s] remove group '%s' successfully", ns.name, group)
+
+		return nil
+	}
+}
+
 // RemoveDB returns a command to remove an existing DB.
 func RemoveDB(group, id string) Command {
 	return func(ns *Namespace) error {
@@ -150,6 +218,8 @@ func UpdateRule(rule *rule.Rule) Command {
 		ns.Lock()
 		defer ns.Unlock()
 		ns.rule.Store(rule)
+
+		log.Infof("[%s] update rule successfully", ns.name)
 
 		return nil
 	}

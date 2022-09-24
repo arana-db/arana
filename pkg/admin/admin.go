@@ -19,7 +19,6 @@ package admin
 
 import (
 	"context"
-	"errors"
 	"io"
 	"net"
 	"os"
@@ -41,8 +40,6 @@ import (
 )
 
 const K = "ARANA_ADMIN_SERVICE"
-
-var NotFoundError = errors.New("resource not found")
 
 var _hooks []Hook
 
@@ -71,7 +68,10 @@ func init() {
 	}
 }
 
-type Service = boot.ConfigProvider
+type Service interface {
+	boot.ConfigUpdater
+	boot.ConfigProvider
+}
 
 type Server struct {
 	l       net.Listener
