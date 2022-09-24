@@ -30,7 +30,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// Level represents the level of logging.
+// LogLevel represents the level of logging.
 type LogLevel int8
 
 const (

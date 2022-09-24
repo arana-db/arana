@@ -15,14 +15,26 @@
  * limitations under the License.
  */
 
-package main
+package router
 
 import (
-	"github.com/arana-db/arana/cmd/start"
-	"github.com/arana-db/arana/testdata"
+	"regexp"
+	"sync"
 )
 
-func main() {
-	bootstrap := testdata.Path("../conf/bootstrap.local-etcd.yaml")
-	start.Run(bootstrap, "")
+import (
+	"github.com/pkg/errors"
+)
+
+var _tenantNameRegexp *regexp.Regexp
+var _tenantNameRegexpOnce sync.Once
+
+func validateTenantName(name string) error {
+	_tenantNameRegexpOnce.Do(func() {
+		_tenantNameRegexp = regexp.MustCompile("[a-zA-Z][a-zA-Z0-9-_]+")
+	})
+	if _tenantNameRegexp.MatchString(name) {
+		return nil
+	}
+	return errors.Errorf("invalid tenant name '%s'", name)
 }

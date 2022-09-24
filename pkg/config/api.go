@@ -104,13 +104,20 @@ type (
 	//TenantOperator actions specific to tenant spaces
 	TenantOperator interface {
 		io.Closer
-		//ListTenants lists all tenants
+
+		// ListTenants lists all tenants
 		ListTenants() []string
-		//CreateTenant creates tenant
+
+		// CreateTenant creates tenant
 		CreateTenant(string) error
-		//RemoveTenant removes tenant
+
+		// RemoveTenant removes tenant
 		RemoveTenant(string) error
-		//Subscribe subscribes tenants change
+
+		// CreateTenantUser creates a user.
+		CreateTenantUser(tenant, username, password string) error
+
+		// Subscribe subscribes tenants change
 		Subscribe(ctx context.Context, c callback) context.CancelFunc
 	}
 

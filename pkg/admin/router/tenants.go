@@ -56,7 +56,14 @@ func ListTenants(c *gin.Context) error {
 		if err != nil {
 			return err
 		}
-		res = append(res, convertTenantToVO(tenant))
+		if tenant != nil {
+			res = append(res, convertTenantToVO(tenant))
+		} else {
+			res = append(res, gin.H{
+				"name":  it,
+				"users": []gin.H{},
+			})
+		}
 	}
 
 	c.JSON(http.StatusOK, res)
@@ -65,11 +72,19 @@ func ListTenants(c *gin.Context) error {
 
 func CreateTenant(c *gin.Context) error {
 	service := admin.GetService(c)
-	var tenantBody *boot.TenantBody
+	var tenantBody struct {
+		boot.TenantBody
+		Name string `json:"name"`
+	}
 	if err := c.ShouldBindJSON(&tenantBody); err != nil {
 		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
-	err := service.UpsertTenant(context.Background(), "", tenantBody)
+
+	if err := validateTenantName(tenantBody.Name); err != nil {
+		return exception.Wrap(exception.CodeInvalidParams, err)
+	}
+
+	err := service.UpsertTenant(context.Background(), tenantBody.Name, &tenantBody.TenantBody)
 	if err != nil {
 		return err
 	}

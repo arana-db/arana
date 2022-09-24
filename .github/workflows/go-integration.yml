@@ -17,7 +17,7 @@
 # under the License.
 #
 
-name: CI
+name: Go Integration Test
 on:
   push:
     branches:
@@ -53,14 +53,6 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-      - name: Go Fmt
-        run: |
-          go fmt ./... && git status && [[ -z `git status -s` ]]
-          # diff -u <(echo -n) <(gofmt -d -s .)
-      - name: Go Test
-        run: |
-          go test ./pkg/... -coverprofile=coverage.txt -covermode=atomic
-      - uses: codecov/codecov-action@v3
-      - name: Makefile integration-test
+      - name: Integration Test
         shell: bash
         run: make integration-test
