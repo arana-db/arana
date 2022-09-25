@@ -20,6 +20,7 @@ package start
 import (
 	"context"
 	"fmt"
+	"github.com/arana-db/arana/pkg/registry"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -89,14 +90,15 @@ func Run(bootstrapConfigPath string, importPath string) {
 		}
 	}
 
-	if err := boot.Boot(context.Background(), discovery); err != nil {
+	ctx := context.Background()
+	if err := boot.Boot(ctx, discovery); err != nil {
 		log.Fatal("start failed: %v", err)
 		return
 	}
 
 	propeller := server.NewServer()
 
-	listenersConf := discovery.ListListeners(context.Background())
+	listenersConf := discovery.ListListeners(ctx)
 	for _, listenerConf := range listenersConf {
 		listener, err := mysql.NewListener(listenerConf)
 		if err != nil {
@@ -106,6 +108,19 @@ func Run(bootstrapConfigPath string, importPath string) {
 		listener.SetExecutor(executor.NewRedirectExecutor())
 		propeller.AddListener(listener)
 	}
+
+	// init service registry
+	serviceRegistry, err := registry.Init(discovery.ListServiceRegistry(ctx))
+	if err != nil {
+		log.Fatalf("create service registry failed: %v", err)
+		return
+	}
+
+	if err := registry.DoRegistry(ctx, serviceRegistry, "service", listenersConf); err != nil {
+		log.Fatalf("do service register failed: %v", err)
+		return
+	}
+
 	propeller.Start()
 
 	ctx, cancel := context.WithCancel(context.Background())

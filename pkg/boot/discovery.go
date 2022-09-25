@@ -282,6 +282,10 @@ func (fp *discovery) ListListeners(ctx context.Context) []*config.Listener {
 	return fp.options.Listeners
 }
 
+func (fp *discovery) ListServiceRegistry(ctx context.Context) *config.Registry {
+	return fp.options.Registry
+}
+
 func (fp *discovery) ListClusters(ctx context.Context, tenant string) ([]string, error) {
 	op, ok := fp.centers[tenant]
 	if !ok {
