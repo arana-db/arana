@@ -23,18 +23,26 @@ package env
 
 import (
 	"os"
+	"strings"
+	"sync"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/constants"
 )
 
-// IsDevelopEnvironment check is the develop environment
-func IsDevelopEnvironment() bool {
-	dev := os.Getenv(constants.EnvDevelopEnvironment)
-	if dev == "1" {
-		return true
-	}
+var (
+	_isDevEnv     bool
+	_isDevEnvSync sync.Once
+)
 
-	return false
+// IsDevelopEnvironment returns true in the develop environment
+func IsDevelopEnvironment() bool {
+	_isDevEnvSync.Do(func() {
+		switch strings.ToLower(os.Getenv(constants.EnvDevelopEnvironment)) {
+		case "1", "yes", "on", "true":
+			_isDevEnv = true
+		}
+	})
+	return _isDevEnv
 }

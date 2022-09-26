@@ -22,7 +22,7 @@ const (
 	BinaryCollation  = "binary"
 )
 
-// A list of available Collations mapped to the internal ID.
+// Collations represents a list of available collations mapped to the internal ID.
 // To update this map use the following MySQL query:
 //     SELECT COLLATION_NAME, ID FROM information_schema.COLLATIONS WHERE ID<256 ORDER BY ID
 //
@@ -258,8 +258,8 @@ var Collations = map[string]uint16{
 	"utf8mb4_0900_ai_ci":       255,
 }
 
-// A denylist of Collations which is unsafe to interpolate parameters.
-// These multibyte encodings may contains 0x5c (`\`) in their trailing bytes.
+// UnsafeCollations represents a denylist of collations which is unsafe to interpolate parameters.
+// These multibyte encodings may contain 0x5c (`\`) in their trailing bytes.
 var UnsafeCollations = map[string]bool{
 	"big5_chinese_ci":        true,
 	"sjis_japanese_ci":       true,

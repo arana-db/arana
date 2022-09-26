@@ -34,7 +34,9 @@ import (
 	"github.com/arana-db/arana/testdata"
 )
 
-// Design documents: https://dubbo-kylin.yuque.com/docs/share/ff2e78b8-df2c-4874-b26e-cb6b923033b8
+// MergeRowStatement represents merge-row statement.
+// Please see the design documents:
+//   https://dubbo-kylin.yuque.com/docs/share/ff2e78b8-df2c-4874-b26e-cb6b923033b8
 type MergeRowStatement struct {
 	OrderBys []merge.OrderByItem
 	GroupBys []string
@@ -101,11 +103,8 @@ func (s *GroupByStreamMergeRows) merge() proto.Row {
 	}
 	aggrMap := s.getAggrUnitMap(s.stmt)
 	currentRow := s.currentRow
-	groupByColumns := make([]string, 0)
-	for _, item := range s.stmt.GroupBys {
-		groupByColumns = append(groupByColumns, item)
-	}
-
+	groupByColumns := make([]string, 0, len(s.stmt.GroupBys))
+	groupByColumns = append(groupByColumns, s.stmt.GroupBys...)
 	currentGroupValue := NewGroupByValue(groupByColumns, currentRow)
 	for {
 		if currentGroupValue.equals(s.currentRow) {

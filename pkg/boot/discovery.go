@@ -66,7 +66,7 @@ var (
 
 func getTableRegexp() *regexp.Regexp {
 	_regexpTableOnce.Do(func() {
-		_regexpTable = regexp.MustCompile("([a-zA-Z0-9\\-_]+)\\.([a-zA-Z0-9\\\\-_]+)")
+		_regexpTable = regexp.MustCompile(`([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_-]+)`)
 	})
 	return _regexpTable
 }

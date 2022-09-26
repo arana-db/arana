@@ -110,12 +110,13 @@ func wrapScript(script string) string {
 	sb.WriteString(_jsValueName)
 	sb.WriteString(") {\n")
 
-	if strings.Index(script, "return ") == -1 {
-		sb.WriteString("return ")
+	if strings.Contains(script, "return ") {
 		sb.WriteString(script)
 	} else {
+		sb.WriteString("return ")
 		sb.WriteString(script)
 	}
+
 	sb.WriteString("\n}")
 
 	return sb.String()

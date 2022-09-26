@@ -284,7 +284,7 @@ func NewTextVirtualRow(fields []proto.Field, cells []proto.Value) VirtualRow {
 
 func newBaseVirtualRow(fields []proto.Field, cells []proto.Value) *baseVirtualRow {
 	if len(fields) != len(cells) {
-		panic(fmt.Sprintf("the lengths of fields and cells are doesn't match!"))
+		panic("the lengths of fields and cells are doesn't match!")
 	}
 	return &baseVirtualRow{
 		fields: fields,

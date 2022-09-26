@@ -31,11 +31,13 @@ repos:
       - id: my-cmd-mod
         name: imports-formatter
         alias: imports-formatter
-        args: [imports-formatter]
+        args: [ imports-formatter ]
       - id: my-cmd-mod
         name: license-eye
         alias: license-eye
-        args: [license-eye, header, fix]
+        args: [ license-eye, header, fix ]
+      - id: go-mod-tidy
+      - id: go-staticcheck-mod
   - repo: https://github.com/golangci/golangci-lint
     rev: v1.46.2
     hooks:

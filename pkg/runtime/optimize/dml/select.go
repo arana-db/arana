@@ -91,7 +91,7 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 	}
 
 	if shards == nil {
-		if shards, fullScan, err = (*optimize.Sharder)(o.Rule).Shard(tableName, stmt.Where, o.Args...); err != nil && fullScan == false {
+		if shards, fullScan, err = (*optimize.Sharder)(o.Rule).Shard(tableName, stmt.Where, o.Args...); err != nil && !fullScan {
 			return nil, errors.Wrap(err, "calculate shards failed")
 		}
 	}

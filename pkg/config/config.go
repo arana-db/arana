@@ -547,7 +547,7 @@ func (c *center) doPersist(ctx context.Context, conf *Tenant) error {
 
 	configJson, err := json.Marshal(conf)
 	if err != nil {
-		return fmt.Errorf("config json.marshal failed  %v err:", err)
+		return errors.Wrap(err, "config json.marshal failed")
 	}
 
 	for k, v := range c.pathInfo.ConfigKeyMapping {

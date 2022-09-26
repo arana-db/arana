@@ -83,7 +83,7 @@ func TestVirtualDataset_Fields(t *testing.T) {
 				Rows:    tt.fields.Rows,
 			}
 			got, err := cu.Fields()
-			if !tt.wantErr(t, err, fmt.Sprintf("Fields()")) {
+			if !tt.wantErr(t, err, "Fields()") {
 				return
 			}
 			assert.Equalf(t, tt.want, got, "Fields()")

@@ -528,50 +528,58 @@ var numParams = map[string]int{
 }
 
 func write(buf *bytes.Buffer, e Expr) {
-	switch e.(type) {
+	switch e := e.(type) {
 	case constant:
-		fmt.Fprintf(buf, "%g", e.(constant))
+		_, _ = fmt.Fprintf(buf, "%g", e)
 
 	case stringConstant:
-		fmt.Fprintf(buf, "%s", e.(stringConstant))
+		_, _ = fmt.Fprintf(buf, "%s", e)
 
-	case Var, *Var:
-		v, ok := e.(Var)
-		if !ok {
-			v = *(e.(*Var))
-		}
+	case Var:
+		_, _ = fmt.Fprintf(buf, "%s", string(e))
 
-		fmt.Fprintf(buf, "%s", string(v))
+	case *Var:
+		_, _ = fmt.Fprintf(buf, "%s", string(*e))
 
-	case unary, *unary:
-		u, ok := e.(unary)
-		if !ok {
-			u = *(e.(*unary))
-		}
+	case unary:
+		_, _ = fmt.Fprintf(buf, "(%c", e.op)
+		write(buf, e.x)
+		buf.WriteByte(')')
 
-		fmt.Fprintf(buf, "(%c", u.op)
+	case *unary:
+		u := *e
+		_, _ = fmt.Fprintf(buf, "(%c", u.op)
 		write(buf, u.x)
 		buf.WriteByte(')')
 
-	case binaryExpr, *binaryExpr:
-		b, ok := e.(binaryExpr)
-		if !ok {
-			b = *(e.(*binaryExpr))
-		}
+	case binaryExpr:
+		buf.WriteByte('(')
+		write(buf, e.x)
+		_, _ = fmt.Fprintf(buf, " %c ", e.op)
+		write(buf, e.y)
+		buf.WriteByte(')')
 
+	case *binaryExpr:
+		b := *e
 		buf.WriteByte('(')
 		write(buf, b.x)
-		fmt.Fprintf(buf, " %c ", b.op)
+		_, _ = fmt.Fprintf(buf, " %c ", b.op)
 		write(buf, b.y)
 		buf.WriteByte(')')
 
-	case function, *function:
-		f, ok := e.(function)
-		if !ok {
-			f = *(e.(*function))
+	case function:
+		_, _ = fmt.Fprintf(buf, "%s(", e.fn)
+		for i, arg := range e.args {
+			if i > 0 {
+				buf.WriteString(", ")
+			}
+			write(buf, arg)
 		}
+		buf.WriteByte(')')
 
-		fmt.Fprintf(buf, "%s(", f.fn)
+	case *function:
+		f := *e
+		_, _ = fmt.Fprintf(buf, "%s(", f.fn)
 		for i, arg := range f.args {
 			if i > 0 {
 				buf.WriteString(", ")
@@ -581,6 +589,6 @@ func write(buf *bytes.Buffer, e Expr) {
 		buf.WriteByte(')')
 
 	default:
-		fmt.Fprintf(buf, "unknown Expr: %T", e)
+		_, _ = fmt.Fprintf(buf, "unknown Expr: %T", e)
 	}
 }

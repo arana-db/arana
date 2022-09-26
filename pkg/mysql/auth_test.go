@@ -138,7 +138,7 @@ func TestBackendConnection_readAuthResult(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			conn := createBackendConnection()
 			got, got1, err := conn.readAuthResult()
-			if !tt.wantErr(t, err, fmt.Sprintf("readAuthResult()")) {
+			if !tt.wantErr(t, err, "readAuthResult()") {
 				return
 			}
 			assert.Equalf(t, tt.want, got, "readAuthResult()")
@@ -158,7 +158,7 @@ func TestBackendConnection_readResultOK(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			conn := createBackendConnection()
-			tt.wantErr(t, conn.readResultOK(), fmt.Sprintf("readResultOK()"))
+			tt.wantErr(t, conn.readResultOK(), "readResultOK()")
 		})
 	}
 }

@@ -27,32 +27,32 @@ func (u *User) Equals(o *User) bool {
 	return u.Username == o.Username && u.Password == o.Password
 }
 
-func (n *Node) Equals(o *Node) bool {
-	if n.Name != o.Name {
+func (nd *Node) Equals(o *Node) bool {
+	if nd.Name != o.Name {
 		return false
 	}
 
-	if n.Host != o.Host || n.Port != o.Port {
+	if nd.Host != o.Host || nd.Port != o.Port {
 		return false
 	}
 
-	if n.Database != o.Database || n.Username != o.Username || n.Password != o.Password {
+	if nd.Database != o.Database || nd.Username != o.Username || nd.Password != o.Password {
 		return false
 	}
 
-	if n.Weight != o.Weight {
+	if nd.Weight != o.Weight {
 		return false
 	}
 
-	if len(n.Labels) != len(o.Labels) {
+	if len(nd.Labels) != len(o.Labels) {
 		return false
 	}
 
-	if len(n.Labels) != len(o.Labels) || !reflect.DeepEqual(n.Labels, o.Labels) {
+	if len(nd.Labels) != len(o.Labels) || !reflect.DeepEqual(nd.Labels, o.Labels) {
 		return false
 	}
 
-	if len(n.Parameters) != len(o.Parameters) || !reflect.DeepEqual(n.Parameters, o.Parameters) {
+	if len(nd.Parameters) != len(o.Parameters) || !reflect.DeepEqual(nd.Parameters, o.Parameters) {
 		return false
 	}
 
