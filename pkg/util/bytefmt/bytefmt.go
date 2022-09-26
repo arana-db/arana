@@ -34,7 +34,7 @@ const (
 	EXABYTE
 )
 
-var invalidByteQuantityError = errors.New("byte quantity must be a positive integer with a unit of measurement like M, MB, MiB, G, GiB, or GB")
+var errInvalidByteQuantity = errors.New("byte quantity must be a positive integer with a unit of measurement like M, MB, MiB, G, GiB, or GB")
 
 // ByteSize returns a human-readable byte string of the form 10M, 12.5K, and so forth.  The following units are available:
 //  E: Exabyte
@@ -93,13 +93,13 @@ func ToBytes(s string) (uint64, error) {
 	i := strings.IndexFunc(s, unicode.IsLetter)
 
 	if i == -1 {
-		return 0, invalidByteQuantityError
+		return 0, errInvalidByteQuantity
 	}
 
 	bytesString, multiple := s[:i], s[i:]
 	bytes, err := strconv.ParseFloat(bytesString, 64)
 	if err != nil || bytes <= 0 {
-		return 0, invalidByteQuantityError
+		return 0, errInvalidByteQuantity
 	}
 
 	switch multiple {
@@ -118,6 +118,6 @@ func ToBytes(s string) (uint64, error) {
 	case "B":
 		return uint64(bytes), nil
 	default:
-		return 0, invalidByteQuantityError
+		return 0, errInvalidByteQuantity
 	}
 }

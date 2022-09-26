@@ -25,8 +25,11 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/pem"
-	"fmt"
 	"sync"
+)
+
+import (
+	"github.com/pkg/errors"
 )
 
 import (
@@ -394,7 +397,7 @@ func (conn *BackendConnection) handleAuthResult(oldAuthData []byte, plugin strin
 
 						block, rest := pem.Decode(data[1:])
 						if block == nil {
-							return fmt.Errorf("No Pem Content found, Content: %s", rest)
+							return errors.Errorf("no pem content found: %s", rest)
 						}
 						pkix, err := x509.ParsePKIXPublicKey(block.Bytes)
 						if err != nil {

@@ -32,6 +32,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.9.0
 	go.opentelemetry.io/otel/trace v1.9.0
 	go.uber.org/atomic v1.9.0
+	go.uber.org/multierr v1.6.0
 	go.uber.org/zap v1.19.1
 	golang.org/x/exp v0.0.0-20220613132600-b0d781184e0d
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
@@ -117,7 +118,6 @@ require (
 	go.etcd.io/etcd/pkg/v3 v3.5.0-alpha.0 // indirect
 	go.etcd.io/etcd/raft/v3 v3.5.0-alpha.0 // indirect
 	go.opencensus.io v0.23.0 // indirect
-	go.uber.org/multierr v1.6.0 // indirect
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa // indirect
 	golang.org/x/net v0.0.0-20220725212005-46097bf591d3 // indirect
 	golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f // indirect

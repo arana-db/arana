@@ -122,10 +122,8 @@ func Run(bootstrapConfigPath string, importPath string) {
 		<-c
 		os.Exit(1) // second signal. Exit directly.
 	}()
-	select {
-	case <-ctx.Done():
-		return
-	}
+
+	<-ctx.Done()
 }
 
 func run(cmd *cobra.Command, args []string) {

@@ -73,9 +73,7 @@ func ListGroups(c *gin.Context) error {
 		if err != nil {
 			return err
 		}
-		for _, group := range cluster.Groups {
-			res = append(res, group)
-		}
+		res = append(res, cluster.Groups...)
 	}
 	c.JSON(http.StatusOK, res)
 	return nil

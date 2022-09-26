@@ -90,5 +90,4 @@ func (j *Jaeger) Extract(ctx *proto.Context, hints []*hint.Hint) {
 		return
 	}
 	ctx.Context = otel.GetTextMapPropagator().Extract(ctx.Context, propagation.MapCarrier{parentKey: traceId})
-	return
 }

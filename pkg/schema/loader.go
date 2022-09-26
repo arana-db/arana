@@ -72,15 +72,12 @@ func NewSimpleSchemaLoader() *SimpleSchemaLoader {
 
 func (l *SimpleSchemaLoader) refresh() {
 	ticker := time.NewTicker(10 * time.Minute)
-	for {
-		select {
-		case <-ticker.C:
-			l.mutex.Lock()
-			for l.metadataCache.Len() > 0 {
-				l.metadataCache.RemoveOldest()
-			}
-			l.mutex.Unlock()
+	for range ticker.C {
+		l.mutex.Lock()
+		for l.metadataCache.Len() > 0 {
+			l.metadataCache.RemoveOldest()
 		}
+		l.mutex.Unlock()
 	}
 }
 

@@ -269,8 +269,8 @@ func (t *Tenant) Empty() bool {
 
 var _weightRegexp = regexp.MustCompile(`^[rR]([0-9]+)[wW]([0-9]+)$`)
 
-func (d *Node) GetReadAndWriteWeight() (int, int, error) {
-	items := _weightRegexp.FindStringSubmatch(d.Weight)
+func (nd *Node) GetReadAndWriteWeight() (int, int, error) {
+	items := _weightRegexp.FindStringSubmatch(nd.Weight)
 	if len(items) != 3 {
 		return 0, 0, errors.New("weight config should be r10w10")
 	}
@@ -286,8 +286,8 @@ func (d *Node) GetReadAndWriteWeight() (int, int, error) {
 	return readWeight, writeWeight, nil
 }
 
-func (d *Node) String() string {
-	b, _ := json.Marshal(d)
+func (nd *Node) String() string {
+	b, _ := json.Marshal(nd)
 	return string(b)
 }
 
