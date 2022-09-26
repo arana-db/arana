@@ -46,6 +46,9 @@ func NewEtcdV3(addrs []string, conf *Options) (Store, error) {
 		cfg.Username = conf.Username
 		cfg.Password = conf.Password
 	}
+	if s.timeout == 0 {
+		s.timeout = 10 * time.Second
+	}
 	s.cfg = cfg
 
 	err := s.init()

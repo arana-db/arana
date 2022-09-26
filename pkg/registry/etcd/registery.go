@@ -37,13 +37,13 @@ type EtcdV3Registry struct {
 }
 
 // NewEtcdV3Registry init etcd v3 registry
-func NewEtcdV3Registry(serviceAddr, path string, etcdAddrs []string, updateInterval time.Duration, options *store.Options) (registry.Registry, error) {
+func NewEtcdV3Registry(serviceAddr, path string, etcdAddrs []string, options *store.Options) (registry.Registry, error) {
 	etcdRegistry := &EtcdV3Registry{
 		BasePath:       path,
 		ServiceAddress: serviceAddr,
 		EtcdServers:    etcdAddrs,
-		UpdateInterval: updateInterval,
-		Expired:        updateInterval,
+		UpdateInterval: time.Second * 15,
+		Expired:        time.Second * 15,
 	}
 
 	store.AddStore(store.ETCD, store.NewEtcdV3)
@@ -104,7 +104,7 @@ func (r *EtcdV3Registry) Register(ctx context.Context, name string, serviceInsta
 		return errors.Errorf("Register service name:%s marshal instance %v err:%v", name, serviceInstance, err)
 	}
 
-	err = r.client.Put(ctx, nodePath, serverInstanceBytes, int64(ttl))
+	err = r.client.Put(ctx, nodePath, serverInstanceBytes, int64(ttl.Seconds()))
 	if err != nil {
 		log.Errorf("cannot create etcd path %s: %v", nodePath, err)
 		return err

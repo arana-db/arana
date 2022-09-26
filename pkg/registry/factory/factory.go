@@ -3,7 +3,6 @@ package factory
 import (
 	"context"
 	"fmt"
-	"time"
 )
 
 import (
@@ -67,7 +66,7 @@ func initEtcd(registryConf *config.Registry) (registry.Registry, error) {
 	}
 
 	rootPath := registryConf.RootPath
-	serviceRegistry, err := etcd.NewEtcdV3Registry(serverAddr, rootPath, []string{etcdAddr}, time.Minute, nil)
+	serviceRegistry, err := etcd.NewEtcdV3Registry(serverAddr, rootPath, []string{etcdAddr}, nil)
 	if err != nil {
 		return nil, fmt.Errorf("service registry init etcd error because err: :%v", err)
 	}

@@ -90,15 +90,14 @@ func Run(bootstrapConfigPath string, importPath string) {
 		}
 	}
 
-	ctx := context.Background()
-	if err := boot.Boot(ctx, discovery); err != nil {
+	if err := boot.Boot(context.Background(), discovery); err != nil {
 		log.Fatal("start failed: %v", err)
 		return
 	}
 
 	propeller := server.NewServer()
 
-	listenersConf := discovery.ListListeners(ctx)
+	listenersConf := discovery.ListListeners(context.Background())
 	for _, listenerConf := range listenersConf {
 		listener, err := mysql.NewListener(listenerConf)
 		if err != nil {
@@ -110,13 +109,13 @@ func Run(bootstrapConfigPath string, importPath string) {
 	}
 
 	// init service registry
-	serviceRegistry, err := registryFactory.Init(discovery.ListServiceRegistry(ctx))
+	serviceRegistry, err := registryFactory.Init(discovery.ListServiceRegistry(context.Background()))
 	if err != nil {
 		log.Fatalf("create service registry failed: %v", err)
 		return
 	}
 
-	if err := registryFactory.DoRegistry(ctx, serviceRegistry, "service", listenersConf); err != nil {
+	if err := registryFactory.DoRegistry(context.Background(), serviceRegistry, "service", listenersConf); err != nil {
 		log.Fatalf("do service register failed: %v", err)
 		return
 	}
