@@ -37,11 +37,13 @@ type EtcdV3Registry struct {
 }
 
 // NewEtcdV3Registry init etcd v3 registry
-func NewEtcdV3Registry(serviceAddr, path string, etcdAddrs []string, options *store.Options) (registry.Registry, error) {
+func NewEtcdV3Registry(serviceAddr, path string, etcdAddrs []string, updateInterval time.Duration, options *store.Options) (registry.Registry, error) {
 	etcdRegistry := &EtcdV3Registry{
 		BasePath:       path,
 		ServiceAddress: serviceAddr,
 		EtcdServers:    etcdAddrs,
+		UpdateInterval: updateInterval,
+		Expired:        updateInterval,
 	}
 
 	store.AddStore(store.ETCD, store.NewEtcdV3)
@@ -49,6 +51,9 @@ func NewEtcdV3Registry(serviceAddr, path string, etcdAddrs []string, options *st
 	if err != nil {
 		log.Errorf("EtcdV3 Registry create etcdv3 client err:%v", err)
 		return nil, errors.Wrap(err, "EtcdV3 Registry create etcdv3 client")
+	}
+	if client == nil {
+		return nil, errors.New("EtcdV3 Registry create etcdv3: nil client")
 	}
 	etcdRegistry.client = client
 

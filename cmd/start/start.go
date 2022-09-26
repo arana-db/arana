@@ -20,7 +20,6 @@ package start
 import (
 	"context"
 	"fmt"
-	"github.com/arana-db/arana/pkg/registry"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -37,6 +36,7 @@ import (
 	"github.com/arana-db/arana/pkg/constants"
 	"github.com/arana-db/arana/pkg/executor"
 	"github.com/arana-db/arana/pkg/mysql"
+	registryFactory "github.com/arana-db/arana/pkg/registry/factory"
 	"github.com/arana-db/arana/pkg/server"
 	"github.com/arana-db/arana/pkg/util/log"
 )
@@ -110,13 +110,13 @@ func Run(bootstrapConfigPath string, importPath string) {
 	}
 
 	// init service registry
-	serviceRegistry, err := registry.Init(discovery.ListServiceRegistry(ctx))
+	serviceRegistry, err := registryFactory.Init(discovery.ListServiceRegistry(ctx))
 	if err != nil {
 		log.Fatalf("create service registry failed: %v", err)
 		return
 	}
 
-	if err := registry.DoRegistry(ctx, serviceRegistry, "service", listenersConf); err != nil {
+	if err := registryFactory.DoRegistry(ctx, serviceRegistry, "service", listenersConf); err != nil {
 		log.Fatalf("do service register failed: %v", err)
 		return
 	}
