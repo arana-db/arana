@@ -43,6 +43,7 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/config"
+	"github.com/arana-db/arana/pkg/constants"
 	"github.com/arana-db/arana/pkg/metrics"
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
@@ -628,11 +629,19 @@ func (pi *defaultRuntime) Execute(ctx *proto.Context) (res proto.Result, warn ui
 	execStart := time.Now()
 	defer func() {
 		span.End()
-		metrics.ExecuteDuration.Observe(time.Since(execStart).Seconds())
+		var since = time.Since(execStart)
+		metrics.ExecuteDuration.Observe(since.Seconds())
+		if s, ok := pi.Namespace().Parameters()[constants.SlowThreshold]; ok {
+			if slowThreshold, err := time.ParseDuration(s); err == nil {
+				if since > slowThreshold {
+					log.Warnf("slow logs elapsed %v sql %s", since, ctx.GetQuery())
+				}
+			}
+		}
 	}()
 	args := ctx.GetArgs()
 
-	if direct := rcontext.IsDirect(ctx.Context); direct {
+	if rcontext.IsDirect(ctx.Context) {
 		return pi.callDirect(ctx, args)
 	}
 

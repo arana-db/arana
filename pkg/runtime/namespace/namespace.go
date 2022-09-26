@@ -31,6 +31,7 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
@@ -80,6 +81,8 @@ type (
 
 		// datasource map, eg: employee_0001 -> [mysql-a,mysql-b,mysql-c], ... employee_0007 -> [mysql-x,mysql-y,mysql-z]
 		dss atomic.Value // map[string][]proto.DB
+
+		parameters config.ParametersMap
 
 		cmds chan Command  // command queue
 		done chan struct{} // done notify
@@ -234,6 +237,10 @@ func (ns *Namespace) Rule() *rule.Rule {
 		return nil
 	}
 	return ru
+}
+
+func (ns *Namespace) Parameters() config.ParametersMap {
+	return ns.parameters
 }
 
 // EnqueueCommand enqueues the next command, it will be executed async.

@@ -26,4 +26,6 @@ const (
 	SQLShowVariables = "SHOW VARIABLES WHERE Variable_name = '%s'"
 
 	VariableNameMaxAllowedPacket = "max_allowed_packet"
+
+	SlowThreshold = "slow_threshold"
 )
