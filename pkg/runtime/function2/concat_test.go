@@ -15,9 +15,11 @@
  * limitations under the License.
  */
 
-package dml
+package function2
 
 import (
+	"context"
+	"fmt"
 	"testing"
 )
 
@@ -26,32 +28,30 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/proto"
 )
 
-func TestAggregateVisitor(t *testing.T) {
+func TestConcat(t *testing.T) {
+	f := proto.MustGetFunc(FuncConcat)
+
 	type tt struct {
-		sql string // input sql
-		cnt int    // aggregate function amount
+		inputs []proto.Value
+		out    proto.Value
 	}
 
-	for _, it := range []tt{
-		{"select id,name from t", 0},
-		{"select count(*) from t", 1},
-		{"select avg(age) from t", 2},
-		{"select avg(age)+1 from t", 2},
-		{"select count(*)+1 from t", 1},
-		{"select sum(age)/count(age) from t", 2},
-		{"select id,avg(age)+1,count(*),min(age),max(age) from t", 5},
-		{"select CONCAT('total:',count(*)) from t", 1},
+	for _, next := range []tt{
+		{[]proto.Value{"hello ", "world"}, "hello world"},
+		{[]proto.Value{1, 2, 3}, "123"},
+		{[]proto.Value{"hello ", 42}, "hello 42"},
 	} {
-		t.Run(it.sql, func(t *testing.T) {
-			var av aggregateVisitor
-			_, stmt, err := ast.ParseSelect(it.sql)
+		t.Run(fmt.Sprint(next.out), func(t *testing.T) {
+			var inputs []proto.Valuer
+			for i := range next.inputs {
+				inputs = append(inputs, proto.ToValuer(next.inputs[i]))
+			}
+			out, err := f.Apply(context.Background(), inputs...)
 			assert.NoError(t, err)
-			_, err = stmt.Accept(&av)
-			assert.NoError(t, err)
-			assert.Len(t, av.aggregations, it.cnt)
+			assert.Equal(t, next.out, out)
 		})
 	}
 }

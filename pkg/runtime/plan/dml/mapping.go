@@ -19,7 +19,6 @@ package dml
 
 import (
 	"context"
-	"fmt"
 	"strings"
 )
 
@@ -38,6 +37,7 @@ import (
 	"github.com/arana-db/arana/pkg/resultx"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/optimize/dml/ext"
+	"github.com/arana-db/arana/pkg/util/math"
 )
 
 var _ proto.Plan = (*MappingPlan)(nil)
@@ -121,6 +121,19 @@ type virtualValueVisitor struct {
 	row map[string]proto.Value
 }
 
+func (vt *virtualValueVisitor) VisitSelectElementFunction(node *ast.SelectElementFunction) (interface{}, error) {
+	switch f := node.Function().(type) {
+	case *ast.Function:
+		res, err := f.Accept(vt)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+		return res, nil
+	}
+	// TODO: need implementation
+	panic("implement me")
+}
+
 func (vt *virtualValueVisitor) VisitSelectElementExpr(node *ast.SelectElementExpr) (interface{}, error) {
 	return node.Expression().Accept(vt)
 }
@@ -157,9 +170,70 @@ func (vt *virtualValueVisitor) VisitAtomFunction(node *ast.FunctionCallExpressio
 			return nil, errors.Errorf("no such column '%s'", name)
 		}
 		return value, nil
+	case *ast.Function:
+		value, err := f.Accept(vt)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+		return value, nil
 	default:
 		return nil, errors.Errorf("todo: %T is not supported yet", f)
 	}
+}
+
+func (vt *virtualValueVisitor) VisitFunction(node *ast.Function) (interface{}, error) {
+	getValuers := func(args []*ast.FunctionArg) []proto.Valuer {
+		valuers := make([]proto.Valuer, 0, len(args))
+		for i := range args {
+			arg := args[i]
+			valuers = append(valuers, proto.FuncValuer(func(ctx context.Context) (proto.Value, error) {
+				var (
+					next interface{}
+					err  error
+				)
+				switch arg.Type {
+				case ast.FunctionArgColumn:
+					next, err = arg.Value.(ast.ColumnNameExpressionAtom).Accept(vt)
+				case ast.FunctionArgExpression:
+					next, err = arg.Value.(ast.ExpressionNode).Accept(vt)
+				case ast.FunctionArgConstant:
+					next = arg.Value
+				case ast.FunctionArgFunction:
+					next, err = arg.Value.(*ast.Function).Accept(vt)
+				case ast.FunctionArgAggrFunction:
+					next, err = arg.Value.(*ast.AggrFunction).Accept(vt)
+				case ast.FunctionArgCaseWhenElseFunction:
+					next, err = arg.Value.(*ast.CaseWhenElseFunction).Accept(vt)
+				case ast.FunctionArgCastFunction:
+					next, err = arg.Value.(*ast.CastFunction).Accept(vt)
+				default:
+					panic("unreachable")
+				}
+
+				if err != nil {
+					return nil, errors.WithStack(err)
+				}
+				return next.(proto.Value), nil
+			}))
+		}
+		return valuers
+	}
+
+	funcName := node.Name()
+	nextFunc, ok := proto.GetFunc(funcName)
+	if !ok {
+		return nil, errors.Errorf("no such mysql function '%s'", funcName)
+	}
+	args := getValuers(node.Args())
+	if len(args) < nextFunc.NumInput() {
+		return nil, errors.Errorf("incorrect parameter count in the call to native function '%s'", funcName)
+	}
+	res, err := nextFunc.Apply(context.Background(), args...)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to call function '%s'", funcName)
+	}
+	return res, nil
+
 }
 
 func (vt *virtualValueVisitor) VisitAtomNested(node *ast.NestedExpressionAtom) (interface{}, error) {
@@ -172,20 +246,7 @@ func (vt *virtualValueVisitor) VisitAtomMath(node *ast.MathExpressionAtom) (inte
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
-		switch val := res.(type) {
-		case string:
-			return gxbig.NewDecFromString(val)
-		case *gxbig.Decimal:
-			return val, nil
-		case float64:
-			return gxbig.NewDecFromFloat(val)
-		case float32:
-			return gxbig.NewDecFromFloat(float64(val))
-		case int64:
-			return gxbig.NewDecFromInt(val), nil
-		default:
-			return gxbig.NewDecFromString(fmt.Sprint(val))
-		}
+		return math.ToDecimal(res), nil
 	}
 
 	var (

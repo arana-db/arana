@@ -15,43 +15,47 @@
  * limitations under the License.
  */
 
-package dml
+package function2
 
 import (
-	"testing"
+	"context"
+	"fmt"
+	"strings"
 )
 
 import (
-	"github.com/stretchr/testify/assert"
+	"github.com/pkg/errors"
 )
 
 import (
-	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/proto"
 )
 
-func TestAggregateVisitor(t *testing.T) {
-	type tt struct {
-		sql string // input sql
-		cnt int    // aggregate function amount
+// FuncConcat is https://dev.mysql.com/doc/refman/8.0/en/string-functions.html#function_concat
+const FuncConcat = "CONCAT"
+
+var _ proto.Func = (*concatFunc)(nil)
+
+func init() {
+	proto.RegisterFunc(FuncConcat, concatFunc{})
+}
+
+type concatFunc struct{}
+
+// Apply implements proto.Func.
+func (c concatFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
+	var sb strings.Builder
+	for _, it := range inputs {
+		val, err := it.Value(ctx)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+		_, _ = fmt.Fprint(&sb, val)
 	}
+	return sb.String(), nil
+}
 
-	for _, it := range []tt{
-		{"select id,name from t", 0},
-		{"select count(*) from t", 1},
-		{"select avg(age) from t", 2},
-		{"select avg(age)+1 from t", 2},
-		{"select count(*)+1 from t", 1},
-		{"select sum(age)/count(age) from t", 2},
-		{"select id,avg(age)+1,count(*),min(age),max(age) from t", 5},
-		{"select CONCAT('total:',count(*)) from t", 1},
-	} {
-		t.Run(it.sql, func(t *testing.T) {
-			var av aggregateVisitor
-			_, stmt, err := ast.ParseSelect(it.sql)
-			assert.NoError(t, err)
-			_, err = stmt.Accept(&av)
-			assert.NoError(t, err)
-			assert.Len(t, av.aggregations, it.cnt)
-		})
-	}
+// NumInput implements proto.Func.
+func (c concatFunc) NumInput() int {
+	return 1
 }
