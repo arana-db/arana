@@ -97,7 +97,7 @@ func (r *EtcdV3Registry) Register(ctx context.Context, name string, serviceInsta
 		return errors.New("Register service `name` can't be empty")
 	}
 
-	nodePath := fmt.Sprintf("%s/%s/%s", r.BasePath, name, r.ServiceAddress)
+	nodePath := fmt.Sprintf("/%s/%s/%s", r.BasePath, name, r.ServiceAddress)
 	ttl := r.UpdateInterval + r.Expired
 	serverInstanceBytes, err := json.Marshal(serviceInstance)
 	if err != nil {
