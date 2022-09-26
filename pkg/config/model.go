@@ -181,6 +181,13 @@ type (
 		DbPattern  string `validate:"required" yaml:"db_pattern" json:"db_pattern"`
 		TblPattern string `validate:"required" yaml:"tbl_pattern" json:"tbl_pattern"`
 	}
+
+	// Trace Distributed tracing configuration, which is used to configure the collector
+	// type and address
+	Trace struct {
+		Type    string `default:"jaeger" yaml:"type" json:"type"`
+		Address string `default:"http://localhost:14268/api/traces" yaml:"address" json:"address"`
+	}
 )
 
 type ParametersMap map[string]string

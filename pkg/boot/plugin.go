@@ -24,4 +24,5 @@ import (
 	_ "github.com/arana-db/arana/pkg/sequence"
 	_ "github.com/arana-db/arana/pkg/sequence/group"
 	_ "github.com/arana-db/arana/pkg/sequence/snowflake"
+	_ "github.com/arana-db/arana/pkg/trace/jaeger"
 )

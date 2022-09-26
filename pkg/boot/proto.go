@@ -212,6 +212,9 @@ type Discovery interface {
 	// Init initializes discovery with context
 	Init(ctx context.Context) error
 
+	// InitTrace distributed tracing
+	InitTrace(ctx context.Context) error
+
 	// InitTenant initializes tenant (just a workaround, TBD)
 	InitTenant(tenant string) error
 }

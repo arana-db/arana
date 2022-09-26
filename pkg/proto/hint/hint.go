@@ -38,6 +38,7 @@ const (
 	TypeRoute         // custom route
 	TypeFullScan      // enable full-scan
 	TypeDirect        // direct route
+	TypeTrace         // distributed tracing
 )
 
 var _hintTypes = [...]string{
@@ -46,6 +47,7 @@ var _hintTypes = [...]string{
 	TypeRoute:    "ROUTE",
 	TypeFullScan: "FULLSCAN",
 	TypeDirect:   "DIRECT",
+	TypeTrace:    "TRACE",
 }
 
 // KeyValue represents a pair of key and value.
