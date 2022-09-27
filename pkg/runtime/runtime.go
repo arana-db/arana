@@ -49,6 +49,7 @@ import (
 	"github.com/arana-db/arana/pkg/proto/hint"
 	"github.com/arana-db/arana/pkg/resultx"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
+	_ "github.com/arana-db/arana/pkg/runtime/function2"
 	"github.com/arana-db/arana/pkg/runtime/namespace"
 	"github.com/arana-db/arana/pkg/runtime/optimize"
 	_ "github.com/arana-db/arana/pkg/runtime/optimize/dal"

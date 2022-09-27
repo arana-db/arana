@@ -15,43 +15,53 @@
  * limitations under the License.
  */
 
-package dml
+package function2
 
 import (
+	"context"
+	"fmt"
 	"testing"
 )
 
 import (
+	gxbig "github.com/dubbogo/gost/math/big"
+
 	"github.com/stretchr/testify/assert"
 )
 
 import (
-	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/proto"
 )
 
-func TestAggregateVisitor(t *testing.T) {
+func TestAbs(t *testing.T) {
+	fn := proto.MustGetFunc(FuncAbs)
+	assert.Equal(t, 1, fn.NumInput())
+
 	type tt struct {
-		sql string // input sql
-		cnt int    // aggregate function amount
+		in  proto.Value
+		out string
+	}
+
+	mustDecimal := func(s string) *gxbig.Decimal {
+		d, _ := gxbig.NewDecFromString(s)
+		return d
 	}
 
 	for _, it := range []tt{
-		{"select id,name from t", 0},
-		{"select count(*) from t", 1},
-		{"select avg(age) from t", 2},
-		{"select avg(age)+1 from t", 2},
-		{"select count(*)+1 from t", 1},
-		{"select sum(age)/count(age) from t", 2},
-		{"select id,avg(age)+1,count(*),min(age),max(age) from t", 5},
-		{"select CONCAT('total:',count(*)) from t", 1},
+		{0, "0"},
+		{int64(-123), "123"},
+		{-3.14, "3.14"},
+		{float32(2.78), "2.78"},
+		{mustDecimal("-5.1234"), "5.1234"},
+		{"-618", "618"},
+		{"-11.11", "11.11"},
+		{"foobar", "0.0"},
 	} {
-		t.Run(it.sql, func(t *testing.T) {
-			var av aggregateVisitor
-			_, stmt, err := ast.ParseSelect(it.sql)
+		t.Run(it.out, func(t *testing.T) {
+			out, err := fn.Apply(context.Background(), proto.ToValuer(it.in))
 			assert.NoError(t, err)
-			_, err = stmt.Accept(&av)
-			assert.NoError(t, err)
-			assert.Len(t, av.aggregations, it.cnt)
+			assert.Equal(t, it.out, fmt.Sprint(out))
 		})
 	}
+
 }

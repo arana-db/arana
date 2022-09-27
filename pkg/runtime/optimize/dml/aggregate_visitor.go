@@ -128,10 +128,12 @@ func (av *aggregateVisitor) VisitSelectStatement(node *ast.SelectStatement) (int
 }
 
 func (av *aggregateVisitor) VisitSelectElementFunction(node *ast.SelectElementFunction) (interface{}, error) {
+	before := len(av.aggregations)
 	v, err := node.Function().Accept(av)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
+
 	switch t := v.(type) {
 	case ast.ExpressionAtom:
 		expr := &ast.PredicateExpressionNode{
@@ -145,6 +147,16 @@ func (av *aggregateVisitor) VisitSelectElementFunction(node *ast.SelectElementFu
 		av.hasMapping = true
 		return &vs, nil
 	default:
+		switch f := node.Function().(type) {
+		case *ast.Function:
+			if after := len(av.aggregations); after > before {
+				var vs ext.MappingSelectElement
+				vs.SelectElement = node
+				vs.Mapping = ast.NewSelectElementFunction(f, "")
+				av.hasMapping = true
+				return &vs, nil
+			}
+		}
 		return node, nil
 	}
 }
@@ -286,4 +298,30 @@ func (av *aggregateVisitor) VisitAtomFunction(node *ast.FunctionCallExpressionAt
 	default:
 		panic("unreachable")
 	}
+}
+
+func (av *aggregateVisitor) VisitFunction(node *ast.Function) (interface{}, error) {
+	for _, arg := range node.Args() {
+		var (
+			next = arg.Value
+			err  error
+		)
+		switch arg.Type {
+		case ast.FunctionArgExpression:
+			next, err = arg.Value.(ast.ExpressionNode).Accept(av)
+		case ast.FunctionArgFunction:
+			next, err = arg.Value.(*ast.Function).Accept(av)
+		case ast.FunctionArgAggrFunction:
+			next, err = arg.Value.(*ast.AggrFunction).Accept(av)
+		case ast.FunctionArgCaseWhenElseFunction:
+			next, err = arg.Value.(*ast.CaseWhenElseFunction).Accept(av)
+		case ast.FunctionArgCastFunction:
+			next, err = arg.Value.(*ast.CastFunction).Accept(av)
+		}
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+		arg.Value = next
+	}
+	return node, nil
 }
