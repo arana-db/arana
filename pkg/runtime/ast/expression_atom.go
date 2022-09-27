@@ -26,6 +26,7 @@ import (
 
 import (
 	"github.com/arana-db/parser/ast"
+	"github.com/arana-db/parser/opcode"
 
 	"github.com/pkg/errors"
 )
@@ -332,7 +333,15 @@ func (m *MathExpressionAtom) Restore(flag RestoreFlag, sb *strings.Builder, args
 	if err := m.Left.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
-	sb.WriteString(m.Operator)
+	switch m.Operator {
+	case opcode.IntDiv.Literal():
+		sb.WriteByte(' ')
+		sb.WriteString(m.Operator)
+		sb.WriteByte(' ')
+	default:
+		sb.WriteString(m.Operator)
+	}
+
 	if err := m.Right.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
