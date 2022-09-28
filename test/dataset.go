@@ -84,6 +84,7 @@ type (
 		QueryRowCases  []*Case `yaml:"query_row_cases"`
 		ExShHintCases  []*Case `yaml:"exec_shadow_hint_cases"`
 		ExShRegexCases []*Case `yaml:"exec_shadow_regex_cases"`
+		ExShValueCases []*Case `yaml:"exec_shadow_value_cases"`
 	}
 
 	Case struct {
