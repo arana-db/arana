@@ -113,7 +113,17 @@ data:
       - name: employees.student
         enable: true
         match_rules:
-          - operation: [select, insert, update, delete]
+          - operation: [insert, select]
             match_type: hint
             attributes:
               - value: "shadow"
+          - operation: [update]
+            match_type: value
+            attributes:
+              - column: uid
+                value: 10000
+          - operation: [delete]
+            match_type: regex
+            attributes:
+              - column: name
+                value: "^hanmeimei$"

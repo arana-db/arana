@@ -350,15 +350,33 @@ func mergeShadow(tableName, action string, rule *rule.ShadowRule, first, second 
 	k2, ok2 := second.(*KeyedEvaluator)
 
 	if ok1 {
-		s1, ok := k1.v.(string)
-		if ok && k1.op == cmp.Ceq && rule.MatchRegexBy(tableName, action, k1.k, s1) {
-			return k1, nil
+		if k1.op == cmp.Ceq {
+			switch v := k1.v.(type) {
+			case int8, uint8, int16, uint16, int32, uint32, int, int64, uint, uint64:
+				s := fmt.Sprintf("%v", v)
+				if rule.MatchValueBy(tableName, action, k1.k, s) {
+					return k1, nil
+				}
+			case string:
+				if rule.MatchValueBy(tableName, action, k1.k, v) || rule.MatchRegexBy(tableName, action, k1.k, v) {
+					return k1, nil
+				}
+			}
 		}
 	}
 	if ok2 {
-		s2, ok := k2.v.(string)
-		if ok && k2.op == cmp.Ceq && rule.MatchRegexBy(tableName, action, k2.k, s2) {
-			return k2, nil
+		if k2.op == cmp.Ceq {
+			switch v := k2.v.(type) {
+			case int8, uint8, int16, uint16, int32, uint32, int, int64, uint, uint64:
+				s := fmt.Sprintf("%v", v)
+				if rule.MatchValueBy(tableName, action, k2.k, s) {
+					return k2, nil
+				}
+			case string:
+				if rule.MatchValueBy(tableName, action, k2.k, v) || rule.MatchRegexBy(tableName, action, k2.k, v) {
+					return k2, nil
+				}
+			}
 		}
 	}
 
