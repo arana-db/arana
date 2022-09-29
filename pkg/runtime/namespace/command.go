@@ -18,6 +18,12 @@
 package namespace
 
 import (
+	"time"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/config"
+	"github.com/arana-db/arana/pkg/constants"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/util/log"
@@ -221,6 +227,24 @@ func UpdateRule(rule *rule.Rule) Command {
 
 		log.Infof("[%s] update rule successfully", ns.name)
 
+		return nil
+	}
+}
+
+func UpdateParameters(parameters config.ParametersMap) Command {
+	return func(ns *Namespace) error {
+		ns.parameters = parameters
+		return nil
+	}
+}
+
+func UpdateSlowThreshold(parameters config.ParametersMap) Command {
+	return func(ns *Namespace) error {
+		if s, ok := parameters[constants.SlowThreshold]; ok {
+			if slowThreshold, err := time.ParseDuration(s); err == nil {
+				ns.slowThreshold = slowThreshold
+			}
+		}
 		return nil
 	}
 }

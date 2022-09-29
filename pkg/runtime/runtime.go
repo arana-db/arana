@@ -629,11 +629,15 @@ func (pi *defaultRuntime) Execute(ctx *proto.Context) (res proto.Result, warn ui
 	execStart := time.Now()
 	defer func() {
 		span.End()
-		metrics.ExecuteDuration.Observe(time.Since(execStart).Seconds())
+		var since = time.Since(execStart)
+		metrics.ExecuteDuration.Observe(since.Seconds())
+		if pi.Namespace().SlowThreshold() != 0 && since > pi.Namespace().SlowThreshold() {
+			log.Warnf("slow logs elapsed %v sql %s", since, ctx.GetQuery())
+		}
 	}()
 	args := ctx.GetArgs()
 
-	if direct := rcontext.IsDirect(ctx.Context); direct {
+	if rcontext.IsDirect(ctx.Context) {
 		return pi.callDirect(ctx, args)
 	}
 
