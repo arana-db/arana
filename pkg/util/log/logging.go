@@ -121,7 +121,9 @@ func init() {
 	log = zapLogger.Sugar()
 }
 
-func Init(logPath string, level LogLevel) {
+func Init(logPath string, level LogLevel) { log = NewLogger(logPath, level) }
+
+func NewLogger(logPath string, level LogLevel) *zap.SugaredLogger {
 	lumberJackLogger := &lumberjack.Logger{
 		Filename:   logPath,
 		MaxSize:    10,
@@ -138,8 +140,7 @@ func Init(logPath string, level LogLevel) {
 	encoder := zapcore.NewConsoleEncoder(encoderConfig)
 	core := zapcore.NewCore(encoder, syncer, zap.NewAtomicLevelAt(zapcore.Level(level)))
 	zapLogger = zap.New(core, zap.AddCaller())
-
-	log = zapLogger.Sugar()
+	return zapLogger.Sugar()
 }
 
 // SetLogger customize yourself logger.

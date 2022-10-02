@@ -217,4 +217,7 @@ type Discovery interface {
 
 	// InitTenant initializes tenant (just a workaround, TBD)
 	InitTenant(tenant string) error
+
+	// GetOptions get options
+	GetOptions() *BootOptions
 }

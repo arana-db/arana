@@ -504,6 +504,10 @@ func (fp *discovery) loadTables(cluster string, op config.Center) map[string]*co
 	return tables
 }
 
+func (fp *discovery) GetOptions() *BootOptions {
+	return fp.options
+}
+
 var (
 	_regexpTopology     *regexp.Regexp
 	_regexpTopologyOnce sync.Once
