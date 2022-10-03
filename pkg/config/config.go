@@ -22,374 +22,68 @@ package config
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"path/filepath"
-	"sync"
+	"errors"
 	"sync/atomic"
 )
 
 import (
-	"github.com/pkg/errors"
-
-	"github.com/tidwall/gjson"
-
 	"gopkg.in/yaml.v3"
 )
 
-import (
-	"github.com/arana-db/arana/pkg/util/log"
+var (
+	ErrorNotImplement = errors.New("not implement")
 )
 
-type PathInfo struct {
-	DefaultConfigSpecPath               PathKey
-	DefaultTenantBaseConfigPath         PathKey
-	DefaultConfigDataNodesPath          PathKey
-	DefaultConfigDataUsersPath          PathKey
-	DefaultConfigDataSourceClustersPath PathKey
-	DefaultConfigDataShardingRulePath   PathKey
-	DefaultConfigDataShadowRulePath     PathKey
-
-	ConfigKeyMapping   map[PathKey]string
-	ConfigEventMapping map[PathKey]EventType
-	BuildEventMapping  map[EventType]func(pre, cur *Tenant) Event
-	ConfigValSupplier  map[PathKey]func(cfg *Tenant) interface{}
-}
-
-func NewPathInfo(tenant string) *PathInfo {
-	p := &PathInfo{}
-
-	p.DefaultTenantBaseConfigPath = PathKey(filepath.Join(string(DefaultRootPath), fmt.Sprintf("tenants/%s", tenant)))
-	p.DefaultConfigSpecPath = PathKey(filepath.Join(string(p.DefaultTenantBaseConfigPath), "spec"))
-	p.DefaultConfigDataNodesPath = PathKey(filepath.Join(string(p.DefaultTenantBaseConfigPath), "nodes"))
-	p.DefaultConfigDataUsersPath = PathKey(filepath.Join(string(p.DefaultTenantBaseConfigPath), "users"))
-	p.DefaultConfigDataSourceClustersPath = PathKey(filepath.Join(string(p.DefaultTenantBaseConfigPath), "dataSourceClusters"))
-	p.DefaultConfigDataShardingRulePath = PathKey(filepath.Join(string(p.DefaultConfigDataSourceClustersPath), "shardingRule"))
-	p.DefaultConfigDataShadowRulePath = PathKey(filepath.Join(string(p.DefaultConfigDataSourceClustersPath), "shadowRule"))
-
-	p.ConfigEventMapping = map[PathKey]EventType{
-		p.DefaultConfigDataUsersPath:          EventTypeUsers,
-		p.DefaultConfigDataNodesPath:          EventTypeNodes,
-		p.DefaultConfigDataSourceClustersPath: EventTypeClusters,
-		p.DefaultConfigDataShardingRulePath:   EventTypeShardingRule,
-		p.DefaultConfigDataShadowRulePath:     EventTypeShadowRule,
-	}
-
-	p.ConfigValSupplier = map[PathKey]func(cfg *Tenant) interface{}{
-		p.DefaultConfigSpecPath: func(cfg *Tenant) interface{} {
-			return &cfg.Spec
-		},
-		p.DefaultConfigDataUsersPath: func(cfg *Tenant) interface{} {
-			return &cfg.Users
-		},
-		p.DefaultConfigDataSourceClustersPath: func(cfg *Tenant) interface{} {
-			return &cfg.DataSourceClusters
-		},
-		p.DefaultConfigDataNodesPath: func(cfg *Tenant) interface{} {
-			return &cfg.Nodes
-		},
-		p.DefaultConfigDataShardingRulePath: func(cfg *Tenant) interface{} {
-			return cfg.ShardingRule
-		},
-		p.DefaultConfigDataShadowRulePath: func(cfg *Tenant) interface{} {
-			return cfg.ShadowRule
-		},
-	}
-
-	p.ConfigKeyMapping = map[PathKey]string{
-		p.DefaultConfigSpecPath:               "spec",
-		p.DefaultConfigDataUsersPath:          "users",
-		p.DefaultConfigDataSourceClustersPath: "clusters",
-		p.DefaultConfigDataShardingRulePath:   "sharding_rule",
-		p.DefaultConfigDataNodesPath:          "nodes",
-		p.DefaultConfigDataShadowRulePath:     "shadow_rule",
-	}
-
-	p.BuildEventMapping = map[EventType]func(pre *Tenant, cur *Tenant) Event{
-		EventTypeNodes: func(pre, cur *Tenant) Event {
-			return Nodes(cur.Nodes).Diff(pre.Nodes)
-		},
-		EventTypeUsers: func(pre, cur *Tenant) Event {
-			return Users(cur.Users).Diff(pre.Users)
-		},
-		EventTypeClusters: func(pre, cur *Tenant) Event {
-			return Clusters(cur.DataSourceClusters).Diff(pre.DataSourceClusters)
-		},
-		EventTypeShardingRule: func(pre, cur *Tenant) Event {
-			return cur.ShardingRule.Diff(pre.ShardingRule)
-		},
-		EventTypeShadowRule: func(pre, cur *Tenant) Event {
-			return cur.ShadowRule.Diff(pre.ShadowRule)
-		},
-	}
-
-	return p
-}
-
-func NewTenantOperator(op StoreOperator) (TenantOperator, error) {
-	tenantOp := &tenantOperate{
-		op:        op,
-		tenants:   map[string]struct{}{},
-		cancels:   []context.CancelFunc{},
-		observers: &observerBucket{observers: map[EventType][]*subscriber{}},
-	}
-
-	if err := tenantOp.init(); err != nil {
-		return nil, err
-	}
-
-	return tenantOp, nil
-}
-
-var _ TenantOperator = (*tenantOperate)(nil)
-
-type tenantOperate struct {
-	op   StoreOperator
-	lock sync.RWMutex
-
-	tenants   map[string]struct{}
-	observers *observerBucket
-
-	cancels []context.CancelFunc
-}
-
-func (tp *tenantOperate) Subscribe(ctx context.Context, c callback) context.CancelFunc {
-	return tp.observers.add(EventTypeTenants, c)
-}
-
-func (tp *tenantOperate) init() error {
-	tp.lock.Lock()
-	defer tp.lock.Unlock()
-
-	if len(tp.tenants) == 0 {
-		val, err := tp.op.Get(DefaultTenantsPath)
-		if err != nil {
-			return err
-		}
-
-		tenants := make([]string, 0, 4)
-		if err := yaml.Unmarshal(val, &tenants); err != nil {
-			return err
-		}
-
-		for i := range tenants {
-			tp.tenants[tenants[i]] = struct{}{}
-		}
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	tp.cancels = append(tp.cancels, cancel)
-
-	return tp.watchTenants(ctx)
-}
-
-func (tp *tenantOperate) watchTenants(ctx context.Context) error {
-	ch, err := tp.op.Watch(DefaultTenantsPath)
-	if err != nil {
-		return err
-	}
-
-	go func(ctx context.Context) {
-		consumer := func(ret []byte) {
-			tenants := make([]string, 0, 4)
-			if err := yaml.Unmarshal(ret, &tenants); err != nil {
-				log.Errorf("marshal tenants content : %v", err)
-				return
-			}
-
-			event := Tenants(tenants).Diff(tp.ListTenants())
-			log.Infof("receive tenants change event : %#v", event)
-			tp.observers.notify(EventTypeTenants, event)
-
-			tp.lock.Lock()
-			defer tp.lock.Unlock()
-
-			tp.tenants = map[string]struct{}{}
-			for i := range tenants {
-				tp.tenants[tenants[i]] = struct{}{}
-			}
-		}
-
-		for {
-			select {
-			case ret := <-ch:
-				consumer(ret)
-			case <-ctx.Done():
-				log.Infof("stop watch : %s", DefaultTenantsPath)
-			}
-		}
-	}(ctx)
-
-	return nil
-}
-
-func (tp *tenantOperate) ListTenants() []string {
-	tp.lock.RLock()
-	defer tp.lock.RUnlock()
-
-	ret := make([]string, 0, len(tp.tenants))
-
-	for i := range tp.tenants {
-		ret = append(ret, i)
-	}
-
-	return ret
-}
-
-func (tp *tenantOperate) CreateTenant(name string) error {
-	tp.lock.Lock()
-	defer tp.lock.Unlock()
-
-	if _, ok := tp.tenants[name]; ok {
-		return nil
-	}
-
-	tp.tenants[name] = struct{}{}
-	ret := make([]string, 0, len(tp.tenants))
-	for i := range tp.tenants {
-		ret = append(ret, i)
-	}
-
-	data, err := yaml.Marshal(ret)
-	if err != nil {
-		return err
-	}
-
-	if err := tp.op.Save(DefaultTenantsPath, data); err != nil {
-		return errors.Wrap(err, "create tenant name")
-	}
-
-	// need to insert the relevant configuration data under the relevant tenant
-	tenantPathInfo := NewPathInfo(name)
-	for i := range tenantPathInfo.ConfigKeyMapping {
-		if err := tp.op.Save(i, []byte("")); err != nil {
-			return errors.Wrap(err, fmt.Sprintf("create tenant resource : %s", i))
-		}
-	}
-
-	return nil
-}
-
-func (tp *tenantOperate) CreateTenantUser(tenant, username, password string) error {
-	p := NewPathInfo(tenant)
-
-	prev, err := tp.op.Get(p.DefaultConfigDataUsersPath)
-	if err != nil {
-		return errors.WithStack(err)
-	}
-
-	var users Users
-	if err := yaml.Unmarshal(prev, &users); err != nil {
-		return errors.WithStack(err)
-	}
-	var found bool
-	for i := 0; i < len(users); i++ {
-		if users[i].Username == username {
-			users[i].Password = password
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		users = append(users, &User{
-			Username: username,
-			Password: password,
-		})
-	}
-
-	b, err := yaml.Marshal(users)
-	if err != nil {
-		return errors.WithStack(err)
-	}
-
-	if err := tp.op.Save(p.DefaultConfigDataUsersPath, b); err != nil {
-		return errors.WithStack(err)
-	}
-	return nil
-}
-
-func (tp *tenantOperate) RemoveTenant(name string) error {
-	tp.lock.Lock()
-	defer tp.lock.Unlock()
-
-	delete(tp.tenants, name)
-
-	ret := make([]string, 0, len(tp.tenants))
-	for i := range tp.tenants {
-		ret = append(ret, i)
-	}
-
-	data, err := yaml.Marshal(ret)
-	if err != nil {
-		return err
-	}
-
-	return tp.op.Save(DefaultTenantsPath, data)
-}
-
-func (tp *tenantOperate) Close() error {
-	for i := range tp.cancels {
-		tp.cancels[i]()
-	}
-	return nil
-}
-
-type observerBucket struct {
-	lock      sync.RWMutex
-	observers map[EventType][]*subscriber
-}
-
-func (b *observerBucket) notify(et EventType, val Event) {
-	b.lock.RLock()
-	defer b.lock.RUnlock()
-
-	v := b.observers[et]
-	for i := range v {
-		item := v[i]
-		select {
-		case <-item.ctx.Done():
-		default:
-			item.watch(val)
-		}
-	}
-}
-
-func (b *observerBucket) add(et EventType, f callback) context.CancelFunc {
-	b.lock.Lock()
-	defer b.lock.Unlock()
-
-	if _, ok := b.observers[et]; !ok {
-		b.observers[et] = make([]*subscriber, 0, 4)
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-
-	v := b.observers[et]
-	v = append(v, &subscriber{
-		watch: f,
-		ctx:   ctx,
-	})
-
-	b.observers[et] = v
-
-	return cancel
-}
+type (
+	CenterTest = center
+)
 
 type center struct {
 	tenant     string
 	initialize int32
 
 	storeOperate StoreOperator
-	pathInfo     *PathInfo
-	holders      map[PathKey]*atomic.Value
 
-	observers    *observerBucket
-	watchCancels []context.CancelFunc
+	Reader  ConfigReader
+	Writer  ConfigWriter
+	Watcher ConfigWatcher
 }
 
-func NewCenter(tenant string, op StoreOperator) Center {
-	p := NewPathInfo(tenant)
+func NewCenter(tenant string, storeOperate StoreOperator, opts ...option) (Center, error) {
+	c := &center{
+		storeOperate: storeOperate,
+		tenant:       tenant,
+	}
+
+	opt := &configOption{
+		tenant: tenant,
+	}
+
+	for i := range opts {
+		opts[i](opt)
+	}
+
+	if err := c.newConfigWriter(*opt); err != nil {
+		return nil, err
+	}
+
+	if err := c.newConfigWatcher(*opt); err != nil {
+		return nil, err
+	}
+
+	if err := c.newConfigReader(*opt); err != nil {
+		return nil, err
+	}
+
+	return c, nil
+}
+
+func (c *center) newConfigReader(opt configOption) error {
+	if !opt.openReader {
+		return nil
+	}
+
+	p := NewPathInfo(opt.tenant)
 
 	holders := map[PathKey]*atomic.Value{}
 	for k := range p.ConfigKeyMapping {
@@ -397,173 +91,131 @@ func NewCenter(tenant string, op StoreOperator) Center {
 		holders[k].Store(NewEmptyTenant())
 	}
 
-	return &center{
+	var ret ConfigReader
+
+	reader := &configReader{
+		tenant:       opt.tenant,
+		storeOperate: c.storeOperate,
 		pathInfo:     p,
-		tenant:       tenant,
 		holders:      holders,
-		storeOperate: op,
-		observers:    &observerBucket{observers: map[EventType][]*subscriber{}},
 	}
+	ret = reader
+
+	if opt.cacheable {
+		watcher, err := NewConfigWatcher(c.tenant, c.storeOperate, NewPathInfo(opt.tenant))
+		if err != nil {
+			return err
+		}
+
+		ret = &cacheConfigReader{
+			initialize: 0,
+			reader:     reader,
+			watcher:    watcher,
+		}
+	}
+
+	c.Reader = ret
+	return nil
+}
+
+func (c *center) newConfigWriter(opt configOption) error {
+	if !opt.openWriter {
+		return nil
+	}
+
+	writer := &configWriter{
+		tenant:       opt.tenant,
+		storeOperate: c.storeOperate,
+		pathInfo:     NewPathInfo(opt.tenant),
+	}
+
+	c.Writer = writer
+	return nil
+}
+
+func (c *center) newConfigWatcher(opt configOption) error {
+	if !opt.openWatcher {
+		return nil
+	}
+
+	watcher, err := NewConfigWatcher(c.tenant, c.storeOperate, NewPathInfo(opt.tenant))
+	if err != nil {
+		return err
+	}
+
+	c.Watcher = watcher
+	return nil
+}
+
+// LoadAll loads the full Tenant configuration, the first time it will be loaded remotely,
+// and then it will be directly assembled from the cache layer
+func (c *center) LoadAll(ctx context.Context) (*Tenant, error) {
+	if c.Reader == nil {
+		return nil, ErrorNotImplement
+	}
+
+	return c.Reader.LoadAll(ctx)
+}
+
+// Load loads the full Tenant configuration, the first time it will be loaded remotely,
+// and then it will be directly assembled from the cache layer
+func (c *center) Load(ctx context.Context, item ConfigItem) (*Tenant, error) {
+	if c.Reader == nil {
+		return nil, ErrorNotImplement
+	}
+
+	return c.Reader.Load(ctx, item)
+}
+
+// ImportAll imports the configuration information of a tenant
+func (c *center) ImportAll(ctx context.Context, cfg *Tenant) error {
+	if c.Writer == nil {
+		return ErrorNotImplement
+	}
+
+	return c.Writer.ImportAll(ctx, cfg)
+}
+
+// Write imports the configuration information of a tenant
+func (c *center) Write(ctx context.Context, item ConfigItem, cfg *Tenant) error {
+	if c.Writer == nil {
+		return ErrorNotImplement
+	}
+
+	return c.Writer.Write(ctx, item, cfg)
+}
+
+// Subscribe subscribes to all changes of an event by EventType
+func (c *center) Subscribe(ctx context.Context, et EventType, cb EventCallback) (context.CancelFunc, error) {
+	if c.Watcher == nil {
+		return nil, ErrorNotImplement
+	}
+
+	return c.Watcher.Subscribe(ctx, et, cb)
 }
 
 func (c *center) Close() error {
-	for i := range c.watchCancels {
-		c.watchCancels[i]()
-	}
-	return nil
-}
-
-func (c *center) Load(ctx context.Context) (*Tenant, error) {
-	if atomic.CompareAndSwapInt32(&c.initialize, 0, 1) {
-		if err := c.loadFromStore(ctx); err != nil {
-			return nil, err
-		}
-
-		if err := c.watchFromStore(); err != nil {
-			return nil, err
-		}
-	}
-
-	return c.compositeConfiguration(), nil
-}
-
-func (c *center) compositeConfiguration() *Tenant {
-	conf := &Tenant{
-		Name: c.tenant,
-	}
-
-	if val := c.holders[c.pathInfo.DefaultConfigDataUsersPath].Load(); val != nil {
-		conf.Users = val.(*Tenant).Users
-	}
-	if val := c.holders[c.pathInfo.DefaultConfigDataNodesPath].Load(); val != nil {
-		conf.Nodes = val.(*Tenant).Nodes
-	}
-	if val := c.holders[c.pathInfo.DefaultConfigDataSourceClustersPath].Load(); val != nil {
-		conf.DataSourceClusters = val.(*Tenant).DataSourceClusters
-	}
-	if val := c.holders[c.pathInfo.DefaultConfigDataShardingRulePath].Load(); val != nil {
-		conf.ShardingRule = val.(*Tenant).ShardingRule
-	}
-	if val := c.holders[c.pathInfo.DefaultConfigDataShadowRulePath].Load(); val != nil {
-		conf.ShadowRule = val.(*Tenant).ShadowRule
-	}
-
-	if conf.Empty() {
-		return nil
-	}
-	return conf
-}
-
-func (c *center) Import(ctx context.Context, cfg *Tenant) error {
-	return c.doPersist(ctx, cfg)
-}
-
-func (c *center) loadFromStore(ctx context.Context) error {
-	operate := c.storeOperate
-
-	for k := range c.pathInfo.ConfigKeyMapping {
-		val, err := operate.Get(k)
-		if err != nil {
+	if c.Reader != nil {
+		if err := c.Reader.Close(); err != nil {
 			return err
 		}
-
-		holder := c.holders[k]
-		supplier, ok := c.pathInfo.ConfigValSupplier[k]
-		if !ok {
-			return fmt.Errorf("%s not register val supplier", k)
-		}
-
-		if len(val) != 0 {
-			exp := supplier(holder.Load().(*Tenant))
-			if err := yaml.Unmarshal(val, exp); err != nil {
-				return err
-			}
-		}
 	}
-	return nil
-}
-
-func (c *center) watchFromStore() error {
-	cancels := make([]context.CancelFunc, 0, len(c.pathInfo.ConfigKeyMapping))
-
-	for k := range c.pathInfo.ConfigKeyMapping {
-		ctx, cancel := context.WithCancel(context.Background())
-		cancels = append(cancels, cancel)
-		ch, err := c.storeOperate.Watch(k)
-		if err != nil {
+	if c.Writer != nil {
+		if err := c.Writer.Close(); err != nil {
 			return err
 		}
-		go c.watchKey(ctx, k, ch)
 	}
-
-	c.watchCancels = cancels
-	return nil
-}
-
-func (c *center) watchKey(ctx context.Context, key PathKey, ch <-chan []byte) {
-	consumer := func(ret []byte) {
-		supplier, ok := c.pathInfo.ConfigValSupplier[key]
-		if !ok {
-			log.Errorf("%s not register val supplier", key)
-			return
-		}
-		if len(ret) == 0 {
-			log.Errorf("%s receive empty content, ignore", key)
-			return
-		}
-
-		cur := NewEmptyTenant()
-		if err := yaml.Unmarshal(ret, supplier(cur)); err != nil {
-			log.Errorf("%s marshal new content : %v", key, err)
-			return
-		}
-
-		pre := c.holders[key].Load().(*Tenant)
-		et := c.pathInfo.ConfigEventMapping[key]
-		event := c.pathInfo.BuildEventMapping[et](pre, cur)
-		log.Infof("%s receive change event : %#v", key, event)
-
-		c.observers.notify(et, event)
-		c.holders[key].Store(cur)
-	}
-
-	for {
-		select {
-		case ret := <-ch:
-			consumer(ret)
-		case <-ctx.Done():
-			log.Infof("stop watch : %s", key)
-		}
-	}
-}
-
-func (c *center) PersistContext(ctx context.Context) error {
-	return c.doPersist(ctx, c.compositeConfiguration())
-}
-
-func (c *center) doPersist(ctx context.Context, conf *Tenant) error {
-	configJson, err := json.Marshal(conf)
-	if err != nil {
-		return errors.Wrap(err, "config json.marshal failed")
-	}
-
-	for k, v := range c.pathInfo.ConfigKeyMapping {
-
-		ret, err := JSONToYAML(gjson.GetBytes(configJson, v).String())
-		if err != nil {
+	if c.Watcher != nil {
+		if err := c.Watcher.Close(); err != nil {
 			return err
 		}
-
-		if err := c.storeOperate.Save(k, ret); err != nil {
+	}
+	if c.storeOperate != nil {
+		if err := c.storeOperate.Close(); err != nil {
 			return err
 		}
 	}
 	return nil
-}
-
-// Subscribe
-func (c *center) Subscribe(ctx context.Context, et EventType, f callback) context.CancelFunc {
-	return c.observers.add(et, f)
 }
 
 func (c *center) Tenant() string {

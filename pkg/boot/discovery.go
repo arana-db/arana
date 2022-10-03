@@ -162,7 +162,7 @@ func (fp *discovery) Import(ctx context.Context, info *config.Tenant) error {
 		return ErrorNoTenant
 	}
 
-	return op.Import(ctx, info)
+	return op.ImportAll(ctx, info)
 }
 
 func (fp *discovery) Init(ctx context.Context) error {
@@ -218,8 +218,14 @@ func (fp *discovery) InitTenant(tenant string) error {
 	}
 	options.Options["tenant"] = tenant
 
-	fp.centers[tenant] = config.NewCenter(tenant, config.GetStoreOperate())
-	return nil
+	var err error
+
+	fp.centers[tenant], err = config.NewCenter(tenant, config.GetStoreOperate(),
+		config.WithCacheable(true),
+		config.WithReader(true),
+		config.WithWatcher(true),
+	)
+	return err
 }
 
 func (fp *discovery) initAllConfigCenter() error {
@@ -272,7 +278,7 @@ func (fp *discovery) GetTenant(ctx context.Context, tenant string) (*config.Tena
 		return nil, ErrorNoTenant
 	}
 
-	cfg, err := op.Load(context.Background())
+	cfg, err := op.LoadAll(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -286,7 +292,7 @@ func (fp *discovery) ListUsers(ctx context.Context, tenant string) (config.Users
 		return nil, ErrorNoTenant
 	}
 
-	cfg, err := op.Load(context.Background())
+	cfg, err := op.LoadAll(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -318,7 +324,7 @@ func (fp *discovery) ListClusters(ctx context.Context, tenant string) ([]string,
 		return nil, ErrorNoTenant
 	}
 
-	cfg, err := op.Load(context.Background())
+	cfg, err := op.LoadAll(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -367,7 +373,7 @@ func (fp *discovery) ListTables(ctx context.Context, tenant, cluster string) ([]
 		return nil, ErrorNoTenant
 	}
 
-	cfg, err := op.Load(context.Background())
+	cfg, err := op.LoadAll(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -442,7 +448,7 @@ func (fp *discovery) loadCluster(tenant, cluster string) (*config.DataSourceClus
 		return nil, ErrorNoTenant
 	}
 
-	cfg, err := op.Load(context.Background())
+	cfg, err := op.LoadAll(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -456,7 +462,7 @@ func (fp *discovery) loadCluster(tenant, cluster string) (*config.DataSourceClus
 }
 
 func (fp *discovery) loadNodes(op config.Center) (config.Nodes, error) {
-	cfg, err := op.Load(context.Background())
+	cfg, err := op.LoadAll(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -478,7 +484,7 @@ func (fp *discovery) loadGroup(tenant, cluster, group string) (*config.Group, bo
 }
 
 func (fp *discovery) loadTables(cluster string, op config.Center) map[string]*config.Table {
-	cfg, err := op.Load(context.Background())
+	cfg, err := op.LoadAll(context.Background())
 	if err != nil {
 		return nil
 	}

@@ -32,8 +32,8 @@ import (
 	"github.com/arana-db/arana/pkg/config"
 	_ "github.com/arana-db/arana/pkg/config/etcd"
 	_ "github.com/arana-db/arana/pkg/config/file"
+	"github.com/arana-db/arana/pkg/config/mock"
 	_ "github.com/arana-db/arana/pkg/config/nacos"
-	"github.com/arana-db/arana/testdata"
 )
 
 func TestInit(t *testing.T) {
@@ -58,7 +58,7 @@ func TestInit(t *testing.T) {
 func TestRegister(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockStore := testdata.NewMockStoreOperate(ctrl)
+	mockStore := mock.NewMockStoreOperator(ctrl)
 	mockStore.EXPECT().Name().Times(2).Return("nacos")
 	type args struct {
 		s config.StoreOperator
@@ -79,14 +79,14 @@ func TestRegister(t *testing.T) {
 func Test_api(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockFileStore := testdata.NewMockStoreOperate(ctrl)
-	mockEtcdStore := testdata.NewMockStoreOperate(ctrl)
+	mockFileStore := mock.NewMockStoreOperator(ctrl)
+	mockEtcdStore := mock.NewMockStoreOperator(ctrl)
 	mockFileStore.EXPECT().Name().Times(2).Return("file")
 	mockEtcdStore.EXPECT().Name().Times(2).Return("etcd")
 	config.Register(mockFileStore)
 	config.Register(mockEtcdStore)
 
-	mockFileStore2 := testdata.NewMockStoreOperate(ctrl)
+	mockFileStore2 := mock.NewMockStoreOperator(ctrl)
 	mockFileStore2.EXPECT().Name().AnyTimes().Return("file")
 	assert.Error(t, config.Register(mockFileStore2), "StoreOperate=[file] already exist")
 }
@@ -99,7 +99,7 @@ func Test_Init(t *testing.T) {
 	}
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockFileStore := testdata.NewMockStoreOperate(ctrl)
+	mockFileStore := mock.NewMockStoreOperator(ctrl)
 	mockFileStore.EXPECT().Name().Times(2).Return("fake")
 	mockFileStore.EXPECT().Init(gomock.Any()).Return(nil)
 	err := config.InitStoreOperate(options)

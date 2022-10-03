@@ -36,7 +36,8 @@ import (
 
 // MergeRowStatement represents merge-row statement.
 // Please see the design documents:
-//   https://dubbo-kylin.yuque.com/docs/share/ff2e78b8-df2c-4874-b26e-cb6b923033b8
+//
+//	https://dubbo-kylin.yuque.com/docs/share/ff2e78b8-df2c-4874-b26e-cb6b923033b8
 type MergeRowStatement struct {
 	OrderBys []merge.OrderByItem
 	GroupBys []string

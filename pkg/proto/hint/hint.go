@@ -70,7 +70,6 @@ func (tp Type) String() string {
 //   - without inputs: YOUR_HINT()
 //   - with non-keyed inputs: YOUR_HINT(foo,bar,quz)
 //   - with keyed inputs: YOUR_HINT(x=foo,y=bar,z=quz)
-//
 type Hint struct {
 	Type   Type
 	Inputs []KeyValue
