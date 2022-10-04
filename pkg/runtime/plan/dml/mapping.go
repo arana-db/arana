@@ -273,6 +273,15 @@ func (vt *virtualValueVisitor) VisitAtomMath(node *ast.MathExpressionAtom) (inte
 		if err = gxbig.DecimalDiv(left, right, &result, 4); errors.Is(err, gxbig.ErrDivByZero) {
 			return nil, nil
 		}
+	case opcode.IntDiv.Literal():
+		err = gxbig.DecimalDiv(left, right, &result, 4)
+		if errors.Is(err, gxbig.ErrDivByZero) {
+			return nil, nil
+		}
+		if err == nil {
+			n, _ := result.ToInt()
+			result = *gxbig.NewDecFromInt(n)
+		}
 	default:
 		panic("implement me")
 	}

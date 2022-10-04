@@ -421,6 +421,10 @@ func (s *IntegrationSuite) TestShardingAgg() {
 		var cnt int64
 		assert.NoError(t, row.Scan(&cnt))
 		assert.Equal(t, int64(100), cnt)
+
+		row = db.QueryRow("select count(*) div 3 as ttt from student")
+		assert.NoError(t, row.Scan(&cnt))
+		assert.Equal(t, int64(33), cnt)
 	})
 
 	t.Run("MAX", func(t *testing.T) {

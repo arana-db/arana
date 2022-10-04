@@ -1426,7 +1426,7 @@ func (cc *convCtx) convBinaryOperationExpr(expr *ast.BinaryOperationExpr) interf
 	)
 
 	switch expr.Op {
-	case opcode.Plus, opcode.Minus, opcode.Div, opcode.Mul, opcode.Mod:
+	case opcode.Plus, opcode.Minus, opcode.Div, opcode.Mul, opcode.Mod, opcode.IntDiv:
 		return &AtomPredicateNode{A: &MathExpressionAtom{
 			Left:     left.(*AtomPredicateNode).A,
 			Operator: expr.Op.Literal(),
