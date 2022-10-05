@@ -108,7 +108,6 @@ func (c *center) newConfigReader(opt configOption) error {
 		}
 
 		ret = &cacheConfigReader{
-			initialize: 0,
 			reader:     reader,
 			watcher:    watcher,
 		}

@@ -22,7 +22,6 @@ package config
 
 import (
 	"context"
-	"fmt"
 	"sync"
 )
 
@@ -129,6 +128,7 @@ func (tp *tenantOperate) watchTenants(ctx context.Context) error {
 				consumer(ret)
 			case <-ctx.Done():
 				log.Infof("stop watch : %s", DefaultTenantsPath)
+				return
 			}
 		}
 	}(ctx)
@@ -176,7 +176,7 @@ func (tp *tenantOperate) CreateTenant(name string) error {
 	tenantPathInfo := NewPathInfo(name)
 	for i := range tenantPathInfo.ConfigKeyMapping {
 		if err := tp.op.Save(i, []byte("")); err != nil {
-			return errors.Wrap(err, fmt.Sprintf("create tenant resource : %s", i))
+			return errors.Wrapf(err, "create tenant resource : %s", i)
 		}
 	}
 

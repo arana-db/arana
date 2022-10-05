@@ -68,14 +68,14 @@ func RunImport(importConfPath, configPath string) bool {
 		ok := func() bool {
 			op, err := config.NewCenter(tenant.Name, config.GetStoreOperate())
 			if err != nil {
-				log.Fatalf("create config_center tenant=%s failed: %+v", tenant.Name, err)
+				log.Errorf("create config_center tenant=%s failed: %+v", tenant.Name, err)
 				return false
 			}
 
 			defer op.Close()
 
 			if err := op.ImportAll(context.Background(), tenant); err != nil {
-				log.Fatalf("persist config tenant=%s to config.store failed: %+v", tenant.Name, err)
+				log.Errorf("persist config tenant=%s to config.store failed: %+v", tenant.Name, err)
 				return false
 			}
 
