@@ -38,7 +38,7 @@ services:
     ports:
       - "3306:3306"
     environment:
-      MYSQL_ROOT_PASSWORD: "123456"
+      - MYSQL_ROOT_PASSWORD=123456
     volumes:
       - ./scripts/init.sql:/docker-entrypoint-initdb.d/0.sql:ro
       - ./scripts/sequence.sql:/docker-entrypoint-initdb.d/1.sql:ro
@@ -46,7 +46,17 @@ services:
       - mysql_data:/var/lib/mysql
     command: [ "mysqld", "--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci" ]
     healthcheck:
-      test: [ "CMD", "mysqladmin" ,"ping", "-h", "127.0.0.1" ]
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "127.0.0.1",
+          "-u",
+          "root",
+          "-p$MYSQL_ROOT_PASSWORD"
+        ]
       interval: 2s
       timeout: 1s
       retries: 5
