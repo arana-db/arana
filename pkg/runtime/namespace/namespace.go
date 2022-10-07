@@ -88,6 +88,8 @@ type (
 
 		cmds chan Command  // command queue
 		done chan struct{} // done notify
+
+		slowLog log.Logger
 	}
 
 	// Command represents the command to control Namespace.
@@ -249,6 +251,10 @@ func (ns *Namespace) SlowThreshold() time.Duration {
 	return ns.slowThreshold
 }
 
+func (ns *Namespace) SlowLogger() log.Logger {
+	return ns.slowLog
+}
+
 // EnqueueCommand enqueues the next command, it will be executed async.
 func (ns *Namespace) EnqueueCommand(cmd Command) error {
 	if ns.closed.Load() {
@@ -287,6 +293,6 @@ func (ns *Namespace) Close() error {
 func (ns *Namespace) loopCmds() {
 	defer close(ns.done)
 	for cmd := range ns.cmds {
-		cmd(ns)
+		_ = cmd(ns)
 	}
 }

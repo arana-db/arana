@@ -238,13 +238,20 @@ func UpdateParameters(parameters config.ParametersMap) Command {
 	}
 }
 
-func UpdateSlowThreshold(parameters config.ParametersMap) Command {
+func UpdateSlowThreshold() Command {
 	return func(ns *Namespace) error {
-		if s, ok := parameters[constants.SlowThreshold]; ok {
+		if s, ok := ns.parameters[constants.SlowThreshold]; ok {
 			if slowThreshold, err := time.ParseDuration(s); err == nil {
 				ns.slowThreshold = slowThreshold
 			}
 		}
+		return nil
+	}
+}
+
+func UpdateSlowLogger(path string) Command {
+	return func(ns *Namespace) error {
+		ns.slowLog = log.NewLogger(path, log.WarnLevel)
 		return nil
 	}
 }

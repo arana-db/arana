@@ -632,7 +632,7 @@ func (pi *defaultRuntime) Execute(ctx *proto.Context) (res proto.Result, warn ui
 		var since = time.Since(execStart)
 		metrics.ExecuteDuration.Observe(since.Seconds())
 		if pi.Namespace().SlowThreshold() != 0 && since > pi.Namespace().SlowThreshold() {
-			log.Warnf("slow logs elapsed %v sql %s", since, ctx.GetQuery())
+			pi.Namespace().SlowLogger().Warnf("slow logs elapsed %v sql %s", since, ctx.GetQuery())
 		}
 	}()
 	args := ctx.GetArgs()

@@ -47,9 +47,10 @@ type (
 	}
 
 	Spec struct {
-		Kind       string                 `yaml:"kind" json:"kind,omitempty"`
-		APIVersion string                 `yaml:"apiVersion" json:"apiVersion,omitempty"`
-		Metadata   map[string]interface{} `yaml:"metadata" json:"metadata"`
+		Kind        string                 `yaml:"kind" json:"kind,omitempty"`
+		APIVersion  string                 `yaml:"apiVersion" json:"apiVersion,omitempty"`
+		SlowLogPath string                 `yaml:"slow_log_path" json:"slow_log_path,omitempty"`
+		Metadata    map[string]interface{} `yaml:"metadata" json:"metadata"`
 	}
 
 	// SocketAddress specify either a logical or physical address and port, which are
