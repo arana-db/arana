@@ -19,10 +19,17 @@ package function2
 import (
 	"context"
 	"fmt"
-	"github.com/arana-db/arana/pkg/proto"
-	gxbig "github.com/dubbogo/gost/math/big"
-	"github.com/stretchr/testify/assert"
 	"testing"
+)
+
+import (
+	gxbig "github.com/dubbogo/gost/math/big"
+
+	"github.com/stretchr/testify/assert"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/proto"
 )
 
 func TestCeil(t *testing.T) {

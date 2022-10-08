@@ -20,10 +20,16 @@ package function2
 import (
 	"context"
 	"fmt"
-	"github.com/arana-db/arana/pkg/proto"
+	"math"
+)
+
+import (
 	gxbig "github.com/dubbogo/gost/math/big"
 	"github.com/pkg/errors"
-	"math"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/proto"
 )
 
 // FuncCeil is https://dev.mysql.com/doc/refman/8.0/en/mathematical-functions.html#function_ceil
