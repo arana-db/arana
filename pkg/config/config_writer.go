@@ -30,7 +30,7 @@ import (
 )
 
 type configWriter struct {
-	tenant     string
+	tenant string
 
 	storeOperate StoreOperator
 	pathInfo     *PathInfo
