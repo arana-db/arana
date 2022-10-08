@@ -155,8 +155,8 @@ type (
 
 	ConfigWriter interface {
 		io.Closer
-		// ImportAll imports the configuration information of a tenant
-		ImportAll(ctx context.Context, cfg *Tenant) error
+		// Import imports the configuration information of a tenant
+		Import(ctx context.Context, cfg *Tenant) error
 		// Write imports the configuration information of a tenant
 		Write(ctx context.Context, item ConfigItem, cfg *Tenant) error
 	}

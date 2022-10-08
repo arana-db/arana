@@ -53,7 +53,7 @@ func (c *configWriter) Write(ctx context.Context, item ConfigItem, cfg *Tenant) 
 	return c.doPersist(ctx, cfg, ret)
 }
 
-func (c *configWriter) ImportAll(ctx context.Context, cfg *Tenant) error {
+func (c *configWriter) Import(ctx context.Context, cfg *Tenant) error {
 	return c.doPersist(ctx, cfg, c.pathInfo.ConfigKeyMapping)
 }
 

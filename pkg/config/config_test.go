@@ -212,11 +212,11 @@ func Test_configWriter_Write(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("importAll", func(t *testing.T) {
+	t.Run("import", func(t *testing.T) {
 		c, err := config.NewCenter("arana", mockStoreOperator, config.WithWriter(true))
 		assert.NoError(t, err)
 
-		err = c.ImportAll(context.Background(), &config.Tenant{
+		err = c.Import(context.Background(), &config.Tenant{
 			Nodes: map[string]*config.Node{
 				"nodes-1": {
 					Name: "nodes-1",

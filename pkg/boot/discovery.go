@@ -162,7 +162,7 @@ func (fp *discovery) Import(ctx context.Context, info *config.Tenant) error {
 		return ErrorNoTenant
 	}
 
-	return op.ImportAll(ctx, info)
+	return op.Import(ctx, info)
 }
 
 func (fp *discovery) Init(ctx context.Context) error {

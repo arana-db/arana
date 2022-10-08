@@ -166,13 +166,13 @@ func (c *center) Load(ctx context.Context, item ConfigItem) (*Tenant, error) {
 	return c.Reader.Load(ctx, item)
 }
 
-// ImportAll imports the configuration information of a tenant
-func (c *center) ImportAll(ctx context.Context, cfg *Tenant) error {
+// Import imports the configuration information of a tenant
+func (c *center) Import(ctx context.Context, cfg *Tenant) error {
 	if c.Writer == nil {
 		return ErrorNotImplement
 	}
 
-	return c.Writer.ImportAll(ctx, cfg)
+	return c.Writer.Import(ctx, cfg)
 }
 
 // Write imports the configuration information of a tenant

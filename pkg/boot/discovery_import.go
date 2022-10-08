@@ -74,7 +74,7 @@ func RunImport(importConfPath, configPath string) bool {
 
 			defer op.Close()
 
-			if err := op.ImportAll(context.Background(), tenant); err != nil {
+			if err := op.Import(context.Background(), tenant); err != nil {
 				log.Errorf("persist config tenant=%s to config.store failed: %+v", tenant.Name, err)
 				return false
 			}
