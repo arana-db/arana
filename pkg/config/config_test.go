@@ -337,7 +337,7 @@ func Test_configReader_LoadAll(t *testing.T) {
 
 		time.Sleep(time.Second)
 
-		tenantInfo, err = c.Load(context.Background(), config.ConfigItemNodes)
+		_, err = c.Load(context.Background(), config.ConfigItemNodes)
 		assert.NoError(t, err)
 
 		assert.Equal(t, int32(1), atomic.LoadInt32(&callCnt))
