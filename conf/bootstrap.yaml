@@ -26,7 +26,7 @@ listeners:
 config:
   name: file
   options:
-    slow_log_path: "/arana/slow_log/"
+    slow_log_path: "slow_log/"
 
 #  name: etcd
 #  root_path: arana
