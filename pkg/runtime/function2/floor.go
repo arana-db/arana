@@ -25,6 +25,7 @@ import (
 
 import (
 	gxbig "github.com/dubbogo/gost/math/big"
+
 	"github.com/pkg/errors"
 )
 
@@ -49,12 +50,13 @@ func (f floorFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Val
 		return nil, errors.WithStack(err)
 	}
 
-	decFloor := func(d *gxbig.Decimal) float64 {
+	decFloor := func(d *gxbig.Decimal) *gxbig.Decimal {
 		f, err := d.ToFloat64()
 		if err != nil {
-			return 0
+			return _zeroDecimal
 		}
-		return math.Floor(f)
+		ret, _ := gxbig.NewDecFromFloat(math.Floor(f))
+		return ret
 	}
 
 	switch v := val.(type) {
