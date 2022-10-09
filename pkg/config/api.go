@@ -101,7 +101,7 @@ type (
 		Options   map[string]interface{} `yaml:"options"`
 	}
 
-	//TenantOperator actions specific to tenant spaces
+	// TenantOperator actions specific to tenant spaces
 	TenantOperator interface {
 		io.Closer
 

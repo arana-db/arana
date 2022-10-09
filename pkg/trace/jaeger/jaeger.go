@@ -41,8 +41,7 @@ const (
 	parentKey = "traceparent"
 )
 
-type Jaeger struct {
-}
+type Jaeger struct{}
 
 func init() {
 	trace.RegisterProviders(trace.Jaeger, &Jaeger{})

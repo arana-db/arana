@@ -30,10 +30,17 @@ const (
 )
 
 type (
+	// VersionSupport provides the version string.
+	VersionSupport interface {
+		// Version returns the version.
+		Version(ctx context.Context) (string, error)
+	}
+
 	// VConn represents a virtual connection which can be used to query/exec from a db.
 	VConn interface {
 		// Query requests a query command.
 		Query(ctx context.Context, db string, query string, args ...interface{}) (Result, error)
+
 		// Exec requests a exec command
 		Exec(ctx context.Context, db string, query string, args ...interface{}) (Result, error)
 	}
@@ -73,24 +80,36 @@ type (
 	DB interface {
 		io.Closer
 		Callable
+
 		// ID returns the unique id.
 		ID() string
+
 		// IdleTimeout returns the idle timeout.
 		IdleTimeout() time.Duration
+
 		// MaxCapacity returns the max capacity.
 		MaxCapacity() int
+
 		// Capacity returns the capacity.
 		Capacity() int
+
 		// Weight returns the weight.
 		Weight() Weight
+
 		// SetCapacity sets the capacity.
 		SetCapacity(capacity int) error
+
 		// SetMaxCapacity sets the max capacity.
 		SetMaxCapacity(maxCapacity int) error
+
 		// SetIdleTimeout sets the idle timeout.
 		SetIdleTimeout(idleTimeout time.Duration) error
+
 		// SetWeight sets the weight.
 		SetWeight(weight Weight) error
+
+		// Variable returns the variable value.
+		Variable(ctx context.Context, name string) (string, error)
 	}
 
 	// Executable represents an executor which can send sql request.

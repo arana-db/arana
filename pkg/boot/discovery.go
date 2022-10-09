@@ -102,57 +102,57 @@ func (fp *discovery) UpsertTenant(ctx context.Context, tenant string, body *Tena
 }
 
 func (fp *discovery) RemoveTenant(ctx context.Context, tenant string) error {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (fp *discovery) UpsertCluster(ctx context.Context, tenant, cluster string, body *ClusterBody) error {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (fp *discovery) RemoveCluster(ctx context.Context, tenant, cluster string) error {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (fp *discovery) UpsertNode(ctx context.Context, tenant, node string, body *NodeBody) error {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (fp *discovery) RemoveNode(ctx context.Context, tenant, node string) error {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (fp *discovery) UpsertGroup(ctx context.Context, tenant, cluster, group string, body *GroupBody) error {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (fp *discovery) RemoveGroup(ctx context.Context, tenant, cluster, group string) error {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (fp *discovery) BindNode(ctx context.Context, tenant, cluster, group, node string) error {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (fp *discovery) UnbindNode(ctx context.Context, tenant, cluster, group, node string) error {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (fp *discovery) UpsertTable(ctx context.Context, tenant, cluster, table string, body *TableBody) error {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (fp *discovery) RemoveTable(ctx context.Context, tenant, cluster, table string) error {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
@@ -263,7 +263,6 @@ func (fp *discovery) GetCluster(ctx context.Context, tenant, cluster string) (*C
 }
 
 func (fp *discovery) ListTenants(ctx context.Context) ([]string, error) {
-
 	return fp.tenantOp.ListTenants(), nil
 }
 
@@ -349,7 +348,6 @@ func (fp *discovery) ListGroups(ctx context.Context, tenant, cluster string) ([]
 }
 
 func (fp *discovery) ListNodes(ctx context.Context, tenant, cluster, group string) ([]string, error) {
-
 	bingo, ok := fp.loadGroup(tenant, cluster, group)
 	if !ok {
 		return nil, nil
@@ -393,7 +391,6 @@ func (fp *discovery) ListTables(ctx context.Context, tenant, cluster string) ([]
 }
 
 func (fp *discovery) GetNode(ctx context.Context, tenant, cluster, group, node string) (*config.Node, error) {
-
 	op, ok := fp.centers[tenant]
 	if !ok {
 		return nil, ErrorNoTenant

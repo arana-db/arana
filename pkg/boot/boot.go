@@ -202,7 +202,7 @@ func buildNamespace(ctx context.Context, tenant string, provider Discovery, clus
 		return nil, err
 	}
 
-	var initCmds = []namespace.Command{
+	initCmds := []namespace.Command{
 		namespace.UpdateSlowLogger(provider.GetOptions().SlowLogPath),
 		namespace.UpdateParameters(cluster.Parameters),
 		namespace.UpdateSlowThreshold(),

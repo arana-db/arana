@@ -57,7 +57,6 @@ type PathInfo struct {
 }
 
 func NewPathInfo(tenant string) *PathInfo {
-
 	p := &PathInfo{}
 
 	p.DefaultTenantBaseConfigPath = PathKey(filepath.Join(string(DefaultRootPath), fmt.Sprintf("tenants/%s", tenant)))
@@ -260,7 +259,7 @@ func (tp *tenantOperate) CreateTenant(name string) error {
 		return errors.Wrap(err, "create tenant name")
 	}
 
-	//need to insert the relevant configuration data under the relevant tenant
+	// need to insert the relevant configuration data under the relevant tenant
 	tenantPathInfo := NewPathInfo(name)
 	for i := range tenantPathInfo.ConfigKeyMapping {
 		if err := tp.op.Save(i, []byte("")); err != nil {
@@ -390,7 +389,6 @@ type center struct {
 }
 
 func NewCenter(tenant string, op StoreOperator) Center {
-
 	p := NewPathInfo(tenant)
 
 	holders := map[PathKey]*atomic.Value{}
@@ -544,7 +542,6 @@ func (c *center) PersistContext(ctx context.Context) error {
 }
 
 func (c *center) doPersist(ctx context.Context, conf *Tenant) error {
-
 	configJson, err := json.Marshal(conf)
 	if err != nil {
 		return errors.Wrap(err, "config json.marshal failed")
@@ -564,9 +561,8 @@ func (c *center) doPersist(ctx context.Context, conf *Tenant) error {
 	return nil
 }
 
-//Subscribe
+// Subscribe
 func (c *center) Subscribe(ctx context.Context, et EventType, f callback) context.CancelFunc {
-
 	return c.observers.add(et, f)
 }
 

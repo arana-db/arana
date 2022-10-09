@@ -120,7 +120,6 @@ func (executor *RedirectExecutor) ExecuteFieldList(ctx *proto.Context) ([]proto.
 }
 
 func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Result, uint16, error) {
-
 	var (
 		schemaless bool // true if schema is not specified
 		err        error

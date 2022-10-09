@@ -171,7 +171,6 @@ func (c Clusters) Diff(old Clusters) *ClustersEvent {
 }
 
 func (d *DataSourceCluster) Diff(old *DataSourceCluster) *ClusterEvent {
-
 	ret := &ClusterEvent{
 		Name:        d.Name,
 		Type:        d.Type,
