@@ -26,9 +26,7 @@ import (
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
-var (
-	ErrorNoStoreOperate = errors.New("no store operate")
-)
+var ErrorNoStoreOperate = errors.New("no store operate")
 
 func GetStoreOperate() StoreOperator {
 	return storeOperate

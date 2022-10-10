@@ -26,6 +26,7 @@ const (
 
 	RestoreLowerKeyword RestoreFlag = 1 << iota // force use lower-case keyword
 	RestoreWithoutAlias
+	RestoreCompat80
 )
 
 type RestoreFlag uint32

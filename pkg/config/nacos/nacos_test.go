@@ -238,5 +238,4 @@ func Test_storeOpertae(t *testing.T) {
 	err = operate.Save(mockPath[newCfg.Data.Tenants[0].Name].DefaultConfigDataShadowRulePath, []byte(" "))
 
 	assert.NoError(t, err, "blank string should be success")
-
 }

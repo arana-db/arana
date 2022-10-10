@@ -180,7 +180,6 @@ func (s *storeOperate) Get(key config.PathKey) ([]byte, error) {
 		DataId: buildNacosDataId(string(key)),
 		Group:  s.groupName,
 	})
-
 	if err != nil {
 		return nil, err
 	}

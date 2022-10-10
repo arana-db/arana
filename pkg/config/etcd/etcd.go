@@ -38,9 +38,7 @@ import (
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
-var (
-	PluginName = "etcd"
-)
+var PluginName = "etcd"
 
 func init() {
 	config.Register(&storeOperate{
@@ -67,7 +65,6 @@ func (c *storeOperate) Init(options map[string]interface{}) error {
 		DialTimeout: 10 * time.Second,
 		DialOptions: []grpc.DialOption{grpc.WithBlock()},
 	})
-
 	if err != nil {
 		log.Errorf("failed to initialize etcd client error: %s", err.Error())
 		return err
@@ -142,7 +139,6 @@ func (w *etcdWatcher) run(ctx context.Context) {
 }
 
 func (c *storeOperate) Watch(key config.PathKey) (<-chan []byte, error) {
-
 	c.lock.Lock()
 	defer c.lock.Unlock()
 

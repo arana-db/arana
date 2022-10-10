@@ -26,8 +26,10 @@ import (
 	"github.com/pkg/errors"
 )
 
-var _tenantNameRegexp *regexp.Regexp
-var _tenantNameRegexpOnce sync.Once
+var (
+	_tenantNameRegexp     *regexp.Regexp
+	_tenantNameRegexpOnce sync.Once
+)
 
 func validateTenantName(name string) error {
 	_tenantNameRegexpOnce.Do(func() {

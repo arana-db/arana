@@ -23,7 +23,6 @@ import (
 )
 
 func (u *User) Equals(o *User) bool {
-
 	return u.Username == o.Username && u.Password == o.Password
 }
 

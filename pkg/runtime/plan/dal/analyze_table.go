@@ -46,7 +46,8 @@ type AnalyzeTablePlan struct {
 func NewAnalyzeTablePlan(
 	stmt *ast.AnalyzeTableStatement,
 	shards rule.DatabaseTables,
-	shardsByName map[string]rule.DatabaseTables) *AnalyzeTablePlan {
+	shardsByName map[string]rule.DatabaseTables,
+) *AnalyzeTablePlan {
 	return &AnalyzeTablePlan{
 		Stmt:         stmt,
 		Shards:       shards,

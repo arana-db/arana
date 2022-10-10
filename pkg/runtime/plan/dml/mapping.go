@@ -233,7 +233,6 @@ func (vt *virtualValueVisitor) VisitFunction(node *ast.Function) (interface{}, e
 		return nil, errors.Wrapf(err, "failed to call function '%s'", funcName)
 	}
 	return res, nil
-
 }
 
 func (vt *virtualValueVisitor) VisitAtomNested(node *ast.NestedExpressionAtom) (interface{}, error) {

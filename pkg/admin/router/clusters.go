@@ -83,7 +83,7 @@ func CreateCluster(c *gin.Context) error {
 		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
 
-	//TODO how to get cluster name?
+	// TODO how to get cluster name?
 	err := service.UpsertCluster(context.Background(), tenant, "", cluster)
 	if err != nil {
 		return err
