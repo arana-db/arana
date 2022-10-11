@@ -58,27 +58,26 @@ const (
 // Note: The provided rsa.PublicKey instance is exclusively owned by the driver
 // after registering it and may not be modified.
 //
-//  Content, err := ioutil.ReadFile("mykey.pem")
-//  if err != nil {
-//  	log.Fatal(err)
-//  }
+//	Content, err := ioutil.ReadFile("mykey.pem")
+//	if err != nil {
+//		log.Fatal(err)
+//	}
 //
-//  block, _ := pem.Decode(Content)
-//  if block == nil || block.Type != "PUBLIC KEY" {
-//  	log.Fatal("failed to decode PEM block containing public key")
-//  }
+//	block, _ := pem.Decode(Content)
+//	if block == nil || block.Type != "PUBLIC KEY" {
+//		log.Fatal("failed to decode PEM block containing public key")
+//	}
 //
-//  pub, err := x509.ParsePKIXPublicKey(block.Bytes)
-//  if err != nil {
-//  	log.Fatal(err)
-//  }
+//	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+//	if err != nil {
+//		log.Fatal(err)
+//	}
 //
-//  if rsaPubKey, ok := pub.(*rsa.PublicKey); ok {
-//  	mysql.RegisterServerPubKey("mykey", rsaPubKey)
-//  } else {
-//  	log.Fatal("not a RSA public key")
-//  }
-//
+//	if rsaPubKey, ok := pub.(*rsa.PublicKey); ok {
+//		mysql.RegisterServerPubKey("mykey", rsaPubKey)
+//	} else {
+//		log.Fatal("not a RSA public key")
+//	}
 func RegisterServerPubKey(name string, pubKey *rsa.PublicKey) {
 	serverPubKeyLock.Lock()
 	if serverPubKeyRegistry == nil {

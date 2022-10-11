@@ -49,9 +49,12 @@ func (fp *discovery) WatchNodes(ctx context.Context, tenant string) (<-chan conf
 
 	ch := make(chan config.NodesEvent)
 
-	cancel := op.Subscribe(ctx, config.EventTypeNodes, func(e config.Event) {
+	cancel, err := op.Subscribe(ctx, config.EventTypeNodes, func(e config.Event) {
 		ch <- *e.(*config.NodesEvent)
 	})
+	if err != nil {
+		return nil, nil, err
+	}
 
 	return ch, wrapWatchCancel(cancel, func() {
 		close(ch)
@@ -66,9 +69,12 @@ func (fp *discovery) WatchUsers(ctx context.Context, tenant string) (<-chan conf
 
 	ch := make(chan config.UsersEvent)
 
-	cancel := op.Subscribe(ctx, config.EventTypeUsers, func(e config.Event) {
+	cancel, err := op.Subscribe(ctx, config.EventTypeUsers, func(e config.Event) {
 		ch <- *e.(*config.UsersEvent)
 	})
+	if err != nil {
+		return nil, nil, err
+	}
 
 	return ch, wrapWatchCancel(cancel, func() {
 		close(ch)
@@ -83,9 +89,12 @@ func (fp *discovery) WatchClusters(ctx context.Context, tenant string) (<-chan c
 
 	ch := make(chan config.ClustersEvent)
 
-	cancel := op.Subscribe(ctx, config.EventTypeClusters, func(e config.Event) {
+	cancel, err := op.Subscribe(ctx, config.EventTypeClusters, func(e config.Event) {
 		ch <- *e.(*config.ClustersEvent)
 	})
+	if err != nil {
+		return nil, nil, err
+	}
 
 	return ch, wrapWatchCancel(cancel, func() {
 		close(ch)
@@ -100,9 +109,12 @@ func (fp *discovery) WatchShardingRule(ctx context.Context, tenant string) (<-ch
 
 	ch := make(chan config.ShardingRuleEvent)
 
-	cancel := op.Subscribe(ctx, config.EventTypeShardingRule, func(e config.Event) {
+	cancel, err := op.Subscribe(ctx, config.EventTypeShardingRule, func(e config.Event) {
 		ch <- *e.(*config.ShardingRuleEvent)
 	})
+	if err != nil {
+		return nil, nil, err
+	}
 
 	return ch, wrapWatchCancel(cancel, func() {
 		close(ch)
@@ -117,9 +129,12 @@ func (fp *discovery) WatchShadowRule(ctx context.Context, tenant string) (<-chan
 
 	ch := make(chan config.ShadowRuleEvent)
 
-	cancel := op.Subscribe(ctx, config.EventTypeShadowRule, func(e config.Event) {
+	cancel, err := op.Subscribe(ctx, config.EventTypeShadowRule, func(e config.Event) {
 		ch <- *e.(*config.ShadowRuleEvent)
 	})
+	if err != nil {
+		return nil, nil, err
+	}
 
 	return ch, wrapWatchCancel(cancel, func() {
 		close(ch)

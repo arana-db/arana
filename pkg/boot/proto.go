@@ -113,29 +113,30 @@ type ConfigProvider interface {
 // ConfigUpdater represents the mutations of configurations.
 // The configuration is designed for structure storage, here is a example in tree-view:
 // ── tenants
-//    ├── google
-//    │   ├── clusters: [mysql-instance-a,...]
-//    │   │   ├── employees
-//    │   │   │   ├── groups
-//    │   │   │   │   ├── employees_0000
-//    │   │   │   │   ├── ...
-//    │   │   │   │   └── employees_0007
-//    │   │   │   └── tables
-//    │   │   │       ├── employee
-//    │   │   │       ├── salary
-//    │   │   │       └── tax
-//    │   │   └── products
-//    │   │       └── groups
-//    │   │           ├── products_0000
-//    │   │           ├── ...
-//    │   │           └── products_0007
-//    │   └── nodes
-//    │       ├── mysql-instance-a
-//    │       ├── ...
-//    │       └── mysql-instance-x
-//    └── apple
-//        ├── ...
-//        └── ...
+//
+//	├── google
+//	│   ├── clusters: [mysql-instance-a,...]
+//	│   │   ├── employees
+//	│   │   │   ├── groups
+//	│   │   │   │   ├── employees_0000
+//	│   │   │   │   ├── ...
+//	│   │   │   │   └── employees_0007
+//	│   │   │   └── tables
+//	│   │   │       ├── employee
+//	│   │   │       ├── salary
+//	│   │   │       └── tax
+//	│   │   └── products
+//	│   │       └── groups
+//	│   │           ├── products_0000
+//	│   │           ├── ...
+//	│   │           └── products_0007
+//	│   └── nodes
+//	│       ├── mysql-instance-a
+//	│       ├── ...
+//	│       └── mysql-instance-x
+//	└── apple
+//	    ├── ...
+//	    └── ...
 type ConfigUpdater interface {
 	// UpsertTenant upserts a tenant.
 	UpsertTenant(ctx context.Context, tenant string, body *TenantBody) error
