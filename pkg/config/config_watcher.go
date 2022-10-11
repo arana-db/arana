@@ -32,6 +32,10 @@ import (
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
+var (
+	_ ConfigWatcher = (*configWatcher)(nil)
+)
+
 type (
 	consumer          func(key PathKey, ret []byte)
 	ConfigWatcherTest configWatcher

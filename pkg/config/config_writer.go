@@ -29,6 +29,10 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+var (
+	_ ConfigWriter = (*configWriter)(nil)
+)
+
 type configWriter struct {
 	tenant string
 

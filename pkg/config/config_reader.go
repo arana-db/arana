@@ -36,6 +36,11 @@ type (
 	CacheConfigReaderTest = cacheConfigReader
 )
 
+var (
+	_ ConfigReader = (*cacheConfigReader)(nil)
+	_ ConfigReader = (*configReader)(nil)
+)
+
 type cacheConfigReader struct {
 	initialize int32
 	reader     *configReader

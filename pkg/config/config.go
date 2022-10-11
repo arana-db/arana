@@ -38,6 +38,10 @@ type (
 	CenterTest = center
 )
 
+var (
+	_ Center = (*center)(nil)
+)
+
 type center struct {
 	tenant     string
 	initialize int32
