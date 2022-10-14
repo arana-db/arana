@@ -21,6 +21,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
 )
 
 import (
@@ -49,6 +52,24 @@ const (
 	PanicLevel = LogLevel(zapcore.PanicLevel)
 	// FatalLevel logs a message, then calls os.Exit(1).
 	FatalLevel = LogLevel(zapcore.FatalLevel)
+)
+
+const (
+	logNameEnv = "arana_log_name"
+	// log path
+	logPathEnv = "arana_log_path"
+	// log level
+	logLevelEnv = "arana_log_level"
+	// the maximum size in megabytes of the log file before it gets rotated
+	logMaxSizeEnv = "arana_log_max_size"
+	// the maximum number of old log files to retain
+	logMaxBackupsEnv = "arana_log_max_backups"
+	// the maximum number of days to retain old log files
+	logMaxAgeEnv = "arana_log_max_age"
+	// determines if the rotated log files should be compressed using gzip
+	logCompress = "arana_log_compress"
+	// default log name
+	defaultLogName = "arana.log"
 )
 
 func (l *LogLevel) UnmarshalText(text []byte) error {
@@ -124,23 +145,61 @@ func init() {
 func Init(logPath string, level LogLevel) { log = NewLogger(logPath, level) }
 
 func NewLogger(logPath string, level LogLevel) *zap.SugaredLogger {
-	lumberJackLogger := &lumberjack.Logger{
-		Filename:   logPath,
-		MaxSize:    10,
-		MaxBackups: 5,
-		MaxAge:     30,
-		Compress:   false,
-	}
-	syncer := zapcore.AddSync(lumberJackLogger)
+	syncer := zapcore.NewMultiWriteSyncer(zapcore.AddSync(buildLumberJack(logPath)), zapcore.AddSync(os.Stdout))
 
 	encoderConfig := zap.NewProductionEncoderConfig()
 	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
 
 	encoder := zapcore.NewConsoleEncoder(encoderConfig)
-	core := zapcore.NewCore(encoder, syncer, zap.NewAtomicLevelAt(zapcore.Level(level)))
-	zapLogger = zap.New(core, zap.AddCaller())
+	core := zapcore.NewCore(encoder, syncer, zap.NewAtomicLevelAt(zapcore.Level(getEnvValueInt(logLevelEnv, int(level)))))
+	zapLogger = zap.New(core, zap.AddCaller(), zap.AddCallerSkip(1))
 	return zapLogger.Sugar()
+}
+
+func buildLumberJack(logPath string) *lumberjack.Logger {
+	if logPath = getEnvValue(logPathEnv, logPath); logPath == "" {
+		logPath = currentPath()
+	}
+	return &lumberjack.Logger{
+		Filename:   logPath + string(os.PathSeparator) + getEnvValue(logNameEnv, defaultLogName),
+		MaxSize:    getEnvValueInt(logMaxSizeEnv, 10),
+		MaxBackups: getEnvValueInt(logMaxBackupsEnv, 5),
+		MaxAge:     getEnvValueInt(logMaxAgeEnv, 30),
+		Compress:   getEnvValueBool(logCompress, false),
+	}
+}
+
+func getEnvValue(key, defaultVal string) string {
+	if value := os.Getenv(key); value == "" {
+		return defaultVal
+	} else {
+		return value
+	}
+}
+
+func getEnvValueInt(key string, defaultVal int) int {
+	value, err := strconv.Atoi(os.Getenv(key))
+	if err != nil || value <= 0 {
+		return defaultVal
+	}
+	return value
+}
+
+func getEnvValueBool(key string, defaultVal bool) bool {
+	if value, err := strconv.ParseBool(os.Getenv(key)); err != nil {
+		return defaultVal
+	} else {
+		return value
+	}
+}
+
+func currentPath() string {
+	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	if err != nil {
+		log.Error("can not get current path")
+	}
+	return dir
 }
 
 // SetLogger customize yourself logger.
