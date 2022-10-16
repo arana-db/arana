@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -62,6 +63,7 @@ var (
 var (
 	ErrorNoTenant            = errors.New("no tenant")
 	ErrorNoDataSourceCluster = errors.New("no datasourceCluster")
+	ErrorNoGroup             = errors.New("no group")
 )
 
 func getTableRegexp() *regexp.Regexp {
@@ -102,18 +104,82 @@ func (fp *discovery) UpsertTenant(ctx context.Context, tenant string, body *Tena
 }
 
 func (fp *discovery) RemoveTenant(ctx context.Context, tenant string) error {
-	// TODO implement me
-	panic("implement me")
+	if err := fp.tenantOp.RemoveTenant(tenant); err != nil {
+		return errors.Wrapf(err, "failed to remove tenant '%s'", tenant)
+	}
+	return nil
 }
 
 func (fp *discovery) UpsertCluster(ctx context.Context, tenant, cluster string, body *ClusterBody) error {
-	// TODO implement me
-	panic("implement me")
+	op, ok := fp.centers[tenant]
+	if !ok {
+		return ErrorNoTenant
+	}
+
+	cfg, err := fp.GetTenant(ctx, tenant)
+	if err != nil {
+		return err
+	}
+
+	var (
+		newClusters = make([]*config.DataSourceCluster, 0, len(cfg.DataSourceClusters))
+		exist       = false
+	)
+
+	_ = reflect.Copy(reflect.ValueOf(newClusters), reflect.ValueOf(cfg.DataSourceClusters))
+	for _, newCluster := range newClusters {
+		if newCluster.Name == cluster {
+			exist = true
+			newCluster.Type = body.Type
+			newCluster.Parameters = body.Parameters
+			newCluster.SqlMaxLimit = body.SqlMaxLimit
+			break
+		}
+	}
+	if !exist {
+		newClusters = append(newClusters, &config.DataSourceCluster{
+			Name:        cluster,
+			Type:        body.Type,
+			SqlMaxLimit: body.SqlMaxLimit,
+			Parameters:  body.Parameters,
+			Groups:      nil,
+		})
+	}
+	cfg.DataSourceClusters = newClusters
+
+	err = op.Write(ctx, config.ConfigItemClusters, cfg)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (fp *discovery) RemoveCluster(ctx context.Context, tenant, cluster string) error {
-	// TODO implement me
-	panic("implement me")
+	op, ok := fp.centers[tenant]
+	if !ok {
+		return ErrorNoTenant
+	}
+
+	tenantCfg, err := fp.GetTenant(ctx, tenant)
+	if err != nil {
+		return err
+	}
+
+	remainedDsClusters := make([]*config.DataSourceCluster, 0, len(tenantCfg.DataSourceClusters)-1)
+	for _, dsc := range tenantCfg.DataSourceClusters {
+		if dsc.Name != cluster {
+			remainedDsClusters = append(remainedDsClusters, dsc)
+		}
+	}
+
+	tenantCfg.DataSourceClusters = remainedDsClusters
+	err = op.Write(ctx, config.ConfigItemClusters, tenantCfg)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (fp *discovery) UpsertNode(ctx context.Context, tenant, node string, body *NodeBody) error {
@@ -127,13 +193,80 @@ func (fp *discovery) RemoveNode(ctx context.Context, tenant, node string) error 
 }
 
 func (fp *discovery) UpsertGroup(ctx context.Context, tenant, cluster, group string, body *GroupBody) error {
-	// TODO implement me
-	panic("implement me")
+	op, ok := fp.centers[tenant]
+	if !ok {
+		return ErrorNoTenant
+	}
+
+	tenantCfg, err := op.LoadAll(ctx)
+	if err != nil {
+		return err
+	}
+
+	clusterCfg, err := fp.loadCluster(tenant, cluster)
+	if err != nil {
+		return err
+	}
+
+	var (
+		newGroups = make([]*config.Group, 0, len(clusterCfg.Groups))
+		exist     = false
+	)
+	_ = reflect.Copy(reflect.ValueOf(newGroups), reflect.ValueOf(clusterCfg.Groups))
+
+	for _, groupCfg := range newGroups {
+		if groupCfg.Name == group {
+			exist = true
+			groupCfg.Nodes = body.Nodes
+			break
+		}
+	}
+	if !exist {
+		newGroup := &config.Group{
+			Name:  group,
+			Nodes: body.Nodes,
+		}
+		newGroups = append(newGroups, newGroup)
+	}
+	clusterCfg.Groups = newGroups
+
+	err = op.Write(ctx, config.ConfigItemClusters, tenantCfg)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (fp *discovery) RemoveGroup(ctx context.Context, tenant, cluster, group string) error {
-	// TODO implement me
-	panic("implement me")
+	op, ok := fp.centers[tenant]
+	if !ok {
+		return ErrorNoTenant
+	}
+
+	tenantCfg, err := op.LoadAll(context.Background())
+	if err != nil {
+		return err
+	}
+
+	clusterCfg, err := fp.loadCluster(tenant, cluster)
+	if err != nil {
+		return err
+	}
+
+	remainedGroups := make([]*config.Group, 0, len(clusterCfg.Groups)-1)
+	for _, it := range clusterCfg.Groups {
+		if it.Name != group {
+			remainedGroups = append(remainedGroups, it)
+		}
+	}
+
+	clusterCfg.Groups = remainedGroups
+
+	err = op.Write(ctx, config.ConfigItemClusters, tenantCfg)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (fp *discovery) BindNode(ctx context.Context, tenant, cluster, group, node string) error {
