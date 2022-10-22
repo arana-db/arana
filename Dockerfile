@@ -50,3 +50,18 @@ COPY --from=builder /app/bin/arana /usr/local/bin/
 COPY ./conf/* /etc/arana/
 
 CMD ["arana", "start", "-c", "/etc/arana/bootstrap.yaml"]
+
+# ui & nginx server
+FROM bitnami/git
+
+FROM node as web_builder
+
+WORKDIR /var/www
+
+RUN git clone https://github.com/arana-db/arana-ui.git /var/www && yarn && yarn build
+
+FROM nginx
+
+COPY /var/www/nginx/ /etc/nginx/conf.d/
+
+COPY --from=web_builder /var/www/dist /usr/share/nginx/html
