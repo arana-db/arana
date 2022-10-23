@@ -47,12 +47,12 @@ RUN git clone -n https://github.com/arana-db/arana-ui.git /arana-ui && \
 ### RUNTIME LAYER
 FROM alpine:3
 
-ENV arana_log_name=arana.log \
-    arana_log_level=0 \
-    arana_log_max_size=10 \
-    arana_log_max_backups=5 \
-    arana_log_max_age=30 \
-    arana_log_compress=false
+ENV ARANA_LOG_NAME=arana.log \
+    ARANA_LOG_LEVEL=0 \
+    ARANA_LOG_MAX_SIZE=10 \
+    ARANA_LOG_MAX_BACKUPS=5 \
+    ARANA_LOG_MAX_AGE=30 \
+    ARANA_LOG_COMPRESS=false
 
 WORKDIR /
 
