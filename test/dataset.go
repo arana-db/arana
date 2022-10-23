@@ -258,7 +258,13 @@ func validInputIsPtr(conf interface{}) error {
 }
 
 func GetValueByType(param string) (interface{}, error) {
+	if strings.TrimSpace(param) == "" {
+		return nil, nil
+	}
 	kv := strings.Split(param, ":")
+	if len(kv) < 2 {
+		return nil, errors.New("invalid params")
+	}
 	switch strings.ToLower(kv[1]) {
 	case "string":
 		return kv[0], nil
