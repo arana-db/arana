@@ -31,6 +31,7 @@ services:
       - "2380:2380"
 
   mysql:
+    platform: linux/amd64
     image: mysql:5.7
     container_name: arana-mysql
     networks:
