@@ -31,10 +31,10 @@ var _ proto.Plan = (*ShowMasterStatusPlan)(nil)
 
 type ShowMasterStatusPlan struct {
 	plan.BasePlan
-	stmt *ast.ShowMastStatus
+	stmt *ast.ShowMasterStatus
 }
 
-func NewShowMasterStatusPlan(stmt *ast.ShowMastStatus) *ShowMasterStatusPlan {
+func NewShowMasterStatusPlan(stmt *ast.ShowMasterStatus) *ShowMasterStatusPlan {
 	return &ShowMasterStatusPlan{
 		stmt: stmt,
 	}

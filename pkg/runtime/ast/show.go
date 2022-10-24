@@ -20,9 +20,7 @@ package ast
 import (
 	"database/sql"
 	"strings"
-)
 
-import (
 	"github.com/pkg/errors"
 )
 
@@ -36,7 +34,7 @@ var (
 	_ Statement = (*ShowTopology)(nil)
 	_ Statement = (*ShowTableStatus)(nil)
 	_ Statement = (*ShowWarnings)(nil)
-	_ Statement = (*ShowMastStatus)(nil)
+	_ Statement = (*ShowMasterStatus)(nil)
 )
 
 type FromTable string
@@ -483,15 +481,15 @@ func (s *ShowCharset) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int
 	return nil
 }
 
-type ShowMastStatus struct {
+type ShowMasterStatus struct {
 	*baseShow
 }
 
-func (s *ShowMastStatus) Mode() SQLType {
+func (s *ShowMasterStatus) Mode() SQLType {
 	return SQLTypeShowMasterStatus
 }
 
-func (s *ShowMastStatus) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+func (s *ShowMasterStatus) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("SHOW MASTER STATUS")
 
 	return s.baseShow.Restore(flag, sb, args)

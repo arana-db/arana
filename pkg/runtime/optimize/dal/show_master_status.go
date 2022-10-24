@@ -19,6 +19,7 @@ package dal
 
 import (
 	"context"
+
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/optimize"
@@ -30,7 +31,7 @@ func init() {
 }
 
 func optimizeShowMasterStatus(_ context.Context, o *optimize.Optimizer) (proto.Plan, error) {
-	stmt := o.Stmt.(*ast.ShowMastStatus)
+	stmt := o.Stmt.(*ast.ShowMasterStatus)
 
 	ret := dal.NewShowMasterStatusPlan(stmt)
 	ret.BindArgs(o.Args)

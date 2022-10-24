@@ -1,9 +1,10 @@
 package dal
 
 import (
+	"testing"
+
 	"github.com/arana-db/parser"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestSQL(t *testing.T) {
