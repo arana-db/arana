@@ -2,8 +2,11 @@ package dal
 
 import (
 	"testing"
+)
 
+import (
 	"github.com/arana-db/parser"
+
 	"github.com/stretchr/testify/assert"
 )
 

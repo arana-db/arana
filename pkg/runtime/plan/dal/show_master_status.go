@@ -21,7 +21,9 @@ import (
 	"context"
 	"fmt"
 	"strings"
+)
 
+import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/plan"
