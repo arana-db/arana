@@ -55,19 +55,19 @@ const (
 )
 
 const (
-	logNameEnv = "arana_log_name"
+	logNameEnv = "ARANA_LOG_NAME"
 	// log path
-	logPathEnv = "arana_log_path"
+	logPathEnv = "ARANA_LOG_PATH"
 	// log level
-	logLevelEnv = "arana_log_level"
+	logLevelEnv = "ARANA_LOG_LEVEL"
 	// the maximum size in megabytes of the log file before it gets rotated
-	logMaxSizeEnv = "arana_log_max_size"
+	logMaxSizeEnv = "ARANA_LOG_MAX_SIZE"
 	// the maximum number of old log files to retain
-	logMaxBackupsEnv = "arana_log_max_backups"
+	logMaxBackupsEnv = "ARANA_LOG_MAX_BACKUPS"
 	// the maximum number of days to retain old log files
-	logMaxAgeEnv = "arana_log_max_age"
+	logMaxAgeEnv = "ARANA_LOG_MAX_AGE"
 	// determines if the rotated log files should be compressed using gzip
-	logCompress = "arana_log_compress"
+	logCompress = "ARANA_LOG_COMPRESS"
 	// default log name
 	defaultLogName = "arana.log"
 )
