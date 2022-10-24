@@ -23,10 +23,10 @@ listeners:
     socket_address:
       address: 0.0.0.0
       port: 13306
+log_path: "log"
+slow_log_path: "slow_log"
 config:
   name: file
-  options:
-    slow_log_path: "slow_log/"
 
 #  name: etcd
 #  root_path: arana
