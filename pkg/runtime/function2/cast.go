@@ -19,6 +19,9 @@ package function2
 
 import (
 	"context"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/pkg/errors"
 )

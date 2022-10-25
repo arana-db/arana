@@ -19,9 +19,12 @@ package function2
 
 import (
 	"context"
+	"testing"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestCast(t *testing.T) {
