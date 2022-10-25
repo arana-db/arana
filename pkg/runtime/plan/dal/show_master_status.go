@@ -19,12 +19,12 @@ package dal
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/plan"
+	"github.com/pkg/errors"
 )
 
 var _ proto.Plan = (*ShowMasterStatusPlan)(nil)
@@ -53,7 +53,7 @@ func (s *ShowMasterStatusPlan) ExecIn(ctx context.Context, conn proto.VConn) (pr
 	defer span.End()
 
 	if err := s.stmt.Restore(ast.RestoreDefault, &sb, &args); err != nil {
-		return nil, fmt.Errorf("failed to execute SHOW MASTER STATUS statement, error: %w", err)
+		return nil, errors.Wrap(err, "failed to execute SHOW MASTER STATUS statement")
 	}
 
 	return conn.Query(ctx, "", sb.String(), s.ToArgs(args)...)
