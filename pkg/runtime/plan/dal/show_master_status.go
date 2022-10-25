@@ -20,11 +20,16 @@ package dal
 import (
 	"context"
 	"strings"
+)
 
+import (
+	"github.com/pkg/errors"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/plan"
-	"github.com/pkg/errors"
 )
 
 var _ proto.Plan = (*ShowMasterStatusPlan)(nil)
