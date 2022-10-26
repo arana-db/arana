@@ -23,6 +23,7 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
+
 	"github.com/pkg/errors"
 )
 

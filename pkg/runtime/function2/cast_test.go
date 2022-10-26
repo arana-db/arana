@@ -24,6 +24,7 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
+
 	"github.com/stretchr/testify/assert"
 )
 
