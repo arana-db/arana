@@ -65,7 +65,7 @@ services:
   arana:
     container_name: arana
     image: aranadb/arana:master
-    entrypoint: [ "arana", "start", "-c", "/etc/arana/bootstrap.yaml", "--import", "/etc/arana/config.yaml" ]
+    entrypoint: [ "sh", "-c", "arana import -c /etc/arana/bootstrap.yaml -s /etc/arana/config.yaml; arana start -c /etc/arana/bootstrap.yaml" ]
     networks:
       - local
     ports:
