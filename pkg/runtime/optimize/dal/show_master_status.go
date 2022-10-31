@@ -15,14 +15,28 @@
  * limitations under the License.
  */
 
-package main
+package dal
 
 import (
-	"github.com/arana-db/arana/cmd/start"
-	"github.com/arana-db/arana/testdata"
+	"context"
 )
 
-func main() {
-	bootstrap := testdata.Path("../conf/bootstrap.local-etcd.yaml")
-	start.Run(bootstrap)
+import (
+	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/runtime/optimize"
+	"github.com/arana-db/arana/pkg/runtime/plan/dal"
+)
+
+func init() {
+	optimize.Register(ast.SQLTypeShowMasterStatus, optimizeShowMasterStatus)
+}
+
+func optimizeShowMasterStatus(_ context.Context, o *optimize.Optimizer) (proto.Plan, error) {
+	stmt := o.Stmt.(*ast.ShowMasterStatus)
+
+	ret := dal.NewShowMasterStatusPlan(stmt)
+	ret.BindArgs(o.Args)
+
+	return ret, nil
 }

@@ -31,6 +31,4 @@ staticcheck.conf
 .chglog/
 justfile
 Makefile
-CHANGELOG.md
-CONTRIBUTING.md
-README*.md
+*.md
