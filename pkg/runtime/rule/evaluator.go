@@ -52,6 +52,8 @@ var (
 	_ Evaluator = (staticEvaluator)(nil)
 )
 
+var ErrNoRuleMetadata = stdErrors.New("no rule metadata found")
+
 var emptyDatabaseTables rule.DatabaseTables
 
 func init() {
@@ -92,8 +94,6 @@ func toRangeIterator(begin, end rule.Range) rule.Range {
 
 	return Multiple(merged...)
 }
-
-var ErrNoRuleMetadata = stdErrors.New("no rule metadata found")
 
 // Evaluator evaluates the sharding result.
 type Evaluator interface {
@@ -322,11 +322,26 @@ func Eval(l logical.Logical, tableName string, rule *rule.Rule) (Evaluator, erro
 	ret, err := logical.Eval(l, func(a, b interface{}) (interface{}, error) {
 		x := a.(Evaluator)
 		y := b.(Evaluator)
-		return and(tableName, rule, x, y)
+		z, err := and(tableName, rule, x, y)
+		if err == nil {
+			return z, nil
+		}
+		if errors.Is(err, ErrNoRuleMetadata) {
+			return _noopEvaluator, nil
+		}
+		return nil, errors.WithStack(err)
 	}, func(a, b interface{}) (interface{}, error) {
 		x := a.(Evaluator)
 		y := b.(Evaluator)
-		return or(tableName, rule, x, y)
+		z, err := or(tableName, rule, x, y)
+
+		if err == nil {
+			return z, nil
+		}
+		if errors.Is(err, ErrNoRuleMetadata) {
+			return _noopEvaluator, nil
+		}
+		return nil, errors.WithStack(err)
 	}, func(i interface{}) interface{} {
 		x := i.(Evaluator)
 		return x.Not()
@@ -390,12 +405,12 @@ func processRange(tableName string, ru *rule.Rule, begin, end *KeyedEvaluator) (
 
 	dbm1, tbm1, ok := vt.GetShardMetadata(begin.k)
 	if !ok {
-		return nil, errors.Errorf("no rule metadata found: field=%s", begin.k)
+		return nil, ErrNoRuleMetadata
 	}
 
 	dbm2, tbm2, ok := vt.GetShardMetadata(end.k)
 	if !ok {
-		return nil, errors.Errorf("no rule metadata found: field=%s", end.k)
+		return nil, ErrNoRuleMetadata
 	}
 
 	var m1, m2 *rule.ShardMetadata
