@@ -48,9 +48,9 @@ func (c *configWriter) Write(ctx context.Context, item ConfigItem, cfg *Tenant) 
 	allKeyMap := c.pathInfo.ConfigKeyMapping
 	ret := make(map[PathKey]string)
 
-	for i := range allKeyMap {
-		if allKeyMap[i] == string(item) {
-			ret[i] = allKeyMap[i]
+	for pathKey := range allKeyMap {
+		if allKeyMap[pathKey] == string(item) {
+			ret[pathKey] = allKeyMap[pathKey]
 		}
 	}
 
