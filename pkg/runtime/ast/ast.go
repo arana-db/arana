@@ -634,10 +634,10 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 		return &ShowOpenTables{baseShow: toBaseShow()}
 	case ast.ShowTables:
 		return &ShowTables{baseShow: toBaseShow()}
-	case ast.ShowDatabases:
-		return &ShowDatabases{baseShow: toBaseShow()}
 	case ast.ShowReplicas:
 		return &ShowReplicas{baseShow: toBaseShow()}
+	case ast.ShowDatabases:
+		return &ShowDatabases{baseShow: toBaseShow()}
 	case ast.ShowCollation:
 		return &ShowCollation{baseShow: toBaseShow()}
 	case ast.ShowCreateTable:

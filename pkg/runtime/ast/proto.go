@@ -52,39 +52,39 @@ const (
 	SQLTypeShowCharacterSet         // SHOW CHARACTER SET
 	SQLTypeSetVariable              // SET VARIABLE
 	SQLTypeAnalyzeTable             // ANALYZE TABLE
+	SQLTypeShowMasterStatus         // SHOW MASTER STATUS
 	SQLTypeShowReplicas             // SHOW REPLICAS
- 	SQLTypeShowMasterStatus         // SHOW MASTER STATUS
+
 )
 
 var _sqlTypeNames = [...]string{
-	SQLTypeSelect:          "SELECT",
-	SQLTypeDelete:          "DELETE",
-	SQLTypeUpdate:          "UPDATE",
-	SQLTypeInsert:          "INSERT",
-	SQLTypeInsertSelect:    "INSERT SELECT",
-	SQLTypeReplace:         "REPLACE",
-	SQLTypeTruncate:        "TRUNCATE",
-	SQLTypeDropTable:       "DROP TABLE",
-	SQLTypeAlterTable:      "ALTER TABLE",
-	SQLTypeDropIndex:       "DROP INDEX",
-	SQLTypeShowDatabases:   "SHOW DATABASES",
-	SQLTypeShowTables:      "SHOW TABLES",
-	SQLTypeShowOpenTables:  "SHOW OPEN TABLES",
-	SQLTypeShowIndex:       "SHOW INDEX",
-	SQLTypeShowColumns:     "SHOW COLUMNS",
-	SQLTypeShowCreate:      "SHOW CREATE",
-	SQLTypeShowVariables:   "SHOW VARIABLES",
-	SQLTypeDescribe:        "DESCRIBE",
-	SQLTypeUnion:           "UNION",
-	SQLTypeDropTrigger:     "DROP TRIGGER",
-	SQLTypeCreateIndex:     "CREATE INDEX",
-	SQLTypeShowStatus:      "SHOW STATUS",
-	SQLTypeShowTableStatus: "SHOW TABLE STATUS",
-	SQLTypeSetVariable:     "SET VARIABLE",
-	SQLTypeAnalyzeTable:    "ANALYZE TABLE",
-	SQLTypeShowReplicas:    "SHOW REPLICAS",
+	SQLTypeSelect:           "SELECT",
+	SQLTypeDelete:           "DELETE",
+	SQLTypeUpdate:           "UPDATE",
+	SQLTypeInsert:           "INSERT",
+	SQLTypeInsertSelect:     "INSERT SELECT",
+	SQLTypeReplace:          "REPLACE",
+	SQLTypeTruncate:         "TRUNCATE",
+	SQLTypeDropTable:        "DROP TABLE",
+	SQLTypeAlterTable:       "ALTER TABLE",
+	SQLTypeDropIndex:        "DROP INDEX",
+	SQLTypeShowDatabases:    "SHOW DATABASES",
+	SQLTypeShowTables:       "SHOW TABLES",
+	SQLTypeShowOpenTables:   "SHOW OPEN TABLES",
+	SQLTypeShowIndex:        "SHOW INDEX",
+	SQLTypeShowColumns:      "SHOW COLUMNS",
+	SQLTypeShowCreate:       "SHOW CREATE",
+	SQLTypeShowVariables:    "SHOW VARIABLES",
+	SQLTypeDescribe:         "DESCRIBE",
+	SQLTypeUnion:            "UNION",
+	SQLTypeDropTrigger:      "DROP TRIGGER",
+	SQLTypeCreateIndex:      "CREATE INDEX",
+	SQLTypeShowStatus:       "SHOW STATUS",
+	SQLTypeShowTableStatus:  "SHOW TABLE STATUS",
+	SQLTypeSetVariable:      "SET VARIABLE",
+	SQLTypeAnalyzeTable:     "ANALYZE TABLE",
 	SQLTypeShowMasterStatus: "SHOW MASTER STATUS",
-
+	SQLTypeShowReplicas:     "SHOW REPLICAS",
 }
 
 // SQLType represents the type of SQL.
