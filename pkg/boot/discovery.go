@@ -208,7 +208,6 @@ func LoadBootOptions(path string) (*BootOptions, error) {
 		return nil, err
 	}
 
-	log.Init(cfg.LogPath, log.InfoLevel)
 	return &cfg, nil
 }
 

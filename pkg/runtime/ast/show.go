@@ -36,7 +36,6 @@ var (
 	_ Statement = (*ShowTopology)(nil)
 	_ Statement = (*ShowTableStatus)(nil)
 	_ Statement = (*ShowWarnings)(nil)
-	_ Statement = (*ShowMasterStatus)(nil)
 )
 
 type FromTable string
@@ -483,7 +482,6 @@ func (s *ShowCharset) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int
 	return nil
 }
 
-
 type ShowReplicas struct {
 	*baseShow
 }
@@ -498,17 +496,4 @@ func (s ShowReplicas) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int
 		return errors.WithStack(err)
 	}
 	return nil
-}
-type ShowMasterStatus struct {
-	*baseShow
-}
-
-func (s *ShowMasterStatus) Mode() SQLType {
-	return SQLTypeShowMasterStatus
-}
-
-func (s *ShowMasterStatus) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
-	sb.WriteString("SHOW MASTER STATUS")
-
-	return s.baseShow.Restore(flag, sb, args)
 }

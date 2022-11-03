@@ -49,7 +49,6 @@ type (
 	Spec struct {
 		Kind        string                 `yaml:"kind" json:"kind,omitempty"`
 		APIVersion  string                 `yaml:"apiVersion" json:"apiVersion,omitempty"`
-		LogPath     string                 `yaml:"log_path" json:"log_path,omitempty"`
 		SlowLogPath string                 `yaml:"slow_log_path" json:"slow_log_path,omitempty"`
 		Metadata    map[string]interface{} `yaml:"metadata" json:"metadata"`
 	}

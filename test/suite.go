@@ -233,7 +233,7 @@ func (ms *MySuite) SetupSuite() {
 	}
 	go func() {
 		_ = os.Setenv(constants.EnvConfigPath, ms.tmpFile)
-		start.Run(ms.tmpBootFile)
+		start.Run(ms.tmpBootFile, "")
 	}()
 
 	// waiting for arana server started

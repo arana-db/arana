@@ -31,7 +31,6 @@ services:
       - "2380:2380"
 
   mysql:
-    platform: linux/amd64
     image: mysql:5.7
     container_name: arana-mysql
     networks:
@@ -65,7 +64,7 @@ services:
   arana:
     container_name: arana
     image: aranadb/arana:master
-    entrypoint: [ "sh", "-c", "arana import -c /etc/arana/bootstrap.yaml -s /etc/arana/config.yaml; arana start -c /etc/arana/bootstrap.yaml" ]
+    entrypoint: [ "arana", "start", "-c", "/etc/arana/bootstrap.yaml", "--import", "/etc/arana/config.yaml" ]
     networks:
       - local
     ports:

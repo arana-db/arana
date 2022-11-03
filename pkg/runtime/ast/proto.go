@@ -53,7 +53,6 @@ const (
 	SQLTypeSetVariable              // SET VARIABLE
 	SQLTypeAnalyzeTable             // ANALYZE TABLE
 	SQLTypeShowReplicas             // SHOW REPLICAS
- 	SQLTypeShowMasterStatus         // SHOW MASTER STATUS
 )
 
 var _sqlTypeNames = [...]string{
@@ -83,8 +82,6 @@ var _sqlTypeNames = [...]string{
 	SQLTypeSetVariable:     "SET VARIABLE",
 	SQLTypeAnalyzeTable:    "ANALYZE TABLE",
 	SQLTypeShowReplicas:    "SHOW REPLICAS",
-	SQLTypeShowMasterStatus: "SHOW MASTER STATUS",
-
 }
 
 // SQLType represents the type of SQL.

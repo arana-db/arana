@@ -51,7 +51,10 @@ _____________________________________________
 
 `
 
-const _keyBootstrap = "config"
+const (
+	_keyBootstrap = "config"
+	_keyImport    = "import"
+)
 
 func init() {
 	cmd := &cobra.Command{
@@ -62,17 +65,29 @@ func init() {
 	}
 	cmd.PersistentFlags().
 		StringP(_keyBootstrap, "c", os.Getenv(constants.EnvBootstrapPath), "bootstrap configuration file path")
+	cmd.PersistentFlags().
+		String(_keyImport, "", "import configuration yaml file path")
 
 	cmds.Handle(func(root *cobra.Command) {
 		root.AddCommand(cmd)
 	})
 }
 
-func Run(bootstrapConfigPath string) {
+func Run(bootstrapConfigPath string, importPath string) {
 	// print slogan
 	fmt.Printf("\033[92m%s\033[0m\n", slogan) // 92m: light green
 
 	discovery := boot.NewDiscovery(bootstrapConfigPath)
+	if err := discovery.Init(context.Background()); err != nil {
+		log.Fatal("start failed: %v", err)
+		return
+	}
+
+	if len(importPath) > 0 {
+		if !boot.RunImport(bootstrapConfigPath, importPath) {
+			return
+		}
+	}
 
 	if err := boot.Boot(context.Background(), discovery); err != nil {
 		log.Fatal("start failed: %v", err)
@@ -114,7 +129,10 @@ func Run(bootstrapConfigPath string) {
 func run(cmd *cobra.Command, args []string) {
 	_ = args
 
-	bootstrapConfigPath, _ := cmd.PersistentFlags().GetString(_keyBootstrap)
+	var (
+		bootstrapConfigPath, _ = cmd.PersistentFlags().GetString(_keyBootstrap)
+		importPath, _          = cmd.PersistentFlags().GetString(_keyImport)
+	)
 
 	if len(bootstrapConfigPath) < 1 {
 		// search bootstrap yaml
@@ -130,5 +148,5 @@ func run(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	Run(bootstrapConfigPath)
+	Run(bootstrapConfigPath, importPath)
 }

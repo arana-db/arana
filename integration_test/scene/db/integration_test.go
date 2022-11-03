@@ -64,11 +64,7 @@ func (s *IntegrationSuite) TestDBScene() {
 				params := strings.Split(sqlCase.Parameters, ",")
 				args := make([]interface{}, 0, len(params))
 				for _, param := range params {
-					k, err := test.GetValueByType(param)
-					if k == nil {
-						continue
-					}
-					assert.NoError(t, err)
+					k, _ := test.GetValueByType(param)
 					args = append(args, k)
 				}
 
@@ -87,11 +83,7 @@ func (s *IntegrationSuite) TestDBScene() {
 				params := strings.Split(sqlCase.Parameters, ",")
 				args := make([]interface{}, 0, len(params))
 				for _, param := range params {
-					k, err := test.GetValueByType(param)
-					if k == nil {
-						continue
-					}
-					assert.NoError(t, err)
+					k, _ := test.GetValueByType(param)
 					args = append(args, k)
 				}
 
@@ -109,11 +101,7 @@ func (s *IntegrationSuite) TestDBScene() {
 				params := strings.Split(sqlCase.Parameters, ",")
 				args := make([]interface{}, 0, len(params))
 				for _, param := range params {
-					k, err := test.GetValueByType(param)
-					if k == nil {
-						continue
-					}
-					assert.NoError(t, err)
+					k, _ := test.GetValueByType(param)
 					args = append(args, k)
 				}
 
