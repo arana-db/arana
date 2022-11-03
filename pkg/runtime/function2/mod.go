@@ -32,6 +32,7 @@ import (
 	"github.com/arana-db/arana/pkg/util/math"
 )
 
+// FuncMod is https://dev.mysql.com/doc/refman/5.6/en/mathematical-functions.html#function_mod
 const FuncMod = "MOD"
 
 var _ proto.Func = (*modFunc)(nil)
