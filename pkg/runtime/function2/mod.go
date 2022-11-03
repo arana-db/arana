@@ -72,6 +72,7 @@ func (a modFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value
 		return d, err
 	}
 }
+
 func (a modFunc) NumInput() int {
 	return 2
 }
