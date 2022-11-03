@@ -286,13 +286,94 @@ func (fp *discovery) UnbindNode(ctx context.Context, tenant, cluster, group, nod
 }
 
 func (fp *discovery) UpsertTable(ctx context.Context, tenant, cluster, table string, body *TableBody) error {
-	// TODO implement me
-	panic("implement me")
+	op, ok := fp.centers[tenant]
+	if !ok {
+		return ErrorNoTenant
+	}
+
+	tenantCfg, err := op.LoadAll(context.Background())
+	if err != nil {
+		return err
+	}
+
+	var (
+		rule      = tenantCfg.ShardingRule
+		newTables = make([]*config.Table, 0, len(rule.Tables))
+		exist     = false
+	)
+	_ = reflect.Copy(reflect.ValueOf(newTables), reflect.ValueOf(rule.Tables))
+
+	for _, tableCfg := range newTables {
+		db, tb, err := parseTable(tableCfg.Name)
+		if err != nil {
+			return err
+		}
+		if db == cluster && tb == table {
+			tableCfg.Sequence = body.Sequence
+			tableCfg.AllowFullScan = body.AllowFullScan
+			tableCfg.DbRules = body.DbRules
+			tableCfg.TblRules = body.TblRules
+			tableCfg.Topology = body.Topology
+			tableCfg.ShadowTopology = body.ShadowTopology
+			tableCfg.Attributes = body.Attributes
+			exist = true
+			break
+		}
+	}
+	if !exist {
+		newTable := &config.Table{
+			Name:           cluster + "." + table,
+			Sequence:       body.Sequence,
+			AllowFullScan:  body.AllowFullScan,
+			DbRules:        body.DbRules,
+			TblRules:       body.TblRules,
+			Topology:       body.Topology,
+			ShadowTopology: body.ShadowTopology,
+			Attributes:     body.Attributes,
+		}
+		newTables = append(newTables, newTable)
+	}
+	rule.Tables = newTables
+
+	err = op.Write(ctx, config.ConfigItemShardingRule, tenantCfg)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (fp *discovery) RemoveTable(ctx context.Context, tenant, cluster, table string) error {
-	// TODO implement me
-	panic("implement me")
+	op, ok := fp.centers[tenant]
+	if !ok {
+		return ErrorNoTenant
+	}
+
+	tenantCfg, err := op.LoadAll(context.Background())
+	if err != nil {
+		return err
+	}
+
+	var (
+		rule           = tenantCfg.ShardingRule
+		remainedTables = make([]*config.Table, 0, len(rule.Tables)-1)
+	)
+
+	for _, tableCfg := range rule.Tables {
+		db, tb, err := parseTable(tableCfg.Name)
+		if err != nil {
+			return err
+		}
+		if db != cluster || tb != table {
+			remainedTables = append(remainedTables, tableCfg)
+		}
+	}
+	rule.Tables = remainedTables
+
+	err = op.Write(ctx, config.ConfigItemShardingRule, tenantCfg)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (fp *discovery) Import(ctx context.Context, info *config.Tenant) error {
