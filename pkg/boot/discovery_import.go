@@ -66,7 +66,7 @@ func RunImport(importConfPath, configPath string) bool {
 		tenant.Metadata = cfg.Metadata
 
 		ok := func() bool {
-			op, err := config.NewCenter(tenant.Name, config.GetStoreOperate())
+			op, err := config.NewCenter(tenant.Name, config.GetStoreOperate(), config.WithWriter(true))
 			if err != nil {
 				log.Errorf("create config_center tenant=%s failed: %+v", tenant.Name, err)
 				return false

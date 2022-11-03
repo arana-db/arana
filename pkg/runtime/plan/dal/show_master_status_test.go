@@ -15,14 +15,24 @@
  * limitations under the License.
  */
 
-package main
+package dal
 
 import (
-	"github.com/arana-db/arana/cmd/start"
-	"github.com/arana-db/arana/testdata"
+	"testing"
 )
 
-func main() {
-	bootstrap := testdata.Path("../conf/bootstrap.local-etcd.yaml")
-	start.Run(bootstrap)
+import (
+	"github.com/arana-db/parser"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestSQL(t *testing.T) {
+	sql := "SHOW MASTER STATUS"
+
+	p := parser.New()
+
+	stmtNodes, _, err := p.Parse(sql, "", "")
+	assert.Nil(t, err)
+	assert.NotNil(t, stmtNodes)
 }

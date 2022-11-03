@@ -15,10 +15,8 @@
 # limitations under the License.
 #
 
-# builder layer
-FROM golang:1.18-alpine AS builder
-
-RUN apk add --no-cache upx
+### BUILDER LAYER
+FROM golang:1.18-alpine AS BE
 
 WORKDIR /app
 
@@ -29,24 +27,45 @@ RUN go mod download
 
 COPY . .
 
-# use upx, the binary size is as smaller as better when running as a side-car.
 RUN mkdir ./bin && \
-    go build -ldflags "-X main.Version=`cat VERSION` -extldflags \"-static\" -s -w" -o ./bin/arana ./cmd && \
-    upx -9 -o ./bin/arana-upx ./bin/arana && \
-    mv ./bin/arana-upx ./bin/arana
+    go build -ldflags "-X main.Version=`cat VERSION` -extldflags \"-static\" -s -w" -o ./bin/arana ./cmd
 
-# runtime layer
+### UI LAYER
+FROM node:16-alpine as FE
+
+RUN apk add --no-cache git
+
+# specify git revision for arana-db/arana-ui repo
+ARG UI_REVISION="79f97b5"
+
+WORKDIR /arana-ui
+
+RUN git clone -n https://github.com/arana-db/arana-ui.git /arana-ui && \
+    git checkout $UI_REVISION && \
+    yarn && yarn build
+
+### RUNTIME LAYER
 FROM alpine:3
+
+ENV ARANA_LOG_NAME=arana.log \
+    ARANA_LOG_LEVEL=0 \
+    ARANA_LOG_MAX_SIZE=10 \
+    ARANA_LOG_MAX_BACKUPS=5 \
+    ARANA_LOG_MAX_AGE=30 \
+    ARANA_LOG_COMPRESS=false
 
 WORKDIR /
 
-RUN mkdir -p /etc/arana
+RUN mkdir -p /etc/arana /var/www/arana
 
 VOLUME /etc/arana
+VOLUME /var/www/arana
 
 EXPOSE 13306
+EXPOSE 8080
 
-COPY --from=builder /app/bin/arana /usr/local/bin/
 COPY ./conf/* /etc/arana/
+COPY --from=BE /app/bin/arana /usr/local/bin/
+COPY --from=FE /arana-ui/dist/* /var/www/arana/
 
 CMD ["arana", "start", "-c", "/etc/arana/bootstrap.yaml"]
