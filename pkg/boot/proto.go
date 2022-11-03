@@ -43,6 +43,7 @@ type ClusterBody struct {
 }
 
 type NodeBody struct {
+	Name       string                 `yaml:"name" json:"name"`
 	Host       string                 `yaml:"host" json:"host"`
 	Port       int                    `yaml:"port" json:"port"`
 	Username   string                 `yaml:"username" json:"username"`
@@ -97,8 +98,14 @@ type ConfigProvider interface {
 	// ListNodes lists the node names.
 	ListNodes(ctx context.Context, tenant, cluster, group string) ([]string, error)
 
+	// ListNodesByAdmin lists the node names by admin.
+	ListNodesByAdmin(ctx context.Context, tenant string) ([]string, error)
+
 	// GetNode returns the node info.
 	GetNode(ctx context.Context, tenant, cluster, group, node string) (*config.Node, error)
+
+	// GetNodeByAdmin returns the node info by admin.
+	GetNodeByAdmin(ctx context.Context, tenant, node string) (*config.Node, error)
 
 	// ListTables lists the table names.
 	ListTables(ctx context.Context, tenant, cluster string) ([]string, error)

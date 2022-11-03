@@ -129,6 +129,12 @@ type (
 		// CreateTenantUser creates a user.
 		CreateTenantUser(tenant, username, password string) error
 
+		// UpsertNode creates a node, or updates a node.
+		UpsertNode(tenant, node, name, host string, port int, username, password, database, weight string) error
+
+		// RemoveNode removes a node.
+		RemoveNode(tenant, name string) error
+
 		// Subscribe subscribes tenants change
 		Subscribe(ctx context.Context, c EventCallback) context.CancelFunc
 	}
