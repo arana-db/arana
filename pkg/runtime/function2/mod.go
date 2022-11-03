@@ -37,12 +37,6 @@ const FuncMod = "MOD"
 
 var _ proto.Func = (*modFunc)(nil)
 
-var decmod = func(d1 *gxbig.Decimal, d2 *gxbig.Decimal) *gxbig.Decimal {
-	var ret gxbig.Decimal
-	_ = gxbig.DecimalMod(d1, d2, &ret)
-	return &ret
-}
-
 func init() {
 	proto.RegisterFunc(FuncMod, modFunc{})
 }
@@ -57,6 +51,11 @@ func (a modFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value
 	val2, err := inputs[1].Value(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)
+	}
+	decmod := func(d1 *gxbig.Decimal, d2 *gxbig.Decimal) *gxbig.Decimal {
+		var ret gxbig.Decimal
+		_ = gxbig.DecimalMod(d1, d2, &ret)
+		return &ret
 	}
 	d1 := math.ToDecimal(val1)
 	d2 := math.ToDecimal(val2)
