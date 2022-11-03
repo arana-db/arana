@@ -34,9 +34,9 @@ import (
 
 func init() {
 	admin.Register(func(router admin.Router) {
-		router.GET("/tenants/:tenant/nodes", ListNodes)
+		router.GET("/tenants/:tenant/nodes", ListNodesByAdmin)
 		router.POST("/tenants/:tenant/nodes", CreateNode)
-		router.GET("/tenants/:tenant/nodes/:node", GetNode)
+		router.GET("/tenants/:tenant/nodes/:node", GetNodeByAdmin)
 		router.PUT("/tenants/:tenant/nodes/:node", UpdateNode)
 		router.DELETE("/tenants/:tenant/nodes/:node", RemoveNode)
 	})
@@ -73,6 +73,26 @@ func ListNodes(c *gin.Context) error {
 	return nil
 }
 
+func ListNodesByAdmin(c *gin.Context) error {
+	var results []config.Node
+	service := admin.GetService(c)
+	tenantName := c.Param("tenant")
+	nodesArray, err := service.ListNodesByAdmin(c, tenantName)
+	if err != nil {
+		return err
+	}
+	for _, node := range nodesArray {
+		result, err := service.GetNodeByAdmin(c, tenantName, node)
+		if err != nil {
+			return err
+		}
+		results = append(results, *result)
+	}
+
+	c.JSON(http.StatusOK, results)
+	return nil
+}
+
 func GetNode(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenant := c.Param("tenant")
@@ -98,15 +118,27 @@ func GetNode(c *gin.Context) error {
 	return nil
 }
 
+func GetNodeByAdmin(c *gin.Context) error {
+	service := admin.GetService(c)
+	tenant := c.Param("tenant")
+	node := c.Param("node")
+	data, err := service.GetNodeByAdmin(c, tenant, node)
+	if err != nil {
+		return err
+	}
+	c.JSON(http.StatusOK, data)
+	return nil
+}
+
 func CreateNode(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenant := c.Param("tenant")
-	var node *boot.NodeBody
-	if err := c.ShouldBindJSON(&node); err != nil {
+	var nodeBody *boot.NodeBody
+	if err := c.ShouldBindJSON(&nodeBody); err != nil {
 		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
 
-	err := service.UpsertNode(c, tenant, "", node)
+	err := service.UpsertNode(c, tenant, nodeBody.Name, nodeBody)
 	if err != nil {
 		return err
 	}
@@ -119,7 +151,7 @@ func UpdateNode(c *gin.Context) error {
 	tenant := c.Param("tenant")
 	node := c.Param("node")
 	var nodeBody *boot.NodeBody
-	if err := c.ShouldBindJSON(&nodeBody); err == nil {
+	if err := c.ShouldBindJSON(&nodeBody); err != nil {
 		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
 

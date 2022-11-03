@@ -183,13 +183,19 @@ func (fp *discovery) RemoveCluster(ctx context.Context, tenant, cluster string) 
 }
 
 func (fp *discovery) UpsertNode(ctx context.Context, tenant, node string, body *NodeBody) error {
-	// TODO implement me
-	panic("implement me")
+	if err := fp.tenantOp.UpsertNode(tenant, node, body.Name, body.Host, body.Port, body.Username, body.Password, body.Database, body.Weight); err != nil {
+		return errors.Wrapf(err, "failed to upsert node '%s' for tenant '%s'", node, tenant)
+	}
+
+	return nil
 }
 
 func (fp *discovery) RemoveNode(ctx context.Context, tenant, node string) error {
-	// TODO implement me
-	panic("implement me")
+	if err := fp.tenantOp.RemoveNode(tenant, node); err != nil {
+		return errors.Wrapf(err, "failed to remove node '%s' for tenant '%s'", node, tenant)
+	}
+
+	return nil
 }
 
 func (fp *discovery) UpsertGroup(ctx context.Context, tenant, cluster, group string, body *GroupBody) error {
@@ -501,6 +507,28 @@ func (fp *discovery) ListNodes(ctx context.Context, tenant, cluster, group strin
 	return nodes, nil
 }
 
+func (fp *discovery) ListNodesByAdmin(ctx context.Context, tenant string) ([]string, error) {
+	op, ok := fp.centers[tenant]
+	if !ok {
+		return nil, ErrorNoTenant
+	}
+
+	cfg, err := op.LoadAll(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	if cfg == nil || len(cfg.Nodes) == 0 {
+		return nil, nil
+	}
+
+	ret := make([]string, 0, len(cfg.Nodes))
+	for _, it := range cfg.Nodes {
+		ret = append(ret, it.Name)
+	}
+	return ret, nil
+}
+
 func (fp *discovery) ListTables(ctx context.Context, tenant, cluster string) ([]string, error) {
 	op, ok := fp.centers[tenant]
 	if !ok {
@@ -560,6 +588,20 @@ func (fp *discovery) GetNode(ctx context.Context, tenant, cluster, group, node s
 	}
 
 	return nodes[nodeId], nil
+}
+
+func (fp *discovery) GetNodeByAdmin(ctx context.Context, tenant, node string) (*config.Node, error) {
+	op, ok := fp.centers[tenant]
+	if !ok {
+		return nil, ErrorNoTenant
+	}
+
+	nodes, err := fp.loadNodes(op)
+	if err != nil {
+		return nil, err
+	}
+
+	return nodes[node], nil
 }
 
 func (fp *discovery) GetTable(ctx context.Context, tenant, cluster, tableName string) (*rule.VTable, error) {
