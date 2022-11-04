@@ -65,7 +65,7 @@ func ToDecimal(value interface{}) *gxbig.Decimal {
 func IsZero(d *gxbig.Decimal) bool {
 	if d != nil {
 		return d.IsZero()
-	} else {
-		return false
 	}
+	return false
+
 }
