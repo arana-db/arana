@@ -68,6 +68,9 @@ func (a castncharFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto
 		return getResult(runes.ConvertToRune(val1), num)
 	}
 	num, err := d2.ToFloat64()
+	if err != nil {
+		return "", err
+	}
 	return getResult(runes.ConvertToRune(val1), int64(num))
 }
 
