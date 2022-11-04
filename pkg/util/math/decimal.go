@@ -21,9 +21,7 @@ import (
 	"fmt"
 )
 
-import (
-	gxbig "github.com/dubbogo/gost/math/big"
-)
+import gxbig "github.com/dubbogo/gost/math/big"
 
 func ToDecimal(value interface{}) *gxbig.Decimal {
 	var d *gxbig.Decimal
@@ -44,6 +42,16 @@ func ToDecimal(value interface{}) *gxbig.Decimal {
 		d = gxbig.NewDecFromInt(int64(val))
 	case int8:
 		d = gxbig.NewDecFromInt(int64(val))
+	case uint8:
+		d = gxbig.NewDecFromUint(uint64(val))
+	case uint16:
+		d = gxbig.NewDecFromUint(uint64(val))
+	case uint32:
+		d = gxbig.NewDecFromUint(uint64(val))
+	case uint64:
+		d = gxbig.NewDecFromUint(val)
+	case uint:
+		d = gxbig.NewDecFromUint(uint64(val))
 	default:
 		var err error
 		if d, err = gxbig.NewDecFromString(fmt.Sprint(val)); err == nil {
@@ -52,4 +60,12 @@ func ToDecimal(value interface{}) *gxbig.Decimal {
 		d, _ = gxbig.NewDecFromString("0.0")
 	}
 	return d
+}
+
+func IsZero(d *gxbig.Decimal) bool {
+	if d != nil {
+		return d.IsZero()
+	}
+	return false
+
 }
