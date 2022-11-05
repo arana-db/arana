@@ -67,5 +67,4 @@ func IsZero(d *gxbig.Decimal) bool {
 		return d.IsZero()
 	}
 	return false
-
 }
