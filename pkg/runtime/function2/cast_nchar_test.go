@@ -32,7 +32,6 @@ import (
 )
 
 func TestFuncCastNchar(t *testing.T) {
-
 	fn := proto.MustGetFunc(FuncCastNchar)
 	assert.Equal(t, 2, fn.NumInput())
 	type tt struct {

@@ -20,16 +20,17 @@ package function2
 import (
 	"context"
 	"fmt"
-	"github.com/pkg/errors"
 	"strings"
+)
+
+import (
+	gxbig "github.com/dubbogo/gost/math/big"
+	"github.com/pkg/errors"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/util/runes"
-)
-import (
-	gxbig "github.com/dubbogo/gost/math/big"
 )
 
 // FuncCastNchar is  https://dev.mysql.com/doc/refman/5.6/en/cast-functions.html#function_cast
