@@ -19,9 +19,7 @@ package function2
 
 import (
 	"context"
-)
 
-import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
@@ -29,7 +27,7 @@ import (
 const FuncPi = "PI"
 
 var (
-	_piDefaul = 3.141593
+	_piDefault = 3.141593
 )
 
 var _ proto.Func = (*piFunc)(nil)
@@ -41,7 +39,7 @@ func init() {
 type piFunc struct{}
 
 func (p piFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
-	return _piDefaul, nil
+	return _piDefault, nil
 }
 
 func (p piFunc) NumInput() int {
