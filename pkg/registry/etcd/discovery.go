@@ -3,6 +3,7 @@ package etcd
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -38,7 +39,7 @@ type EtcdV3Discovery struct {
 
 // NewEtcdV3Discovery returns a new EtcdV3Discovery.
 func NewEtcdV3Discovery(basePath string, servicePath string, etcdAddrs []string, options *store.Options) (registry.Discovery, error) {
-	discoveryPath := basePath + "/" + servicePath
+	discoveryPath := fmt.Sprintf("/%s/%s", basePath, servicePath)
 	if len(discoveryPath) > 1 && strings.HasSuffix(discoveryPath, "/") {
 		discoveryPath = discoveryPath[:len(discoveryPath)-1]
 	}
@@ -56,15 +57,15 @@ func NewEtcdV3Discovery(basePath string, servicePath string, etcdAddrs []string,
 	}
 	etcdV3Discovery.client = client
 
-	ps, err := client.List(context.Background(), discoveryPath)
+	registryNodes, err := client.List(context.Background(), discoveryPath)
 	if err != nil {
 		log.Errorf("cannot get services of from registry: %v, err: %v", discoveryPath, err)
 		return nil, err
 	}
 
-	for _, val := range ps {
+	for _, registryNode := range registryNodes {
 		var tmpService registry.ServiceInstance
-		if err := json.Unmarshal(val, &tmpService); err != nil {
+		if err := json.Unmarshal(registryNode, &tmpService); err != nil {
 			log.Warnf("watchtree unmarshal err:%v", err)
 			continue
 		}
@@ -112,7 +113,7 @@ func (d *EtcdV3Discovery) watch(ctx context.Context) {
 		d.client.Close()
 	}()
 
-rewatch:
+rematch:
 	for {
 		var err error
 		var tempDelay time.Duration
@@ -160,7 +161,7 @@ rewatch:
 				return
 			case service, ok := <-serviceChan:
 				if !ok {
-					break rewatch
+					break rematch
 				}
 				if service == nil {
 					continue

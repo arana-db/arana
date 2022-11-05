@@ -124,7 +124,7 @@ func (r *EtcdV3Registry) Register(ctx context.Context, name string, serviceInsta
 // UnregisterAllService unregister all services.
 func (r *EtcdV3Registry) UnregisterAllService(ctx context.Context) error {
 	for _, name := range r.Services {
-		nodePath := fmt.Sprintf("%s/%s/%s", r.BasePath, name, r.ServiceAddress)
+		nodePath := fmt.Sprintf("/%s/%s/%s", r.BasePath, name, r.ServiceAddress)
 		exist, err := r.client.Exists(ctx, nodePath)
 		if err != nil {
 			log.Errorf("cannot delete path %s: %v", nodePath, err)
@@ -149,7 +149,7 @@ func (r *EtcdV3Registry) Unregister(ctx context.Context, name string) (err error
 		return
 	}
 
-	nodePath := fmt.Sprintf("%s/%s/%s", r.BasePath, name, r.ServiceAddress)
+	nodePath := fmt.Sprintf("/%s/%s/%s", r.BasePath, name, r.ServiceAddress)
 	err = r.client.Delete(ctx, nodePath)
 	if err != nil {
 		log.Errorf("cannot create consul path %s: %v", nodePath, err)
