@@ -20,11 +20,11 @@ package function2
 import (
 	"context"
 	"fmt"
-	"github.com/pkg/errors"
 )
 
 import (
 	gxbig "github.com/dubbogo/gost/math/big"
+	"github.com/pkg/errors"
 )
 
 import (
