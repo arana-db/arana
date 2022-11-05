@@ -21,9 +21,14 @@ import (
 	"context"
 	"fmt"
 	"testing"
+)
 
-	"github.com/arana-db/arana/pkg/proto"
+import (
 	"github.com/stretchr/testify/assert"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/proto"
 )
 
 func TestFuncCastNchar(t *testing.T) {
