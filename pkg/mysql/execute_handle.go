@@ -31,6 +31,7 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/hint"
 	"github.com/arana-db/arana/pkg/security"
+	"github.com/arana-db/arana/pkg/trace"
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
@@ -304,6 +305,8 @@ func (l *Listener) handlePrepare(c *Conn, ctx *proto.Context) error {
 	}
 
 	l.stmts.Store(statementID, stmt)
+
+	trace.Extract(ctx, stmt.Hints)
 
 	return c.writePrepare(stmt)
 }

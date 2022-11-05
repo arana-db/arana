@@ -50,9 +50,9 @@ type (
 
 	// ClustersEvent clusters event
 	ClustersEvent struct {
-		AddCluster    Clusters
-		DeleteCluster Clusters
-		UpdateCluster []*ClusterEvent
+		AddClusters    Clusters
+		DeleteClusters Clusters
+		UpdateClusters []*ClusterEvent
 	}
 
 	// ClusterEvent cluster event

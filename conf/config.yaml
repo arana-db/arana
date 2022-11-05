@@ -33,6 +33,7 @@ data:
           sql_max_limit: -1
           tenant: arana
           parameters:
+            slow_threshold: 1s
             max_allowed_packet: 256M
           groups:
             - name: employees_0000
@@ -115,4 +116,3 @@ data:
           database: employees_0003
           weight: r10w10
           parameters:
-

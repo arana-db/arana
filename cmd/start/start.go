@@ -43,7 +43,7 @@ import (
 
 // slogan is generated from 'figlet -f smslant ARANA'.
 const slogan = `
-   ___   ___  ___   _  _____ 
+   ___   ___  ___   _  _____
   / _ | / _ \/ _ | / |/ / _ |
  / __ |/ , _/ __ |/    / __ |
 /_/ |_/_/|_/_/ |_/_/|_/_/ |_|
@@ -52,10 +52,7 @@ _____________________________________________
 
 `
 
-const (
-	_keyBootstrap = "config"
-	_keyImport    = "import"
-)
+const _keyBootstrap = "config"
 
 func init() {
 	cmd := &cobra.Command{
@@ -66,29 +63,17 @@ func init() {
 	}
 	cmd.PersistentFlags().
 		StringP(_keyBootstrap, "c", os.Getenv(constants.EnvBootstrapPath), "bootstrap configuration file path")
-	cmd.PersistentFlags().
-		String(_keyImport, "", "import configuration yaml file path")
 
 	cmds.Handle(func(root *cobra.Command) {
 		root.AddCommand(cmd)
 	})
 }
 
-func Run(bootstrapConfigPath string, importPath string) {
+func Run(bootstrapConfigPath string) {
 	// print slogan
 	fmt.Printf("\033[92m%s\033[0m\n", slogan) // 92m: light green
 
 	discovery := boot.NewDiscovery(bootstrapConfigPath)
-	if err := discovery.Init(context.Background()); err != nil {
-		log.Fatal("start failed: %v", err)
-		return
-	}
-
-	if len(importPath) > 0 {
-		if !boot.RunImport(bootstrapConfigPath, importPath) {
-			return
-		}
-	}
 
 	if err := boot.Boot(context.Background(), discovery); err != nil {
 		log.Fatal("start failed: %v", err)
@@ -120,6 +105,10 @@ func Run(bootstrapConfigPath string, importPath string) {
 		return
 	}
 
+	if err := discovery.InitTrace(context.Background()); err != nil {
+		log.Warnf("init trace provider failed: %v", err)
+	}
+
 	propeller.Start()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -131,19 +120,14 @@ func Run(bootstrapConfigPath string, importPath string) {
 		<-c
 		os.Exit(1) // second signal. Exit directly.
 	}()
-	select {
-	case <-ctx.Done():
-		return
-	}
+
+	<-ctx.Done()
 }
 
 func run(cmd *cobra.Command, args []string) {
 	_ = args
 
-	var (
-		bootstrapConfigPath, _ = cmd.PersistentFlags().GetString(_keyBootstrap)
-		importPath, _          = cmd.PersistentFlags().GetString(_keyImport)
-	)
+	bootstrapConfigPath, _ := cmd.PersistentFlags().GetString(_keyBootstrap)
 
 	if len(bootstrapConfigPath) < 1 {
 		// search bootstrap yaml
@@ -159,5 +143,5 @@ func run(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	Run(bootstrapConfigPath, importPath)
+	Run(bootstrapConfigPath)
 }

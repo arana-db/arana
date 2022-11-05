@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -156,7 +157,15 @@ func (vi *binaryVirtualRow) WriteTo(w io.Writer) (n int64, err error) {
 		case int16:
 			_, err = bw.WriteUint16(uint16(val))
 		case string:
-			_, err = bw.WriteString(val)
+			switch vi.fields[i].(*mysql.Field).FieldType() {
+			case consts.FieldTypeLong:
+				var l int64
+				if l, err = strconv.ParseInt(val, 10, 64); err == nil {
+					_, err = bw.WriteUint64(uint64(l))
+				}
+			default:
+				_, err = bw.WriteString(val)
+			}
 		case []uint8:
 			// FIXME: how to write binary bytes???
 			_, err = bw.WriteString(bytesconv.BytesToString(val))
@@ -284,7 +293,7 @@ func NewTextVirtualRow(fields []proto.Field, cells []proto.Value) VirtualRow {
 
 func newBaseVirtualRow(fields []proto.Field, cells []proto.Value) *baseVirtualRow {
 	if len(fields) != len(cells) {
-		panic(fmt.Sprintf("the lengths of fields and cells are doesn't match!"))
+		panic("the lengths of fields and cells are doesn't match!")
 	}
 	return &baseVirtualRow{
 		fields: fields,

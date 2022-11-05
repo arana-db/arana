@@ -44,9 +44,11 @@ type (
 	}
 
 	Spec struct {
-		Kind       string                 `yaml:"kind" json:"kind,omitempty"`
-		APIVersion string                 `yaml:"apiVersion" json:"apiVersion,omitempty"`
-		Metadata   map[string]interface{} `yaml:"metadata" json:"metadata"`
+		Kind        string                 `yaml:"kind" json:"kind,omitempty"`
+		APIVersion  string                 `yaml:"apiVersion" json:"apiVersion,omitempty"`
+		LogPath     string                 `yaml:"log_path" json:"log_path,omitempty"`
+		SlowLogPath string                 `yaml:"slow_log_path" json:"slow_log_path,omitempty"`
+		Metadata    map[string]interface{} `yaml:"metadata" json:"metadata"`
 	}
 
 	// SocketAddress specify either a logical or physical address and port, which are
@@ -184,6 +186,13 @@ type (
 		DbPattern  string `validate:"required" yaml:"db_pattern" json:"db_pattern"`
 		TblPattern string `validate:"required" yaml:"tbl_pattern" json:"tbl_pattern"`
 	}
+
+	// Trace Distributed tracing configuration, which is used to configure the collector
+	// type and address
+	Trace struct {
+		Type    string `default:"jaeger" yaml:"type" json:"type"`
+		Address string `default:"http://localhost:14268/api/traces" yaml:"address" json:"address"`
+	}
 )
 
 type ParametersMap map[string]string
@@ -265,8 +274,8 @@ func (t *Tenant) Empty() bool {
 
 var _weightRegexp = regexp.MustCompile(`^[rR]([0-9]+)[wW]([0-9]+)$`)
 
-func (d *Node) GetReadAndWriteWeight() (int, int, error) {
-	items := _weightRegexp.FindStringSubmatch(d.Weight)
+func (nd *Node) GetReadAndWriteWeight() (int, int, error) {
+	items := _weightRegexp.FindStringSubmatch(nd.Weight)
 	if len(items) != 3 {
 		return 0, 0, errors.New("weight config should be r10w10")
 	}
@@ -282,8 +291,8 @@ func (d *Node) GetReadAndWriteWeight() (int, int, error) {
 	return readWeight, writeWeight, nil
 }
 
-func (d *Node) String() string {
-	b, _ := json.Marshal(d)
+func (nd *Node) String() string {
+	b, _ := json.Marshal(nd)
 	return string(b)
 }
 

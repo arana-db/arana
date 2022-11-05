@@ -18,10 +18,17 @@
 package dataset
 
 import (
+	"strings"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
-var _ proto.Dataset = (*FilterDataset)(nil)
+var (
+	_ proto.Dataset = (*FilterDataset)(nil)
+	_ proto.Dataset = (*FilterDatasetPrefix)(nil)
+)
 
 type PredicateFunc func(proto.Row) bool
 
@@ -38,6 +45,42 @@ func (f FilterDataset) Next() (proto.Row, error) {
 	row, err := f.Dataset.Next()
 	if err != nil {
 		return nil, err
+	}
+
+	if !f.Predicate(row) {
+		return f.Next()
+	}
+
+	return row, nil
+}
+
+type FilterDatasetPrefix struct {
+	proto.Dataset
+	Predicate PredicateFunc
+	Prefix    string
+}
+
+func (f FilterDatasetPrefix) Next() (proto.Row, error) {
+	if f.Predicate == nil {
+		return f.Dataset.Next()
+	}
+
+	row, err := f.Dataset.Next()
+	if err != nil {
+		return nil, err
+	}
+
+	var (
+		fields, _ = f.Fields()
+		values    = make([]proto.Value, len(fields))
+	)
+
+	if err = row.Scan(values); err != nil {
+		return nil, err
+	}
+
+	if strings.HasPrefix(values[0].(string), f.Prefix) {
+		return f.Next()
 	}
 
 	if !f.Predicate(row) {

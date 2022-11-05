@@ -46,7 +46,7 @@ import (
 // block 2: the third package
 import (
 	"github.com/pkg/errors"
-	
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -57,7 +57,7 @@ import (
 )
 ```
 
-## 4. Tools 
+## 4. Tools
 
 There are some aided development tools.
 

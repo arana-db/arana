@@ -221,8 +221,7 @@ func (l *Listener) handshake(c *Conn) error {
 		return err
 	}
 	// First build and send the server handshake packet.
-	err = l.writeHandshakeV10(c, false, salt)
-	if err != nil {
+	if err = l.writeHandshakeV10(c, false, salt); err != nil {
 		if err != io.EOF {
 			log.Errorf("Cannot send HandshakeV10 packet to %s: %v", c, err)
 		}
@@ -250,8 +249,7 @@ func (l *Listener) handshake(c *Conn) error {
 	handshake.connectionID = c.ConnectionID
 	handshake.salt = salt
 
-	err = l.ValidateHash(handshake)
-	if err != nil {
+	if err = l.ValidateHash(handshake); err != nil {
 		log.Errorf("Error authenticating user using MySQL native password: %v", err)
 		return err
 	}

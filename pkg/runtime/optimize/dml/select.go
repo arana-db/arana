@@ -72,7 +72,16 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		}
 		ret := &dml.SimpleQueryPlan{Stmt: stmt}
 		ret.BindArgs(o.Args)
-		return ret, nil
+
+		normalizedFields := make([]string, 0, len(stmt.Select))
+		for i := range stmt.Select {
+			normalizedFields = append(normalizedFields, stmt.Select[i].DisplayName())
+		}
+
+		return &dml.RenamePlan{
+			Plan:       ret,
+			RenameList: normalizedFields,
+		}, nil
 	}
 
 	// --- SIMPLE QUERY BEGIN ---
@@ -91,7 +100,7 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 	}
 
 	if shards == nil {
-		if shards, fullScan, err = (*optimize.Sharder)(o.Rule).Shard(tableName, stmt.Where, o.Args...); err != nil && fullScan == false {
+		if shards, fullScan, err = (*optimize.Sharder)(o.Rule).Shard(tableName, stmt.Where, o.Args...); err != nil && !fullScan {
 			return nil, errors.Wrap(err, "calculate shards failed")
 		}
 	}
@@ -114,7 +123,15 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		}
 		ret.BindArgs(o.Args)
 
-		return ret, nil
+		normalizedFields := make([]string, 0, len(stmt.Select))
+		for i := range stmt.Select {
+			normalizedFields = append(normalizedFields, stmt.Select[i].DisplayName())
+		}
+
+		return &dml.RenamePlan{
+			Plan:       ret,
+			RenameList: normalizedFields,
+		}, nil
 	}
 
 	// Go through first table if no shards matched.

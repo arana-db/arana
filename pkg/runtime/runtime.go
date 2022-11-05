@@ -33,6 +33,7 @@ import (
 	perrors "github.com/pkg/errors"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
 	"go.uber.org/atomic"
@@ -48,6 +49,7 @@ import (
 	"github.com/arana-db/arana/pkg/proto/hint"
 	"github.com/arana-db/arana/pkg/resultx"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
+	_ "github.com/arana-db/arana/pkg/runtime/function2"
 	"github.com/arana-db/arana/pkg/runtime/namespace"
 	"github.com/arana-db/arana/pkg/runtime/optimize"
 	_ "github.com/arana-db/arana/pkg/runtime/optimize/dal"
@@ -69,38 +71,6 @@ var Tracer = otel.Tracer("Runtime")
 
 var errTxClosed = errors.New("transaction is closed")
 
-func NewAtomDB(node *config.Node) *AtomDB {
-	if node == nil {
-		return nil
-	}
-	r, w, err := node.GetReadAndWriteWeight()
-	if err != nil {
-		return nil
-	}
-	db := &AtomDB{
-		id:     node.Name,
-		weight: proto.Weight{R: int32(r), W: int32(w)},
-	}
-
-	raw, _ := json.Marshal(map[string]interface{}{
-		"dsn": fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?%s", node.Username, node.Password, node.Host, node.Port, node.Database, node.Parameters.String()),
-	})
-	connector, err := mysql.NewConnector(raw)
-	if err != nil {
-		panic(err)
-	}
-
-	var (
-		capacity    = config.GetConnPropCapacity(node.ConnProps, 8)
-		maxCapacity = config.GetConnPropMaxCapacity(node.ConnProps, 64)
-		idleTime    = config.GetConnPropIdleTime(node.ConnProps, 30*time.Minute)
-	)
-
-	db.pool = pools.NewResourcePool(connector.NewBackendConnection, capacity, maxCapacity, idleTime, 1, nil)
-
-	return db
-}
-
 // Runtime executes a sql statement.
 type Runtime interface {
 	proto.Executable
@@ -120,10 +90,19 @@ func Load(schema string) (Runtime, error) {
 	return (*defaultRuntime)(ns), nil
 }
 
+// Unload unloads a Runtime, here schema means logical database name.
+func Unload(schema string) error {
+	if err := namespace.Unregister(schema); err != nil {
+		return perrors.Wrapf(err, "cannot unload schema '%s'", schema)
+	}
+	return nil
+}
+
 var (
-	_ proto.DB       = (*AtomDB)(nil)
-	_ proto.Callable = (*atomTx)(nil)
-	_ proto.Tx       = (*compositeTx)(nil)
+	_ proto.DB             = (*AtomDB)(nil)
+	_ proto.Callable       = (*atomTx)(nil)
+	_ proto.Tx             = (*compositeTx)(nil)
+	_ proto.VersionSupport = (*compositeTx)(nil)
 )
 
 type compositeTx struct {
@@ -132,6 +111,10 @@ type compositeTx struct {
 
 	rt  *defaultRuntime
 	txs map[string]*atomTx
+}
+
+func (tx *compositeTx) Version(ctx context.Context) (string, error) {
+	return tx.rt.Version(ctx)
 }
 
 func (tx *compositeTx) Query(ctx context.Context, db string, query string, args ...interface{}) (proto.Result, error) {
@@ -388,6 +371,8 @@ func (tx *atomTx) dispose() {
 }
 
 type AtomDB struct {
+	mu sync.Mutex
+
 	id string
 
 	weight proto.Weight
@@ -396,6 +381,53 @@ type AtomDB struct {
 	closed atomic.Bool
 
 	pendingRequests atomic.Int64
+
+	variables atomic.Value // map[string]string
+}
+
+func NewAtomDB(node *config.Node) *AtomDB {
+	if node == nil {
+		return nil
+	}
+	r, w, err := node.GetReadAndWriteWeight()
+	if err != nil {
+		return nil
+	}
+	db := &AtomDB{
+		id:     node.Name,
+		weight: proto.Weight{R: int32(r), W: int32(w)},
+	}
+
+	raw, _ := json.Marshal(map[string]interface{}{
+		"dsn": fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?%s", node.Username, node.Password, node.Host, node.Port, node.Database, node.Parameters.String()),
+	})
+	connector, err := mysql.NewConnector(raw)
+	if err != nil {
+		panic(err)
+	}
+
+	var (
+		capacity    = config.GetConnPropCapacity(node.ConnProps, 8)
+		maxCapacity = config.GetConnPropMaxCapacity(node.ConnProps, 64)
+		idleTime    = config.GetConnPropIdleTime(node.ConnProps, 30*time.Minute)
+	)
+
+	db.pool = pools.NewResourcePool(connector.NewBackendConnection, capacity, maxCapacity, idleTime, 1, nil)
+
+	// async fetch variables
+	go func() {
+		_, _ = db.fetchVariables(context.Background())
+	}()
+
+	return db
+}
+
+func (db *AtomDB) Variable(ctx context.Context, name string) (string, error) {
+	variables, err := db.fetchVariables(ctx)
+	if err != nil {
+		return "", perrors.WithStack(err)
+	}
+	return variables[name], nil
 }
 
 func (db *AtomDB) begin(ctx context.Context) (*atomTx, error) {
@@ -574,7 +606,64 @@ func (db *AtomDB) returnConnection(bc *mysql.BackendConnection) {
 	// log.Infof("^^^^^ return conn: active=%d, available=%d", db.pool.Active(), db.pool.Available())
 }
 
+func (db *AtomDB) fetchVariables(ctx context.Context) (map[string]string, error) {
+	var (
+		val map[string]string
+		ok  bool
+	)
+	if val, ok = db.variables.Load().(map[string]string); ok {
+		return val, nil
+	}
+
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	if val, ok = db.variables.Load().(map[string]string); ok {
+		return val, nil
+	}
+
+	res, _, err := db.Call(ctx, "SHOW VARIABLES")
+	if err != nil {
+		return nil, perrors.Wrapf(err, "cannot fetch variables")
+	}
+
+	ds, err := res.Dataset()
+	if err != nil {
+		return nil, perrors.Wrapf(err, "cannot fetch variables")
+	}
+
+	defer ds.Close()
+
+	var (
+		newborn = make(map[string]string)
+		dest    = make([]proto.Value, 2)
+		row     proto.Row
+	)
+
+	for {
+		row, err = ds.Next()
+		if perrors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, perrors.Wrapf(err, "cannot fetch variables")
+		}
+		if err = row.Scan(dest); err != nil {
+			return nil, perrors.Wrapf(err, "cannot fetch variables")
+		}
+		newborn[fmt.Sprint(dest[0])] = fmt.Sprint(dest[1])
+	}
+
+	db.variables.Store(newborn)
+
+	return newborn, nil
+}
+
 type defaultRuntime namespace.Namespace
+
+func (pi *defaultRuntime) Version(ctx context.Context) (string, error) {
+	return pi.Namespace().DB0(ctx).Variable(ctx, "version")
+}
 
 func (pi *defaultRuntime) Begin(ctx context.Context) (proto.Tx, error) {
 	_, span := Tracer.Start(ctx, "defaultRuntime.Begin")
@@ -615,14 +704,19 @@ func (pi *defaultRuntime) Exec(ctx context.Context, db string, query string, arg
 func (pi *defaultRuntime) Execute(ctx *proto.Context) (res proto.Result, warn uint16, err error) {
 	var span trace.Span
 	ctx.Context, span = Tracer.Start(ctx.Context, "defaultRuntime.Execute")
+	span.SetAttributes(attribute.Key("sql").String(ctx.GetQuery()))
 	execStart := time.Now()
 	defer func() {
 		span.End()
-		metrics.ExecuteDuration.Observe(time.Since(execStart).Seconds())
+		since := time.Since(execStart)
+		metrics.ExecuteDuration.Observe(since.Seconds())
+		if pi.Namespace().SlowThreshold() != 0 && since > pi.Namespace().SlowThreshold() {
+			pi.Namespace().SlowLogger().Warnf("slow logs elapsed %v sql %s", since, ctx.GetQuery())
+		}
 	}()
 	args := ctx.GetArgs()
 
-	if direct := rcontext.IsDirect(ctx.Context); direct {
+	if rcontext.IsDirect(ctx.Context) {
 		return pi.callDirect(ctx, args)
 	}
 

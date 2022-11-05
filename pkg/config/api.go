@@ -31,6 +31,9 @@ type (
 
 	// PathKey config path key type
 	PathKey string
+
+	// ConfigItem
+	ConfigItem string
 )
 
 const (
@@ -64,6 +67,15 @@ const (
 	DBPostgreSQL DataSourceType = "postgresql"
 )
 
+const (
+	ConfigItemSpec         = "spec"
+	ConfigItemUsers        = "users"
+	ConfigItemClusters     = "clusters"
+	ConfigItemShardingRule = "sharding_rule"
+	ConfigItemNodes        = "nodes"
+	ConfigItemShadowRule   = "shadow_rule"
+)
+
 var (
 	slots = make(map[string]StoreOperator)
 
@@ -83,7 +95,7 @@ func Register(s StoreOperator) error {
 }
 
 type (
-	callback func(e Event)
+	EventCallback func(e Event)
 
 	SubscribeResult struct {
 		EventChan <-chan Event
@@ -91,7 +103,7 @@ type (
 	}
 
 	subscriber struct {
-		watch callback
+		watch EventCallback
 		ctx   context.Context
 	}
 
@@ -101,31 +113,64 @@ type (
 		Options   map[string]interface{} `yaml:"options"`
 	}
 
-	//TenantOperator actions specific to tenant spaces
+	// TenantOperator actions specific to tenant spaces
 	TenantOperator interface {
 		io.Closer
-		//ListTenants lists all tenants
+
+		// ListTenants lists all tenants
 		ListTenants() []string
-		//CreateTenant creates tenant
+
+		// CreateTenant creates tenant
 		CreateTenant(string) error
-		//RemoveTenant removes tenant
+
+		// RemoveTenant removes tenant
 		RemoveTenant(string) error
-		//Subscribe subscribes tenants change
-		Subscribe(ctx context.Context, c callback) context.CancelFunc
+
+		// CreateTenantUser creates a user.
+		CreateTenantUser(tenant, username, password string) error
+
+		// UpsertNode creates a node, or updates a node.
+		UpsertNode(tenant, node, name, host string, port int, username, password, database, weight string) error
+
+		// RemoveNode removes a node.
+		RemoveNode(tenant, name string) error
+
+		// Subscribe subscribes tenants change
+		Subscribe(ctx context.Context, c EventCallback) context.CancelFunc
 	}
 
 	// Center Configuration center for each tenant, tenant-level isolation
 	Center interface {
 		io.Closer
-		// Load loads the full Tenant configuration, the first time it will be loaded remotely,
-		// and then it will be directly assembled from the cache layer
-		Load(ctx context.Context) (*Tenant, error)
-		// Import imports the configuration information of a tenant
-		Import(ctx context.Context, cfg *Tenant) error
-		// Subscribe subscribes to all changes of an event by EventType
-		Subscribe(ctx context.Context, et EventType, c callback) context.CancelFunc
+		ConfigWriter
+		ConfigReader
+		ConfigWatcher
 		// Tenant tenant info
 		Tenant() string
+	}
+
+	ConfigReader interface {
+		io.Closer
+		// LoadAll loads the full Tenant configuration, the first time it will be loaded remotely,
+		// and then it will be directly assembled from the cache layer
+		LoadAll(ctx context.Context) (*Tenant, error)
+		// Load loads the full Tenant configuration, the first time it will be loaded remotely,
+		// and then it will be directly assembled from the cache layer
+		Load(ctx context.Context, item ConfigItem) (*Tenant, error)
+	}
+
+	ConfigWriter interface {
+		io.Closer
+		// Import imports the configuration information of a tenant
+		Import(ctx context.Context, cfg *Tenant) error
+		// Write imports the configuration information of a tenant
+		Write(ctx context.Context, item ConfigItem, cfg *Tenant) error
+	}
+
+	ConfigWatcher interface {
+		io.Closer
+		// Subscribe subscribes to all changes of an event by EventType
+		Subscribe(ctx context.Context, et EventType, c EventCallback) (context.CancelFunc, error)
 	}
 
 	// StoreOperator config storage related plugins

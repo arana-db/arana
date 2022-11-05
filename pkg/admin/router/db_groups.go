@@ -30,6 +30,7 @@ import (
 	"github.com/arana-db/arana/pkg/admin"
 	"github.com/arana-db/arana/pkg/admin/exception"
 	"github.com/arana-db/arana/pkg/boot"
+	"github.com/arana-db/arana/pkg/config"
 )
 
 func init() {
@@ -61,12 +62,20 @@ func CreateGroup(c *gin.Context) error {
 func ListGroups(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenantName := c.Param("tenant")
-	cluster := c.Param("cluster")
-	groups, err := service.ListGroups(context.Background(), tenantName, cluster)
+	// cluster := c.Param("cluster")
+	clusters, err := service.ListClusters(context.Background(), tenantName)
 	if err != nil {
 		return err
 	}
-	c.JSON(http.StatusOK, groups)
+	var res []*config.Group
+	for _, it := range clusters {
+		cluster, err := service.GetDataSourceCluster(context.Background(), tenantName, it)
+		if err != nil {
+			return err
+		}
+		res = append(res, cluster.Groups...)
+	}
+	c.JSON(http.StatusOK, res)
 	return nil
 }
 

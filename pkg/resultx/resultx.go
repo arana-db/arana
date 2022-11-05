@@ -148,10 +148,9 @@ func (d dsResult) RowsAffected() (uint64, error) {
 }
 
 func Drain(result proto.Result) {
-	if d, _ := result.Dataset(); d != nil {
-		defer func() {
-			_ = d.Close()
-		}()
+	d, _ := result.Dataset()
+	if d == nil {
+		return
 	}
-	return
+	_ = d.Close()
 }

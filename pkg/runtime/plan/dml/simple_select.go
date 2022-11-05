@@ -34,7 +34,6 @@ import (
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/runtime/plan"
-	"github.com/arana-db/arana/pkg/util/log"
 )
 
 var _ proto.Plan = (*SimpleQueryPlan)(nil)
@@ -50,8 +49,30 @@ func (s *SimpleQueryPlan) Type() proto.PlanType {
 	return proto.PlanTypeQuery
 }
 
+func (s *SimpleQueryPlan) isCompat80Enabled(ctx context.Context, conn proto.VConn) bool {
+	var (
+		frontendVersion string
+		backendVersion  string
+	)
+
+	if ver := rcontext.Version(ctx); len(ver) > 0 {
+		frontendVersion = ver
+	}
+	if vs, ok := conn.(proto.VersionSupport); ok {
+		backendVersion, _ = vs.Version(ctx)
+	}
+
+	if len(frontendVersion) < 1 || len(backendVersion) < 1 {
+		return false
+	}
+
+	// 5.x -> 8.x+
+	return backendVersion[0] >= '8' && frontendVersion[0] < '8'
+}
+
 func (s *SimpleQueryPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
 	var (
+		rf      = ast.RestoreDefault
 		sb      strings.Builder
 		indexes []int
 		res     proto.Result
@@ -63,7 +84,11 @@ func (s *SimpleQueryPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 
 	discard := s.filter()
 
-	if err = s.generate(&sb, &indexes); err != nil {
+	if s.isCompat80Enabled(ctx, conn) {
+		rf |= ast.RestoreCompat80
+	}
+
+	if err = s.generate(rf, &sb, &indexes); err != nil {
 		return nil, errors.Wrap(err, "failed to generate sql")
 	}
 
@@ -72,20 +97,6 @@ func (s *SimpleQueryPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 		args  = s.ToArgs(indexes)
 	)
 
-	version := rcontext.Version(ctx)
-	if strings.Compare(version, "8.0.0") >= 0 {
-		argsCacheSize57 := "@@query_cache_size"
-		argsCacheSize80 := "1048576"
-		argsCacheType57 := "@@query_cache_type"
-		argsCacheType80 := "'OFF'"
-		argsTxIso57 := "@@tx_isolation"
-		argsTxIso80 := "@@transaction_isolation"
-		query = strings.NewReplacer(
-			argsCacheSize57, argsCacheSize80,
-			argsCacheType57, argsCacheType80,
-			argsTxIso57, argsTxIso80).Replace(query)
-		log.Debugf("ComQueryFor8.0: %s", query)
-	}
 	if res, err = conn.Query(ctx, s.Database, query, args...); err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -139,11 +150,11 @@ func (s *SimpleQueryPlan) resetTable(tgt *ast.SelectStatement, table string) err
 	return nil
 }
 
-func (s *SimpleQueryPlan) generate(sb *strings.Builder, args *[]int) error {
+func (s *SimpleQueryPlan) generate(rf ast.RestoreFlag, sb *strings.Builder, args *[]int) error {
 	switch len(s.Tables) {
 	case 0:
 		// no table reset
-		if err := s.Stmt.Restore(ast.RestoreDefault, sb, args); err != nil {
+		if err := s.Stmt.Restore(rf, sb, args); err != nil {
 			return errors.WithStack(err)
 		}
 	case 1:

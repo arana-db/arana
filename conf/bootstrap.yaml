@@ -40,9 +40,10 @@ registry:
 #      username: nacos
 #      password: nacos
 
+log_path: "log"
+slow_log_path: "slow_log"
 config:
   name: file
-  options:
 
 #  name: etcd
 #  root_path: arana

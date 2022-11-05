@@ -37,10 +37,13 @@ func TestAggregateVisitor(t *testing.T) {
 
 	for _, it := range []tt{
 		{"select id,name from t", 0},
+		{"select count(*) from t", 1},
+		{"select avg(age) from t", 2},
 		{"select avg(age)+1 from t", 2},
 		{"select count(*)+1 from t", 1},
 		{"select sum(age)/count(age) from t", 2},
 		{"select id,avg(age)+1,count(*),min(age),max(age) from t", 5},
+		{"select CONCAT('total:',count(*)) from t", 1},
 	} {
 		t.Run(it.sql, func(t *testing.T) {
 			var av aggregateVisitor

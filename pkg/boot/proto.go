@@ -28,6 +28,7 @@ import (
 
 type Cluster struct {
 	Tenant string                `yaml:"tenant" json:"tenant"`
+	Name   string                `yaml:"Name" json:"name"`
 	Type   config.DataSourceType `yaml:"type" json:"type"`
 }
 
@@ -42,6 +43,7 @@ type ClusterBody struct {
 }
 
 type NodeBody struct {
+	Name       string                 `yaml:"name" json:"name"`
 	Host       string                 `yaml:"host" json:"host"`
 	Port       int                    `yaml:"port" json:"port"`
 	Username   string                 `yaml:"username" json:"username"`
@@ -69,8 +71,6 @@ type TableBody struct {
 
 // ConfigProvider provides configurations.
 type ConfigProvider interface {
-	ConfigUpdater
-
 	// ListTenants list tenants name
 	ListTenants(ctx context.Context) ([]string, error)
 
@@ -98,8 +98,14 @@ type ConfigProvider interface {
 	// ListNodes lists the node names.
 	ListNodes(ctx context.Context, tenant, cluster, group string) ([]string, error)
 
+	// ListNodesByAdmin lists the node names by admin.
+	ListNodesByAdmin(ctx context.Context, tenant string) ([]string, error)
+
 	// GetNode returns the node info.
 	GetNode(ctx context.Context, tenant, cluster, group, node string) (*config.Node, error)
+
+	// GetNodeByAdmin returns the node info by admin.
+	GetNodeByAdmin(ctx context.Context, tenant, node string) (*config.Node, error)
 
 	// ListTables lists the table names.
 	ListTables(ctx context.Context, tenant, cluster string) ([]string, error)
@@ -205,7 +211,9 @@ type ConfigWatcher interface {
 }
 
 type Discovery interface {
+	ConfigUpdater
 	ConfigProvider
+	ConfigWatcher
 	// ListListeners lists the listener names
 	ListListeners(ctx context.Context) []*config.Listener
 
@@ -214,4 +222,13 @@ type Discovery interface {
 
 	// Init initializes discovery with context
 	Init(ctx context.Context) error
+
+	// InitTrace distributed tracing
+	InitTrace(ctx context.Context) error
+
+	// InitTenant initializes tenant (just a workaround, TBD)
+	InitTenant(tenant string) error
+
+	// GetOptions get options
+	GetOptions() *BootOptions
 }

@@ -28,6 +28,7 @@ import (
 	perrors "github.com/pkg/errors"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 import (
@@ -99,6 +100,7 @@ func NewOptimizer(rule *rule.Rule, hints []*hint.Hint, stmt ast.StmtNode, args [
 
 func (o *Optimizer) Optimize(ctx context.Context) (plan proto.Plan, err error) {
 	ctx, span := Tracer.Start(ctx, "Optimize")
+	span.SetAttributes(attribute.Key("sql.type").String(o.Stmt.Mode().String()))
 	defer func() {
 		span.End()
 		if rec := recover(); rec != nil {

@@ -20,18 +20,25 @@
 # See https://github.com/tekwizely/pre-commit-golang for golang hooks
 
 repos:
--   repo: https://github.com/tekwizely/pre-commit-golang
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v2.3.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+  - repo: https://github.com/tekwizely/pre-commit-golang
     rev: v1.0.0-beta.5
     hooks:
-        -   id: my-cmd-mod
-            name: imports-formatter
-            alias: imports-formatter
-            args: [imports-formatter]
-        -   id: my-cmd-mod
-            name: license-eye
-            alias: license-eye
-            args: [license-eye, header, fix]
--   repo: http://github.com/golangci/golangci-lint
+      - id: my-cmd-mod
+        name: imports-formatter
+        alias: imports-formatter
+        args: [ imports-formatter ]
+      - id: my-cmd-mod
+        name: license-eye
+        alias: license-eye
+        args: [ license-eye, header, fix ]
+      - id: go-mod-tidy
+      - id: go-staticcheck-mod
+  - repo: https://github.com/golangci/golangci-lint
     rev: v1.46.2
     hooks:
-        -   id: golangci-lint
+      - id: golangci-lint

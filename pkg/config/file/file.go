@@ -180,7 +180,7 @@ func (s *storeOperate) Save(key config.PathKey, val []byte) error {
 	return nil
 }
 
-//Get
+// Get
 func (s *storeOperate) Get(key config.PathKey) ([]byte, error) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
@@ -201,7 +201,6 @@ func (s *storeOperate) Name() string {
 }
 
 func (s *storeOperate) Close() error {
-
 	for i := range s.cancels {
 		s.cancels[i]()
 	}
@@ -209,7 +208,7 @@ func (s *storeOperate) Close() error {
 	return nil
 }
 
-//readFromFile
+// readFromFile
 func (s *storeOperate) readFromFile(path string, cfg *config.Configuration) error {
 	var (
 		f   *os.File
@@ -257,9 +256,8 @@ func formatPath(path string) (string, error) {
 	return path, nil
 }
 
-//watchFileChange
+// watchFileChange
 func (s *storeOperate) watchFileChange(ctx context.Context, path string) {
-
 	refreshT := time.NewTicker(30 * time.Second)
 
 	oldStat, err := os.Stat(path)
@@ -292,5 +290,4 @@ func (s *storeOperate) watchFileChange(ctx context.Context, path string) {
 
 		}
 	}
-
 }

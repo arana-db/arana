@@ -113,6 +113,10 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		return cc.convDropTrigger(stmt), nil
 	case *ast.CreateIndexStmt:
 		return cc.convCreateIndexStmt(stmt), nil
+	case *ast.SetStmt:
+		return &SetVariable{Stmt: stmt}, nil
+	case *ast.AnalyzeTableStmt:
+		return cc.convAnalyzeTable(stmt), nil
 	default:
 		return nil, errors.Errorf("unimplement: stmt type %T!", stmt)
 	}
@@ -630,6 +634,8 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 		return &ShowOpenTables{baseShow: toBaseShow()}
 	case ast.ShowTables:
 		return &ShowTables{baseShow: toBaseShow()}
+	case ast.ShowReplicas:
+		return &ShowReplicas{baseShow: toBaseShow()}
 	case ast.ShowDatabases:
 		return &ShowDatabases{baseShow: toBaseShow()}
 	case ast.ShowCollation:
@@ -770,15 +776,7 @@ func MustParse(sql string) ([]*hint.Hint, Statement) {
 	return hints, stmt
 }
 
-type convCtx struct {
-	paramsCnt int32
-}
-
-func (cc *convCtx) getParamIndex() int32 {
-	cur := cc.paramsCnt
-	cc.paramsCnt++
-	return cur
-}
+type convCtx struct{}
 
 func (cc *convCtx) convFrom(from *ast.TableRefsClause) (ret []*TableSourceNode) {
 	if from == nil {
@@ -967,7 +965,7 @@ func (cc *convCtx) convLimit(li *ast.Limit) *LimitNode {
 		switch t := offset.(type) {
 		case *test_driver.ParamMarkerExpr:
 			n.SetOffsetVar()
-			n.SetOffset(int64(cc.getParamIndex()))
+			n.SetOffset(int64(t.Order))
 		case ast.ValueExpr:
 			n.SetOffset(int64(t.GetValue().(uint64)))
 		default:
@@ -978,7 +976,7 @@ func (cc *convCtx) convLimit(li *ast.Limit) *LimitNode {
 	switch t := li.Count.(type) {
 	case *test_driver.ParamMarkerExpr:
 		n.SetLimitVar()
-		n.SetLimit(int64(cc.getParamIndex()))
+		n.SetLimit(int64(t.Order))
 	case ast.ValueExpr:
 		n.SetLimit(int64(t.GetValue().(uint64)))
 	default:
@@ -1344,7 +1342,7 @@ func (cc *convCtx) convValueExpr(expr ast.ValueExpr) PredicateNode {
 	var atom ExpressionAtom
 	switch t := expr.(type) {
 	case *test_driver.ParamMarkerExpr:
-		atom = VariableExpressionAtom(cc.getParamIndex())
+		atom = VariableExpressionAtom(t.Order)
 	default:
 		switch val := t.GetValue().(type) {
 		case *test_driver.MyDecimal:
@@ -1430,7 +1428,7 @@ func (cc *convCtx) convBinaryOperationExpr(expr *ast.BinaryOperationExpr) interf
 	)
 
 	switch expr.Op {
-	case opcode.Plus, opcode.Minus, opcode.Div, opcode.Mul, opcode.Mod:
+	case opcode.Plus, opcode.Minus, opcode.Div, opcode.Mul, opcode.Mod, opcode.IntDiv:
 		return &AtomPredicateNode{A: &MathExpressionAtom{
 			Left:     left.(*AtomPredicateNode).A,
 			Operator: expr.Op.Literal(),
@@ -1582,4 +1580,15 @@ func isColumnAtom(expr PredicateNode) bool {
 		}
 	}
 	return false
+}
+
+func (cc *convCtx) convAnalyzeTable(stmt *ast.AnalyzeTableStmt) Statement {
+	tables := make([]*TableName, len(stmt.TableNames))
+	for i, table := range stmt.TableNames {
+		tables[i] = &TableName{
+			table.Name.String(),
+		}
+	}
+
+	return &AnalyzeTableStatement{Tables: tables}
 }

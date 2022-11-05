@@ -53,7 +53,7 @@ func RunImport(importConfPath, configPath string) bool {
 
 	for i := range cfg.Data.Tenants {
 		if err := tenantOp.CreateTenant(cfg.Data.Tenants[i].Name); err != nil {
-			log.Fatal("create tenant failed: %+v", configPath, err)
+			log.Fatal("create tenant failed, configPath:%s, err: %+v", configPath, err)
 			return false
 		}
 	}
@@ -66,11 +66,16 @@ func RunImport(importConfPath, configPath string) bool {
 		tenant.Metadata = cfg.Metadata
 
 		ok := func() bool {
-			op := config.NewCenter(tenant.Name, config.GetStoreOperate())
+			op, err := config.NewCenter(tenant.Name, config.GetStoreOperate(), config.WithWriter(true))
+			if err != nil {
+				log.Errorf("create config_center tenant=%s failed: %+v", tenant.Name, err)
+				return false
+			}
+
 			defer op.Close()
 
 			if err := op.Import(context.Background(), tenant); err != nil {
-				log.Fatalf("persist config to config.store failed: %+v", err)
+				log.Errorf("persist config tenant=%s to config.store failed: %+v", tenant.Name, err)
 				return false
 			}
 

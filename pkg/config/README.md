@@ -6,7 +6,7 @@
 ARANA_ROOT=/arana
 ```
 
-### Tenants 
+### Tenants
 ```yaml
 # 路径 Key
 ${ARANA_ROOT}/v1/tenants/<tenant>

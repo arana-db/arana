@@ -56,13 +56,7 @@ func (s *ShowVariablesPlan) ExecIn(ctx context.Context, vConn proto.VConn) (prot
 	defer span.End()
 
 	if err := s.stmt.Restore(ast.RestoreDefault, &sb, &args); err != nil {
-		return nil, errors.Wrap(err, "failed to execute DELETE statement")
+		return nil, errors.Wrap(err, "failed to execute show variables statement")
 	}
-
-	ret, err := vConn.Query(ctx, "", sb.String(), s.ToArgs(args)...)
-	if err != nil {
-		return nil, err
-	}
-
-	return ret, nil
+	return vConn.Query(ctx, "", sb.String(), s.ToArgs(args)...)
 }

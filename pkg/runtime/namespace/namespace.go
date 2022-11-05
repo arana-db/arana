@@ -22,6 +22,7 @@ import (
 	"io"
 	"sort"
 	"sync"
+	"time"
 )
 
 import (
@@ -31,6 +32,7 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
@@ -81,8 +83,13 @@ type (
 		// datasource map, eg: employee_0001 -> [mysql-a,mysql-b,mysql-c], ... employee_0007 -> [mysql-x,mysql-y,mysql-z]
 		dss atomic.Value // map[string][]proto.DB
 
+		parameters    config.ParametersMap
+		slowThreshold time.Duration
+
 		cmds chan Command  // command queue
 		done chan struct{} // done notify
+
+		slowLog log.Logger
 	}
 
 	// Command represents the command to control Namespace.
@@ -125,6 +132,18 @@ func (ns *Namespace) DBGroups() []string {
 	}
 	sort.Strings(groups)
 	return groups
+}
+
+func (ns *Namespace) DBs(group string) []proto.DB {
+	dss := ns.dss.Load().(map[string][]proto.DB)
+	exist, ok := dss[group]
+	if !ok {
+		return nil
+	}
+
+	ret := make([]proto.DB, len(exist))
+	copy(ret, exist)
+	return ret
 }
 
 func (ns *Namespace) DB0(ctx context.Context) proto.DB {
@@ -224,6 +243,18 @@ func (ns *Namespace) Rule() *rule.Rule {
 	return ru
 }
 
+func (ns *Namespace) Parameters() config.ParametersMap {
+	return ns.parameters
+}
+
+func (ns *Namespace) SlowThreshold() time.Duration {
+	return ns.slowThreshold
+}
+
+func (ns *Namespace) SlowLogger() log.Logger {
+	return ns.slowLog
+}
+
 // EnqueueCommand enqueues the next command, it will be executed async.
 func (ns *Namespace) EnqueueCommand(cmd Command) error {
 	if ns.closed.Load() {
@@ -262,6 +293,6 @@ func (ns *Namespace) Close() error {
 func (ns *Namespace) loopCmds() {
 	defer close(ns.done)
 	for cmd := range ns.cmds {
-		cmd(ns)
+		_ = cmd(ns)
 	}
 }

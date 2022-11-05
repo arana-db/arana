@@ -76,10 +76,9 @@ func Test_storeOpertae(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	select {
-	case <-e.Server.ReadyNotify():
-		t.Log("Server is ready!")
-	}
+
+	<-e.Server.ReadyNotify()
+	t.Log("Server is ready!")
 
 	defer func() {
 		t.Logf("server start to stop...")

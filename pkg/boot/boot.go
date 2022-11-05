@@ -19,10 +19,14 @@ package boot
 
 import (
 	"context"
+	"sync"
+	"time"
 )
 
 import (
 	"github.com/pkg/errors"
+
+	"go.uber.org/multierr"
 )
 
 import (
@@ -36,55 +40,145 @@ import (
 )
 
 func Boot(ctx context.Context, provider Discovery) error {
-	if err := provider.Init(ctx); err != nil {
+	bt := &Booter{
+		discovery: provider,
+	}
+	return bt.Boot(ctx)
+}
+
+type Booter struct {
+	discovery Discovery
+	watchers  sync.Map
+}
+
+func (bt *Booter) Boot(ctx context.Context) error {
+	if err := bt.discovery.Init(ctx); err != nil {
 		return err
 	}
 
-	var (
-		err     error
-		tenants []string
-	)
-	if tenants, err = provider.ListTenants(ctx); err != nil {
+	tenants, err := bt.discovery.ListTenants(ctx)
+	if err != nil {
 		return errors.Wrap(err, "no tenants found")
 	}
 
-	for _, tenant := range tenants {
-		clusters, err := provider.ListClusters(ctx, tenant)
-		if err != nil {
-			return err
+	for i := range tenants {
+		bt.bootTenant(ctx, tenants[i])
+	}
+
+	go func() {
+		_ = bt.watchAllTenants(ctx)
+	}()
+
+	return nil
+}
+
+func (bt *Booter) getWatcher(tenant string) *watcher {
+	dp := &watcher{
+		discovery: bt.discovery,
+		tenant:    tenant,
+	}
+	actual, _ := bt.watchers.LoadOrStore(tenant, dp)
+	return actual.(*watcher)
+}
+
+func (bt *Booter) bootTenant(ctx context.Context, tenant string) {
+	defer func() {
+		w := bt.getWatcher(tenant)
+		if w.isStarted() {
+			return
 		}
 
+		go func(w *watcher) {
+			defer w.Close()
+
+			log.Infof("[%s] start watching changes", tenant)
+			if err := w.watch(ctx); err != nil {
+				log.Errorf("[%s] watch changes failed: %v", tenant, err)
+			}
+		}(w)
+	}()
+
+	// FIXME: remove in the future
+	_ = bt.discovery.InitTenant(tenant)
+
+	var (
+		begin = time.Now()
+		errs  []error
+	)
+	if clusters, err := bt.discovery.ListClusters(ctx, tenant); err != nil {
+		errs = append(errs, err)
+	} else {
 		for _, cluster := range clusters {
-			var (
-				ns *namespace.Namespace
-			)
-
-			if _, err = provider.GetCluster(ctx, tenant, cluster); err != nil {
+			if _, err := bt.discovery.GetCluster(ctx, tenant, cluster); err != nil {
+				errs = append(errs, err)
 				continue
 			}
-
-			if ns, err = buildNamespace(ctx, tenant, provider, cluster); err != nil {
-				log.Errorf("build namespace %s failed: %v", cluster, err)
+			ns, err := buildNamespace(ctx, tenant, bt.discovery, cluster)
+			if err != nil {
+				errs = append(errs, err)
 				continue
 			}
-			if err = namespace.Register(ns); err != nil {
-				log.Errorf("register namespace %s failed: %v", cluster, err)
+			if err := namespace.Register(ns); err != nil {
+				errs = append(errs, err)
 				continue
 			}
-			log.Infof("register namespace %s successfully", cluster)
 			security.DefaultTenantManager().PutCluster(tenant, cluster)
-		}
-
-		var users config.Users
-		if users, err = provider.ListUsers(ctx, tenant); err != nil {
-			log.Errorf("failed to get tenant %s: %v", tenant, err)
-			continue
-		}
-		for i := range users {
-			security.DefaultTenantManager().PutUser(tenant, users[i])
+			log.Infof("[%s] register namespace %s ok", tenant, cluster)
 		}
 	}
 
+	if users, err := bt.discovery.ListUsers(ctx, tenant); err != nil {
+		errs = append(errs, err)
+	} else {
+		for i := range users {
+			security.DefaultTenantManager().PutUser(tenant, users[i])
+			log.Infof("[%s] register user '%s' ok", tenant, users[i].Username)
+		}
+	}
+
+	cost := time.Since(begin).Milliseconds()
+	if err := multierr.Combine(errs...); err != nil {
+		log.Errorf("[%s] boot failed after %dms: %v", tenant, err, cost)
+	} else {
+		log.Infof("[%s] boot successfully after %dms", tenant, cost)
+	}
+}
+
+func (bt *Booter) watchAllTenants(ctx context.Context) error {
+	chTenants, cancel, err := bt.discovery.WatchTenants(ctx)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	defer cancel()
+
+	for item := range chTenants {
+		for i := range item.DeleteTenants {
+			tenant := item.DeleteTenants[i]
+			clusters := security.DefaultTenantManager().GetClusters(tenant)
+			val, ok := bt.watchers.LoadAndDelete(tenant)
+			if !ok {
+				continue
+			}
+			wat := val.(*watcher)
+			if err = wat.Close(); err == nil {
+				log.Infof("[%s] stop watching changes successfully", tenant)
+			} else {
+				log.Errorf("[%s] stop watching changes failed: %v", tenant, err)
+			}
+
+			for _, cluster := range clusters {
+				if err = runtime.Unload(cluster); err == nil {
+					log.Infof("[%s] unload runtime '%s' successfully", tenant, cluster)
+				} else {
+					log.Errorf("[%s] unload runtime '%s' failed: %v", tenant, cluster, err)
+				}
+			}
+		}
+
+		for i := range item.AddTenants {
+			bt.bootTenant(ctx, item.AddTenants[i])
+		}
+	}
 	return nil
 }
 
@@ -108,7 +202,11 @@ func buildNamespace(ctx context.Context, tenant string, provider Discovery, clus
 		return nil, err
 	}
 
-	var initCmds []namespace.Command
+	initCmds := []namespace.Command{
+		namespace.UpdateSlowLogger(provider.GetOptions().SlowLogPath),
+		namespace.UpdateParameters(cluster.Parameters),
+		namespace.UpdateSlowThreshold(),
+	}
 	for _, group := range groups {
 		var nodes []string
 		if nodes, err = provider.ListNodes(ctx, tenant, clusterName, group); err != nil {

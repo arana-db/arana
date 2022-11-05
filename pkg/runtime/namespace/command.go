@@ -18,6 +18,12 @@
 package namespace
 
 import (
+	"time"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/config"
+	"github.com/arana-db/arana/pkg/constants"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/util/log"
@@ -54,6 +60,74 @@ func UpdateWeight(group, id string, weight proto.Weight) Command {
 		}
 
 		log.Infof("[%s] update weight of datasource %s.%s successfully", ns.name, group, id)
+
+		return nil
+	}
+}
+
+// RemoveNode returns a command to remove an existing node from namespace.
+func RemoveNode(group, node string) Command {
+	return func(ns *Namespace) error {
+		ns.Lock()
+		defer ns.Unlock()
+		dss, ok := ns.dss.Load().(map[string][]proto.DB)
+		if !ok {
+			return nil
+		}
+
+		var (
+			newborn = make(map[string][]proto.DB)
+			removed proto.DB
+		)
+		for k, v := range dss {
+			if k != group {
+				newborn[k] = v
+				continue
+			}
+			newVal := make([]proto.DB, 0, len(v))
+			for i := range v {
+				if v[i].ID() == node {
+					removed = v[i]
+					continue
+				}
+				newVal = append(newVal, v[i])
+			}
+			newborn[k] = newVal
+		}
+		ns.dss.Store(newborn)
+
+		if removed != nil {
+			_ = removed.Close()
+		}
+
+		log.Infof("[%s] remove node '%s' from group '%s' successfully", ns.name, node, group)
+
+		return nil
+	}
+}
+
+// RemoveGroup returns a command to remove an existing DB group.
+func RemoveGroup(group string) Command {
+	return func(ns *Namespace) error {
+		ns.Lock()
+		defer ns.Unlock()
+
+		dss, ok := ns.dss.Load().(map[string][]proto.DB)
+		if !ok {
+			return nil
+		}
+
+		newborn := make(map[string][]proto.DB)
+		for k, v := range dss {
+			if k == group {
+				continue
+			}
+			k, v := k, v
+			newborn[k] = v
+		}
+		ns.dss.Store(newborn)
+
+		log.Infof("[%s] remove group '%s' successfully", ns.name, group)
 
 		return nil
 	}
@@ -151,6 +225,33 @@ func UpdateRule(rule *rule.Rule) Command {
 		defer ns.Unlock()
 		ns.rule.Store(rule)
 
+		log.Infof("[%s] update rule successfully", ns.name)
+
+		return nil
+	}
+}
+
+func UpdateParameters(parameters config.ParametersMap) Command {
+	return func(ns *Namespace) error {
+		ns.parameters = parameters
+		return nil
+	}
+}
+
+func UpdateSlowThreshold() Command {
+	return func(ns *Namespace) error {
+		if s, ok := ns.parameters[constants.SlowThreshold]; ok {
+			if slowThreshold, err := time.ParseDuration(s); err == nil {
+				ns.slowThreshold = slowThreshold
+			}
+		}
+		return nil
+	}
+}
+
+func UpdateSlowLogger(path string) Command {
+	return func(ns *Namespace) error {
+		ns.slowLog = log.NewLogger(path, log.WarnLevel)
 		return nil
 	}
 }

@@ -40,9 +40,12 @@ var _ proto.Plan = (*DropWeakPlan)(nil)
 // DropWeakPlan drops weak fields from upstream dataset.
 //
 // For example:
-//      SELECT id,uid,name FROM student WHERE ... ORDER BY age DESC
+//
+//	SELECT id,uid,name FROM student WHERE ... ORDER BY age DESC
+//
 // will be written:
-//      SELECT id,uid,name,age FROM student WHERE ... ORDER BY age DESC
+//
+//	SELECT id,uid,name,age FROM student WHERE ... ORDER BY age DESC
 //
 // the `age` field is weak, will be dropped finally.
 type DropWeakPlan struct {

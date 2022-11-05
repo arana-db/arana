@@ -49,7 +49,7 @@ func TestSuite(t *testing.T) {
 		WithMySQLDatabase("employees"),
 		WithConfig("../integration_test/config/db_tbl/config.yaml"),
 		WithScriptPath("../scripts"),
-		//WithDevMode(), // NOTICE: UNCOMMENT IF YOU WANT TO DEBUG LOCAL ARANA SERVER!!!
+		// WithDevMode(), // NOTICE: UNCOMMENT IF YOU WANT TO DEBUG LOCAL ARANA SERVER!!!
 	)
 	suite.Run(t, &IntegrationSuite{su})
 }
@@ -205,13 +205,13 @@ func (s *IntegrationSuite) TestInsertOnDuplicateKey() {
 	)
 
 	i := 32
-	result, err := db.Exec(`INSERT IGNORE INTO student(id,uid,score,name,nickname,gender,birth_year) 
+	result, err := db.Exec(`INSERT IGNORE INTO student(id,uid,score,name,nickname,gender,birth_year)
      values (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE nickname='dump' `, 1654008174496657000, i, 3.14, fmt.Sprintf("fake_name_%d", i), fmt.Sprintf("fake_nickname_%d", i), 1, 2022-rand2.Intn(40))
 	assert.NoErrorf(t, err, "insert row error: %v", err)
 	_, err = result.RowsAffected()
 	assert.NoErrorf(t, err, "insert row error: %v", err)
 
-	_, err = db.Exec(`INSERT IGNORE INTO student(id,uid,score,name,nickname,gender,birth_year) 
+	_, err = db.Exec(`INSERT IGNORE INTO student(id,uid,score,name,nickname,gender,birth_year)
      values (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE uid=32 `, 1654008174496657000, i, 3.14, fmt.Sprintf("fake_name_%d", i), fmt.Sprintf("fake_nickname_%d", i), 1, 2022-rand2.Intn(40))
 	assert.Error(t, err, "insert row error: %v", err)
 }
@@ -222,7 +222,7 @@ func (s *IntegrationSuite) TestSelect() {
 		t  = s.T()
 	)
 
-	rows, err := db.Query(`SELECT emp_no, birth_date, first_name, last_name, gender, hire_date FROM employees 
+	rows, err := db.Query(`SELECT emp_no, birth_date, first_name, last_name, gender, hire_date FROM employees
 		WHERE emp_no = ?`, "100001")
 	assert.NoErrorf(t, err, "select row error: %v", err)
 
@@ -421,6 +421,10 @@ func (s *IntegrationSuite) TestShardingAgg() {
 		var cnt int64
 		assert.NoError(t, row.Scan(&cnt))
 		assert.Equal(t, int64(100), cnt)
+
+		row = db.QueryRow("select count(*) div 3 as ttt from student")
+		assert.NoError(t, row.Scan(&cnt))
+		assert.Equal(t, int64(33), cnt)
 	})
 
 	t.Run("MAX", func(t *testing.T) {
@@ -714,6 +718,7 @@ func (s *IntegrationSuite) TestHints() {
 		{"/*A! master */ SELECT * FROM student WHERE uid = ?", []interface{}{1}, 1},
 		{"/*A! master */ SELECT * FROM student WHERE uid in (?)", []interface{}{1}, 1},
 		{"/*A! master */ SELECT * FROM student where uid between 1 and 10", nil, 1},
+		{"/*A! trace(faf96a9c3d2d697d79967d8e21d81a6c) */ SELECT * FROM student WHERE uid = 42 AND 1=2", nil, 0},
 	} {
 		t.Run(it.sql, func(t *testing.T) {
 			// select from logical table
@@ -932,6 +937,74 @@ func (s *IntegrationSuite) TestShowCharacterSet() {
 	for _, it := range [...]tt{
 		{"SHOW CHARACTER SET;"},
 		{"SHOW CHARACTER SET LIKE '%utf%'"},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			rows, err := db.Query(it.sql)
+			assert.NoError(t, err)
+			defer rows.Close()
+		})
+	}
+}
+
+func (s *IntegrationSuite) TestSetVariable() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql  string
+		flag bool
+	}
+
+	for _, it := range [...]tt{
+		{sql: "SET @t1=1;", flag: true},
+		{sql: "SET @t1=2,@t2='arana'", flag: true},
+		{sql: "SET @@t1=4,@t2='arana'"},
+		{sql: "SET @@t1=4,@@t2='arana'"},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			_, err := db.Exec(it.sql)
+			assert.Equal(t, err == nil, it.flag)
+		})
+	}
+}
+
+// TestAnalyzeTable
+func (s *IntegrationSuite) TestAnalyzeTable() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql string
+	}
+
+	for _, it := range [...]tt{
+		{"Analyze table student"},
+		{"Analyze table student, departments"},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			rows, err := db.Query(it.sql)
+			assert.NoError(t, err)
+			defer rows.Close()
+		})
+	}
+}
+
+func (s *IntegrationSuite) TestCompat80() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql string
+	}
+
+	for _, it := range [...]tt{
+		{"select @@query_cache_size,@@query_cache_type,@@tx_isolation"},
 	} {
 		t.Run(it.sql, func(t *testing.T) {
 			rows, err := db.Query(it.sql)

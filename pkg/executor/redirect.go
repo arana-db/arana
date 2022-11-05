@@ -29,9 +29,6 @@ import (
 	"github.com/arana-db/parser/ast"
 
 	"github.com/pkg/errors"
-
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/trace"
 )
 
 import (
@@ -44,12 +41,11 @@ import (
 	"github.com/arana-db/arana/pkg/runtime"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/security"
+	"github.com/arana-db/arana/pkg/trace"
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
 var (
-	Tracer = otel.Tracer("Executor")
-
 	errMissingTx          = stdErrors.New("no transaction found")
 	errNoDatabaseSelected = mysqlErrors.NewSQLError(mConstants.ERNoDb, mConstants.SSNoDatabaseSelected, "No database selected")
 )
@@ -124,9 +120,6 @@ func (executor *RedirectExecutor) ExecuteFieldList(ctx *proto.Context) ([]proto.
 }
 
 func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Result, uint16, error) {
-	var span trace.Span
-	ctx.Context, span = Tracer.Start(ctx.Context, "ExecutorComQuery")
-	defer span.End()
 
 	var (
 		schemaless bool // true if schema is not specified
@@ -150,6 +143,7 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 		hints = append(hints, h)
 	}
 
+	trace.Extract(ctx, hints)
 	metrics.ParserDuration.Observe(time.Since(start).Seconds())
 	log.Debugf("ComQuery: %s", query)
 
@@ -239,7 +233,7 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 	case *ast.ShowStmt:
 		allowSchemaless := func(stmt *ast.ShowStmt) bool {
 			switch stmt.Tp {
-			case ast.ShowDatabases, ast.ShowVariables, ast.ShowTopology, ast.ShowStatus, ast.ShowTableStatus, ast.ShowWarnings, ast.ShowCharset:
+			case ast.ShowDatabases, ast.ShowVariables, ast.ShowTopology, ast.ShowStatus, ast.ShowTableStatus, ast.ShowWarnings, ast.ShowCharset, ast.ShowMasterStatus, ast.ShowReplicas:
 				return true
 			default:
 				return false
@@ -251,9 +245,9 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 		} else {
 			err = errNoDatabaseSelected
 		}
-	case *ast.TruncateTableStmt, *ast.DropTableStmt, *ast.ExplainStmt, *ast.DropIndexStmt, *ast.CreateIndexStmt:
+	case *ast.TruncateTableStmt, *ast.DropTableStmt, *ast.ExplainStmt, *ast.DropIndexStmt, *ast.CreateIndexStmt, *ast.AnalyzeTableStmt:
 		res, warn, err = executeStmt(ctx, schemaless, rt)
-	case *ast.DropTriggerStmt:
+	case *ast.DropTriggerStmt, *ast.SetStmt:
 		res, warn, err = rt.Execute(ctx)
 	default:
 		if schemaless {

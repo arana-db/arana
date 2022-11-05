@@ -26,6 +26,7 @@ import (
 
 import (
 	"github.com/arana-db/parser/ast"
+	"github.com/arana-db/parser/opcode"
 
 	"github.com/pkg/errors"
 )
@@ -45,6 +46,13 @@ var (
 	_ ExpressionAtom = (*SystemVariableExpressionAtom)(nil)
 	_ ExpressionAtom = (*IntervalExpressionAtom)(nil)
 )
+
+var _compat80Dict = map[string]string{
+	"query_cache_size": "'1048576'",
+	"query_cache_type": "'OFF'",
+	"tx_isolation":     "@@transaction_isolation",
+	"tx_read_only":     "@@transaction_read_only",
+}
 
 type expressionAtomPhantom struct{}
 
@@ -108,7 +116,18 @@ func (sy *SystemVariableExpressionAtom) Accept(visitor Visitor) (interface{}, er
 	return visitor.VisitAtomSystemVariable(sy)
 }
 
-func (sy *SystemVariableExpressionAtom) Restore(_ RestoreFlag, sb *strings.Builder, _ *[]int) error {
+func (sy *SystemVariableExpressionAtom) IsCompat80() bool {
+	_, ok := _compat80Dict[sy.Name]
+	return ok
+}
+
+func (sy *SystemVariableExpressionAtom) Restore(rf RestoreFlag, sb *strings.Builder, _ *[]int) error {
+	if rf.Has(RestoreCompat80) {
+		if compat80, ok := _compat80Dict[sy.Name]; ok {
+			sb.WriteString(compat80)
+			return nil
+		}
+	}
 	sb.WriteString("@@")
 	sb.WriteString(sy.Name)
 	return nil
@@ -332,7 +351,15 @@ func (m *MathExpressionAtom) Restore(flag RestoreFlag, sb *strings.Builder, args
 	if err := m.Left.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
-	sb.WriteString(m.Operator)
+	switch m.Operator {
+	case opcode.IntDiv.Literal():
+		sb.WriteByte(' ')
+		sb.WriteString(m.Operator)
+		sb.WriteByte(' ')
+	default:
+		sb.WriteString(m.Operator)
+	}
+
 	if err := m.Right.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
