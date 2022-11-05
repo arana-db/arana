@@ -483,6 +483,24 @@ func (s *ShowCharset) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int
 	return nil
 }
 
+type ShowReplicas struct {
+	*baseShow
+}
+
+func (s ShowReplicas) Mode() SQLType {
+	return SQLTypeShowReplicas
+}
+
+func (s ShowReplicas) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	sb.WriteString("SHOW REPLICAS ")
+
+	if err := s.baseShow.Restore(flag, sb, args); err != nil {
+		return errors.WithStack(err)
+	}
+
+	return nil
+}
+
 type ShowMasterStatus struct {
 	*baseShow
 }
