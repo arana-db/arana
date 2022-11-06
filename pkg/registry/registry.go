@@ -68,6 +68,7 @@ func InitRegistry(registryConf *config.Registry) (base.Registry, error) {
 		log.Fatal(err.Error())
 		return nil, err
 	}
+	log.Infof("init %s registry success", registryConf.Name)
 	return serviceRegistry, nil
 }
 
@@ -87,6 +88,9 @@ func initEtcdRegistry(registryConf *config.Registry) (base.Registry, error) {
 	if err != nil {
 		return nil, fmt.Errorf("service registry init etcd error because err: :%v", err)
 	}
+
+	log.Infof("registry %s etcd registry success", registryConf.Name)
+
 	return serviceRegistry, nil
 }
 

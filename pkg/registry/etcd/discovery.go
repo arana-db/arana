@@ -39,6 +39,10 @@ type EtcdV3Discovery struct {
 
 // NewEtcdV3Discovery returns a new EtcdV3Discovery.
 func NewEtcdV3Discovery(basePath string, servicePath string, etcdAddrs []string, options *store.Options) (base.Discovery, error) {
+	if len(basePath) > 1 && strings.HasPrefix(basePath, "/") {
+		basePath = basePath[1:]
+	}
+
 	discoveryPath := fmt.Sprintf("/%s/%s", basePath, servicePath)
 	if len(discoveryPath) > 1 && strings.HasSuffix(discoveryPath, "/") {
 		discoveryPath = discoveryPath[:len(discoveryPath)-1]

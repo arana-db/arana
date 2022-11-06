@@ -30,7 +30,7 @@ import (
 
 func main() {
 	var storeType = base.ETCD
-	var basePath = "/arana"
+	var basePath = "arana"
 	var storeAddrs = []string{"http://127.0.0.1:2379"}
 
 	etcdDiscovery, err := registry.InitDiscovery(storeType, basePath, "service", storeAddrs)
@@ -49,8 +49,7 @@ func main() {
 func displayWatchService(etcdDiscovery base.Discovery) {
 	log.Infof("watch service...")
 	for service := range etcdDiscovery.WatchService() {
-		log.Infof("get service, %s", service)
-		time.Sleep(time.Second)
+		log.Infof("watch service, %s", service)
 	}
 }
 
@@ -60,7 +59,7 @@ func displayGetService(etcdDiscovery base.Discovery) {
 
 	for range ticker.C {
 		for _, service := range etcdDiscovery.GetServices() {
-			log.Infof("watch service, %s", service)
+			log.Infof("get service, %s", service)
 		}
 	}
 }

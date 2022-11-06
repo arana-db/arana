@@ -45,7 +45,7 @@ type ServiceInstance struct {
 }
 
 func (p ServiceInstance) String() string {
-	return fmt.Sprintf("Service instance: id:%s, name:%s, version:%s, endpoints:%v", p.ID, p.Name, p.Version, p.Endpoints)
+	return fmt.Sprintf("Service instance: id:%s, name:%s, version:%s, endpoints:%s", p.ID, p.Name, p.Version, p.Endpoints)
 }
 
 type Registry interface {

@@ -405,3 +405,8 @@ func NewEmptyTenant() *Tenant {
 		Nodes:              map[string]*Node{},
 	}
 }
+
+func (l *Listener) String() string {
+	socketAddr := fmt.Sprintf("%s:%d", l.SocketAddress.Address, l.SocketAddress.Port)
+	return fmt.Sprintf("Listener protocol_type:%s, socket_address:%s, server_version:%s", l.ProtocolType, socketAddr, l.ServerVersion)
+}
