@@ -29,7 +29,6 @@ import (
 	"github.com/arana-db/arana/pkg/runtime/optimize"
 	"github.com/arana-db/arana/pkg/runtime/plan/dal"
 	"github.com/arana-db/arana/pkg/runtime/plan/dml"
-	"github.com/arana-db/arana/pkg/security"
 )
 
 func init() {
@@ -39,17 +38,13 @@ func init() {
 func optimizeShowProcessList(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error) {
 	stmt := o.Stmt.(*ast.ShowProcessList)
 
-	clusters := security.DefaultTenantManager().GetClusters(rcontext.Tenant(ctx))
-	plans := make([]proto.Plan, 0, len(clusters))
-	for _, cluster := range clusters {
-		ns := namespace.Load(cluster)
-		groups := ns.DBGroups()
-		for _, group := range groups {
-			ret := dal.NewShowProcessListPlan(stmt)
-			ret.BindArgs(o.Args)
-			ret.SetDatabase(group)
-			plans = append(plans, ret)
-		}
+	groups := namespace.Load(rcontext.Schema(ctx)).DBGroups()
+	plans := make([]proto.Plan, 0, len(groups))
+	for _, group := range groups {
+		ret := dal.NewShowProcessListPlan(stmt)
+		ret.BindArgs(o.Args)
+		ret.SetDatabase(group)
+		plans = append(plans, ret)
 	}
 
 	return &dml.CompositePlan{
