@@ -19,29 +19,77 @@ package registry
 
 import (
 	"context"
-	"github.com/arana-db/arana/pkg/config"
+	"fmt"
 )
 
-// ServiceInstance is an instance of a service in a discovery system.
-type ServiceInstance struct {
-	// ID is the unique instance ID as registered.
-	ID string `json:"id"`
-	// Name is the service name as registered.
-	Name string `json:"name"`
-	// Version is the version of the compiled.
-	Version string `json:"version"`
-	// Endpoint addresses of the service instance.
-	Endpoints []*config.Listener
+import (
+	gostnet "github.com/dubbogo/gost/net"
+	"github.com/pkg/errors"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/config"
+	"github.com/arana-db/arana/pkg/registry/base"
+	"github.com/arana-db/arana/pkg/registry/etcd"
+	"github.com/arana-db/arana/pkg/util/log"
+)
+
+// DoRegistry register the service
+func DoRegistry(ctx context.Context, registryInstance base.Registry, name string, listeners []*config.Listener) error {
+	serviceInstance := &base.ServiceInstance{Name: name}
+	serverAddr, err := gostnet.GetLocalIP()
+	if err != nil {
+		return fmt.Errorf("service registry register error because get local host err:%v", err)
+	}
+	for _, listener := range listeners {
+		tmpLister := *listener
+		if tmpLister.SocketAddress.Address == "0.0.0.0" || tmpLister.SocketAddress.Address == "127.0.0.1" {
+			tmpLister.SocketAddress.Address = serverAddr
+		}
+		serviceInstance.Endpoints = append(serviceInstance.Endpoints, &tmpLister)
+	}
+
+	return registryInstance.Register(ctx, name, serviceInstance)
 }
 
-type Registry interface {
-	Register(ctx context.Context, name string, serviceInstance *ServiceInstance) error
-	Unregister(ctx context.Context, name string) error
-	UnregisterAllService(ctx context.Context) error
+func InitRegistry(registryConf *config.Registry) (base.Registry, error) {
+	var serviceRegistry base.Registry
+	var err error
+	switch registryConf.Name {
+	case base.ETCD:
+		serviceRegistry, err = initEtcdRegistry(registryConf)
+	case base.NACOS:
+		serviceRegistry, err = initNacosRegistry(registryConf)
+	default:
+		err = errors.Errorf("Service registry not support store:%s", registryConf.Name)
+	}
+	if err != nil {
+		err = errors.Wrap(err, "init service registry err:%v")
+		log.Fatal(err.Error())
+		return nil, err
+	}
+	return serviceRegistry, nil
 }
 
-type Discovery interface {
-	GetServices() []*ServiceInstance
-	WatchService() chan *ServiceInstance
-	Close()
+func initEtcdRegistry(registryConf *config.Registry) (base.Registry, error) {
+	etcdAddr, ok := registryConf.Options["endpoints"].(string)
+	if !ok {
+		return nil, fmt.Errorf("service registry init etcd error because get endpoints of options :%v", registryConf.Options)
+	}
+
+	serverAddr, err := gostnet.GetLocalIP()
+	if err != nil {
+		return nil, fmt.Errorf("service registry init etcd error because get local host err:%v", err)
+	}
+
+	rootPath := registryConf.RootPath
+	serviceRegistry, err := etcd.NewEtcdV3Registry(serverAddr, rootPath, []string{etcdAddr}, nil)
+	if err != nil {
+		return nil, fmt.Errorf("service registry init etcd error because err: :%v", err)
+	}
+	return serviceRegistry, nil
+}
+
+func initNacosRegistry(registryConf *config.Registry) (base.Registry, error) {
+	return nil, nil
 }

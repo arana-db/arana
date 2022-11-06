@@ -14,7 +14,7 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/registry"
+	"github.com/arana-db/arana/pkg/registry/base"
 	"github.com/arana-db/arana/pkg/registry/store"
 	"github.com/arana-db/arana/pkg/util/log"
 )
@@ -37,7 +37,7 @@ type EtcdV3Registry struct {
 }
 
 // NewEtcdV3Registry init etcd v3 registry
-func NewEtcdV3Registry(serviceAddr, path string, etcdAddrs []string, options *store.Options) (registry.Registry, error) {
+func NewEtcdV3Registry(serviceAddr, path string, etcdAddrs []string, options *store.Options) (base.Registry, error) {
 	etcdRegistry := &EtcdV3Registry{
 		BasePath:       path,
 		ServiceAddress: serviceAddr,
@@ -46,8 +46,8 @@ func NewEtcdV3Registry(serviceAddr, path string, etcdAddrs []string, options *st
 		Expired:        time.Second * 15,
 	}
 
-	store.AddStore(store.ETCD, store.NewEtcdV3)
-	client, err := store.NewStore(store.ETCD, etcdAddrs, options)
+	store.AddStore(base.ETCD, store.NewEtcdV3)
+	client, err := store.NewStore(base.ETCD, etcdAddrs, options)
 	if err != nil {
 		log.Errorf("EtcdV3 Registry create etcdv3 client err:%v", err)
 		return nil, errors.Wrap(err, "EtcdV3 Registry create etcdv3 client")
@@ -92,7 +92,7 @@ func NewEtcdV3Registry(serviceAddr, path string, etcdAddrs []string, options *st
 	return etcdRegistry, nil
 }
 
-func (r *EtcdV3Registry) Register(ctx context.Context, name string, serviceInstance *registry.ServiceInstance) error {
+func (r *EtcdV3Registry) Register(ctx context.Context, name string, serviceInstance *base.ServiceInstance) error {
 	if strings.TrimSpace(name) == "" {
 		return errors.New("Register service `name` can't be empty")
 	}

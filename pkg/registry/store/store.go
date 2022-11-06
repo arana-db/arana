@@ -8,12 +8,6 @@ import (
 	"time"
 )
 
-// Backend represents a KV Store Backend
-const (
-	NACOS string = "nacos"
-	ETCD  string = "etcd"
-)
-
 var (
 	// ErrBackendNotSupported is thrown when the backend k/v store is not supported by libkv
 	ErrBackendNotSupported = errors.New("Backend storage not supported yet, please choose one of")

@@ -14,7 +14,7 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/registry"
+	"github.com/arana-db/arana/pkg/registry/base"
 	"github.com/arana-db/arana/pkg/registry/store"
 	"github.com/arana-db/arana/pkg/util/log"
 )
@@ -24,11 +24,11 @@ import (
 type EtcdV3Discovery struct {
 	BasePath string
 
-	services  []*registry.ServiceInstance
+	services  []*base.ServiceInstance
 	serviceMu sync.RWMutex
 
 	mu    sync.Mutex
-	chans []chan *registry.ServiceInstance
+	chans []chan *base.ServiceInstance
 
 	// -1 means it always retry to watch until zookeeper is ok, 0 means no retry.
 	RetriesAfterWatchFailed int
@@ -38,7 +38,7 @@ type EtcdV3Discovery struct {
 }
 
 // NewEtcdV3Discovery returns a new EtcdV3Discovery.
-func NewEtcdV3Discovery(basePath string, servicePath string, etcdAddrs []string, options *store.Options) (registry.Discovery, error) {
+func NewEtcdV3Discovery(basePath string, servicePath string, etcdAddrs []string, options *store.Options) (base.Discovery, error) {
 	discoveryPath := fmt.Sprintf("/%s/%s", basePath, servicePath)
 	if len(discoveryPath) > 1 && strings.HasSuffix(discoveryPath, "/") {
 		discoveryPath = discoveryPath[:len(discoveryPath)-1]
@@ -49,8 +49,8 @@ func NewEtcdV3Discovery(basePath string, servicePath string, etcdAddrs []string,
 		RetriesAfterWatchFailed: -1,
 	}
 
-	store.AddStore(store.ETCD, store.NewEtcdV3)
-	client, err := store.NewStore(store.ETCD, etcdAddrs, options)
+	store.AddStore(base.ETCD, store.NewEtcdV3)
+	client, err := store.NewStore(base.ETCD, etcdAddrs, options)
 	if err != nil {
 		log.Errorf("EtcdV3 Registry create etcdv3 client err:%v", err)
 		return nil, errors.Wrap(err, "EtcdV3 Registry create etcdv3 client")
@@ -64,7 +64,7 @@ func NewEtcdV3Discovery(basePath string, servicePath string, etcdAddrs []string,
 	}
 
 	for _, registryNode := range registryNodes {
-		var tmpService registry.ServiceInstance
+		var tmpService base.ServiceInstance
 		if err := json.Unmarshal(registryNode, &tmpService); err != nil {
 			log.Warnf("watchtree unmarshal err:%v", err)
 			continue
@@ -78,27 +78,27 @@ func NewEtcdV3Discovery(basePath string, servicePath string, etcdAddrs []string,
 }
 
 // GetServices returns the servers
-func (d *EtcdV3Discovery) GetServices() []*registry.ServiceInstance {
+func (d *EtcdV3Discovery) GetServices() []*base.ServiceInstance {
 	d.serviceMu.RLock()
 	defer d.serviceMu.RUnlock()
 	return d.services
 }
 
 // WatchService returns a nil chan.
-func (d *EtcdV3Discovery) WatchService() chan *registry.ServiceInstance {
+func (d *EtcdV3Discovery) WatchService() chan *base.ServiceInstance {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	ch := make(chan *registry.ServiceInstance, 10)
+	ch := make(chan *base.ServiceInstance, 10)
 	d.chans = append(d.chans, ch)
 	return ch
 }
 
-func (d *EtcdV3Discovery) RemoveWatcher(ch chan *registry.ServiceInstance) {
+func (d *EtcdV3Discovery) RemoveWatcher(ch chan *base.ServiceInstance) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	var chans []chan *registry.ServiceInstance
+	var chans []chan *base.ServiceInstance
 	for _, c := range d.chans {
 		if c == ch {
 			continue
@@ -118,7 +118,7 @@ rematch:
 		var err error
 		var tempDelay time.Duration
 
-		serviceChan := make(chan *registry.ServiceInstance)
+		serviceChan := make(chan *base.ServiceInstance)
 		retry := d.RetriesAfterWatchFailed
 		for d.RetriesAfterWatchFailed < 0 || retry >= 0 {
 			tmpValChan := make(<-chan []byte)
@@ -140,7 +140,7 @@ rematch:
 				continue
 			}
 
-			var tmpService registry.ServiceInstance
+			var tmpService base.ServiceInstance
 			if err := json.Unmarshal(<-tmpValChan, &tmpService); err != nil {
 				log.Warnf("watchtree unmarshal err:%v", err)
 				continue
