@@ -21,7 +21,9 @@ import (
 	"fmt"
 )
 
-import gxbig "github.com/dubbogo/gost/math/big"
+import (
+	gxbig "github.com/dubbogo/gost/math/big"
+)
 
 func ToDecimal(value interface{}) *gxbig.Decimal {
 	var d *gxbig.Decimal
