@@ -1017,7 +1017,7 @@ func (s *IntegrationSuite) TestCompat80() {
 func (s *IntegrationSuite) TestShowProcessList() {
 	var (
 		db = s.DB()
-		t = s.T()
+		t  = s.T()
 	)
 
 	type tt struct {
