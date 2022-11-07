@@ -41,7 +41,6 @@ type PathInfo struct {
 }
 
 func NewPathInfo(tenant string) *PathInfo {
-
 	p := &PathInfo{}
 
 	p.DefaultTenantBaseConfigPath = PathKey(filepath.Join(string(DefaultRootPath), fmt.Sprintf("tenants/%s", tenant)))

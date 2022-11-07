@@ -64,5 +64,4 @@ func TestFloor(t *testing.T) {
 			assert.Equal(t, it.out, fmt.Sprint(out))
 		})
 	}
-
 }

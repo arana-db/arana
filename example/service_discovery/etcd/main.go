@@ -29,9 +29,9 @@ import (
 )
 
 func main() {
-	var storeType = base.ETCD
-	var basePath = "arana"
-	var storeAddrs = []string{"http://127.0.0.1:2379"}
+	storeType := base.ETCD
+	basePath := "arana"
+	storeAddrs := []string{"http://127.0.0.1:2379"}
 
 	etcdDiscovery, err := registry.InitDiscovery(storeType, basePath, "service", storeAddrs)
 	if err != nil {

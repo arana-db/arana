@@ -44,7 +44,6 @@ func init() {
 type castcharsetFunc struct{}
 
 func (a castcharsetFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
-
 	if len(inputs) != 2 {
 		return "", errors.New("The Charset function must accept two parameters\n")
 	}
@@ -81,7 +80,6 @@ func (a castcharsetFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (pro
 		return "", err
 	}
 	return res, nil
-
 }
 
 func (a castcharsetFunc) NumInput() int {

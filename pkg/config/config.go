@@ -30,17 +30,13 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var (
-	ErrorNotImplement = errors.New("not implement")
-)
+var ErrorNotImplement = errors.New("not implement")
 
 type (
 	CenterTest = center
 )
 
-var (
-	_ Center = (*center)(nil)
-)
+var _ Center = (*center)(nil)
 
 type center struct {
 	tenant     string

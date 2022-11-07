@@ -27,6 +27,7 @@ import (
 	gxbig "github.com/dubbogo/gost/math/big"
 
 	"github.com/pkg/errors"
+
 	"github.com/shopspring/decimal"
 )
 
@@ -53,7 +54,7 @@ func (a expFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value
 
 	decExp := func(d *gxbig.Decimal) *gxbig.Decimal {
 		temp, _ := decimal.NewFromString(d.String())
-		var s, _ = temp.ExpTaylor(18)
+		s, _ := temp.ExpTaylor(18)
 		d, _ = gxbig.NewDecFromString(s.String())
 		return d
 	}

@@ -46,7 +46,6 @@ func init() {
 type castncharFunc struct{}
 
 func (a castncharFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
-
 	val1, err := inputs[0].Value(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)

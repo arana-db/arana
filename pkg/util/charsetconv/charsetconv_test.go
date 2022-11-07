@@ -23,8 +23,11 @@ package charsetconv
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"testing"
+)
+
+import (
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCharsetConv(t *testing.T) {
@@ -91,5 +94,4 @@ func TestCharsetConv(t *testing.T) {
 			assert.Equal(t, v.EncStrSecond, fmt.Sprint(out))
 		})
 	}
-
 }

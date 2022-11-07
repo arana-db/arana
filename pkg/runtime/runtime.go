@@ -19,7 +19,6 @@ package runtime
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -45,6 +44,7 @@ import (
 	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/metrics"
 	"github.com/arana-db/arana/pkg/mysql"
+	errors2 "github.com/arana-db/arana/pkg/mysql/errors"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/hint"
 	"github.com/arana-db/arana/pkg/resultx"
@@ -202,11 +202,9 @@ func (tx *compositeTx) Execute(ctx *proto.Context) (res proto.Result, warn uint1
 	var (
 		ru   = tx.rt.Namespace().Rule()
 		plan proto.Plan
-		c    = ctx.Context
 	)
 
-	c = rcontext.WithSQL(c, ctx.GetQuery())
-	c = rcontext.WithHints(c, ctx.Stmt.Hints)
+	ctx.Context = rcontext.WithHints(ctx.Context, ctx.Stmt.Hints)
 
 	var opt proto.Optimizer
 	if opt, err = optimize.NewOptimizer(ru, ctx.Stmt.Hints, ctx.Stmt.StmtNode, args); err != nil {
@@ -219,7 +217,7 @@ func (tx *compositeTx) Execute(ctx *proto.Context) (res proto.Result, warn uint1
 		return
 	}
 
-	if res, err = plan.ExecIn(c, tx); err != nil {
+	if res, err = plan.ExecIn(ctx, tx); err != nil {
 		// TODO: how to warp error packet
 		err = perrors.WithStack(err)
 		return
@@ -381,8 +379,6 @@ type AtomDB struct {
 	closed atomic.Bool
 
 	pendingRequests atomic.Int64
-
-	variables atomic.Value // map[string]string
 }
 
 func NewAtomDB(node *config.Node) *AtomDB {
@@ -398,10 +394,8 @@ func NewAtomDB(node *config.Node) *AtomDB {
 		weight: proto.Weight{R: int32(r), W: int32(w)},
 	}
 
-	raw, _ := json.Marshal(map[string]interface{}{
-		"dsn": fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?%s", node.Username, node.Password, node.Host, node.Port, node.Database, node.Parameters.String()),
-	})
-	connector, err := mysql.NewConnector(raw)
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?%s", node.Username, node.Password, node.Host, node.Port, node.Database, node.Parameters.String())
+	connector, err := mysql.NewConnector(dsn)
 	if err != nil {
 		panic(err)
 	}
@@ -412,22 +406,42 @@ func NewAtomDB(node *config.Node) *AtomDB {
 		idleTime    = config.GetConnPropIdleTime(node.ConnProps, 30*time.Minute)
 	)
 
-	db.pool = pools.NewResourcePool(connector.NewBackendConnection, capacity, maxCapacity, idleTime, 1, nil)
-
-	// async fetch variables
-	go func() {
-		_, _ = db.fetchVariables(context.Background())
-	}()
+	db.pool = pools.NewResourcePool(func(ctx context.Context) (pools.Resource, error) {
+		return connector.NewBackendConnection(ctx)
+	}, capacity, maxCapacity, idleTime, 1, nil)
 
 	return db
 }
 
-func (db *AtomDB) Variable(ctx context.Context, name string) (string, error) {
-	variables, err := db.fetchVariables(ctx)
-	if err != nil {
-		return "", perrors.WithStack(err)
+func (db *AtomDB) Variable(ctx context.Context, name string) (interface{}, error) {
+	if db.closed.Load() {
+		return nil, perrors.Errorf("the db instance '%s' is closed already", db.id)
 	}
-	return variables[name], nil
+
+	// 1. search from transient variables
+	vars := rcontext.TransientVariables(ctx)
+	if v, ok := vars[name]; ok {
+		return v, nil
+	}
+
+	// 2. search from remote variables
+	c, err := db.borrowConnection(ctx)
+	if err != nil {
+		return nil, perrors.WithStack(err)
+	}
+
+	defer db.returnConnection(c)
+	defer db.pending()()
+
+	if vars, err = c.PersistVariables(); err != nil {
+		return nil, perrors.WithStack(err)
+	}
+
+	if v, ok := vars[name]; ok {
+		return v, nil
+	}
+
+	return nil, nil
 }
 
 func (db *AtomDB) begin(ctx context.Context) (*atomTx, error) {
@@ -508,6 +522,12 @@ func (db *AtomDB) Call(ctx context.Context, sql string, args ...interface{}) (re
 	}
 
 	undoPending := db.pending()
+
+	if err = bc.SyncVariables(rcontext.TransientVariables(ctx)); err != nil {
+		undoPending()
+		db.returnConnection(bc)
+		return
+	}
 
 	if len(args) > 0 {
 		res, err = bc.PrepareQueryArgs(sql, args)
@@ -606,63 +626,19 @@ func (db *AtomDB) returnConnection(bc *mysql.BackendConnection) {
 	// log.Infof("^^^^^ return conn: active=%d, available=%d", db.pool.Active(), db.pool.Available())
 }
 
-func (db *AtomDB) fetchVariables(ctx context.Context) (map[string]string, error) {
-	var (
-		val map[string]string
-		ok  bool
-	)
-	if val, ok = db.variables.Load().(map[string]string); ok {
-		return val, nil
-	}
-
-	db.mu.Lock()
-	defer db.mu.Unlock()
-
-	if val, ok = db.variables.Load().(map[string]string); ok {
-		return val, nil
-	}
-
-	res, _, err := db.Call(ctx, "SHOW VARIABLES")
-	if err != nil {
-		return nil, perrors.Wrapf(err, "cannot fetch variables")
-	}
-
-	ds, err := res.Dataset()
-	if err != nil {
-		return nil, perrors.Wrapf(err, "cannot fetch variables")
-	}
-
-	defer ds.Close()
-
-	var (
-		newborn = make(map[string]string)
-		dest    = make([]proto.Value, 2)
-		row     proto.Row
-	)
-
-	for {
-		row, err = ds.Next()
-		if perrors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			return nil, perrors.Wrapf(err, "cannot fetch variables")
-		}
-		if err = row.Scan(dest); err != nil {
-			return nil, perrors.Wrapf(err, "cannot fetch variables")
-		}
-		newborn[fmt.Sprint(dest[0])] = fmt.Sprint(dest[1])
-	}
-
-	db.variables.Store(newborn)
-
-	return newborn, nil
-}
-
 type defaultRuntime namespace.Namespace
 
 func (pi *defaultRuntime) Version(ctx context.Context) (string, error) {
-	return pi.Namespace().DB0(ctx).Variable(ctx, "version")
+	version, err := pi.Namespace().DB0(ctx).Variable(ctx, "@@version")
+	if err != nil {
+		return "", perrors.WithStack(err)
+	}
+
+	if ret, ok := version.(string); ok {
+		return ret, nil
+	}
+
+	return "", perrors.New("no version found")
 }
 
 func (pi *defaultRuntime) Begin(ctx context.Context) (proto.Tx, error) {
@@ -723,14 +699,9 @@ func (pi *defaultRuntime) Execute(ctx *proto.Context) (res proto.Result, warn ui
 	var (
 		ru   = pi.Namespace().Rule()
 		plan proto.Plan
-		c    = ctx.Context
 	)
 
-	c = rcontext.WithSQL(c, ctx.GetQuery())
-	c = rcontext.WithSchema(c, ctx.Schema)
-	c = rcontext.WithTenant(c, ctx.Tenant)
-	c = rcontext.WithVersion(c, ctx.ServerVersion)
-	c = rcontext.WithHints(c, ctx.Stmt.Hints)
+	ctx.Context = rcontext.WithHints(ctx.Context, ctx.Stmt.Hints)
 
 	start := time.Now()
 
@@ -740,15 +711,19 @@ func (pi *defaultRuntime) Execute(ctx *proto.Context) (res proto.Result, warn ui
 		return
 	}
 
-	if plan, err = opt.Optimize(c); err != nil {
+	if plan, err = opt.Optimize(ctx); err != nil {
 		err = perrors.WithStack(err)
 		return
 	}
 	metrics.OptimizeDuration.Observe(time.Since(start).Seconds())
 
-	if res, err = plan.ExecIn(c, pi); err != nil {
+	if res, err = plan.ExecIn(ctx, pi); err != nil {
 		// TODO: how to warp error packet
-		err = perrors.WithStack(err)
+		if sqlErr, ok := perrors.Cause(err).(*errors2.SQLError); ok {
+			err = sqlErr
+		} else {
+			err = perrors.Wrapf(err, "failed to execute %T", plan)
+		}
 		return
 	}
 

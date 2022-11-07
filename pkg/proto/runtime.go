@@ -109,7 +109,7 @@ type (
 		SetWeight(weight Weight) error
 
 		// Variable returns the variable value.
-		Variable(ctx context.Context, name string) (string, error)
+		Variable(ctx context.Context, name string) (interface{}, error)
 	}
 
 	// Executable represents an executor which can send sql request.

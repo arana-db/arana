@@ -118,7 +118,7 @@ func TestParse_SelectStmt(t *testing.T) {
 	for _, next := range []tt{
 		{"select * from a left join b on a.k = b.k", "SELECT * FROM `a` LEFT JOIN `b` ON `a`.`k` = `b`.`k`"},
 		{"select * from foo as a left join bar as b on a.k = b.k", "SELECT * FROM `foo` AS `a` LEFT JOIN `bar` AS `b` ON `a`.`k` = `b`.`k`"},
-		{"select @@version", "SELECT @@version"},
+		{"select @@version", "SELECT @@`version`"},
 		{"select * from student for update", "SELECT * FROM `student` FOR UPDATE"},
 		{"select connection_id()", "SELECT CONNECTION_ID()"},
 		{`SELECT CONCAT("'", user, "'@'",host,"'") FROM mysql.user`, "SELECT CONCAT('\\'',`user`,'\\'@\\'',`host`,'\\'') FROM `mysql`.`user`"},
@@ -456,4 +456,34 @@ func TestParse_DescStmt(t *testing.T) {
 	_ = desc.Restore(RestoreDefault, &sb, nil)
 	t.Logf(sb.String())
 	assert.Equal(t, "DESC `student` `id`", sb.String())
+}
+
+func TestParse_SetVariable(t *testing.T) {
+	_, stmt := MustParse("set @net_read_timeout=60,@foo='bar',@@hello=42,session.qux=?")
+	s := stmt.(*SetStatement)
+
+	var sb strings.Builder
+	_ = s.Restore(RestoreDefault, &sb, nil)
+
+	t.Logf("restore: %s\n", sb.String())
+}
+
+func TestRestore(t *testing.T) {
+	type tt struct {
+		input  string
+		output string
+	}
+
+	for _, next := range []tt{
+		{"select @foobar", "SELECT @`foobar`"},
+	} {
+		t.Run(next.input, func(t *testing.T) {
+			_, stmt, err := Parse(next.input)
+			assert.NoError(t, err)
+			var sb strings.Builder
+			err = stmt.Restore(RestoreDefault, &sb, nil)
+			assert.NoError(t, err)
+			assert.Equal(t, next.output, sb.String())
+		})
+	}
 }
