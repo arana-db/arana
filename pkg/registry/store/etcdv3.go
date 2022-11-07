@@ -19,6 +19,7 @@ package store
 
 import (
 	"context"
+	"github.com/arana-db/arana/pkg/util/log"
 	"sync"
 	"time"
 )
@@ -142,8 +143,8 @@ func (s *EtcdV3) init() error {
 }
 
 func (s *EtcdV3) grant(ctx context.Context, ttl int64) error {
-	ctx, cancel := context.WithTimeout(ctx, s.timeout)
-	resp, err := s.client.Grant(ctx, ttl)
+	newCtx, cancel := context.WithTimeout(ctx, s.timeout)
+	resp, err := s.client.Grant(newCtx, ttl)
 	cancel()
 	if err == nil {
 		s.leaseID = resp.ID
@@ -169,16 +170,16 @@ func (s *EtcdV3) Put(ctx context.Context, key string, value []byte, ttl int64) e
 		close(s.startKeepAlive)
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, s.timeout)
-	_, err := s.client.Put(ctx, key, string(value), clientv3.WithLease(s.leaseID))
+	newCtx, cancel := context.WithTimeout(ctx, s.timeout)
+	_, err := s.client.Put(newCtx, key, string(value), clientv3.WithLease(s.leaseID))
 	cancel()
 	return err
 }
 
 // Get a value given its key
 func (s *EtcdV3) Get(ctx context.Context, key string) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(ctx, s.timeout)
-	resp, err := s.client.Get(ctx, key)
+	newCtx, cancel := context.WithTimeout(ctx, s.timeout)
+	resp, err := s.client.Get(newCtx, key)
 	cancel()
 	if err != nil {
 		return nil, err
@@ -192,16 +193,16 @@ func (s *EtcdV3) Get(ctx context.Context, key string) ([]byte, error) {
 
 // Delete the value at the specified key
 func (s *EtcdV3) Delete(ctx context.Context, key string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), s.timeout)
-	_, err := s.client.Delete(ctx, key)
+	newCtx, cancel := context.WithTimeout(ctx, s.timeout)
+	_, err := s.client.Delete(newCtx, key)
 	cancel()
 	return err
 }
 
 // Exists verifies if a Key exists in the store
 func (s *EtcdV3) Exists(ctx context.Context, key string) (bool, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), s.timeout)
-	resp, err := s.client.Get(ctx, key)
+	newCtx, cancel := context.WithTimeout(ctx, s.timeout)
+	resp, err := s.client.Get(newCtx, key)
 	cancel()
 	if err != nil {
 		return false, err
@@ -274,10 +275,10 @@ func (s *EtcdV3) WatchTree(ctx context.Context, directory string, stopCh <-chan 
 
 // List the content of a given prefix
 func (s *EtcdV3) List(ctx context.Context, directory string) ([][]byte, error) {
-	ctx, cancel := context.WithTimeout(ctx, s.timeout)
+	newCtx, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 
-	resp, err := s.client.Get(ctx, directory, clientv3.WithPrefix())
+	resp, err := s.client.Get(newCtx, directory, clientv3.WithPrefix())
 	if err != nil {
 		return nil, err
 	}
@@ -296,8 +297,9 @@ func (s *EtcdV3) List(ctx context.Context, directory string) ([][]byte, error) {
 // Close closes the client connection
 func (s *EtcdV3) Close() {
 	defer func() {
-		if recover() != nil {
+		if err := recover(); err != nil {
 			// close of closed channel panic occur
+			log.Errorf("close client error:%v", err)
 		}
 	}()
 	close(s.done)
