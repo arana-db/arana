@@ -634,6 +634,8 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 		return &ShowOpenTables{baseShow: toBaseShow()}
 	case ast.ShowTables:
 		return &ShowTables{baseShow: toBaseShow()}
+	case ast.ShowReplicas:
+		return &ShowReplicas{baseShow: toBaseShow()}
 	case ast.ShowDatabases:
 		return &ShowDatabases{baseShow: toBaseShow()}
 	case ast.ShowCollation:
@@ -701,6 +703,8 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 		return &ShowWarnings{baseShow: toBaseShow()}
 	case ast.ShowCharset:
 		return &ShowCharset{baseShow: toBaseShow()}
+	case ast.ShowProcessList:
+		return &ShowProcessList{baseShow: toBaseShow()}
 	default:
 		panic(fmt.Sprintf("unimplement: show type %v!", node.Tp))
 	}
