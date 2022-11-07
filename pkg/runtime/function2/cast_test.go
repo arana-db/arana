@@ -18,38 +18,9 @@
 package function2
 
 import (
-	"context"
 	"testing"
 )
 
-import (
-	"github.com/arana-db/arana/pkg/proto"
-
-	"github.com/stretchr/testify/assert"
-)
-
 func TestCast(t *testing.T) {
-	fn := proto.MustGetFunc(FuncCast)
-	assert.Equal(t, 2, fn.NumInput())
 
-	type tt struct {
-		in  proto.Value
-		out string
-	}
-
-	for _, it := range []tt{
-		{0, "0"},
-		{int64(-123), "-123"},
-		{-3.14, "-3.14"},
-		{float32(2.78), "2.78"},
-		{"-618", "-618"},
-		{"-11.11", "-11.11"},
-		{"foobar", "foobar"},
-	} {
-		t.Run(it.out, func(t *testing.T) {
-			out, err := fn.Apply(context.Background(), proto.ToValuer(it.in))
-			assert.NoError(t, err)
-			assert.Equal(t, it.out, out)
-		})
-	}
 }
