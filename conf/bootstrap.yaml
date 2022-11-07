@@ -28,7 +28,7 @@ registry:
     name: etcd
     root_path: arana
     options:
-      endpoints: "http://127.0.0.1:2379"
+      endpoints: "http://etcd:2379"
 
 #    name: nacos
 #    options:
