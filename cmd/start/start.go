@@ -94,7 +94,7 @@ func Run(bootstrapConfigPath string) {
 	}
 
 	// init service registry
-	serviceRegistry, err := registry.InitRegistry(discovery.ListServiceRegistry(context.Background()))
+	serviceRegistry, err := registry.InitRegistry(discovery.GetServiceRegistry(context.Background()))
 	if err != nil {
 		log.Fatalf("create service registry failed: %v", err)
 		return
