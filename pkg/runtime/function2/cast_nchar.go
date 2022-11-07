@@ -20,6 +20,7 @@ package function2
 import (
 	"context"
 	"fmt"
+	"strings"
 )
 
 import (
@@ -30,49 +31,60 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/util/math"
+	"github.com/arana-db/arana/pkg/util/runes"
 )
 
-// FuncMod is https://dev.mysql.com/doc/refman/5.6/en/mathematical-functions.html#function_mod
-const FuncMod = "MOD"
+// FuncCastNchar is  https://dev.mysql.com/doc/refman/5.6/en/cast-functions.html#function_cast
+const FuncCastNchar = "CAST_NCHAR"
 
-var _ proto.Func = (*modFunc)(nil)
+var _ proto.Func = (*castncharFunc)(nil)
 
 func init() {
-	proto.RegisterFunc(FuncMod, modFunc{})
+	proto.RegisterFunc(FuncCastNchar, castncharFunc{})
 }
 
-type modFunc struct{}
+type castncharFunc struct{}
 
-func (a modFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
+func (a castncharFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
+
 	val1, err := inputs[0].Value(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)
+	}
+	if len(inputs) < 2 {
+		return val1, nil
 	}
 	val2, err := inputs[1].Value(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	decmod := func(d1 *gxbig.Decimal, d2 *gxbig.Decimal) *gxbig.Decimal {
-		var ret gxbig.Decimal
-		_ = gxbig.DecimalMod(d1, d2, &ret)
-		return &ret
+	d2, _ := gxbig.NewDecFromString(fmt.Sprint(val2))
+	if d2.IsNegative() {
+		return "", errors.New("NCHAR[(N) Variable N is not allowed to be negative")
 	}
-	d1 := math.ToDecimal(val1)
-	d2 := math.ToDecimal(val2)
-	if !math.IsZero(d1) {
-		if !math.IsZero(d2) {
-			ret := decmod(d1, d2)
-			return ret, nil
-		} else {
-			return "NULL", err
+	if !strings.Contains(fmt.Sprint(val2), ".") {
+		num, err := d2.ToInt()
+		if err != nil {
+			return "", err
 		}
-	} else {
-		d, err := gxbig.NewDecFromString(fmt.Sprint(0))
-		return d, err
+		return getResult(runes.ConvertToRune(val1), num)
 	}
+	num, err := d2.ToFloat64()
+	if err != nil {
+		return "", err
+	}
+	return getResult(runes.ConvertToRune(val1), int64(num))
 }
 
-func (a modFunc) NumInput() int {
+func (a castncharFunc) NumInput() int {
 	return 2
+}
+
+func getResult(runes []rune, num int64) (string, error) {
+	if num > int64(len(runes)) {
+		return string(runes), nil
+	} else if num >= 0 {
+		return string(runes[:num]), nil
+	}
+	return "", errors.New("NCHAR[(N) Variable N is not allowed to be negative")
 }

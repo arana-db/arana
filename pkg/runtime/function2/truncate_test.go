@@ -33,14 +33,14 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
-func TestMod(t *testing.T) {
-	fn := proto.MustGetFunc(FuncMod)
+func TestTruncate(t *testing.T) {
+	fn := proto.MustGetFunc(FuncTruncate)
 	assert.Equal(t, 2, fn.NumInput())
 
 	type tt struct {
-		infirst  proto.Value
-		insecond proto.Value
-		out      string
+		in  proto.Value
+		in2 proto.Value
+		out string
 	}
 
 	mustDecimal := func(s string) *gxbig.Decimal {
@@ -49,19 +49,14 @@ func TestMod(t *testing.T) {
 	}
 
 	for _, it := range []tt{
-		{0, 1, "0"},
-		{int64(-123), 3, "0"},
-		{-3.14, 3, "-0.14"},
-		{2.78, 2, "0.78"},
-		{mustDecimal("-5.1234"), 2, "-1.1234"},
-		{-618, 3, "0"},
-		{-11.11, 3, "-2.11"},
-		{"-11.11", 2, "-1.11"},
-		{"foobar", 2, "0"},
-		{1, 0, "NULL"},
+		{int8(12), 0, "12"},
+		{1234, -2, "1200"},
+		{float64(-1.999), 2, "-1.99"},
+		{mustDecimal("-5.1234"), 2, "-5.12"},
+		{int64(-123), -1, "-120"},
 	} {
 		t.Run(it.out, func(t *testing.T) {
-			out, err := fn.Apply(context.Background(), proto.ToValuer(it.infirst), proto.ToValuer(it.insecond))
+			out, err := fn.Apply(context.Background(), proto.ToValuer(it.in), proto.ToValuer(it.in2))
 			assert.NoError(t, err)
 			assert.Equal(t, it.out, fmt.Sprint(out))
 		})
