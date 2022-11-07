@@ -78,10 +78,12 @@ func initEtcdRegistry(registryConf *config.Registry) (base.Registry, error) {
 		return nil, fmt.Errorf("service registry init etcd error because get endpoints of options :%v", registryConf.Options)
 	}
 
-	serverAddr, err := gostnet.GetLocalIP()
-	if err != nil {
-		return nil, fmt.Errorf("service registry init etcd error because get local host err:%v", err)
-	}
+	//serverAddr, err := gostnet.GetLocalIP()
+	//if err != nil {
+	//	return nil, fmt.Errorf("service registry init etcd error because get local host err:%v", err)
+	//}
+
+	serverAddr := "127.0.0.1"
 
 	rootPath := registryConf.RootPath
 	serviceRegistry, err := etcd.NewEtcdV3Registry(serverAddr, rootPath, []string{etcdAddr}, nil)
