@@ -224,8 +224,8 @@ func (s *EtcdV3) Watch(ctx context.Context, key string, stopCh <-chan struct{}) 
 
 // WatchTree watches for changes on child nodes under
 // a given directory
-func (s *EtcdV3) WatchTree(ctx context.Context, directory string, stopCh <-chan struct{}) (<-chan []byte, error) {
-	watchCh := make(chan []byte)
+func (s *EtcdV3) WatchTree(ctx context.Context, directory string, stopCh <-chan struct{}) (<-chan [][]byte, error) {
+	watchCh := make(chan [][]byte)
 
 	go func() {
 		defer close(watchCh)
@@ -235,9 +235,7 @@ func (s *EtcdV3) WatchTree(ctx context.Context, directory string, stopCh <-chan 
 			return
 		}
 
-		for _, val := range valList {
-			watchCh <- val
-		}
+		watchCh <- valList
 
 		rch := s.client.Watch(ctx, directory, clientv3.WithPrefix())
 		for {
@@ -249,9 +247,7 @@ func (s *EtcdV3) WatchTree(ctx context.Context, directory string, stopCh <-chan 
 				if err != nil && err != ErrKeyNotFound {
 					continue
 				}
-				for _, val := range valList {
-					watchCh <- val
-				}
+				watchCh <- valList
 			}
 		}
 	}()

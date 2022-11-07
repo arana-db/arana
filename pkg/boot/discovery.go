@@ -539,7 +539,7 @@ func (fp *discovery) ListListeners(ctx context.Context) []*config.Listener {
 	return fp.options.Listeners
 }
 
-func (fp *discovery) ListServiceRegistry(ctx context.Context) *config.Registry {
+func (fp *discovery) GetServiceRegistry(ctx context.Context) *config.Registry {
 	return fp.options.Registry
 }
 

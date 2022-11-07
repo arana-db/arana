@@ -56,6 +56,6 @@ type Registry interface {
 
 type Discovery interface {
 	GetServices() []*ServiceInstance
-	WatchService() chan *ServiceInstance
+	WatchService() <-chan []*ServiceInstance
 	Close()
 }

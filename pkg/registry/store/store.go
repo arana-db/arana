@@ -68,7 +68,7 @@ type Store interface {
 
 	// WatchTree watches for changes on child nodes under
 	// a given directory
-	WatchTree(ctx context.Context, directory string, stopCh <-chan struct{}) (<-chan []byte, error)
+	WatchTree(ctx context.Context, directory string, stopCh <-chan struct{}) (<-chan [][]byte, error)
 
 	// List the content of a given prefix
 	List(ctx context.Context, directory string) ([][]byte, error)

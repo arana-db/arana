@@ -28,7 +28,7 @@ type EtcdV3Discovery struct {
 	serviceMu sync.RWMutex
 
 	mu    sync.Mutex
-	chans []chan *base.ServiceInstance
+	chans []chan []*base.ServiceInstance
 
 	// -1 means it always retry to watch until zookeeper is ok, 0 means no retry.
 	RetriesAfterWatchFailed int
@@ -89,20 +89,20 @@ func (d *EtcdV3Discovery) GetServices() []*base.ServiceInstance {
 }
 
 // WatchService returns a nil chan.
-func (d *EtcdV3Discovery) WatchService() chan *base.ServiceInstance {
+func (d *EtcdV3Discovery) WatchService() <-chan []*base.ServiceInstance {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	ch := make(chan *base.ServiceInstance, 10)
+	ch := make(chan []*base.ServiceInstance, 10)
 	d.chans = append(d.chans, ch)
 	return ch
 }
 
-func (d *EtcdV3Discovery) RemoveWatcher(ch chan *base.ServiceInstance) {
+func (d *EtcdV3Discovery) RemoveWatcher(ch chan []*base.ServiceInstance) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	var chans []chan *base.ServiceInstance
+	var chans []chan []*base.ServiceInstance
 	for _, c := range d.chans {
 		if c == ch {
 			continue
@@ -119,14 +119,15 @@ func (d *EtcdV3Discovery) watch(ctx context.Context) {
 
 rematch:
 	for {
+		log.Debugf("start watch tree...")
+
 		var err error
 		var tempDelay time.Duration
+		var serviceChan <-chan [][]byte
 
-		serviceChan := make(chan *base.ServiceInstance)
 		retry := d.RetriesAfterWatchFailed
 		for d.RetriesAfterWatchFailed < 0 || retry >= 0 {
-			tmpValChan := make(<-chan []byte)
-			tmpValChan, err = d.client.WatchTree(ctx, d.BasePath, nil)
+			serviceChan, err = d.client.WatchTree(ctx, d.BasePath, nil)
 			if err != nil {
 				if d.RetriesAfterWatchFailed > 0 {
 					retry--
@@ -136,6 +137,7 @@ rematch:
 				} else {
 					tempDelay *= 2
 				}
+
 				if max := 30 * time.Second; tempDelay > max {
 					tempDelay = max
 				}
@@ -143,13 +145,6 @@ rematch:
 				time.Sleep(tempDelay)
 				continue
 			}
-
-			var tmpService base.ServiceInstance
-			if err := json.Unmarshal(<-tmpValChan, &tmpService); err != nil {
-				log.Warnf("watchtree unmarshal err:%v", err)
-				continue
-			}
-			serviceChan <- &tmpService
 			break
 		}
 
@@ -158,21 +153,37 @@ rematch:
 			return
 		}
 
+		log.Debugf("start consume...")
 		for {
 			select {
 			case <-d.stopCh:
 				log.Info("discovery has been closed")
 				return
-			case service, ok := <-serviceChan:
+			case serviceByteList, ok := <-serviceChan:
+				log.Debugf("addd")
 				if !ok {
+					log.Debugf("start consume, rematch")
 					break rematch
 				}
-				if service == nil {
+				if serviceByteList == nil {
+					log.Debugf("start consume, nil")
 					continue
 				}
 
+				var serviceList []*base.ServiceInstance
+				for _, serviceByte := range serviceByteList {
+					var tmpService base.ServiceInstance
+					if err := json.Unmarshal(serviceByte, &tmpService); err != nil {
+						log.Warnf("watchtree unmarshal err:%v", err)
+						continue
+					}
+					serviceList = append(serviceList, &tmpService)
+				}
+
+				log.Debugf("get watch tree result:%v", serviceList)
+
 				d.serviceMu.Lock()
-				d.services = append(d.services, service)
+				d.services = serviceList
 				d.serviceMu.Unlock()
 
 				d.mu.Lock()
@@ -184,13 +195,14 @@ rematch:
 						}()
 
 						select {
-						case ch <- service:
+						case ch <- serviceList:
 						case <-time.After(time.Minute):
 							log.Warn("chan is full and new change has been dropped")
 						}
 					}()
 				}
 				d.mu.Unlock()
+				log.Debugf("comsume done")
 			}
 		}
 	}
