@@ -26,3 +26,6 @@ vendor/
 .codecc
 .vscode
 .go-version
+
+log/
+slow_log/

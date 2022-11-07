@@ -17,7 +17,9 @@
 
 package runes
 
-import "fmt"
+import (
+	"fmt"
+)
 
 func ConvertToRune(value interface{}) []rune {
 	return []rune(fmt.Sprint(value))

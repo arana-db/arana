@@ -54,7 +54,7 @@ const (
 	SQLTypeAnalyzeTable             // ANALYZE TABLE
 	SQLTypeShowMasterStatus         // SHOW MASTER STATUS
 	SQLTypeShowReplicas             // SHOW REPLICAS
-
+	SQLTypeShowProcessList          //SHOW PROCESSLIST
 )
 
 var _sqlTypeNames = [...]string{
@@ -85,6 +85,7 @@ var _sqlTypeNames = [...]string{
 	SQLTypeAnalyzeTable:     "ANALYZE TABLE",
 	SQLTypeShowMasterStatus: "SHOW MASTER STATUS",
 	SQLTypeShowReplicas:     "SHOW REPLICAS",
+	SQLTypeShowProcessList:  "SHOW PROCESSLIST",
 }
 
 // SQLType represents the type of SQL.

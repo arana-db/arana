@@ -514,3 +514,17 @@ func (s *ShowMasterStatus) Restore(flag RestoreFlag, sb *strings.Builder, args *
 
 	return s.baseShow.Restore(flag, sb, args)
 }
+
+type ShowProcessList struct {
+	*baseShow
+}
+
+func (s *ShowProcessList) Mode() SQLType {
+	return SQLTypeShowProcessList
+}
+
+func (s *ShowProcessList) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	sb.WriteString("SHOW PROCESSLIST")
+
+	return s.baseShow.Restore(flag, sb, args)
+}
