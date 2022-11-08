@@ -102,10 +102,10 @@ func (a sqrtFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Valu
 		return math.Sqrt(float64(v)), nil
 	default:
 		var d *gxbig.Decimal
-		if d, err = gxbig.NewDecFromString(fmt.Sprint(v)); err != nil {
+		if _, err = gxbig.NewDecFromString(fmt.Sprint(v)); err != nil {
 			return _zeroDecimal, nil
 		}
-		if d, err = gxbig.NewDecFromString(fmt.Sprint(v)); d.IsNegative() {
+		if d, _ = gxbig.NewDecFromString(fmt.Sprint(v)); d.IsNegative() {
 			return "NaN", nil
 		}
 		return decSqrt(d), nil
