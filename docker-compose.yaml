@@ -56,7 +56,7 @@ services:
           "127.0.0.1",
           "-u",
           "root",
-          "-p$MYSQL_ROOT_PASSWORD"
+          "-p123456"
         ]
       interval: 2s
       timeout: 1s
@@ -69,7 +69,7 @@ services:
     networks:
       - local
     ports:
-      - "3307:13306"
+      - "13306:13306"
     volumes:
       - ./conf/config.yaml:/etc/arana/config.yaml:ro
       - ./conf/bootstrap.docker.yaml:/etc/arana/bootstrap.yaml:ro
