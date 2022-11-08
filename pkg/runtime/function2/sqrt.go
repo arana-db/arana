@@ -20,6 +20,7 @@ package function2
 import (
 	"context"
 	"fmt"
+	"math"
 )
 
 import (
@@ -30,78 +31,83 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/util/math"
 )
 
 // FuncAbs is https://dev.mysql.com/doc/refman/8.0/en/mathematical-functions.html#function_abs
-const FuncAbs = "ABS"
+const FuncSqrt = "SQRT"
 
-var (
-	_zeroDecimal, _     = gxbig.NewDecFromString("0.0")
-	_negativeOne        = gxbig.NewDecFromInt(-1)
-	_maxErrorDecimal, _ = gxbig.NewDecFromString("0.0000000000000001")
-	_twoDecimal, _      = gxbig.NewDecFromString("2.0")
-	_oneDecimal, _      = gxbig.NewDecFromString("1.0")
-)
-
-var _ proto.Func = (*absFunc)(nil)
+var _ proto.Func = (*sqrtFunc)(nil)
 
 func init() {
-	proto.RegisterFunc(FuncAbs, absFunc{})
+	proto.RegisterFunc(FuncSqrt, sqrtFunc{})
 }
 
-type absFunc struct{}
+type sqrtFunc struct{}
 
-func (a absFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
+func (a sqrtFunc) NumInput() int {
+	return 1
+}
+
+func (a sqrtFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
 	val, err := inputs[0].Value(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
 
-	decAbs := func(d *gxbig.Decimal) *gxbig.Decimal {
-		if !d.IsNegative() {
-			return d
+	decSqrt := func(d *gxbig.Decimal) *gxbig.Decimal {
+		if d.IsNegative() {
+			return _zeroDecimal
 		}
-
-		var ret gxbig.Decimal
-		_ = gxbig.DecimalMul(d, _negativeOne, &ret)
+		var ret gxbig.Decimal = *d
+		var temp gxbig.Decimal = *d
+		var judge = 100000
+		for judge > 0 {
+			_ = gxbig.DecimalDiv(d, &ret, &temp, 2)
+			_ = gxbig.DecimalAdd(&ret, &temp, &ret)
+			_ = gxbig.DecimalDiv(&ret, _twoDecimal, &ret, 2)
+			ret.Round(&ret, 16, 5)
+			_ = gxbig.DecimalMul(&ret, &ret, &temp)
+			temp.Round(&temp, 16, 5)
+			_ = gxbig.DecimalSub(d, &temp, &temp)
+			if temp.IsNegative() {
+				_ = gxbig.DecimalMul(_negativeOne, &temp, &temp)
+			}
+			judge -= 1
+			if temp.Compare(_maxErrorDecimal) <= 0 {
+				judge = 0
+			}
+		}
 		return &ret
 	}
 
 	switch v := val.(type) {
 	case *gxbig.Decimal:
-		return decAbs(v), nil
-	case uint8, uint16, uint32, uint64, uint:
-		return v, nil
+		return decSqrt(v), nil
+	case uint8:
+		return math.Sqrt(float64(v)), nil
+	case uint16:
+		return math.Sqrt(float64(v)), nil
+	case uint32:
+		return math.Sqrt(float64(v)), nil
+	case uint64:
+		return math.Sqrt(float64(v)), nil
+	case uint:
+		return math.Sqrt(float64(v)), nil
 	case int64:
-		return math.Abs(v), nil
+		return math.Sqrt(float64(v)), nil
 	case int32:
-		return math.Abs(v), nil
+		return math.Sqrt(float64(v)), nil
 	case int16:
-		return math.Abs(v), nil
+		return math.Sqrt(float64(v)), nil
 	case int8:
-		return math.Abs(v), nil
+		return math.Sqrt(float64(v)), nil
 	case int:
-		return math.Abs(v), nil
-	case float64:
-		if v < 0 {
-			return -v, nil
-		}
-		return v, nil
-	case float32:
-		if v < 0 {
-			return -v, nil
-		}
-		return v, nil
+		return math.Sqrt(float64(v)), nil
 	default:
 		var d *gxbig.Decimal
 		if d, err = gxbig.NewDecFromString(fmt.Sprint(v)); err != nil {
 			return _zeroDecimal, nil
 		}
-		return decAbs(d), nil
+		return decSqrt(d), nil
 	}
-}
-
-func (a absFunc) NumInput() int {
-	return 1
 }

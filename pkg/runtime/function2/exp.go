@@ -20,88 +20,78 @@ package function2
 import (
 	"context"
 	"fmt"
+	"math"
 )
 
 import (
 	gxbig "github.com/dubbogo/gost/math/big"
 
 	"github.com/pkg/errors"
+	"github.com/shopspring/decimal"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/util/math"
 )
 
-// FuncAbs is https://dev.mysql.com/doc/refman/8.0/en/mathematical-functions.html#function_abs
-const FuncAbs = "ABS"
+// FuncExp is https://dev.mysql.com/doc/refman/8.0/en/mathematical-functions.html#function_exp
+const FuncExp = "EXP"
 
-var (
-	_zeroDecimal, _     = gxbig.NewDecFromString("0.0")
-	_negativeOne        = gxbig.NewDecFromInt(-1)
-	_maxErrorDecimal, _ = gxbig.NewDecFromString("0.0000000000000001")
-	_twoDecimal, _      = gxbig.NewDecFromString("2.0")
-	_oneDecimal, _      = gxbig.NewDecFromString("1.0")
-)
-
-var _ proto.Func = (*absFunc)(nil)
+var _ proto.Func = (*expFunc)(nil)
 
 func init() {
-	proto.RegisterFunc(FuncAbs, absFunc{})
+	proto.RegisterFunc(FuncExp, expFunc{})
 }
 
-type absFunc struct{}
+type expFunc struct{}
 
-func (a absFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
+func (a expFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
 	val, err := inputs[0].Value(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
 
-	decAbs := func(d *gxbig.Decimal) *gxbig.Decimal {
-		if !d.IsNegative() {
-			return d
-		}
-
-		var ret gxbig.Decimal
-		_ = gxbig.DecimalMul(d, _negativeOne, &ret)
-		return &ret
+	decExp := func(d *gxbig.Decimal) *gxbig.Decimal {
+		var ret gxbig.Decimal = *d
+		temp, _ := decimal.NewFromString(ret.String())
+		var s, _ = temp.ExpTaylor(18)
+		print(d.String())
+		d, _ = gxbig.NewDecFromString(s.String())
+		return d
 	}
 
 	switch v := val.(type) {
 	case *gxbig.Decimal:
-		return decAbs(v), nil
-	case uint8, uint16, uint32, uint64, uint:
-		return v, nil
+		return decExp(v), nil
+	case uint8:
+		return math.Exp(float64(v)), nil
+	case uint16:
+		return math.Exp(float64(v)), nil
+	case uint32:
+		return math.Exp(float64(v)), nil
+	case uint64:
+		return math.Exp(float64(v)), nil
+	case uint:
+		return math.Exp(float64(v)), nil
 	case int64:
-		return math.Abs(v), nil
+		return math.Exp(float64(v)), nil
 	case int32:
-		return math.Abs(v), nil
+		return math.Exp(float64(v)), nil
 	case int16:
-		return math.Abs(v), nil
+		return math.Exp(float64(v)), nil
 	case int8:
-		return math.Abs(v), nil
+		return math.Exp(float64(v)), nil
 	case int:
-		return math.Abs(v), nil
-	case float64:
-		if v < 0 {
-			return -v, nil
-		}
-		return v, nil
-	case float32:
-		if v < 0 {
-			return -v, nil
-		}
-		return v, nil
+		return math.Exp(float64(v)), nil
 	default:
 		var d *gxbig.Decimal
 		if d, err = gxbig.NewDecFromString(fmt.Sprint(v)); err != nil {
-			return _zeroDecimal, nil
+			return _oneDecimal, nil
 		}
-		return decAbs(d), nil
+		return decExp(d), nil
 	}
 }
 
-func (a absFunc) NumInput() int {
+func (a expFunc) NumInput() int {
 	return 1
 }
