@@ -66,9 +66,10 @@ type (
 	}
 
 	Registry struct {
-		Name     string                 `yaml:"name"`
-		RootPath string                 `yaml:"root_path"`
-		Options  map[string]interface{} `yaml:"options"`
+		Enable   bool                   `yaml:"enable" json:"enable"`
+		Name     string                 `yaml:"name" json:"name"`
+		RootPath string                 `yaml:"root_path" json:"root_path"`
+		Options  map[string]interface{} `yaml:"options" json:"options"`
 	}
 
 	// Configuration represents an Arana configuration.

@@ -94,15 +94,18 @@ func Run(bootstrapConfigPath string) {
 	}
 
 	// init service registry
-	serviceRegistry, err := registry.InitRegistry(discovery.GetServiceRegistry(context.Background()))
-	if err != nil {
-		log.Fatalf("create service registry failed: %v", err)
-		return
-	}
+	registryConf := discovery.GetServiceRegistry(context.Background())
+	if registryConf != nil && registryConf.Enable {
+		serviceRegistry, err := registry.InitRegistry(registryConf)
+		if err != nil {
+			log.Fatalf("create service registry failed: %v", err)
+			return
+		}
 
-	if err := registry.DoRegistry(context.Background(), serviceRegistry, "service", listenersConf); err != nil {
-		log.Fatalf("do service register failed: %v", err)
-		return
+		if err := registry.DoRegistry(context.Background(), serviceRegistry, "service", listenersConf); err != nil {
+			log.Fatalf("do service register failed: %v", err)
+			return
+		}
 	}
 
 	if err := discovery.InitTrace(context.Background()); err != nil {
