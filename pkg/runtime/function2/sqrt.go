@@ -55,9 +55,6 @@ func (a sqrtFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Valu
 	}
 
 	decSqrt := func(d *gxbig.Decimal) *gxbig.Decimal {
-		if d.IsNegative() {
-			return _zeroDecimal
-		}
 		var ret gxbig.Decimal = *d
 		var temp gxbig.Decimal = *d
 		var judge = 100000
@@ -107,6 +104,9 @@ func (a sqrtFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Valu
 		var d *gxbig.Decimal
 		if d, err = gxbig.NewDecFromString(fmt.Sprint(v)); err != nil {
 			return _zeroDecimal, nil
+		}
+		if d, err = gxbig.NewDecFromString(fmt.Sprint(v)); d.IsNegative() {
+			return "NaN", nil
 		}
 		return decSqrt(d), nil
 	}
