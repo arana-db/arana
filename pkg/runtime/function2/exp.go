@@ -52,8 +52,7 @@ func (a expFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value
 	}
 
 	decExp := func(d *gxbig.Decimal) *gxbig.Decimal {
-		var ret gxbig.Decimal = *d
-		temp, _ := decimal.NewFromString(ret.String())
+		temp, _ := decimal.NewFromString(d.String())
 		var s, _ = temp.ExpTaylor(18)
 		d, _ = gxbig.NewDecFromString(s.String())
 		return d
