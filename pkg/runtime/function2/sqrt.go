@@ -33,7 +33,7 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
-// FuncAbs is https://dev.mysql.com/doc/refman/8.0/en/mathematical-functions.html#function_abs
+// FuncSqrt is https://dev.mysql.com/doc/refman/8.0/en/mathematical-functions.html#function_abs
 const FuncSqrt = "SQRT"
 
 var _ proto.Func = (*sqrtFunc)(nil)
