@@ -19,13 +19,16 @@ package store
 
 import (
 	"context"
-	"github.com/arana-db/arana/pkg/util/log"
 	"sync"
 	"time"
 )
 
 import (
 	clientv3 "go.etcd.io/etcd/client/v3"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/util/log"
 )
 
 const defaultTTL = 30
