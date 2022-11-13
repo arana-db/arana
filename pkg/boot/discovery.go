@@ -445,6 +445,7 @@ func (fp *discovery) InitTenant(tenant string) error {
 		config.WithCacheable(true),
 		config.WithReader(true),
 		config.WithWatcher(true),
+		config.WithWriter(true),
 	)
 	return err
 }

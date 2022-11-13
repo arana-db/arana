@@ -44,9 +44,9 @@ func init() {
 const (
 	SequencePluginName = "group"
 
-	_stepKey                 = "step"
-	_startSequence     int64 = 1
-	_defaultGroupStrep int64 = 100
+	_stepKey                = "step"
+	_startSequence    int64 = 1
+	_defaultGroupStep int64 = 100
 
 	_initGroupSequenceTableSql = `
 	CREATE TABLE IF NOT EXISTS __arana_group_sequence (
@@ -94,7 +94,7 @@ func (seq *groupSequence) Start(ctx context.Context, option proto.SequenceConfig
 	}
 
 	// init sequence
-	if err := seq.initStep(ctx, rt, option); err != nil {
+	if err := seq.initStep(option); err != nil {
 		return err
 	}
 
@@ -131,7 +131,7 @@ func (seq *groupSequence) initTable(ctx context.Context, rt runtime.Runtime) err
 	return nil
 }
 
-func (seq *groupSequence) initStep(ctx context.Context, rt runtime.Runtime, option proto.SequenceConfig) error {
+func (seq *groupSequence) initStep(option proto.SequenceConfig) error {
 	seq.mu.Lock()
 	defer seq.mu.Unlock()
 
@@ -144,7 +144,7 @@ func (seq *groupSequence) initStep(ctx context.Context, rt runtime.Runtime, opti
 		}
 		step = int64(tempStep)
 	} else {
-		step = _defaultGroupStrep
+		step = _defaultGroupStep
 	}
 	seq.step = step
 
