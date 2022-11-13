@@ -98,12 +98,12 @@ func Run(bootstrapConfigPath string) {
 	if registryConf != nil && registryConf.Enable {
 		serviceRegistry, err := registry.InitRegistry(registryConf)
 		if err != nil {
-			log.Fatalf("create service registry failed: %v", err)
+			log.Errorf("create service registry failed: %v", err)
 			return
 		}
 
 		if err := registry.DoRegistry(context.Background(), serviceRegistry, "service", listenersConf); err != nil {
-			log.Fatalf("do service register failed: %v", err)
+			log.Errorf("do service register failed: %v", err)
 			return
 		}
 	}
