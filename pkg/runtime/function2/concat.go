@@ -29,6 +29,7 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
 // FuncConcat is https://dev.mysql.com/doc/refman/8.0/en/string-functions.html#function_concat
@@ -44,11 +45,17 @@ type concatFunc struct{}
 
 // Apply implements proto.Func.
 func (c concatFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
-	var sb strings.Builder
+	var (
+		sb strings.Builder
+	)
 	for _, it := range inputs {
 		val, err := it.Value(ctx)
 		if err != nil {
 			return nil, errors.WithStack(err)
+		}
+		// according to the doc, returns NULL if any argument is NULL.
+		if _, ok := val.(ast.Null); ok {
+			return ast.Null{}.String(), nil
 		}
 		_, _ = fmt.Fprint(&sb, val)
 	}
