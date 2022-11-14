@@ -49,33 +49,28 @@ func (c castFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Valu
 	}
 
 	unSignCast := func(i any) any {
-		switch i.(type) {
+		switch v := i.(type) {
 		case int:
-			v := i.(int)
 			if v > 0 {
 				return uint(v)
 			}
 			return 0
 		case int8:
-			v := i.(int8)
 			if v > 0 {
 				return uint8(v)
 			}
 			return 0
 		case int16:
-			v := i.(int16)
 			if v > 0 {
 				return uint16(v)
 			}
 			return 0
 		case int32:
-			v := i.(int32)
 			if v > 0 {
 				return uint32(v)
 			}
 			return 0
 		case int64:
-			v := i.(int64)
 			if v > 0 {
 				return uint64(v)
 			}
