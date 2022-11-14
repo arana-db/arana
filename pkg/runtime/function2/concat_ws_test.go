@@ -19,47 +19,43 @@ package function2
 
 import (
 	"context"
+	"fmt"
+	"testing"
 )
 
 import (
-	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
-const FuncCast = "CAST"
+func TestConcatWSFunc_Apply(t *testing.T) {
+	f := proto.MustGetFunc(FuncConcatWS)
 
-var _ proto.Func = (*castFunc)(nil)
-
-func init() {
-	proto.RegisterFunc(FuncCast, castFunc{})
-}
-
-type castFunc struct{}
-
-func (c castFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
-	val, err := inputs[0].Value(ctx)
-	if err != nil {
-		return nil, errors.WithStack(err)
+	tests := []struct {
+		inputs []proto.Value
+		out    string
+	}{
+		{[]proto.Value{1, 2}, "2"},
+		{[]proto.Value{",", "open", "source"}, "open,source"},
+		{[]proto.Value{",", "open", ast.Null{}, "source"}, "open,source"},
+		{[]proto.Value{",", "open", "source", ast.Null{}}, "open,source"},
+		{[]proto.Value{ast.Null{}, "open", "source"}, "NULL"},
 	}
 
-	signCast := func(i uint) *int {
-		var sign int
-		return &sign
+	for _, next := range tests {
+		t.Run(fmt.Sprint(next.out), func(t *testing.T) {
+			var inputs []proto.Valuer
+			for i := range next.inputs {
+				inputs = append(inputs, proto.ToValuer(next.inputs[i]))
+			}
+			out, err := f.Apply(context.Background(), inputs...)
+			assert.NoError(t, err)
+			assert.Equal(t, next.out, out)
+		})
 	}
 
-	switch v := val.(type) {
-	case uint8, uint16, uint32, uint64:
-		return v, nil
-	case uint:
-		return signCast(v), nil
-	default:
-		return v, nil
-	}
-}
-
-func (c castFunc) NumInput() int {
-	return 1
 }
