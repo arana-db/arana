@@ -23,6 +23,24 @@ listeners:
     socket_address:
       address: 0.0.0.0
       port: 13306
+
+registry:
+    enable: false
+    name: etcd
+    root_path: arana
+    options:
+      endpoints: "http://etcd:2379"
+
+#    name: nacos
+#    options:
+#      endpoints: "127.0.0.1:8848"
+#      namespace: arana
+#      group: arana
+#      contextPath: /nacos
+#      scheme: http
+#      username: nacos
+#      password: nacos
+
 log_path: "log"
 slow_log_path: "slow_log"
 config:

@@ -32,12 +32,9 @@ import (
 
 import (
 	"github.com/go-playground/validator/v10"
-
 	"github.com/pkg/errors"
-
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
-
 	"gopkg.in/yaml.v3"
 )
 
@@ -66,6 +63,13 @@ type (
 		ProtocolType  string         `yaml:"protocol_type" json:"protocol_type"`
 		SocketAddress *SocketAddress `yaml:"socket_address" json:"socket_address"`
 		ServerVersion string         `yaml:"server_version" json:"server_version"`
+	}
+
+	Registry struct {
+		Enable   bool                   `yaml:"enable" json:"enable"`
+		Name     string                 `yaml:"name" json:"name"`
+		RootPath string                 `yaml:"root_path" json:"root_path"`
+		Options  map[string]interface{} `yaml:"options" json:"options"`
 	}
 
 	// Configuration represents an Arana configuration.
@@ -401,4 +405,9 @@ func NewEmptyTenant() *Tenant {
 		ShadowRule:         new(ShadowRule),
 		Nodes:              map[string]*Node{},
 	}
+}
+
+func (l *Listener) String() string {
+	socketAddr := fmt.Sprintf("%s:%d", l.SocketAddress.Address, l.SocketAddress.Port)
+	return fmt.Sprintf("Listener protocol_type:%s, socket_address:%s, server_version:%s", l.ProtocolType, socketAddr, l.ServerVersion)
 }
