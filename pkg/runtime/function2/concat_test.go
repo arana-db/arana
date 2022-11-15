@@ -29,6 +29,7 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
 func TestConcat(t *testing.T) {
@@ -43,6 +44,7 @@ func TestConcat(t *testing.T) {
 		{[]proto.Value{"hello ", "world"}, "hello world"},
 		{[]proto.Value{1, 2, 3}, "123"},
 		{[]proto.Value{"hello ", 42}, "hello 42"},
+		{[]proto.Value{"hello", 1, ast.Null{}}, "NULL"},
 	} {
 		t.Run(fmt.Sprint(next.out), func(t *testing.T) {
 			var inputs []proto.Valuer
