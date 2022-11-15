@@ -49,17 +49,17 @@ func (a castcharsetFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (pro
 		return "", errors.New("The Charset function must accept two parameters\n")
 	}
 
-	val1, err := inputs[0].Value(ctx)
+	charset, err := inputs[0].Value(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	val2, err := inputs[1].Value(ctx)
+	content, err := inputs[1].Value(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	inCharset := fmt.Sprint(val1)
+	inCharset := fmt.Sprint(charset)
 	inCharset = strings.TrimSpace(inCharset)
-	inSrc := fmt.Sprint(val2)
+	inSrc := fmt.Sprint(content)
 	inSrc = strings.TrimSpace(inSrc)
 
 	// decode: inSrc to utf8 encode-type utf8Src
