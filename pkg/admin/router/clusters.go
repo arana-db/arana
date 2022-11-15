@@ -36,7 +36,7 @@ import (
 func init() {
 	admin.Register(func(router admin.Router) {
 		router.GET("/tenants/:tenant/clusters", ListClusters)
-		router.POST("/tenants/:tenant/clusters", CreateCluster)
+		router.POST("/tenants/:tenant/clusters/:cluster", CreateCluster)
 		router.GET("/tenants/:tenant/clusters/:cluster", GetCluster)
 		router.PUT("/tenants/:tenant/clusters/:cluster", UpdateCluster)
 		router.DELETE("/tenants/:tenant/clusters/:cluster", RemoveCluster)
@@ -76,15 +76,17 @@ func GetCluster(c *gin.Context) error {
 }
 
 func CreateCluster(c *gin.Context) error {
-	service := admin.GetService(c)
-	tenant := c.Param("tenant")
-	var cluster *boot.ClusterBody
-	if err := c.ShouldBindJSON(&cluster); err != nil {
+	var (
+		service     = admin.GetService(c)
+		tenant      = c.Param("tenant")
+		cluster     = c.Param("cluster")
+		clusterBody *boot.ClusterBody
+	)
+	if err := c.ShouldBindJSON(&clusterBody); err != nil {
 		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
 
-	// TODO how to get cluster name?
-	err := service.UpsertCluster(context.Background(), tenant, "", cluster)
+	err := service.UpsertCluster(context.Background(), tenant, cluster, clusterBody)
 	if err != nil {
 		return err
 	}

@@ -35,23 +35,23 @@ import (
 
 func init() {
 	admin.Register(func(router admin.Router) {
-		router.POST("/tenants/:tenant/groups", CreateGroup)
+		router.POST("/tenants/:tenant/clusters/:cluster/groups/:group", CreateGroup)
 		router.GET("/tenants/:tenant/groups", ListGroups)
-		router.GET("/tenants/:tenant/groups/:group", GetGroup)
-		router.PUT("/tenants/:tenant/groups/:group", UpdateGroup)
-		router.DELETE("/tenants/:tenant/groups/:group", RemoveGroup)
+		router.GET("/tenants/:tenant/clusters/:cluster/groups/:group", GetGroup)
+		router.PUT("/tenants/:tenant/clusters/:cluster/groups/:group", UpdateGroup)
+		router.DELETE("/tenants/:tenant/clusters/:cluster/groups/:group", RemoveGroup)
 	})
 }
 
 func CreateGroup(c *gin.Context) error {
 	service := admin.GetService(c)
-	tenantName := c.Param("tenant")
-	var group *boot.GroupBody
-	if err := c.ShouldBindJSON(&group); err != nil {
+	tenant, cluster, group := c.Param("tenant"), c.Param("cluster"), c.Param("group")
+	var groupBody *boot.GroupBody
+	if err := c.ShouldBindJSON(&groupBody); err != nil {
 		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
 
-	err := service.UpsertGroup(context.Background(), tenantName, "", "", group)
+	err := service.UpsertGroup(context.Background(), tenant, cluster, group, groupBody)
 	if err != nil {
 		return err
 	}
@@ -82,8 +82,9 @@ func ListGroups(c *gin.Context) error {
 func GetGroup(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenant := c.Param("tenant")
+	cluster := c.Param("cluster")
 	group := c.Param("group")
-	data, err := service.GetGroup(context.Background(), tenant, "", group)
+	data, err := service.GetGroup(context.Background(), tenant, cluster, group)
 	if err != nil {
 		return err
 	}
@@ -94,13 +95,14 @@ func GetGroup(c *gin.Context) error {
 func UpdateGroup(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenant := c.Param("tenant")
+	cluster := c.Param("cluster")
 	group := c.Param("group")
 	var groupBody *boot.GroupBody
 	if err := c.ShouldBindJSON(&groupBody); err != nil {
 		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
 
-	err := service.UpsertGroup(context.Background(), tenant, "", group, groupBody)
+	err := service.UpsertGroup(context.Background(), tenant, cluster, group, groupBody)
 	if err != nil {
 		return err
 	}
@@ -110,9 +112,9 @@ func UpdateGroup(c *gin.Context) error {
 
 func RemoveGroup(c *gin.Context) error {
 	service := admin.GetService(c)
-	tenant, group := c.Param("tenant"), c.Param("group")
+	tenant, cluster, group := c.Param("tenant"), c.Param("cluster"), c.Param("group")
 
-	err := service.RemoveGroup(context.Background(), tenant, "", group)
+	err := service.RemoveGroup(context.Background(), tenant, cluster, group)
 	if err != nil {
 		return err
 	}
