@@ -217,6 +217,9 @@ type Discovery interface {
 	// ListListeners lists the listener names
 	ListListeners(ctx context.Context) []*config.Listener
 
+	// GetServiceRegistry lists the registry config
+	GetServiceRegistry(ctx context.Context) *config.Registry
+
 	// Init initializes discovery with context
 	Init(ctx context.Context) error
 

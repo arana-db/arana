@@ -26,6 +26,7 @@ type (
 		config.Spec `yaml:",inline"`
 		Config      *config.Options    `yaml:"config" json:"config"`
 		Listeners   []*config.Listener `validate:"required,dive" yaml:"listeners" json:"listeners"`
+		Registry    *config.Registry   `yaml:"registry" json:"registry"`
 		Trace       *config.Trace      `yaml:"trace" json:"trace"`
 	}
 )
