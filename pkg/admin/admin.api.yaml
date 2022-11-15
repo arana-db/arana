@@ -128,19 +128,7 @@ paths:
         '200':
           description: OK
 
-  /tenants/{tenantName}/groups:
-    post:
-      operationId: createGroup
-      summary: Create a DB group
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Group'
-      responses:
-        '201':
-          description: OK
-
+  /tenants/{tenantName}/clusters/{clusterName}/groups:
     get:
       operationId: listGroups
       summary: List all DB groups
@@ -152,7 +140,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Groups'
 
-  /tenants/{tenantName}/groups/{groupName}:
+  /tenants/{tenantName}/clusters/{clusterName}/groups/{groupName}:
     get:
       operationId: getGroup
       summary: Get a DB group
@@ -163,6 +151,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Group'
+
+    post:
+      operationId: createGroup
+      summary: Create a DB group
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Group'
+      responses:
+        '200':
+          description: OK
+
     put:
       operationId: putGroup
       summary: Update a DB group
@@ -183,18 +184,6 @@ paths:
           description: NONE
 
   /tenants/{tenantName}/clusters:
-    post:
-      operationId: createCluster
-      summary: Create a cluster
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Cluster'
-      responses:
-        '200':
-          description: OK
-
     get:
       operationId: listClusters
       summary: List all clusters
@@ -217,6 +206,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Cluster'
+
+    post:
+      operationId: createCluster
+      summary: Create a cluster
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Cluster'
+      responses:
+        '200':
+          description: OK
 
     put:
       operationId: putCluster
