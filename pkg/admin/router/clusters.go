@@ -36,7 +36,7 @@ import (
 func init() {
 	admin.Register(func(router admin.Router) {
 		router.GET("/tenants/:tenant/clusters", ListClusters)
-		router.POST("/tenants/:tenant/clusters/:cluster", CreateCluster)
+		router.POST("/tenants/:tenant/clusters", CreateCluster)
 		router.GET("/tenants/:tenant/clusters/:cluster", GetCluster)
 		router.PUT("/tenants/:tenant/clusters/:cluster", UpdateCluster)
 		router.DELETE("/tenants/:tenant/clusters/:cluster", RemoveCluster)
@@ -79,14 +79,16 @@ func CreateCluster(c *gin.Context) error {
 	var (
 		service     = admin.GetService(c)
 		tenant      = c.Param("tenant")
-		cluster     = c.Param("cluster")
-		clusterBody *boot.ClusterBody
+		clusterBody struct {
+			Name string `json:"name"`
+			boot.ClusterBody
+		}
 	)
 	if err := c.ShouldBindJSON(&clusterBody); err != nil {
 		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
 
-	err := service.UpsertCluster(context.Background(), tenant, cluster, clusterBody)
+	err := service.UpsertCluster(context.Background(), tenant, clusterBody.Name, &clusterBody.ClusterBody)
 	if err != nil {
 		return err
 	}

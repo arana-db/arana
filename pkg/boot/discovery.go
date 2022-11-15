@@ -298,7 +298,7 @@ func (fp *discovery) UpsertTable(ctx context.Context, tenant, cluster, table str
 
 	var (
 		rule      = tenantCfg.ShardingRule
-		newTables = make([]*config.Table, 0, len(rule.Tables))
+		newTables = make([]*config.Table, len(rule.Tables))
 		exist     = false
 	)
 	_ = reflect.Copy(reflect.ValueOf(newTables), reflect.ValueOf(rule.Tables))

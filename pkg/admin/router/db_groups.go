@@ -35,8 +35,8 @@ import (
 
 func init() {
 	admin.Register(func(router admin.Router) {
-		router.POST("/tenants/:tenant/clusters/:cluster/groups/:group", CreateGroup)
 		router.GET("/tenants/:tenant/groups", ListGroups)
+		router.POST("/tenants/:tenant/clusters/:cluster/groups", CreateGroup)
 		router.GET("/tenants/:tenant/clusters/:cluster/groups/:group", GetGroup)
 		router.PUT("/tenants/:tenant/clusters/:cluster/groups/:group", UpdateGroup)
 		router.DELETE("/tenants/:tenant/clusters/:cluster/groups/:group", RemoveGroup)
@@ -45,13 +45,19 @@ func init() {
 
 func CreateGroup(c *gin.Context) error {
 	service := admin.GetService(c)
-	tenant, cluster, group := c.Param("tenant"), c.Param("cluster"), c.Param("group")
-	var groupBody *boot.GroupBody
+	var (
+		tenant    = c.Param("tenant")
+		cluster   = c.Param("cluster")
+		groupBody struct {
+			Name string `json:"name"`
+			boot.GroupBody
+		}
+	)
 	if err := c.ShouldBindJSON(&groupBody); err != nil {
 		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
 
-	err := service.UpsertGroup(context.Background(), tenant, cluster, group, groupBody)
+	err := service.UpsertGroup(context.Background(), tenant, cluster, groupBody.Name, &groupBody.GroupBody)
 	if err != nil {
 		return err
 	}
