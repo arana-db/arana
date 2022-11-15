@@ -18,9 +18,46 @@
 package function2
 
 import (
+	"context"
+	"fmt"
 	"testing"
 )
 
-func TestCast(t *testing.T) {
+import (
+	"github.com/stretchr/testify/assert"
+)
 
+import (
+	"github.com/arana-db/arana/pkg/proto"
+)
+
+func TestUnSignCast(t *testing.T) {
+	fn := proto.MustGetFunc(FuncCast)
+	assert.Equal(t, 1, fn.NumInput())
+
+	type tt struct {
+		in  proto.Value
+		out string
+	}
+
+	for _, it := range []tt{
+		{0, "0"},
+		{int(1), "1"},
+		{int8(2), "2"},
+		{int16(3), "3"},
+		{int32(4), "4"},
+		{int64(5), "5"},
+		{int(-1), "0"},
+		{int8(-2), "0"},
+		{int16(-3), "0"},
+		{int32(-4), "0"},
+		{int64(-5), "0"},
+	} {
+		t.Run(it.out, func(t *testing.T) {
+			out, err := fn.Apply(context.Background(), proto.ToValuer(it.in))
+			t.Logf("res: %v\n", out)
+			assert.NoError(t, err)
+			assert.Equal(t, it.out, fmt.Sprint(out))
+		})
+	}
 }
