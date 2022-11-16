@@ -20,6 +20,7 @@ package test
 import (
 	"database/sql"
 	"fmt"
+	"github.com/arana-db/parser"
 	"sort"
 	"strconv"
 	"strings"
@@ -1033,4 +1034,14 @@ func (s *IntegrationSuite) TestShowProcessList() {
 			defer rows.Close()
 		})
 	}
+}
+
+func (s *IntegrationSuite) TestShowReplicaStatus() {
+	var sql_ string = "SHOW REPLICA STATUS"
+	var t *testing.T = s.T()
+	var p *parser.Parser = parser.New()
+
+	stmtNodes, _, err := p.Parse(sql_, "", "")
+	assert.Nil(t, err)
+	assert.NotNil(t, stmtNodes)
 }
