@@ -23,7 +23,7 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/runtime/ast"
-	"github.com/arana-db/arana/pkg/runtime/function"
+	"github.com/arana-db/arana/pkg/runtime/js"
 	"github.com/arana-db/arana/pkg/runtime/misc"
 )
 
@@ -60,22 +60,22 @@ func GetValueFromAtom(atom ast.ExpressionAtom, args []interface{}) (interface{},
 	case ast.VariableExpressionAtom:
 		return args[it.N()], nil
 	case *ast.MathExpressionAtom:
-		return function.Eval(it, args...)
+		return js.Eval(it, args...)
 	case *ast.FunctionCallExpressionAtom:
 		switch fn := it.F.(type) {
 		case *ast.Function:
-			return function.EvalFunction(fn, args...)
+			return js.EvalFunction(fn, args...)
 		case *ast.AggrFunction:
 			return nil, errors.New("aggregate function should not appear here")
 		case *ast.CastFunction:
-			return function.EvalCastFunction(fn, args...)
+			return js.EvalCastFunction(fn, args...)
 		case *ast.CaseWhenElseFunction:
-			return function.EvalCaseWhenFunction(fn, args...)
+			return js.EvalCaseWhenFunction(fn, args...)
 		default:
 			return nil, errors.Errorf("get value from %T is not supported yet", it)
 		}
 	case ast.ColumnNameExpressionAtom:
-		return nil, function.ErrCannotEvalWithColumnName
+		return nil, js.ErrCannotEvalWithColumnName
 	case *ast.NestedExpressionAtom:
 		nested, ok := it.First.(*ast.PredicateExpressionNode)
 		if !ok {
