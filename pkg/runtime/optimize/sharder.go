@@ -31,7 +31,7 @@ import (
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
-	"github.com/arana-db/arana/pkg/runtime/function"
+	"github.com/arana-db/arana/pkg/runtime/js"
 	"github.com/arana-db/arana/pkg/runtime/logical"
 	"github.com/arana-db/arana/pkg/runtime/misc"
 	"github.com/arana-db/arana/pkg/runtime/misc/extvalue"
@@ -190,7 +190,7 @@ func (sh *Sharder) processExpressionAtom(sc *shardCtx, n ast.ExpressionAtom) (lo
 		}
 		return rrule.AlwaysTrueLogical, nil
 	case *ast.MathExpressionAtom:
-		val, err := function.Eval(a, sc.args...)
+		val, err := js.Eval(a, sc.args...)
 		if err != nil {
 			return nil, err
 		}
@@ -310,7 +310,7 @@ func (sh *Sharder) processCompare(sc *shardCtx, n *ast.BinaryComparisonPredicate
 	switch la := left.A.(type) {
 	case ast.ColumnNameExpressionAtom:
 		val, err := extvalue.GetValue(n.Right, sc.args)
-		if function.IsEvalWithColumnErr(err) {
+		if js.IsEvalWithColumnErr(err) {
 			return rrule.AlwaysTrueLogical, nil
 		} else if err != nil {
 			return nil, err
@@ -322,13 +322,13 @@ func (sh *Sharder) processCompare(sc *shardCtx, n *ast.BinaryComparisonPredicate
 		return rrule.NewKeyed(la.Suffix(), n.Op, val).ToLogical(), nil
 	default:
 		leftValue, err := extvalue.GetValue(n.Left, sc.args)
-		if function.IsEvalWithColumnErr(err) {
+		if js.IsEvalWithColumnErr(err) {
 			return rrule.AlwaysTrueLogical, nil
 		} else if err != nil {
 			return nil, err
 		}
 		rightValue, err := extvalue.GetValue(n.Right, sc.args)
-		if function.IsEvalWithColumnErr(err) {
+		if js.IsEvalWithColumnErr(err) {
 			return rrule.AlwaysTrueLogical, nil
 		} else if err != nil {
 			return nil, err
