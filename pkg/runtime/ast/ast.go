@@ -114,7 +114,7 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 	case *ast.CreateIndexStmt:
 		return cc.convCreateIndexStmt(stmt), nil
 	case *ast.SetStmt:
-		return &SetVariable{Stmt: stmt}, nil
+		return cc.convSetVariablesStmt(stmt), nil
 	case *ast.AnalyzeTableStmt:
 		return cc.convAnalyzeTable(stmt), nil
 	default:
@@ -335,6 +335,23 @@ func (cc *convCtx) convDropTableStmt(stmt *ast.DropTableStmt) *DropTableStatemen
 	}
 	return &DropTableStatement{
 		Tables: tables,
+	}
+}
+
+func (cc *convCtx) convSetVariablesStmt(stmt *ast.SetStmt) *SetStatement {
+	vars := make([]*VariablePair, 0, len(stmt.Variables))
+	for i := range stmt.Variables {
+		next := stmt.Variables[i]
+		vars = append(vars, &VariablePair{
+			Name:   next.Name,
+			Value:  cc.convExpr(next.Value).(*AtomPredicateNode).A,
+			Global: next.IsGlobal,
+			System: next.IsSystem,
+		})
+	}
+
+	return &SetStatement{
+		Variables: vars,
 	}
 }
 
@@ -1033,7 +1050,9 @@ func (cc *convCtx) convExpr(expr ast.ExprNode) interface{} {
 func (cc *convCtx) convVariableExpr(node *ast.VariableExpr) PredicateNode {
 	return &AtomPredicateNode{
 		A: &SystemVariableExpressionAtom{
-			Name: node.Name,
+			Name:   node.Name,
+			System: node.IsSystem,
+			Global: node.IsGlobal,
 		},
 	}
 }

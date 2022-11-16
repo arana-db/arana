@@ -24,6 +24,7 @@ import (
 
 import (
 	gostnet "github.com/dubbogo/gost/net"
+
 	"github.com/pkg/errors"
 )
 

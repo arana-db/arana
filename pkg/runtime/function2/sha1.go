@@ -25,6 +25,7 @@ import (
 
 import (
 	gxbig "github.com/dubbogo/gost/math/big"
+
 	"github.com/pkg/errors"
 )
 
@@ -32,8 +33,10 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
-const FuncSHA1 = "SHA1"
-const FuncSHA = "SHA"
+const (
+	FuncSHA1 = "SHA1"
+	FuncSHA  = "SHA"
+)
 
 var _ proto.Func = (*sha1Func)(nil)
 

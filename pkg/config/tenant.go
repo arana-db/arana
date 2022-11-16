@@ -35,9 +35,7 @@ import (
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
-var (
-	_ TenantOperator = (*tenantOperate)(nil)
-)
+var _ TenantOperator = (*tenantOperate)(nil)
 
 // NewTenantOperator create a tenant data operator
 func NewTenantOperator(op StoreOperator) (TenantOperator, error) {
@@ -172,7 +170,7 @@ func (tp *tenantOperate) CreateTenant(name string) error {
 		return errors.Wrap(err, "create tenant name")
 	}
 
-	//need to insert the relevant configuration data under the relevant tenant
+	// need to insert the relevant configuration data under the relevant tenant
 	tenantPathInfo := NewPathInfo(name)
 	for i := range tenantPathInfo.ConfigKeyMapping {
 		if err := tp.op.Save(i, []byte("")); err != nil {

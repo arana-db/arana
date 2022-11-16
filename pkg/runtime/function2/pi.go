@@ -28,9 +28,7 @@ import (
 // FuncPi is https://dev.mysql.com/doc/refman/5.6/en/mathematical-functions.html#function_pi
 const FuncPi = "PI"
 
-var (
-	_piDefault = 3.141593
-)
+const _piDefault = 3.141593
 
 var _ proto.Func = (*piFunc)(nil)
 

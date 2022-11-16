@@ -33,7 +33,7 @@ func init() {
 }
 
 func optimizeSetVariable(_ context.Context, o *optimize.Optimizer) (proto.Plan, error) {
-	ret := &ddl.SetVariablePlan{Stmt: o.Stmt.(*ast.SetVariable)}
+	ret := &ddl.SetVariablePlan{Stmt: o.Stmt.(*ast.SetStatement)}
 	ret.BindArgs(o.Args)
 	return ret, nil
 }

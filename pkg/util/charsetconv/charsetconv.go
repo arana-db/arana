@@ -29,13 +29,15 @@ import (
 
 import (
 	"github.com/pkg/errors"
+
 	"golang.org/x/net/html/charset"
+
 	"golang.org/x/text/transform"
 )
 
 type Charset string
 
-//See the support of mysql 8.0 for character sets
+// See the support of mysql 8.0 for character sets
 var charsetAlias = map[string]Charset{
 	// Unicode
 	"utf8":    "UTF-8",
@@ -77,7 +79,7 @@ var charsetAlias = map[string]Charset{
 	"hebrew": "ISO-8859-11",
 	"latin7": "ISO-8859-13",
 
-	//other
+	// other
 	"sjis":      "SJIS",
 	"koi8r":     "KOI8-R",
 	"koi8u":     "KOI8-U",
