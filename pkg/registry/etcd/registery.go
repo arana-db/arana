@@ -85,7 +85,7 @@ func NewEtcdV3Registry(serviceAddr, path string, etcdAddrs []string, options *st
 					close(etcdRegistry.done)
 					return
 				case <-ticker.C:
-					//set this same metrics for all services at this server
+					// set this same metrics for all services at this server
 					for _, name := range etcdRegistry.Services {
 						nodePath := fmt.Sprintf("%s/%s/%s", etcdRegistry.BasePath, name, etcdRegistry.ServiceAddress)
 						if _, err := client.Get(context.Background(), nodePath); err != nil {
@@ -174,7 +174,7 @@ func (r *EtcdV3Registry) Unregister(ctx context.Context, name string) (err error
 	}
 
 	if len(r.Services) > 0 {
-		var services = make([]string, 0, len(r.Services)-1)
+		services := make([]string, 0, len(r.Services)-1)
 		for _, s := range r.Services {
 			if s != name {
 				services = append(services, s)

@@ -45,9 +45,7 @@ type concatFunc struct{}
 
 // Apply implements proto.Func.
 func (c concatFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
-	var (
-		sb strings.Builder
-	)
+	var sb strings.Builder
 	for _, it := range inputs {
 		val, err := it.Value(ctx)
 		if err != nil {

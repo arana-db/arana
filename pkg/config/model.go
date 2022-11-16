@@ -32,9 +32,12 @@ import (
 
 import (
 	"github.com/go-playground/validator/v10"
+
 	"github.com/pkg/errors"
+
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+
 	"gopkg.in/yaml.v3"
 )
 

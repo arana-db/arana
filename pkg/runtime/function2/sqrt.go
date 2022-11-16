@@ -55,9 +55,9 @@ func (a sqrtFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Valu
 	}
 
 	decSqrt := func(d *gxbig.Decimal) *gxbig.Decimal {
-		var ret = *d
-		var temp = *d
-		var judge = 100000
+		ret := *d
+		temp := *d
+		judge := 100000
 		for judge > 0 {
 			_ = gxbig.DecimalDiv(d, &ret, &temp, 2)
 			_ = gxbig.DecimalAdd(&ret, &temp, &ret)
