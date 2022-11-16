@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
-	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -46,14 +45,10 @@ import (
 	"github.com/arana-db/arana/pkg/trace"
 	"github.com/arana-db/arana/pkg/util/file"
 	"github.com/arana-db/arana/pkg/util/log"
+	"github.com/arana-db/arana/pkg/util/misc"
 )
 
 var _ Discovery = (*discovery)(nil)
-
-var (
-	_regexpTable     *regexp.Regexp
-	_regexpTableOnce sync.Once
-)
 
 var (
 	_regexpRuleExpr     *regexp.Regexp
@@ -65,13 +60,6 @@ var (
 	ErrorNoDataSourceCluster = errors.New("no datasourceCluster")
 	ErrorNoGroup             = errors.New("no group")
 )
-
-func getTableRegexp() *regexp.Regexp {
-	_regexpTableOnce.Do(func() {
-		_regexpTable = regexp.MustCompile(`([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_-]+)`)
-	})
-	return _regexpTable
-}
 
 func getRuleExprRegexp() *regexp.Regexp {
 	_regexpRuleExprSync.Do(func() {
@@ -87,293 +75,6 @@ type discovery struct {
 
 	tenantOp config.TenantOperator
 	centers  map[string]config.Center
-}
-
-func (fp *discovery) UpsertTenant(ctx context.Context, tenant string, body *TenantBody) error {
-	if err := fp.tenantOp.CreateTenant(tenant); err != nil {
-		return errors.Wrapf(err, "failed to create tenant '%s'", tenant)
-	}
-
-	for _, next := range body.Users {
-		if err := fp.tenantOp.CreateTenantUser(tenant, next.Username, next.Password); err != nil {
-			return errors.WithStack(err)
-		}
-	}
-
-	return nil
-}
-
-func (fp *discovery) RemoveTenant(ctx context.Context, tenant string) error {
-	if err := fp.tenantOp.RemoveTenant(tenant); err != nil {
-		return errors.Wrapf(err, "failed to remove tenant '%s'", tenant)
-	}
-	return nil
-}
-
-func (fp *discovery) UpsertCluster(ctx context.Context, tenant, cluster string, body *ClusterBody) error {
-	op, ok := fp.centers[tenant]
-	if !ok {
-		return ErrorNoTenant
-	}
-
-	cfg, err := fp.GetTenant(ctx, tenant)
-	if err != nil {
-		return err
-	}
-
-	var (
-		newClusters = make([]*config.DataSourceCluster, len(cfg.DataSourceClusters))
-		exist       = false
-	)
-
-	_ = reflect.Copy(reflect.ValueOf(newClusters), reflect.ValueOf(cfg.DataSourceClusters))
-	for _, newCluster := range newClusters {
-		if newCluster.Name == cluster {
-			exist = true
-			newCluster.Type = body.Type
-			newCluster.Parameters = body.Parameters
-			newCluster.SqlMaxLimit = body.SqlMaxLimit
-			break
-		}
-	}
-	if !exist {
-		newClusters = append(newClusters, &config.DataSourceCluster{
-			Name:        cluster,
-			Type:        body.Type,
-			SqlMaxLimit: body.SqlMaxLimit,
-			Parameters:  body.Parameters,
-			Groups:      nil,
-		})
-	}
-	cfg.DataSourceClusters = newClusters
-
-	err = op.Write(ctx, config.ConfigItemClusters, cfg)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (fp *discovery) RemoveCluster(ctx context.Context, tenant, cluster string) error {
-	op, ok := fp.centers[tenant]
-	if !ok {
-		return ErrorNoTenant
-	}
-
-	tenantCfg, err := fp.GetTenant(ctx, tenant)
-	if err != nil {
-		return err
-	}
-
-	remainedDsClusters := make([]*config.DataSourceCluster, 0, len(tenantCfg.DataSourceClusters)-1)
-	for _, dsc := range tenantCfg.DataSourceClusters {
-		if dsc.Name != cluster {
-			remainedDsClusters = append(remainedDsClusters, dsc)
-		}
-	}
-
-	tenantCfg.DataSourceClusters = remainedDsClusters
-	err = op.Write(ctx, config.ConfigItemClusters, tenantCfg)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (fp *discovery) UpsertNode(ctx context.Context, tenant, node string, body *NodeBody) error {
-	if err := fp.tenantOp.UpsertNode(tenant, node, body.Name, body.Host, body.Port, body.Username, body.Password, body.Database, body.Weight); err != nil {
-		return errors.Wrapf(err, "failed to upsert node '%s' for tenant '%s'", node, tenant)
-	}
-
-	return nil
-}
-
-func (fp *discovery) RemoveNode(ctx context.Context, tenant, node string) error {
-	if err := fp.tenantOp.RemoveNode(tenant, node); err != nil {
-		return errors.Wrapf(err, "failed to remove node '%s' for tenant '%s'", node, tenant)
-	}
-
-	return nil
-}
-
-func (fp *discovery) UpsertGroup(ctx context.Context, tenant, cluster, group string, body *GroupBody) error {
-	op, ok := fp.centers[tenant]
-	if !ok {
-		return ErrorNoTenant
-	}
-
-	tenantCfg, err := op.LoadAll(ctx)
-	if err != nil {
-		return err
-	}
-
-	clusterCfg, err := fp.loadCluster(tenant, cluster)
-	if err != nil {
-		return err
-	}
-
-	var (
-		newGroups = make([]*config.Group, len(clusterCfg.Groups))
-		exist     = false
-	)
-	_ = reflect.Copy(reflect.ValueOf(newGroups), reflect.ValueOf(clusterCfg.Groups))
-
-	for _, groupCfg := range newGroups {
-		if groupCfg.Name == group {
-			exist = true
-			groupCfg.Nodes = body.Nodes
-			break
-		}
-	}
-	if !exist {
-		newGroup := &config.Group{
-			Name:  group,
-			Nodes: body.Nodes,
-		}
-		newGroups = append(newGroups, newGroup)
-	}
-	clusterCfg.Groups = newGroups
-
-	err = op.Write(ctx, config.ConfigItemClusters, tenantCfg)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (fp *discovery) RemoveGroup(ctx context.Context, tenant, cluster, group string) error {
-	op, ok := fp.centers[tenant]
-	if !ok {
-		return ErrorNoTenant
-	}
-
-	tenantCfg, err := op.LoadAll(context.Background())
-	if err != nil {
-		return err
-	}
-
-	clusterCfg, err := fp.loadCluster(tenant, cluster)
-	if err != nil {
-		return err
-	}
-
-	remainedGroups := make([]*config.Group, 0, len(clusterCfg.Groups)-1)
-	for _, it := range clusterCfg.Groups {
-		if it.Name != group {
-			remainedGroups = append(remainedGroups, it)
-		}
-	}
-
-	clusterCfg.Groups = remainedGroups
-
-	err = op.Write(ctx, config.ConfigItemClusters, tenantCfg)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (fp *discovery) BindNode(ctx context.Context, tenant, cluster, group, node string) error {
-	// TODO implement me
-	panic("implement me")
-}
-
-func (fp *discovery) UnbindNode(ctx context.Context, tenant, cluster, group, node string) error {
-	// TODO implement me
-	panic("implement me")
-}
-
-func (fp *discovery) UpsertTable(ctx context.Context, tenant, cluster, table string, body *TableBody) error {
-	op, ok := fp.centers[tenant]
-	if !ok {
-		return ErrorNoTenant
-	}
-
-	tenantCfg, err := op.LoadAll(context.Background())
-	if err != nil {
-		return err
-	}
-
-	var (
-		rule      = tenantCfg.ShardingRule
-		newTables = make([]*config.Table, len(rule.Tables))
-		exist     = false
-	)
-	_ = reflect.Copy(reflect.ValueOf(newTables), reflect.ValueOf(rule.Tables))
-
-	for _, tableCfg := range newTables {
-		db, tb, err := parseTable(tableCfg.Name)
-		if err != nil {
-			return err
-		}
-		if db == cluster && tb == table {
-			tableCfg.Sequence = body.Sequence
-			tableCfg.AllowFullScan = body.AllowFullScan
-			tableCfg.DbRules = body.DbRules
-			tableCfg.TblRules = body.TblRules
-			tableCfg.Topology = body.Topology
-			tableCfg.ShadowTopology = body.ShadowTopology
-			tableCfg.Attributes = body.Attributes
-			exist = true
-			break
-		}
-	}
-	if !exist {
-		newTable := &config.Table{
-			Name:           cluster + "." + table,
-			Sequence:       body.Sequence,
-			AllowFullScan:  body.AllowFullScan,
-			DbRules:        body.DbRules,
-			TblRules:       body.TblRules,
-			Topology:       body.Topology,
-			ShadowTopology: body.ShadowTopology,
-			Attributes:     body.Attributes,
-		}
-		newTables = append(newTables, newTable)
-	}
-	rule.Tables = newTables
-
-	err = op.Write(ctx, config.ConfigItemShardingRule, tenantCfg)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (fp *discovery) RemoveTable(ctx context.Context, tenant, cluster, table string) error {
-	op, ok := fp.centers[tenant]
-	if !ok {
-		return ErrorNoTenant
-	}
-
-	tenantCfg, err := op.LoadAll(context.Background())
-	if err != nil {
-		return err
-	}
-
-	var (
-		rule           = tenantCfg.ShardingRule
-		remainedTables = make([]*config.Table, 0, len(rule.Tables)-1)
-	)
-
-	for _, tableCfg := range rule.Tables {
-		db, tb, err := parseTable(tableCfg.Name)
-		if err != nil {
-			return err
-		}
-		if db != cluster || tb != table {
-			remainedTables = append(remainedTables, tableCfg)
-		}
-	}
-	rule.Tables = remainedTables
-
-	err = op.Write(ctx, config.ConfigItemShardingRule, tenantCfg)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func (fp *discovery) Import(ctx context.Context, info *config.Tenant) error {
@@ -410,6 +111,18 @@ func (fp *discovery) Init(ctx context.Context) error {
 	return nil
 }
 
+func LoadTenantOperator(path string) (config.TenantOperator, error) {
+	cfg, err := LoadBootOptions(path)
+	if err != nil {
+		return nil, err
+	}
+	if err := config.Init(*cfg.Config, cfg.Spec.APIVersion); err != nil {
+		return nil, err
+	}
+
+	return config.NewTenantOperator(config.GetStoreOperate())
+}
+
 func LoadBootOptions(path string) (*config.BootOptions, error) {
 	content, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -424,7 +137,7 @@ func LoadBootOptions(path string) (*config.BootOptions, error) {
 
 	var cfg config.BootOptions
 	if err = yaml.Unmarshal(content, &cfg); err != nil {
-		err = errors.Wrapf(err, "failed to unmarshal config")
+		err = errors.Wrap(err, "failed to unmarshal config")
 		return nil, err
 	}
 
@@ -593,28 +306,6 @@ func (fp *discovery) ListNodes(ctx context.Context, tenant, cluster, group strin
 	return nodes, nil
 }
 
-func (fp *discovery) ListNodesByAdmin(ctx context.Context, tenant string) ([]string, error) {
-	op, ok := fp.centers[tenant]
-	if !ok {
-		return nil, ErrorNoTenant
-	}
-
-	cfg, err := op.LoadAll(context.Background())
-	if err != nil {
-		return nil, err
-	}
-
-	if cfg == nil || len(cfg.Nodes) == 0 {
-		return nil, nil
-	}
-
-	ret := make([]string, 0, len(cfg.Nodes))
-	for _, it := range cfg.Nodes {
-		ret = append(ret, it.Name)
-	}
-	return ret, nil
-}
-
 func (fp *discovery) ListTables(ctx context.Context, tenant, cluster string) ([]string, error) {
 	op, ok := fp.centers[tenant]
 	if !ok {
@@ -630,7 +321,7 @@ func (fp *discovery) ListTables(ctx context.Context, tenant, cluster string) ([]
 	tables := make([]string, 0, 4)
 
 	for i := range rule.Tables {
-		db, tb, err := parseTable(rule.Tables[i].Name)
+		db, tb, err := misc.ParseTable(rule.Tables[i].Name)
 		if err != nil {
 			return nil, err
 		}
@@ -674,20 +365,6 @@ func (fp *discovery) GetNode(ctx context.Context, tenant, cluster, group, node s
 	}
 
 	return nodes[nodeId], nil
-}
-
-func (fp *discovery) GetNodeByAdmin(ctx context.Context, tenant, node string) (*config.Node, error) {
-	op, ok := fp.centers[tenant]
-	if !ok {
-		return nil, ErrorNoTenant
-	}
-
-	nodes, err := fp.loadNodes(op)
-	if err != nil {
-		return nil, err
-	}
-
-	return nodes[node], nil
 }
 
 func (fp *discovery) GetTable(ctx context.Context, tenant, cluster, tableName string) (*rule.VTable, error) {
@@ -753,7 +430,7 @@ func (fp *discovery) loadTables(cluster string, op config.Center) map[string]*co
 
 	var tables map[string]*config.Table
 	for _, it := range cfg.ShardingRule.Tables {
-		db, tb, err := parseTable(it.Name)
+		db, tb, err := misc.ParseTable(it.Name)
 		if err != nil {
 			log.Warnf("skip parsing table rule: %v", err)
 			continue
@@ -860,17 +537,6 @@ func getRender(format string) func(int) string {
 	return func(i int) string {
 		return format
 	}
-}
-
-func parseTable(input string) (db, tbl string, err error) {
-	mat := getTableRegexp().FindStringSubmatch(input)
-	if len(mat) < 1 {
-		err = errors.Errorf("invalid table name: %s", input)
-		return
-	}
-	db = mat[1]
-	tbl = mat[2]
-	return
 }
 
 func NewDiscovery(path string) Discovery {
