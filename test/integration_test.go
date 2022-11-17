@@ -20,7 +20,6 @@ package test
 import (
 	"database/sql"
 	"fmt"
-	"github.com/arana-db/parser"
 	"sort"
 	"strconv"
 	"strings"
@@ -29,6 +28,8 @@ import (
 )
 
 import (
+	"github.com/arana-db/parser"
+
 	_ "github.com/go-sql-driver/mysql"
 
 	"github.com/stretchr/testify/assert"
