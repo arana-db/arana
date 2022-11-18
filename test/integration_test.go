@@ -28,6 +28,8 @@ import (
 )
 
 import (
+	"github.com/arana-db/parser"
+
 	_ "github.com/go-sql-driver/mysql"
 
 	"github.com/stretchr/testify/assert"
@@ -35,8 +37,6 @@ import (
 )
 
 import (
-	"github.com/arana-db/parser"
-
 	"github.com/arana-db/arana/pkg/util/rand2"
 	utils "github.com/arana-db/arana/pkg/util/tableprint"
 )

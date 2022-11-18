@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 
-package router
+package misc
 
 import (
-	"fmt"
 	"regexp"
 	"sync"
 )
@@ -27,36 +26,25 @@ import (
 	"github.com/pkg/errors"
 )
 
-const _minPasswordLength = 8
-
 var (
-	_normalNameRegexp     *regexp.Regexp
-	_normalNameRegexpOnce sync.Once
+	_regexpTable     *regexp.Regexp
+	_regexpTableOnce sync.Once
 )
 
-var (
-	_passwordRegexp     *regexp.Regexp
-	_passwordRegexpOnce sync.Once
-)
-
-func validateNormalName(name string) bool {
-	_normalNameRegexpOnce.Do(func() {
-		_normalNameRegexp = regexp.MustCompile("^[_a-zA-Z][0-9a-zA-Z_-]*$")
+func getTableRegexp() *regexp.Regexp {
+	_regexpTableOnce.Do(func() {
+		_regexpTable = regexp.MustCompile(`([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_-]+)`)
 	})
-	return _normalNameRegexp.MatchString(name)
+	return _regexpTable
 }
 
-func validateTenantName(name string) error {
-	if !validateNormalName(name) {
-		return errors.Errorf("invalid tenant name '%s'", name)
+func ParseTable(input string) (db, tbl string, err error) {
+	mat := getTableRegexp().FindStringSubmatch(input)
+	if len(mat) < 1 {
+		err = errors.Errorf("invalid table name: %s", input)
+		return
 	}
-	return nil
-}
-
-func validatePassword(password string) bool {
-	_passwordRegexpOnce.Do(func() {
-		// FIXME: consider whether to allow '@'?
-		_passwordRegexp = regexp.MustCompile(fmt.Sprintf("^[a-zA-Z0-9$#!%%*&^_-]{%d,}", _minPasswordLength))
-	})
-	return _passwordRegexp.MatchString(password)
+	db = mat[1]
+	tbl = mat[2]
+	return
 }

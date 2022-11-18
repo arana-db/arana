@@ -29,8 +29,6 @@ import (
 import (
 	"github.com/arana-db/arana/pkg/admin"
 	"github.com/arana-db/arana/pkg/admin/exception"
-	"github.com/arana-db/arana/pkg/boot"
-	"github.com/arana-db/arana/pkg/proto/rule"
 )
 
 func init() {
@@ -60,17 +58,14 @@ func CreateTable(c *gin.Context) error {
 	var (
 		tenant    = c.Param("tenant")
 		cluster   = c.Param("cluster")
-		tableBody struct {
-			Name string `json:"name"`
-			boot.TableBody
-		}
+		tableBody admin.TableDTO
 	)
 
 	if err := c.ShouldBindJSON(&tableBody); err != nil {
 		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
 
-	err := service.UpsertTable(context.Background(), tenant, cluster, tableBody.Name, &tableBody.TableBody)
+	err := service.UpsertTable(context.Background(), tenant, cluster, tableBody.Name, &tableBody)
 	if err != nil {
 		return err
 	}
@@ -82,27 +77,35 @@ func GetTable(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenant, cluster, table := c.Param("tenant"), c.Param("cluster"), c.Param("table")
 
-	data, err := service.GetTable(context.Background(), tenant, cluster, table)
+	tables, err := service.ListTables(context.Background(), tenant, cluster)
 	if err != nil {
 		return err
 	}
+	var data *admin.TableDTO
+	for i := range tables {
+		if tables[i].Name == table {
+			data = tables[i]
+			break
+		}
+	}
+
 	if data == nil {
 		return exception.New(exception.CodeNotFound, "no such table `%s`", table)
 	}
 
-	c.JSON(http.StatusOK, convertTableVO(data))
+	c.JSON(http.StatusOK, data)
 	return nil
 }
 
 func UpsertTable(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenant, cluster, table := c.Param("tenant"), c.Param("cluster"), c.Param("table")
-	var tableBody *boot.TableBody
+	var tableBody admin.TableDTO
 	if err := c.ShouldBindJSON(&tableBody); err != nil {
 		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
 
-	err := service.UpsertTable(context.Background(), tenant, cluster, table, tableBody)
+	err := service.UpsertTable(context.Background(), tenant, cluster, table, &tableBody)
 	if err != nil {
 		return err
 	}
@@ -120,11 +123,4 @@ func RemoveTable(c *gin.Context) error {
 	}
 	c.JSON(http.StatusOK, nil)
 	return nil
-}
-
-func convertTableVO(table *rule.VTable) gin.H {
-	// TODO convert vTable to VO
-	return gin.H{
-		"name": table.Name(),
-	}
 }
