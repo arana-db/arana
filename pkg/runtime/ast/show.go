@@ -37,6 +37,7 @@ var (
 	_ Statement = (*ShowTableStatus)(nil)
 	_ Statement = (*ShowWarnings)(nil)
 	_ Statement = (*ShowMasterStatus)(nil)
+	_ Statement = (*ShowReplicaStatus)(nil)
 )
 
 type FromTable string
@@ -526,5 +527,18 @@ func (s *ShowProcessList) Mode() SQLType {
 func (s *ShowProcessList) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("SHOW PROCESSLIST")
 
+	return s.baseShow.Restore(flag, sb, args)
+}
+
+type ShowReplicaStatus struct {
+	*baseShow
+}
+
+func (s *ShowReplicaStatus) Mode() SQLType {
+	return SQLTypeShowReplicaStatus
+}
+
+func (s *ShowReplicaStatus) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	sb.WriteString("SHOW REPLICA STATUS")
 	return s.baseShow.Restore(flag, sb, args)
 }
