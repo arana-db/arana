@@ -83,7 +83,7 @@ func getRuleExprRegexp() *regexp.Regexp {
 type discovery struct {
 	inited  uatomic.Bool
 	path    string
-	options *BootOptions
+	options *config.BootOptions
 
 	tenantOp config.TenantOperator
 	centers  map[string]config.Center
@@ -410,7 +410,7 @@ func (fp *discovery) Init(ctx context.Context) error {
 	return nil
 }
 
-func LoadBootOptions(path string) (*BootOptions, error) {
+func LoadBootOptions(path string) (*config.BootOptions, error) {
 	content, err := ioutil.ReadFile(path)
 	if err != nil {
 		err = errors.Wrap(err, "failed to load config")
@@ -422,7 +422,7 @@ func LoadBootOptions(path string) (*BootOptions, error) {
 		return nil, err
 	}
 
-	var cfg BootOptions
+	var cfg config.BootOptions
 	if err = yaml.Unmarshal(content, &cfg); err != nil {
 		err = errors.Wrapf(err, "failed to unmarshal config")
 		return nil, err
@@ -769,7 +769,7 @@ func (fp *discovery) loadTables(cluster string, op config.Center) map[string]*co
 	return tables
 }
 
-func (fp *discovery) GetOptions() *BootOptions {
+func (fp *discovery) GetOptions() *config.BootOptions {
 	return fp.options
 }
 

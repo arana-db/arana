@@ -75,6 +75,14 @@ type (
 		Options  map[string]interface{} `yaml:"options" json:"options"`
 	}
 
+	BootOptions struct {
+		Spec      `yaml:",inline"`
+		Config    *Options    `yaml:"config" json:"config"`
+		Listeners []*Listener `validate:"required,dive" yaml:"listeners" json:"listeners"`
+		Registry  *Registry   `yaml:"registry" json:"registry"`
+		Trace     *Trace      `yaml:"trace" json:"trace"`
+	}
+
 	// Configuration represents an Arana configuration.
 	Configuration struct {
 		Spec `yaml:",inline"`
