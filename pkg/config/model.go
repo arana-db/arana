@@ -183,8 +183,8 @@ type (
 	}
 
 	Sequence struct {
-		Type   string            `yaml:"type" json:"type"`
-		Option map[string]string `yaml:"option" json:"option"`
+		Type   string            `yaml:"type" json:"type,omitempty"`
+		Option map[string]string `yaml:"option" json:"option,omitempty"`
 	}
 
 	Rule struct {
@@ -281,7 +281,9 @@ func Load(path string) (*Configuration, error) {
 func (t *Tenant) Empty() bool {
 	return len(t.Users) == 0 &&
 		len(t.Nodes) == 0 &&
-		len(t.DataSourceClusters) == 0
+		len(t.DataSourceClusters) == 0 &&
+		(t.ShardingRule == nil || len(t.ShardingRule.Tables) == 0) &&
+		(t.ShadowRule == nil || len(t.ShadowRule.ShadowTables) == 0)
 }
 
 var _weightRegexp = regexp.MustCompile(`^[rR]([0-9]+)[wW]([0-9]+)$`)

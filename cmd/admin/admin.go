@@ -65,7 +65,14 @@ func Run(bootstrapPath string, addr string) error {
 		log.Fatal("start admin api server failed: %v", err)
 		return err
 	}
-	adminServer := admin.New(discovery)
+
+	op, err := boot.LoadTenantOperator(bootstrapPath)
+	if err != nil {
+		log.Fatal("start admin api server failed: %v", err)
+		return err
+	}
+
+	adminServer := admin.New(op)
 	return adminServer.Listen(addr)
 }
 

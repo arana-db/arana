@@ -32,43 +32,6 @@ type Cluster struct {
 	Type   config.DataSourceType `yaml:"type" json:"type"`
 }
 
-type GroupBody struct {
-	Nodes []string `yaml:"nodes" json:"nodes"`
-}
-
-type ClusterBody struct {
-	Type        config.DataSourceType `yaml:"type" json:"type"`
-	SqlMaxLimit int                   `yaml:"sql_max_limit" json:"sql_max_limit,omitempty"`
-	Parameters  config.ParametersMap  `yaml:"parameters" json:"parameters,omitempty"`
-}
-
-type NodeBody struct {
-	Name       string                 `yaml:"name" json:"name"`
-	Host       string                 `yaml:"host" json:"host"`
-	Port       int                    `yaml:"port" json:"port"`
-	Username   string                 `yaml:"username" json:"username"`
-	Password   string                 `yaml:"password" json:"password"`
-	Database   string                 `yaml:"database" json:"database"`
-	Weight     string                 `yaml:"weight" json:"weight"`
-	Parameters config.ParametersMap   `yaml:"parameters" json:"parameters,omitempty"`
-	ConnProps  map[string]interface{} `yaml:"conn_props" json:"conn_props,omitempty"`
-	Labels     map[string]string      `yaml:"labels" json:"labels,omitempty"`
-}
-
-type TenantBody struct {
-	Users []*config.User `yaml:"users" json:"users"`
-}
-
-type TableBody struct {
-	Sequence       *config.Sequence  `yaml:"sequence" json:"sequence"`
-	AllowFullScan  bool              `yaml:"allow_full_scan" json:"allow_full_scan,omitempty"`
-	DbRules        []*config.Rule    `yaml:"db_rules" json:"db_rules"`
-	TblRules       []*config.Rule    `yaml:"tbl_rules" json:"tbl_rules"`
-	Topology       *config.Topology  `yaml:"topology" json:"topology"`
-	ShadowTopology *config.Topology  `yaml:"shadow_topology" json:"shadow_topology"`
-	Attributes     map[string]string `yaml:"attributes" json:"attributes"`
-}
-
 // ConfigProvider provides configurations.
 type ConfigProvider interface {
 	// ListTenants list tenants name
@@ -98,14 +61,8 @@ type ConfigProvider interface {
 	// ListNodes lists the node names.
 	ListNodes(ctx context.Context, tenant, cluster, group string) ([]string, error)
 
-	// ListNodesByAdmin lists the node names by admin.
-	ListNodesByAdmin(ctx context.Context, tenant string) ([]string, error)
-
 	// GetNode returns the node info.
 	GetNode(ctx context.Context, tenant, cluster, group, node string) (*config.Node, error)
-
-	// GetNodeByAdmin returns the node info by admin.
-	GetNodeByAdmin(ctx context.Context, tenant, node string) (*config.Node, error)
 
 	// ListTables lists the table names.
 	ListTables(ctx context.Context, tenant, cluster string) ([]string, error)
@@ -115,71 +72,6 @@ type ConfigProvider interface {
 
 	// Import import config into config_center
 	Import(ctx context.Context, info *config.Tenant) error
-}
-
-// ConfigUpdater represents the mutations of configurations.
-// The configuration is designed for structure storage, here is a example in tree-view:
-// ── tenants
-//
-//	├── google
-//	│   ├── clusters: [mysql-instance-a,...]
-//	│   │   ├── employees
-//	│   │   │   ├── groups
-//	│   │   │   │   ├── employees_0000
-//	│   │   │   │   ├── ...
-//	│   │   │   │   └── employees_0007
-//	│   │   │   └── tables
-//	│   │   │       ├── employee
-//	│   │   │       ├── salary
-//	│   │   │       └── tax
-//	│   │   └── products
-//	│   │       └── groups
-//	│   │           ├── products_0000
-//	│   │           ├── ...
-//	│   │           └── products_0007
-//	│   └── nodes
-//	│       ├── mysql-instance-a
-//	│       ├── ...
-//	│       └── mysql-instance-x
-//	└── apple
-//	    ├── ...
-//	    └── ...
-type ConfigUpdater interface {
-	// UpsertTenant upserts a tenant.
-	UpsertTenant(ctx context.Context, tenant string, body *TenantBody) error
-
-	// RemoveTenant removes a tenant.
-	RemoveTenant(ctx context.Context, tenant string) error
-
-	// UpsertCluster upserts a cluster into an existing tenant.
-	UpsertCluster(ctx context.Context, tenant, cluster string, body *ClusterBody) error
-
-	// RemoveCluster removes a cluster from an existing tenant.
-	RemoveCluster(ctx context.Context, tenant, cluster string) error
-
-	// UpsertNode upserts a physical node.
-	UpsertNode(ctx context.Context, tenant, node string, body *NodeBody) error
-
-	// RemoveNode removes a physical node.
-	RemoveNode(ctx context.Context, tenant, node string) error
-
-	// UpsertGroup upserts a group into an existing cluster.
-	UpsertGroup(ctx context.Context, tenant, cluster, group string, body *GroupBody) error
-
-	// RemoveGroup removes a group from an existing cluster.
-	RemoveGroup(ctx context.Context, tenant, cluster, group string) error
-
-	// BindNode binds a node into an existing cluster group.
-	BindNode(ctx context.Context, tenant, cluster, group, node string) error
-
-	// UnbindNode unbinds a node from an existing cluster group.
-	UnbindNode(ctx context.Context, tenant, cluster, group, node string) error
-
-	// UpsertTable upserts a new sharding table rule into a cluster.
-	UpsertTable(ctx context.Context, tenant, cluster, table string, body *TableBody) error
-
-	// RemoveTable removes a sharding table config from an existing cluster.
-	RemoveTable(ctx context.Context, tenant, cluster, table string) error
 }
 
 // ConfigWatcher listens for changes in related configuration
@@ -211,7 +103,6 @@ type ConfigWatcher interface {
 }
 
 type Discovery interface {
-	ConfigUpdater
 	ConfigProvider
 	ConfigWatcher
 	// ListListeners lists the listener names
