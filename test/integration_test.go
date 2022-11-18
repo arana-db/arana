@@ -995,6 +995,31 @@ func (s *IntegrationSuite) TestAnalyzeTable() {
 	}
 }
 
+// TestOptimizeTable
+func (s *IntegrationSuite) TestOptimizeTable() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql string
+	}
+
+	for _, it := range [...]tt{
+		{"Optimize table employees"},
+		{"Optimize table student, departments"},
+		{"Optimize LOCAL table student, departments"},
+		{"Optimize NO_WRITE_TO_BINLOG table student, departments"},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			rows, err := db.Query(it.sql)
+			assert.NoError(t, err)
+			defer rows.Close()
+		})
+	}
+}
+
 func (s *IntegrationSuite) TestCompat80() {
 	var (
 		db = s.DB()
