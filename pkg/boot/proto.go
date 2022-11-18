@@ -230,5 +230,5 @@ type Discovery interface {
 	InitTenant(tenant string) error
 
 	// GetOptions get options
-	GetOptions() *BootOptions
+	GetOptions() *config.BootOptions
 }
