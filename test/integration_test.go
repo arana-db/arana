@@ -35,6 +35,8 @@ import (
 )
 
 import (
+	"github.com/arana-db/parser"
+
 	"github.com/arana-db/arana/pkg/util/rand2"
 	utils "github.com/arana-db/arana/pkg/util/tableprint"
 )
@@ -1033,4 +1035,14 @@ func (s *IntegrationSuite) TestShowProcessList() {
 			defer rows.Close()
 		})
 	}
+}
+
+func (s *IntegrationSuite) TestShowReplicaStatus() {
+	var sql_ = "SHOW REPLICA STATUS"
+	var t = s.T()
+	var p = parser.New()
+
+	stmtNodes, _, err := p.Parse(sql_, "", "")
+	assert.Nil(t, err)
+	assert.NotNil(t, stmtNodes)
 }
