@@ -52,6 +52,7 @@ const (
 	SQLTypeShowCharacterSet          // SHOW CHARACTER SET
 	SQLTypeSetVariable               // SET VARIABLE
 	SQLTypeAnalyzeTable              // ANALYZE TABLE
+	SQLTypeOptimizeTable             // OPTIMIZE TABLE
 	SQLTypeShowMasterStatus          // SHOW MASTER STATUS
 	SQLTypeShowReplicas              // SHOW REPLICAS
 	SQLTypeShowProcessList           // SHOW PROCESSLIST
