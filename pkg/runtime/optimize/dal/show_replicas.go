@@ -33,7 +33,6 @@ func init() {
 }
 
 func optimizeShowReplicas(_ context.Context, o *optimize.Optimizer) (proto.Plan, error) {
-
 	stmt := o.Stmt.(*ast.ShowReplicas)
 
 	ret := dal.NewShowReplicasPlan(stmt)

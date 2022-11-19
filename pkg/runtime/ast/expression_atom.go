@@ -109,7 +109,9 @@ func (ie *IntervalExpressionAtom) phantom() expressionAtomPhantom {
 }
 
 type SystemVariableExpressionAtom struct {
-	Name string
+	Name   string
+	System bool
+	Global bool
 }
 
 func (sy *SystemVariableExpressionAtom) Accept(visitor Visitor) (interface{}, error) {
@@ -128,8 +130,19 @@ func (sy *SystemVariableExpressionAtom) Restore(rf RestoreFlag, sb *strings.Buil
 			return nil
 		}
 	}
-	sb.WriteString("@@")
-	sb.WriteString(sy.Name)
+
+	sb.WriteByte('@')
+
+	if sy.System {
+		sb.WriteByte('@')
+	}
+
+	if sy.Global {
+		sb.WriteString("GLOBAL.")
+	}
+
+	WriteID(sb, sy.Name)
+
 	return nil
 }
 

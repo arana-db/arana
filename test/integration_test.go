@@ -28,6 +28,8 @@ import (
 )
 
 import (
+	"github.com/arana-db/parser"
+
 	_ "github.com/go-sql-driver/mysql"
 
 	"github.com/stretchr/testify/assert"
@@ -1033,4 +1035,14 @@ func (s *IntegrationSuite) TestShowProcessList() {
 			defer rows.Close()
 		})
 	}
+}
+
+func (s *IntegrationSuite) TestShowReplicaStatus() {
+	var sql_ = "SHOW REPLICA STATUS"
+	var t = s.T()
+	var p = parser.New()
+
+	stmtNodes, _, err := p.Parse(sql_, "", "")
+	assert.Nil(t, err)
+	assert.NotNil(t, stmtNodes)
 }

@@ -128,19 +128,7 @@ paths:
         '200':
           description: OK
 
-  /tenants/{tenantName}/groups:
-    post:
-      operationId: createGroup
-      summary: Create a DB group
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Group'
-      responses:
-        '201':
-          description: OK
-
+  /tenants/{tenantName}/clusters/{clusterName}/groups:
     get:
       operationId: listGroups
       summary: List all DB groups
@@ -152,7 +140,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/Groups'
 
-  /tenants/{tenantName}/groups/{groupName}:
+    post:
+      operationId: createGroup
+      summary: Create a DB group
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Group'
+      responses:
+        '200':
+          description: OK
+
+  /tenants/{tenantName}/clusters/{clusterName}/groups/{groupName}:
     get:
       operationId: getGroup
       summary: Get a DB group
@@ -163,6 +163,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Group'
+
     put:
       operationId: putGroup
       summary: Update a DB group
@@ -183,6 +184,17 @@ paths:
           description: NONE
 
   /tenants/{tenantName}/clusters:
+    get:
+      operationId: listClusters
+      summary: List all clusters
+      responses:
+        '200':
+          description: All Clusters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Clusters'
+
     post:
       operationId: createCluster
       summary: Create a cluster
@@ -194,17 +206,6 @@ paths:
       responses:
         '200':
           description: OK
-
-    get:
-      operationId: listClusters
-      summary: List all clusters
-      responses:
-        '200':
-          description: All Clusters
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Clusters'
 
   /tenants/{tenantName}/clusters/{clusterName}:
     get:
@@ -233,6 +234,61 @@ paths:
     delete:
       operationId: deleteCluster
       summary: Delete a cluster
+      responses:
+        '204':
+          description: NONE
+
+  /tenants/{tenantName}/clusters/{clusterName}/tables:
+    get:
+      operationId: listTables
+        summary: List all tables
+        responses:
+          '200':
+            description: All Tables
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/Tables'
+
+    post:
+      operationId: createTable
+      summary: Create a table
+      requestBody:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Table'
+      responses:
+      '200':
+        description: OK
+
+  /tenants/{tenantName}/clusters/{clusterName}/tables/{tableName}:
+    get:
+      operationId: getTable
+        summary: Get a table
+        responses:
+          '200':
+            description: Single Table
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/Table'
+
+    put:
+      operationId: upsertTable
+      summary: Upsert a table
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Table'
+      responses:
+        '200':
+          description: OK
+
+    delete:
+      operationId: deleteTable
+      summary: Delete a table
       responses:
         '204':
           description: NONE
@@ -328,6 +384,25 @@ components:
       type: array
       items:
         $ref: '#/components/schemas/Group'
+
+    Table:
+      type: object
+      required:
+        - sequence
+        - db_rules
+        - tbl_rules
+        - topology
+        - shadow_topology
+        - attributes
+      properties:
+        # TODO
+      example:
+        # TODO
+
+    Tables:
+      type: array
+      items:
+        $ref: '#/components/schemas/Table'
 
     Cluster:
       type: object

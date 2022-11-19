@@ -36,6 +36,7 @@ import (
 	"github.com/arana-db/arana/pkg/constants"
 	"github.com/arana-db/arana/pkg/executor"
 	"github.com/arana-db/arana/pkg/mysql"
+	"github.com/arana-db/arana/pkg/registry"
 	"github.com/arana-db/arana/pkg/server"
 	"github.com/arana-db/arana/pkg/util/log"
 )
@@ -90,6 +91,21 @@ func Run(bootstrapConfigPath string) {
 		}
 		listener.SetExecutor(executor.NewRedirectExecutor())
 		propeller.AddListener(listener)
+	}
+
+	// init service registry
+	registryConf := discovery.GetServiceRegistry(context.Background())
+	if registryConf != nil && registryConf.Enable {
+		serviceRegistry, err := registry.InitRegistry(registryConf)
+		if err != nil {
+			log.Errorf("create service registry failed: %v", err)
+			return
+		}
+
+		if err := registry.DoRegistry(context.Background(), serviceRegistry, "service", listenersConf); err != nil {
+			log.Errorf("do service register failed: %v", err)
+			return
+		}
 	}
 
 	if err := discovery.InitTrace(context.Background()); err != nil {

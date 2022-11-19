@@ -29,8 +29,6 @@ import (
 import (
 	"github.com/arana-db/arana/pkg/admin"
 	"github.com/arana-db/arana/pkg/admin/exception"
-	"github.com/arana-db/arana/pkg/boot"
-	"github.com/arana-db/arana/pkg/config"
 )
 
 func init() {
@@ -45,37 +43,20 @@ func init() {
 
 func ListTenants(c *gin.Context) error {
 	service := admin.GetService(c)
+
 	tenants, err := service.ListTenants(context.Background())
 	if err != nil {
 		return err
 	}
 
-	var res []gin.H
-	for _, it := range tenants {
-		tenant, err := service.GetTenant(context.Background(), it)
-		if err != nil {
-			return err
-		}
-		if tenant != nil {
-			res = append(res, convertTenantToVO(tenant))
-		} else {
-			res = append(res, gin.H{
-				"name":  it,
-				"users": []gin.H{},
-			})
-		}
-	}
+	c.JSON(http.StatusOK, tenants)
 
-	c.JSON(http.StatusOK, res)
 	return nil
 }
 
 func CreateTenant(c *gin.Context) error {
 	service := admin.GetService(c)
-	var tenantBody struct {
-		boot.TenantBody
-		Name string `json:"name"`
-	}
+	var tenantBody admin.TenantDTO
 	if err := c.ShouldBindJSON(&tenantBody); err != nil {
 		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
@@ -84,7 +65,7 @@ func CreateTenant(c *gin.Context) error {
 		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
 
-	err := service.UpsertTenant(context.Background(), tenantBody.Name, &tenantBody.TenantBody)
+	err := service.UpsertTenant(context.Background(), tenantBody.Name, &tenantBody)
 	if err != nil {
 		return err
 	}
@@ -95,28 +76,38 @@ func CreateTenant(c *gin.Context) error {
 func GetTenant(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenant := c.Param("tenant")
-	data, err := service.GetTenant(context.Background(), tenant)
+
+	tenants, err := service.ListTenants(context.Background())
 	if err != nil {
 		return err
 	}
 
-	if data == nil {
+	var res *admin.TenantDTO
+	for i := range tenants {
+		if tenants[i].Name == tenant {
+			res = tenants[i]
+			break
+		}
+	}
+
+	if res == nil {
 		return exception.New(exception.CodeNotFound, "no such tenant `%s`", tenant)
 	}
 
-	c.JSON(http.StatusOK, convertTenantToVO(data))
+	c.JSON(http.StatusOK, res)
 	return nil
 }
 
 func UpdateTenant(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenant := c.Param("tenant")
-	var tenantBody *boot.TenantBody
-	if err := c.ShouldBindJSON(&tenantBody); err == nil {
+
+	var upsert admin.TenantDTO
+	if err := c.ShouldBindJSON(&upsert); err == nil {
 		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
 
-	err := service.UpsertTenant(context.Background(), tenant, tenantBody)
+	err := service.UpsertTenant(context.Background(), tenant, &upsert)
 	if err != nil {
 		return err
 	}
@@ -127,24 +118,11 @@ func UpdateTenant(c *gin.Context) error {
 func RemoveTenant(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenant := c.Param("tenant")
-	err := service.RemoveTenant(context.Background(), tenant)
-	if err != nil {
+
+	if err := service.RemoveTenant(context.Background(), tenant); err != nil {
 		return err
 	}
+
 	c.JSON(http.StatusNoContent, nil)
 	return nil
-}
-
-func convertTenantToVO(tenant *config.Tenant) gin.H {
-	users := make([]gin.H, 0, len(tenant.Users))
-	for _, next := range tenant.Users {
-		users = append(users, gin.H{
-			"username": next.Username,
-			"password": next.Password,
-		})
-	}
-	return gin.H{
-		"name":  tenant.Name,
-		"users": users,
-	}
 }

@@ -138,8 +138,13 @@ func (l *Listener) Listen() {
 			return
 		}
 
-		connectionID := l.connectionID
+		// server-side connection id should always > 0
 		l.connectionID++
+		for l.connectionID == 0 {
+			l.connectionID++
+		}
+
+		connectionID := l.connectionID
 
 		go l.handle(conn, connectionID)
 	}
@@ -196,12 +201,13 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32) {
 		content := make([]byte, len(data))
 		copy(content, data)
 		ctx := &proto.Context{
-			Context:       context.Background(),
-			Schema:        c.Schema,
-			Tenant:        c.Tenant,
-			ServerVersion: l.conf.ServerVersion,
-			ConnectionID:  c.ConnectionID,
-			Data:          content,
+			Context:            context.Background(),
+			Schema:             c.Schema,
+			Tenant:             c.Tenant,
+			ServerVersion:      l.conf.ServerVersion,
+			ConnectionID:       c.ConnectionID,
+			Data:               content,
+			TransientVariables: c.TransientVariables,
 		}
 
 		if err = l.ExecuteCommand(c, ctx); err != nil {

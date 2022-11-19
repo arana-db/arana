@@ -36,7 +36,7 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/admin/exception"
-	"github.com/arana-db/arana/pkg/boot"
+	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/constants"
 )
 
@@ -74,21 +74,20 @@ func init() {
 	}
 }
 
-type Service interface {
-	boot.ConfigUpdater
-	boot.ConfigProvider
-}
-
 type Server struct {
 	l       net.Listener
 	engine  *gin.Engine
-	service Service
+	service ConfigService
 	started uatomic.Bool
 }
 
-func New(service Service) *Server {
+func New(tenantOp config.TenantOperator) *Server {
+	srv := &myConfigService{
+		tenantOp: tenantOp,
+	}
+
 	return &Server{
-		service: service,
+		service: srv,
 		engine:  gin.New(),
 	}
 }
@@ -137,10 +136,10 @@ func (srv *Server) Listen(addr string) error {
 	return srv.engine.RunListener(srv.l)
 }
 
-// GetService returns Service from gin context.
-func GetService(c *gin.Context) Service {
+// GetService returns ConfigService from gin context.
+func GetService(c *gin.Context) ConfigService {
 	v, _ := c.Get(K)
-	return v.(Service)
+	return v.(ConfigService)
 }
 
 type myRouter gin.RouterGroup

@@ -102,6 +102,10 @@ type Conn struct {
 	// - at accept time for the server.
 	ConnectionID uint32
 
+	// TransientVariables represents local transient variables.
+	// These variables will always keep sync with backend mysql conns.
+	TransientVariables map[string]interface{}
+
 	// closed is set to true when Close() is called on the connection.
 	closed *atomic.Bool
 
@@ -151,9 +155,10 @@ type Conn struct {
 // side for common creation code.
 func newConn(conn net.Conn) *Conn {
 	return &Conn{
-		conn:           conn,
-		closed:         atomic.NewBool(false),
-		bufferedReader: bufio.NewReaderSize(conn, connBufferSize),
+		conn:               conn,
+		closed:             atomic.NewBool(false),
+		bufferedReader:     bufio.NewReaderSize(conn, connBufferSize),
+		TransientVariables: make(map[string]interface{}),
 	}
 }
 

@@ -18,12 +18,10 @@
 #
 
 name: Changelog
-
 on:
-  push:
-    branches:
-      - 'master'
-
+  releases:
+    types:
+      - created
 jobs:
   changelog:
     runs-on: ubuntu-latest

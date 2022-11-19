@@ -48,7 +48,6 @@ func NewShowReplicasPlan(stmt *ast.ShowReplicas) *ShowReplicasPlan {
 }
 
 func (s *ShowReplicasPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
-
 	var (
 		sb   strings.Builder
 		args []int
@@ -66,5 +65,4 @@ func (s *ShowReplicasPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.
 	}
 
 	return ret, nil
-
 }

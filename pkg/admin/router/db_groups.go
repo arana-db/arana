@@ -24,34 +24,36 @@ import (
 
 import (
 	"github.com/gin-gonic/gin"
+
+	"github.com/pkg/errors"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/admin"
 	"github.com/arana-db/arana/pkg/admin/exception"
-	"github.com/arana-db/arana/pkg/boot"
-	"github.com/arana-db/arana/pkg/config"
 )
 
 func init() {
 	admin.Register(func(router admin.Router) {
-		router.POST("/tenants/:tenant/groups", CreateGroup)
 		router.GET("/tenants/:tenant/groups", ListGroups)
-		router.GET("/tenants/:tenant/groups/:group", GetGroup)
-		router.PUT("/tenants/:tenant/groups/:group", UpdateGroup)
-		router.DELETE("/tenants/:tenant/groups/:group", RemoveGroup)
+		router.GET("/tenants/:tenant/clusters/:cluster/groups", ListGroups)
+		router.POST("/tenants/:tenant/clusters/:cluster/groups", CreateGroup)
+		router.GET("/tenants/:tenant/clusters/:cluster/groups/:group", GetGroup)
+		router.PUT("/tenants/:tenant/clusters/:cluster/groups/:group", UpdateGroup)
+		router.DELETE("/tenants/:tenant/clusters/:cluster/groups/:group", RemoveGroup)
 	})
 }
 
 func CreateGroup(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenantName := c.Param("tenant")
-	var group *boot.GroupBody
+	cluster := c.Param("cluster")
+	var group *admin.GroupDTO
 	if err := c.ShouldBindJSON(&group); err != nil {
 		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
 
-	err := service.UpsertGroup(context.Background(), tenantName, "", "", group)
+	err := service.UpsertGroup(context.Background(), tenantName, cluster, group.Name, group)
 	if err != nil {
 		return err
 	}
@@ -60,59 +62,88 @@ func CreateGroup(c *gin.Context) error {
 }
 
 func ListGroups(c *gin.Context) error {
-	service := admin.GetService(c)
-	tenantName := c.Param("tenant")
-	// cluster := c.Param("cluster")
-	clusters, err := service.ListClusters(context.Background(), tenantName)
-	if err != nil {
-		return err
-	}
-	var res []*config.Group
-	for _, it := range clusters {
-		cluster, err := service.GetDataSourceCluster(context.Background(), tenantName, it)
-		if err != nil {
+	var (
+		service             = admin.GetService(c)
+		tenantName, cluster = c.Param("tenant"), c.Param("cluster")
+		clusterNames        []string
+		groups              []*admin.GroupDTO
+		err                 error
+	)
+
+	if len(cluster) > 0 {
+		clusterNames = append(clusterNames, cluster)
+	} else {
+		var clusters []*admin.ClusterDTO
+		if clusters, err = service.ListClusters(context.Background(), tenantName); err != nil {
 			return err
 		}
-		res = append(res, cluster.Groups...)
+		for i := range clusters {
+			clusterNames = append(clusterNames, clusters[i].Name)
+		}
 	}
-	c.JSON(http.StatusOK, res)
+
+	for i := range clusterNames {
+		var nextGroups []*admin.GroupDTO
+		if nextGroups, err = service.ListDBGroups(context.Background(), tenantName, clusterNames[i]); err != nil {
+			return err
+		}
+		groups = append(groups, nextGroups...)
+	}
+
+	c.JSON(http.StatusOK, groups)
 	return nil
 }
 
 func GetGroup(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenant := c.Param("tenant")
+	cluster := c.Param("cluster")
 	group := c.Param("group")
-	data, err := service.GetGroup(context.Background(), tenant, "", group)
+
+	groups, err := service.ListDBGroups(context.Background(), tenant, cluster)
 	if err != nil {
 		return err
 	}
-	c.JSON(http.StatusOK, data)
+
+	var res *admin.GroupDTO
+	for i := range groups {
+		if groups[i].Name == group {
+			res = groups[i]
+			break
+		}
+	}
+
+	if res == nil {
+		return errors.Errorf("no such db group '%s'", group)
+	}
+
+	c.JSON(http.StatusOK, res)
 	return nil
 }
 
 func UpdateGroup(c *gin.Context) error {
 	service := admin.GetService(c)
-	tenant := c.Param("tenant")
-	group := c.Param("group")
-	var groupBody *boot.GroupBody
-	if err := c.ShouldBindJSON(&groupBody); err != nil {
+	tenant, cluster, groupName := c.Param("tenant"), c.Param("cluster"), c.Param("group")
+
+	var group admin.GroupDTO
+	if err := c.ShouldBindJSON(&group); err != nil {
 		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
 
-	err := service.UpsertGroup(context.Background(), tenant, "", group, groupBody)
+	err := service.UpsertGroup(context.Background(), tenant, cluster, groupName, &group)
 	if err != nil {
 		return err
 	}
+
 	c.JSON(http.StatusOK, nil)
 	return nil
 }
 
 func RemoveGroup(c *gin.Context) error {
 	service := admin.GetService(c)
-	tenant, group := c.Param("tenant"), c.Param("group")
+	tenant, cluster, group := c.Param("tenant"), c.Param("cluster"), c.Param("group")
 
-	err := service.RemoveGroup(context.Background(), tenant, "", group)
+	err := service.RemoveGroup(context.Background(), tenant, cluster, group)
 	if err != nil {
 		return err
 	}
