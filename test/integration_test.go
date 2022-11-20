@@ -1063,9 +1063,9 @@ func (s *IntegrationSuite) TestShowProcessList() {
 }
 
 func (s *IntegrationSuite) TestShowReplicaStatus() {
-	var sql_ = "SHOW REPLICA STATUS"
-	var t = s.T()
-	var p = parser.New()
+	sql_ := "SHOW REPLICA STATUS"
+	t := s.T()
+	p := parser.New()
 
 	stmtNodes, _, err := p.Parse(sql_, "", "")
 	assert.Nil(t, err)
