@@ -241,14 +241,14 @@ paths:
   /tenants/{tenantName}/clusters/{clusterName}/tables:
     get:
       operationId: listTables
-        summary: List all tables
-        responses:
-          '200':
-            description: All Tables
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/Tables'
+      summary: List all tables
+      responses:
+        '200':
+          description: All Tables
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tables'
 
     post:
       operationId: createTable
@@ -265,14 +265,14 @@ paths:
   /tenants/{tenantName}/clusters/{clusterName}/tables/{tableName}:
     get:
       operationId: getTable
-        summary: Get a table
-        responses:
-          '200':
-            description: Single Table
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/Table'
+      summary: Get a table
+      responses:
+        '200':
+          description: Single Table
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Table'
 
     put:
       operationId: upsertTable
@@ -395,9 +395,9 @@ components:
         - shadow_topology
         - attributes
       properties:
-        # TODO
+      # TODO
       example:
-        # TODO
+      # TODO
 
     Tables:
       type: array
