@@ -18,7 +18,6 @@
 package router
 
 import (
-	"context"
 	"net/http"
 )
 
@@ -44,7 +43,7 @@ func init() {
 func ListClusters(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenantName := c.Param("tenant")
-	clusters, err := service.ListClusters(context.Background(), tenantName)
+	clusters, err := service.ListClusters(c, tenantName)
 	if err != nil {
 		return err
 	}
@@ -57,7 +56,7 @@ func GetCluster(c *gin.Context) error {
 	tenant := c.Param("tenant")
 	cluster := c.Param("cluster")
 
-	clusters, err := service.ListClusters(context.Background(), tenant)
+	clusters, err := service.ListClusters(c, tenant)
 	if err != nil {
 		return err
 	}
@@ -81,7 +80,7 @@ func CreateCluster(c *gin.Context) error {
 		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
 
-	err := service.UpsertCluster(context.Background(), tenant, cluster.Name, &cluster)
+	err := service.UpsertCluster(c, tenant, cluster.Name, &cluster)
 	if err != nil {
 		return err
 	}
@@ -100,11 +99,11 @@ func UpdateCluster(c *gin.Context) error {
 		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
 
-	err := service.UpsertCluster(context.Background(), tenant, cluster, &clusterBody)
+	err := service.UpsertCluster(c, tenant, cluster, &clusterBody)
 	if err != nil {
 		return err
 	}
-	c.JSON(http.StatusOK, nil)
+	c.JSON(http.StatusOK, "success")
 	return nil
 }
 
@@ -112,10 +111,10 @@ func RemoveCluster(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenant := c.Param("tenant")
 	cluster := c.Param("cluster")
-	err := service.RemoveCluster(context.Background(), tenant, cluster)
+	err := service.RemoveCluster(c, tenant, cluster)
 	if err != nil {
 		return err
 	}
-	c.JSON(http.StatusNoContent, nil)
+	c.Status(http.StatusNoContent)
 	return nil
 }
