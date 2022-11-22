@@ -27,7 +27,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-const _minPasswordLength = 8
+const _minPasswordLength = 6
 
 var (
 	_normalNameRegexp     *regexp.Regexp

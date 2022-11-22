@@ -117,14 +117,17 @@ type (
 	TenantOperator interface {
 		io.Closer
 
-		// ListTenants lists all tenants
+		// ListTenants lists all tenants.
 		ListTenants() []string
 
-		// CreateTenant creates tenant
+		// CreateTenant creates tenant.
 		CreateTenant(string) error
 
-		// RemoveTenant removes tenant
+		// RemoveTenant removes tenant.
 		RemoveTenant(string) error
+
+		// RemoveTenantUser removes a tenant user.
+		RemoveTenantUser(tenant, username string) error
 
 		// CreateTenantUser creates a user.
 		CreateTenantUser(tenant, username, password string) error

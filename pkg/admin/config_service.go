@@ -21,6 +21,8 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 )
@@ -53,8 +55,7 @@ type myConfigService struct {
 }
 
 func (cs *myConfigService) RemoveUser(ctx context.Context, tenant string, username string) error {
-	// TODO implement me
-	panic("implement me")
+	return cs.tenantOp.RemoveTenantUser(tenant, username)
 }
 
 func (cs *myConfigService) UpsertUser(ctx context.Context, tenant string, user *config.User) error {
@@ -76,11 +77,26 @@ func (cs *myConfigService) ListTenants(ctx context.Context) ([]*TenantDTO, error
 			return nil, perrors.WithStack(err)
 		}
 
+		var users []*config.User
+		if next != nil {
+			users = make([]*config.User, len(next.Users))
+			copy(users, next.Users)
+			slices.SortFunc(users, func(a, b *config.User) bool {
+				return strings.Compare(a.Username, b.Username) < 0
+			})
+		} else {
+			users = []*config.User{}
+		}
+
 		ret = append(ret, &TenantDTO{
 			Name:  tenant,
-			Users: next.Users,
+			Users: users,
 		})
 	}
+
+	slices.SortFunc(ret, func(a, b *TenantDTO) bool {
+		return strings.Compare(a.Name, b.Name) < 0
+	})
 
 	return ret, nil
 }
@@ -94,6 +110,10 @@ func (cs *myConfigService) ListNodes(ctx context.Context, tenant string) ([]*Nod
 	cfg, err := ct.Load(ctx, config.ConfigItemNodes)
 	if err != nil {
 		return nil, perrors.WithStack(err)
+	}
+
+	if cfg == nil || len(cfg.Nodes) < 1 {
+		return nil, nil
 	}
 
 	ret := make([]*NodeDTO, 0, len(cfg.Nodes))
@@ -112,6 +132,10 @@ func (cs *myConfigService) ListNodes(ctx context.Context, tenant string) ([]*Nod
 		})
 	}
 
+	slices.SortFunc(ret, func(a, b *NodeDTO) bool {
+		return strings.Compare(a.Name, b.Name) < 0
+	})
+
 	return ret, nil
 }
 
@@ -123,6 +147,10 @@ func (cs *myConfigService) ListClusters(ctx context.Context, tenant string) ([]*
 	cfg, err := ct.Load(ctx, config.ConfigItemClusters)
 	if err != nil {
 		return nil, perrors.WithStack(err)
+	}
+
+	if cfg == nil || len(cfg.DataSourceClusters) < 1 {
+		return nil, nil
 	}
 
 	ret := make([]*ClusterDTO, 0, len(cfg.DataSourceClusters))
@@ -138,8 +166,14 @@ func (cs *myConfigService) ListClusters(ctx context.Context, tenant string) ([]*
 			dto.Groups = append(dto.Groups, next.Groups[i].Name)
 		}
 
+		sort.Strings(dto.Groups)
+
 		ret = append(ret, dto)
 	}
+
+	slices.SortFunc(ret, func(a, b *ClusterDTO) bool {
+		return strings.Compare(a.Name, b.Name) < 0
+	})
 
 	return ret, nil
 }
@@ -153,6 +187,10 @@ func (cs *myConfigService) ListDBGroups(ctx context.Context, tenant, cluster str
 	cfg, err := ct.Load(ctx, config.ConfigItemClusters)
 	if err != nil {
 		return nil, perrors.WithStack(err)
+	}
+
+	if cfg == nil || len(cfg.DataSourceClusters) < 1 {
+		return nil, nil
 	}
 
 	var d *config.DataSourceCluster
@@ -175,6 +213,10 @@ func (cs *myConfigService) ListDBGroups(ctx context.Context, tenant, cluster str
 		})
 	}
 
+	slices.SortFunc(ret, func(a, b *GroupDTO) bool {
+		return strings.Compare(a.Name, b.Name) < 0
+	})
+
 	return ret, nil
 }
 
@@ -189,7 +231,7 @@ func (cs *myConfigService) ListTables(ctx context.Context, tenant, cluster strin
 		return nil, perrors.WithStack(err)
 	}
 
-	if cfg.ShardingRule == nil {
+	if cfg == nil || cfg.ShardingRule == nil {
 		return nil, nil
 	}
 
@@ -211,6 +253,10 @@ func (cs *myConfigService) ListTables(ctx context.Context, tenant, cluster strin
 			Attributes:     next.Attributes,
 		})
 	}
+
+	slices.SortFunc(ret, func(a, b *TableDTO) bool {
+		return strings.Compare(a.Name, b.Name) < 0
+	})
 
 	return ret, nil
 }
@@ -609,7 +655,7 @@ func (cs *myConfigService) RemoveTable(ctx context.Context, tenant, cluster, tab
 		return perrors.WithStack(err)
 	}
 
-	tenantCfg, err := op.Load(ctx, config.ConfigItemClusters)
+	tenantCfg, err := op.Load(ctx, config.ConfigItemShardingRule)
 	if err != nil {
 		return perrors.WithStack(err)
 	}

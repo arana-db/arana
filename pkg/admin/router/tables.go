@@ -18,7 +18,6 @@
 package router
 
 import (
-	"context"
 	"net/http"
 )
 
@@ -45,10 +44,15 @@ func ListTables(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenant, cluster := c.Param("tenant"), c.Param("cluster")
 
-	tables, err := service.ListTables(context.Background(), tenant, cluster)
+	tables, err := service.ListTables(c, tenant, cluster)
 	if err != nil {
 		return err
 	}
+
+	if tables == nil {
+		tables = []*admin.TableDTO{}
+	}
+
 	c.JSON(http.StatusOK, tables)
 	return nil
 }
@@ -65,19 +69,18 @@ func CreateTable(c *gin.Context) error {
 		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
 
-	err := service.UpsertTable(context.Background(), tenant, cluster, tableBody.Name, &tableBody)
+	err := service.UpsertTable(c, tenant, cluster, tableBody.Name, &tableBody)
 	if err != nil {
 		return err
 	}
-	c.JSON(http.StatusOK, nil)
+	c.JSON(http.StatusOK, "success")
 	return nil
 }
 
 func GetTable(c *gin.Context) error {
-	service := admin.GetService(c)
 	tenant, cluster, table := c.Param("tenant"), c.Param("cluster"), c.Param("table")
 
-	tables, err := service.ListTables(context.Background(), tenant, cluster)
+	tables, err := admin.GetService(c).ListTables(c, tenant, cluster)
 	if err != nil {
 		return err
 	}
@@ -105,22 +108,21 @@ func UpsertTable(c *gin.Context) error {
 		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
 
-	err := service.UpsertTable(context.Background(), tenant, cluster, table, &tableBody)
+	err := service.UpsertTable(c, tenant, cluster, table, &tableBody)
 	if err != nil {
 		return err
 	}
-	c.JSON(http.StatusOK, nil)
+	c.JSON(http.StatusOK, "success")
 	return nil
 }
 
 func RemoveTable(c *gin.Context) error {
-	service := admin.GetService(c)
 	tenant, cluster, table := c.Param("tenant"), c.Param("cluster"), c.Param("table")
 
-	err := service.RemoveTable(context.Background(), tenant, cluster, table)
+	err := admin.GetService(c).RemoveTable(c, tenant, cluster, table)
 	if err != nil {
 		return err
 	}
-	c.JSON(http.StatusOK, nil)
+	c.Status(http.StatusNoContent)
 	return nil
 }

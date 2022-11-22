@@ -20,8 +20,6 @@ package boot
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -34,8 +32,6 @@ import (
 	"github.com/pkg/errors"
 
 	uatomic "go.uber.org/atomic"
-
-	"gopkg.in/yaml.v3"
 )
 
 import (
@@ -43,7 +39,6 @@ import (
 	"github.com/arana-db/arana/pkg/proto/rule"
 	rrule "github.com/arana-db/arana/pkg/runtime/rule"
 	"github.com/arana-db/arana/pkg/trace"
-	"github.com/arana-db/arana/pkg/util/file"
 	"github.com/arana-db/arana/pkg/util/log"
 	"github.com/arana-db/arana/pkg/util/misc"
 )
@@ -91,7 +86,7 @@ func (fp *discovery) Init(ctx context.Context) error {
 		return nil
 	}
 
-	cfg, err := LoadBootOptions(fp.path)
+	cfg, err := config.LoadBootOptions(fp.path)
 	if err != nil {
 		return err
 	}
@@ -109,40 +104,6 @@ func (fp *discovery) Init(ctx context.Context) error {
 		return err
 	}
 	return nil
-}
-
-func LoadTenantOperator(path string) (config.TenantOperator, error) {
-	cfg, err := LoadBootOptions(path)
-	if err != nil {
-		return nil, err
-	}
-	if err := config.Init(*cfg.Config, cfg.Spec.APIVersion); err != nil {
-		return nil, err
-	}
-
-	return config.NewTenantOperator(config.GetStoreOperate())
-}
-
-func LoadBootOptions(path string) (*config.BootOptions, error) {
-	content, err := ioutil.ReadFile(path)
-	if err != nil {
-		err = errors.Wrap(err, "failed to load config")
-		return nil, err
-	}
-
-	if !file.IsYaml(path) {
-		err = errors.Errorf("invalid config file format: %s", filepath.Ext(path))
-		return nil, err
-	}
-
-	var cfg config.BootOptions
-	if err = yaml.Unmarshal(content, &cfg); err != nil {
-		err = errors.Wrap(err, "failed to unmarshal config")
-		return nil, err
-	}
-
-	log.Init(cfg.LogPath, log.InfoLevel)
-	return &cfg, nil
 }
 
 func (fp *discovery) InitTenant(tenant string) error {
