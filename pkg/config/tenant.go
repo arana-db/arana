@@ -181,6 +181,46 @@ func (tp *tenantOperate) CreateTenant(name string) error {
 	return nil
 }
 
+func (tp *tenantOperate) RemoveTenantUser(tenant, username string) error {
+	p := NewPathInfo(tenant)
+
+	prev, err := tp.op.Get(p.DefaultConfigDataUsersPath)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	var users Users
+	if err := yaml.Unmarshal(prev, &users); err != nil {
+		return errors.WithStack(err)
+	}
+	i := -1
+	for j := 0; j < len(users); j++ {
+		if users[j].Username == username {
+			i = j
+			break
+		}
+	}
+
+	if i == -1 {
+		return errors.Errorf("no such user '%s' in tenant '%s'", username, tenant)
+	}
+
+	// remove target user
+	copy(users[i:], users[i+1:])
+	users[len(users)-1] = nil
+	users = users[:len(users)-1]
+
+	b, err := yaml.Marshal(users)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	if err := tp.op.Save(p.DefaultConfigDataUsersPath, b); err != nil {
+		return errors.WithStack(err)
+	}
+	return nil
+}
+
 func (tp *tenantOperate) CreateTenantUser(tenant, username, password string) error {
 	p := NewPathInfo(tenant)
 
