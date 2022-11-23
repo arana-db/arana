@@ -117,6 +117,8 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		return cc.convSetVariablesStmt(stmt), nil
 	case *ast.AnalyzeTableStmt:
 		return cc.convAnalyzeTable(stmt), nil
+	case *ast.OptimizeTableStmt:
+		return cc.convOptimizeTable(stmt), nil
 	default:
 		return nil, errors.Errorf("unimplement: stmt type %T!", stmt)
 	}
@@ -1612,4 +1614,15 @@ func (cc *convCtx) convAnalyzeTable(stmt *ast.AnalyzeTableStmt) Statement {
 	}
 
 	return &AnalyzeTableStatement{Tables: tables}
+}
+
+func (cc *convCtx) convOptimizeTable(stmt *ast.OptimizeTableStmt) Statement {
+	tables := make([]*TableName, len(stmt.Tables))
+	for i, table := range stmt.Tables {
+		tables[i] = &TableName{
+			table.Name.String(),
+		}
+	}
+
+	return &OptimizeTableStatement{Tables: tables}
 }

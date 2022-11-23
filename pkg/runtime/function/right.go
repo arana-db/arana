@@ -15,48 +15,45 @@
  * limitations under the License.
  */
 
-package router
+package function
 
 import (
+	"context"
 	"fmt"
-	"regexp"
-	"sync"
 )
 
 import (
 	"github.com/pkg/errors"
 )
 
-const _minPasswordLength = 6
-
-var (
-	_normalNameRegexp     *regexp.Regexp
-	_normalNameRegexpOnce sync.Once
+import (
+	"github.com/arana-db/arana/pkg/proto"
 )
 
-var (
-	_passwordRegexp     *regexp.Regexp
-	_passwordRegexpOnce sync.Once
-)
+// FuncRight is https://dev.mysql.com/doc/refman/5.6/en/string-functions.html#function_right
+const FuncRight = "RIGHT"
 
-func validateNormalName(name string) bool {
-	_normalNameRegexpOnce.Do(func() {
-		_normalNameRegexp = regexp.MustCompile("^[_a-zA-Z][0-9a-zA-Z_-]*$")
-	})
-	return _normalNameRegexp.MatchString(name)
+var _ proto.Func = (*rightFunc)(nil)
+
+func init() {
+	proto.RegisterFunc(FuncRight, rightFunc{})
 }
 
-func validateTenantName(name string) error {
-	if !validateNormalName(name) {
-		return errors.Errorf("invalid tenant name '%s'", name)
+type rightFunc struct{}
+
+func (c rightFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
+	val, err := inputs[0].Value(ctx)
+	if err != nil {
+		return nil, errors.WithStack(err)
 	}
-	return nil
+	length, err := inputs[1].Value(ctx)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	t := length.(int)
+	return fmt.Sprint(val)[len(fmt.Sprint(val))-t:], nil
 }
 
-func validatePassword(password string) bool {
-	_passwordRegexpOnce.Do(func() {
-		// FIXME: consider whether to allow '@'?
-		_passwordRegexp = regexp.MustCompile(fmt.Sprintf("^[a-zA-Z0-9$#!%%*&^_-]{%d,}", _minPasswordLength))
-	})
-	return _passwordRegexp.MatchString(password)
+func (c rightFunc) NumInput() int {
+	return 1
 }

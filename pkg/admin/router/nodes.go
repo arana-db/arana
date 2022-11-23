@@ -18,7 +18,6 @@
 package router
 
 import (
-	"context"
 	"net/http"
 )
 
@@ -47,9 +46,13 @@ func ListNodes(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenantName := c.Param("tenant")
 
-	nodes, err := service.ListNodes(context.Background(), tenantName)
+	nodes, err := service.ListNodes(c, tenantName)
 	if err != nil {
 		return err
+	}
+
+	if nodes == nil {
+		nodes = []*admin.NodeDTO{}
 	}
 
 	c.JSON(http.StatusOK, nodes)
@@ -61,7 +64,7 @@ func GetNode(c *gin.Context) error {
 	tenant := c.Param("tenant")
 	nodeName := c.Param("node")
 
-	nodes, err := service.ListNodes(context.Background(), tenant)
+	nodes, err := service.ListNodes(c, tenant)
 	if err != nil {
 		return err
 	}
@@ -96,7 +99,7 @@ func CreateNode(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
-	c.JSON(http.StatusOK, nil)
+	c.JSON(http.StatusOK, "success")
 	return nil
 }
 
@@ -114,7 +117,7 @@ func UpdateNode(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
-	c.JSON(http.StatusOK, nil)
+	c.JSON(http.StatusOK, "success")
 	return nil
 }
 
@@ -126,6 +129,6 @@ func RemoveNode(c *gin.Context) error {
 		return err
 	}
 
-	c.JSON(http.StatusNoContent, nil)
+	c.Status(http.StatusNoContent)
 	return nil
 }

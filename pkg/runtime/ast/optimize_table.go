@@ -15,48 +15,43 @@
  * limitations under the License.
  */
 
-package router
+package ast
 
 import (
-	"fmt"
-	"regexp"
-	"sync"
+	"strings"
 )
 
 import (
 	"github.com/pkg/errors"
 )
 
-const _minPasswordLength = 6
+var _ Statement = (*OptimizeTableStatement)(nil)
 
-var (
-	_normalNameRegexp     *regexp.Regexp
-	_normalNameRegexpOnce sync.Once
-)
-
-var (
-	_passwordRegexp     *regexp.Regexp
-	_passwordRegexpOnce sync.Once
-)
-
-func validateNormalName(name string) bool {
-	_normalNameRegexpOnce.Do(func() {
-		_normalNameRegexp = regexp.MustCompile("^[_a-zA-Z][0-9a-zA-Z_-]*$")
-	})
-	return _normalNameRegexp.MatchString(name)
+type OptimizeTableStatement struct {
+	Tables []*TableName
 }
 
-func validateTenantName(name string) error {
-	if !validateNormalName(name) {
-		return errors.Errorf("invalid tenant name '%s'", name)
+func NewOptimizeTableStatement() *OptimizeTableStatement {
+	return &OptimizeTableStatement{}
+}
+
+func (a *OptimizeTableStatement) CntParams() int {
+	return 0
+}
+
+func (a *OptimizeTableStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	sb.WriteString("OPTIMIZE TABLE ")
+	for index, table := range a.Tables {
+		if index != 0 {
+			sb.WriteString(", ")
+		}
+		if err := table.Restore(flag, sb, args); err != nil {
+			return errors.Wrapf(err, "an error occurred while restore OptimizeTableStatement.Tables[%d]", index)
+		}
 	}
 	return nil
 }
 
-func validatePassword(password string) bool {
-	_passwordRegexpOnce.Do(func() {
-		// FIXME: consider whether to allow '@'?
-		_passwordRegexp = regexp.MustCompile(fmt.Sprintf("^[a-zA-Z0-9$#!%%*&^_-]{%d,}", _minPasswordLength))
-	})
-	return _passwordRegexp.MatchString(password)
+func (a *OptimizeTableStatement) Mode() SQLType {
+	return SQLTypeOptimizeTable
 }

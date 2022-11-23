@@ -18,7 +18,6 @@
 package router
 
 import (
-	"context"
 	"net/http"
 )
 
@@ -44,9 +43,13 @@ func init() {
 func ListTenants(c *gin.Context) error {
 	service := admin.GetService(c)
 
-	tenants, err := service.ListTenants(context.Background())
+	tenants, err := service.ListTenants(c)
 	if err != nil {
 		return err
+	}
+
+	if tenants == nil {
+		tenants = []*admin.TenantDTO{}
 	}
 
 	c.JSON(http.StatusOK, tenants)
@@ -65,11 +68,11 @@ func CreateTenant(c *gin.Context) error {
 		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
 
-	err := service.UpsertTenant(context.Background(), tenantBody.Name, &tenantBody)
+	err := service.UpsertTenant(c, tenantBody.Name, &tenantBody)
 	if err != nil {
 		return err
 	}
-	c.JSON(http.StatusCreated, nil)
+	c.JSON(http.StatusCreated, "success")
 	return nil
 }
 
@@ -77,7 +80,7 @@ func GetTenant(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenant := c.Param("tenant")
 
-	tenants, err := service.ListTenants(context.Background())
+	tenants, err := service.ListTenants(c)
 	if err != nil {
 		return err
 	}
@@ -107,11 +110,11 @@ func UpdateTenant(c *gin.Context) error {
 		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
 
-	err := service.UpsertTenant(context.Background(), tenant, &upsert)
+	err := service.UpsertTenant(c, tenant, &upsert)
 	if err != nil {
 		return err
 	}
-	c.JSON(http.StatusOK, nil)
+	c.JSON(http.StatusOK, "success")
 	return nil
 }
 
@@ -119,10 +122,10 @@ func RemoveTenant(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenant := c.Param("tenant")
 
-	if err := service.RemoveTenant(context.Background(), tenant); err != nil {
+	if err := service.RemoveTenant(c, tenant); err != nil {
 		return err
 	}
 
-	c.JSON(http.StatusNoContent, nil)
+	c.Status(http.StatusNoContent)
 	return nil
 }

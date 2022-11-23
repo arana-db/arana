@@ -18,7 +18,6 @@
 package router
 
 import (
-	"context"
 	"net/http"
 )
 
@@ -53,11 +52,11 @@ func CreateGroup(c *gin.Context) error {
 		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
 
-	err := service.UpsertGroup(context.Background(), tenantName, cluster, group.Name, group)
+	err := service.UpsertGroup(c, tenantName, cluster, group.Name, group)
 	if err != nil {
 		return err
 	}
-	c.JSON(http.StatusOK, nil)
+	c.JSON(http.StatusOK, "success")
 	return nil
 }
 
@@ -74,7 +73,7 @@ func ListGroups(c *gin.Context) error {
 		clusterNames = append(clusterNames, cluster)
 	} else {
 		var clusters []*admin.ClusterDTO
-		if clusters, err = service.ListClusters(context.Background(), tenantName); err != nil {
+		if clusters, err = service.ListClusters(c, tenantName); err != nil {
 			return err
 		}
 		for i := range clusters {
@@ -84,10 +83,14 @@ func ListGroups(c *gin.Context) error {
 
 	for i := range clusterNames {
 		var nextGroups []*admin.GroupDTO
-		if nextGroups, err = service.ListDBGroups(context.Background(), tenantName, clusterNames[i]); err != nil {
+		if nextGroups, err = service.ListDBGroups(c, tenantName, clusterNames[i]); err != nil {
 			return err
 		}
 		groups = append(groups, nextGroups...)
+	}
+
+	if groups == nil {
+		groups = []*admin.GroupDTO{}
 	}
 
 	c.JSON(http.StatusOK, groups)
@@ -100,7 +103,7 @@ func GetGroup(c *gin.Context) error {
 	cluster := c.Param("cluster")
 	group := c.Param("group")
 
-	groups, err := service.ListDBGroups(context.Background(), tenant, cluster)
+	groups, err := service.ListDBGroups(c, tenant, cluster)
 	if err != nil {
 		return err
 	}
@@ -130,12 +133,12 @@ func UpdateGroup(c *gin.Context) error {
 		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
 
-	err := service.UpsertGroup(context.Background(), tenant, cluster, groupName, &group)
+	err := service.UpsertGroup(c, tenant, cluster, groupName, &group)
 	if err != nil {
 		return err
 	}
 
-	c.JSON(http.StatusOK, nil)
+	c.JSON(http.StatusOK, "success")
 	return nil
 }
 
@@ -143,10 +146,10 @@ func RemoveGroup(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenant, cluster, group := c.Param("tenant"), c.Param("cluster"), c.Param("group")
 
-	err := service.RemoveGroup(context.Background(), tenant, cluster, group)
+	err := service.RemoveGroup(c, tenant, cluster, group)
 	if err != nil {
 		return err
 	}
-	c.JSON(http.StatusOK, nil)
+	c.Status(http.StatusNoContent)
 	return nil
 }

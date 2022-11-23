@@ -3,7 +3,7 @@ module github.com/arana-db/arana
 go 1.18
 
 require (
-	github.com/arana-db/parser v0.2.8
+	github.com/arana-db/parser v0.2.9
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/cespare/xxhash/v2 v2.1.2
 	github.com/creasty/defaults v1.6.0

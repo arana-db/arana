@@ -18,7 +18,6 @@
 package admin
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -32,7 +31,9 @@ import (
 	"github.com/arana-db/arana/cmd/cmds"
 	"github.com/arana-db/arana/pkg/admin"
 	_ "github.com/arana-db/arana/pkg/admin/router"
-	"github.com/arana-db/arana/pkg/boot"
+	"github.com/arana-db/arana/pkg/config"
+	_ "github.com/arana-db/arana/pkg/config/etcd"
+	_ "github.com/arana-db/arana/pkg/config/nacos"
 	"github.com/arana-db/arana/pkg/constants"
 	"github.com/arana-db/arana/pkg/util/log"
 )
@@ -60,15 +61,9 @@ func init() {
 }
 
 func Run(bootstrapPath string, addr string) error {
-	discovery := boot.NewDiscovery(bootstrapPath)
-	if err := discovery.Init(context.Background()); err != nil {
-		log.Fatal("start admin api server failed: %v", err)
-		return err
-	}
-
-	op, err := boot.LoadTenantOperator(bootstrapPath)
+	op, err := config.LoadTenantOperator(bootstrapPath)
 	if err != nil {
-		log.Fatal("start admin api server failed: %v", err)
+		log.Fatalf("start admin api server failed: %v", err)
 		return err
 	}
 

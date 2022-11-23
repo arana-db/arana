@@ -18,7 +18,6 @@
 package router
 
 import (
-	"context"
 	"net/http"
 )
 
@@ -34,30 +33,50 @@ import (
 
 func init() {
 	admin.Register(func(router admin.Router) {
+		router.GET("/tenants/:tenant/users", ListUser)
 		router.POST("/tenants/:tenant/users", CreateUser)
 		router.PUT("/tenants/:tenant/users/:user", UpdateUser)
 		router.DELETE("/tenants/:tenant/users/:user", DeleteUser)
 	})
 }
 
-func DeleteUser(ctx *gin.Context) error {
+func ListUser(ctx *gin.Context) error {
 	tenant := ctx.Param("tenant")
-	username := ctx.Param("user")
 
-	if err := admin.GetService(ctx).RemoveUser(context.Background(), tenant, username); err != nil {
+	tenants, err := admin.GetService(ctx).ListTenants(ctx)
+	if err != nil {
 		return err
 	}
 
-	ctx.JSON(http.StatusNoContent, nil)
+	for i := range tenants {
+		if tenants[i].Name == tenant {
+			ctx.JSON(http.StatusOK, tenants[i].Users)
+			return nil
+		}
+	}
+
+	ctx.JSON(http.StatusOK, []*config.User{})
 	return nil
 }
 
-func UpdateUser(ctx *gin.Context) error {
-	tenant := ctx.Param("tenant")
-	username := ctx.Param("user")
+func DeleteUser(c *gin.Context) error {
+	tenant := c.Param("tenant")
+	username := c.Param("user")
+
+	if err := admin.GetService(c).RemoveUser(c, tenant, username); err != nil {
+		return err
+	}
+
+	c.JSON(http.StatusNoContent, nil)
+	return nil
+}
+
+func UpdateUser(c *gin.Context) error {
+	tenant := c.Param("tenant")
+	username := c.Param("user")
 
 	var user config.User
-	if err := ctx.ShouldBindJSON(&user); err != nil {
+	if err := c.ShouldBindJSON(&user); err != nil {
 		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
 	user.Username = username
@@ -66,20 +85,20 @@ func UpdateUser(ctx *gin.Context) error {
 		return exception.New(exception.CodeInvalidParams, "bad password format")
 	}
 
-	if err := admin.GetService(ctx).UpsertUser(context.Background(), tenant, &user); err != nil {
+	if err := admin.GetService(c).UpsertUser(c, tenant, &user); err != nil {
 		return err
 	}
 
-	ctx.JSON(http.StatusOK, nil)
+	c.JSON(http.StatusOK, "success")
 
 	return nil
 }
 
-func CreateUser(ctx *gin.Context) error {
-	tenant := ctx.Param("tenant")
+func CreateUser(c *gin.Context) error {
+	tenant := c.Param("tenant")
 
 	var user config.User
-	if err := ctx.ShouldBindJSON(&user); err != nil {
+	if err := c.ShouldBindJSON(&user); err != nil {
 		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
 
@@ -91,7 +110,7 @@ func CreateUser(ctx *gin.Context) error {
 		return exception.New(exception.CodeInvalidParams, "bad password format")
 	}
 
-	tenants, err := admin.GetService(ctx).ListTenants(ctx)
+	tenants, err := admin.GetService(c).ListTenants(c)
 	if err != nil {
 		return err
 	}
@@ -107,11 +126,11 @@ func CreateUser(ctx *gin.Context) error {
 		}
 	}
 
-	if err := admin.GetService(ctx).UpsertUser(context.Background(), tenant, &user); err != nil {
+	if err := admin.GetService(c).UpsertUser(c, tenant, &user); err != nil {
 		return err
 	}
 
-	ctx.JSON(http.StatusOK, nil)
+	c.JSON(http.StatusOK, "success")
 
 	return nil
 }
