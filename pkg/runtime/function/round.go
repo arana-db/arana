@@ -64,7 +64,9 @@ func (a roundFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Val
 		return nil, errors.WithStack(err)
 	}
 	decRound := func(d *gxbig.Decimal) *gxbig.Decimal {
-		_ = d.Round(d, precision.(int), 5)
+		if err = d.Round(d, precision.(int), 5); err != nil {
+			return nil
+		}
 		return d
 	}
 
