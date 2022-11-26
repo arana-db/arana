@@ -19,9 +19,8 @@ package function
 
 import (
 	"context"
+	"fmt"
 	"math"
-
-	"github.com/shopspring/decimal"
 )
 
 import (
@@ -46,11 +45,12 @@ func init() {
 type roundFunc struct{}
 
 func (a roundFunc) NumInput() int {
-	return 1
+	return 2
 }
 
 func Round(val float64, precision proto.Value) float64 {
-	p := math.Pow10(precision)
+	v, _ := precision.(int)
+	p := math.Pow10(v)
 	return math.Floor(val*p+0.5) / p
 }
 
@@ -64,8 +64,8 @@ func (a roundFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Val
 		return nil, errors.WithStack(err)
 	}
 	decRound := func(d *gxbig.Decimal) *gxbig.Decimal {
-		temp, _ := decimal.NewFromString(d.String())
-		temp.Round(int32(precision))
+		_ = d.Round(d, precision.(int), 5)
+		return d
 	}
 
 	switch v := x.(type) {
@@ -93,6 +93,9 @@ func (a roundFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Val
 		return Round(float64(v), precision), nil
 	default:
 		var d *gxbig.Decimal
+		if d, err = gxbig.NewDecFromString(fmt.Sprint(v)); err != nil {
+			return "NaN", nil
+		}
 		return decRound(d), nil
 	}
 }
