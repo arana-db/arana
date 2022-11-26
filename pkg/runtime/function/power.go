@@ -34,7 +34,7 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
-// FuncRound is https://dev.mysql.com/doc/refman/8.0/en/mathematical-functions.html#function_round
+// FuncPower is https://dev.mysql.com/doc/refman/8.0/en/mathematical-functions.html#function_power
 const FuncPower = "POWER"
 
 var _ proto.Func = (*powerFunc)(nil)
@@ -48,12 +48,6 @@ type powerFunc struct{}
 func (a powerFunc) NumInput() int {
 	return 2
 }
-
-//func Round(val float64, precision proto.Value) float64 {
-//	v, _ := precision.(int)
-//	p := math.Pow10(v)
-//	return math.Floor(val*p+0.5) / p
-//}
 
 func (a powerFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
 	x, err := inputs[0].Value(ctx)
