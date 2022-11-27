@@ -75,6 +75,14 @@ type (
 		Options  map[string]interface{} `yaml:"options" json:"options"`
 	}
 
+	BootOptions struct {
+		Spec      `yaml:",inline"`
+		Config    *Options    `yaml:"config" json:"config"`
+		Listeners []*Listener `validate:"required,dive" yaml:"listeners" json:"listeners"`
+		Registry  *Registry   `yaml:"registry" json:"registry"`
+		Trace     *Trace      `yaml:"trace" json:"trace"`
+	}
+
 	// Configuration represents an Arana configuration.
 	Configuration struct {
 		Spec `yaml:",inline"`
@@ -175,8 +183,8 @@ type (
 	}
 
 	Sequence struct {
-		Type   string            `yaml:"type" json:"type"`
-		Option map[string]string `yaml:"option" json:"option"`
+		Type   string            `yaml:"type" json:"type,omitempty"`
+		Option map[string]string `yaml:"option" json:"option,omitempty"`
 	}
 
 	Rule struct {
@@ -273,7 +281,9 @@ func Load(path string) (*Configuration, error) {
 func (t *Tenant) Empty() bool {
 	return len(t.Users) == 0 &&
 		len(t.Nodes) == 0 &&
-		len(t.DataSourceClusters) == 0
+		len(t.DataSourceClusters) == 0 &&
+		(t.ShardingRule == nil || len(t.ShardingRule.Tables) == 0) &&
+		(t.ShadowRule == nil || len(t.ShadowRule.ShadowTables) == 0)
 }
 
 var _weightRegexp = regexp.MustCompile(`^[rR]([0-9]+)[wW]([0-9]+)$`)

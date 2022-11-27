@@ -28,6 +28,8 @@ import (
 )
 
 import (
+	"github.com/arana-db/parser"
+
 	_ "github.com/go-sql-driver/mysql"
 
 	"github.com/stretchr/testify/assert"
@@ -35,8 +37,6 @@ import (
 )
 
 import (
-	"github.com/arana-db/parser"
-
 	"github.com/arana-db/arana/pkg/util/rand2"
 	utils "github.com/arana-db/arana/pkg/util/tableprint"
 )
@@ -995,6 +995,31 @@ func (s *IntegrationSuite) TestAnalyzeTable() {
 	}
 }
 
+// TestOptimizeTable
+func (s *IntegrationSuite) TestOptimizeTable() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql string
+	}
+
+	for _, it := range [...]tt{
+		{"Optimize table employees"},
+		{"Optimize table student, departments"},
+		{"Optimize LOCAL table student, departments"},
+		{"Optimize NO_WRITE_TO_BINLOG table student, departments"},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			rows, err := db.Query(it.sql)
+			assert.NoError(t, err)
+			defer rows.Close()
+		})
+	}
+}
+
 func (s *IntegrationSuite) TestCompat80() {
 	var (
 		db = s.DB()
@@ -1038,9 +1063,9 @@ func (s *IntegrationSuite) TestShowProcessList() {
 }
 
 func (s *IntegrationSuite) TestShowReplicaStatus() {
-	var sql_ = "SHOW REPLICA STATUS"
-	var t = s.T()
-	var p = parser.New()
+	sql_ := "SHOW REPLICA STATUS"
+	t := s.T()
+	p := parser.New()
 
 	stmtNodes, _, err := p.Parse(sql_, "", "")
 	assert.Nil(t, err)

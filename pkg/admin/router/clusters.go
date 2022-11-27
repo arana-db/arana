@@ -18,7 +18,6 @@
 package router
 
 import (
-	"context"
 	"net/http"
 )
 
@@ -29,14 +28,12 @@ import (
 import (
 	"github.com/arana-db/arana/pkg/admin"
 	"github.com/arana-db/arana/pkg/admin/exception"
-	"github.com/arana-db/arana/pkg/boot"
-	"github.com/arana-db/arana/pkg/config"
 )
 
 func init() {
 	admin.Register(func(router admin.Router) {
 		router.GET("/tenants/:tenant/clusters", ListClusters)
-		router.POST("/tenants/:tenant/clusters/:cluster", CreateCluster)
+		router.POST("/tenants/:tenant/clusters", CreateCluster)
 		router.GET("/tenants/:tenant/clusters/:cluster", GetCluster)
 		router.PUT("/tenants/:tenant/clusters/:cluster", UpdateCluster)
 		router.DELETE("/tenants/:tenant/clusters/:cluster", RemoveCluster)
@@ -46,20 +43,11 @@ func init() {
 func ListClusters(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenantName := c.Param("tenant")
-	clusters, err := service.ListClusters(context.Background(), tenantName)
+	clusters, err := service.ListClusters(c, tenantName)
 	if err != nil {
 		return err
 	}
-	var res []*config.DataSourceCluster
-	for _, it := range clusters {
-		cluster, err := service.GetDataSourceCluster(context.Background(), tenantName, it)
-		if err != nil {
-			return err
-		}
-		res = append(res, cluster)
-	}
-
-	c.JSON(http.StatusOK, res)
+	c.JSON(http.StatusOK, clusters)
 	return nil
 }
 
@@ -67,26 +55,32 @@ func GetCluster(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenant := c.Param("tenant")
 	cluster := c.Param("cluster")
-	data, err := service.GetCluster(context.Background(), tenant, cluster)
+
+	clusters, err := service.ListClusters(c, tenant)
 	if err != nil {
 		return err
 	}
-	c.JSON(http.StatusOK, data)
-	return nil
+
+	for i := range clusters {
+		if clusters[i].Name == cluster {
+			c.JSON(http.StatusOK, clusters[i])
+			return nil
+		}
+	}
+
+	return exception.New(exception.CodeNotFound, "no such cluster '%s'", cluster)
 }
 
 func CreateCluster(c *gin.Context) error {
-	var (
-		service     = admin.GetService(c)
-		tenant      = c.Param("tenant")
-		cluster     = c.Param("cluster")
-		clusterBody *boot.ClusterBody
-	)
-	if err := c.ShouldBindJSON(&clusterBody); err != nil {
+	service := admin.GetService(c)
+	tenant := c.Param("tenant")
+
+	var cluster admin.ClusterDTO
+	if err := c.ShouldBindJSON(&cluster); err != nil {
 		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
 
-	err := service.UpsertCluster(context.Background(), tenant, cluster, clusterBody)
+	err := service.UpsertCluster(c, tenant, cluster.Name, &cluster)
 	if err != nil {
 		return err
 	}
@@ -100,16 +94,16 @@ func UpdateCluster(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenant := c.Param("tenant")
 	cluster := c.Param("cluster")
-	var clusterBody *boot.ClusterBody
+	var clusterBody admin.ClusterDTO
 	if err := c.ShouldBindJSON(&clusterBody); err != nil {
 		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
 
-	err := service.UpsertCluster(context.Background(), tenant, cluster, clusterBody)
+	err := service.UpsertCluster(c, tenant, cluster, &clusterBody)
 	if err != nil {
 		return err
 	}
-	c.JSON(http.StatusOK, nil)
+	c.JSON(http.StatusOK, "success")
 	return nil
 }
 
@@ -117,10 +111,10 @@ func RemoveCluster(c *gin.Context) error {
 	service := admin.GetService(c)
 	tenant := c.Param("tenant")
 	cluster := c.Param("cluster")
-	err := service.RemoveCluster(context.Background(), tenant, cluster)
+	err := service.RemoveCluster(c, tenant, cluster)
 	if err != nil {
 		return err
 	}
-	c.JSON(http.StatusNoContent, nil)
+	c.Status(http.StatusNoContent)
 	return nil
 }

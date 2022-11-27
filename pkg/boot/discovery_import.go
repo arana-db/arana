@@ -28,7 +28,7 @@ import (
 )
 
 func RunImport(importConfPath, configPath string) bool {
-	bootCfg, err := LoadBootOptions(importConfPath)
+	bootCfg, err := config.LoadBootOptions(importConfPath)
 	if err != nil {
 		log.Fatalf("load bootstrap config failed: %+v", err)
 	}

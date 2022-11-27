@@ -1,18 +1,3 @@
-# Licensed to the Apache Software Foundation (ASF) under one or more
-# contributor license agreements.  See the NOTICE file distributed with
-# this work for additional information regarding copyright ownership.
-# The ASF licenses this file to You under the Apache License, Version 2.0
-# (the "License"); you may not use this file except in compliance with
-# the License.  You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 openapi: 3.0.3
 info:
   title: Arana
@@ -32,7 +17,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Tenants'
-
     post:
       operationId: createTenant
       summary: Create a tenant
@@ -44,8 +28,14 @@ paths:
       responses:
         '201':
           description: OK
-
   /tenants/{tenantName}:
+    parameters:
+      - in: path
+        name: tenantName
+        schema:
+          type: string
+        required: true
+        description: the name of tenant
     get:
       operationId: getTenant
       summary: Get a tenant
@@ -73,8 +63,84 @@ paths:
       responses:
         '200':
           description: OK
-
+  /tenants/{tenantName}/users:
+    parameters:
+      - in: path
+        name: tenantName
+        schema:
+          type: string
+        required: true
+        description: the name of tenant
+    get:
+      operationId: getTenantUsers
+      summary: List tenant users
+      responses:
+        '200':
+          description: Tenant user list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Users'
+    post:
+      operationId: createTenantUser
+      summary: Create a tenant user
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '200':
+          description: OK
+  /tenants/{tenantName}/users/{username}:
+    parameters:
+      - in: path
+        name: tenantName
+        schema:
+          type: string
+        required: true
+        description: the name of tenant
+      - in: path
+        name: username
+        schema:
+          type: string
+        required: true
+        description: username
+    get:
+      operationId: getTenantUser
+      summary: Get a tenant user
+      responses:
+        '200':
+          description: Tenant user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+    delete:
+      operationId: deleteTenantUser
+      summary: Delete a tenant user
+      responses:
+        '204':
+          description: NONE
+    put:
+      operationId: putTenantUser
+      summary: Update a tenant user
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '200':
+          description: OK
   /tenants/{tenantName}/nodes:
+    parameters:
+      - in: path
+        name: tenantName
+        schema:
+          type: string
+        required: true
+        description: the name of tenant
     get:
       operationId: listNodes
       summary: List mysql nodes
@@ -85,7 +151,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Nodes'
-
     post:
       operationId: createNode
       summary: Create mysql node
@@ -97,8 +162,20 @@ paths:
       responses:
         '200':
           description: OK
-
   /tenants/{tenantName}/nodes/{nodeName}:
+    parameters:
+      - in: path
+        name: tenantName
+        schema:
+          type: string
+        required: true
+        description: the name of tenant
+      - in: path
+        name: nodeName
+        schema:
+          type: string
+        required: true
+        description: the name of node
     get:
       operationId: getNode
       summary: Get a mysql node
@@ -115,7 +192,6 @@ paths:
       responses:
         '204':
           description: NONE
-
     put:
       operationId: putNode
       summary: Update a mysql node
@@ -127,8 +203,20 @@ paths:
       responses:
         '200':
           description: OK
-
   /tenants/{tenantName}/clusters/{clusterName}/groups:
+    parameters:
+      - in: path
+        name: tenantName
+        schema:
+          type: string
+        required: true
+        description: the name of tenant
+      - in: path
+        name: clusterName
+        schema:
+          type: string
+        required: true
+        description: the name of cluster
     get:
       operationId: listGroups
       summary: List all DB groups
@@ -139,19 +227,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Groups'
-
-  /tenants/{tenantName}/clusters/{clusterName}/groups/{groupName}:
-    get:
-      operationId: getGroup
-      summary: Get a DB group
-      responses:
-        '200':
-          description: Single DB group
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Group'
-
     post:
       operationId: createGroup
       summary: Create a DB group
@@ -163,7 +238,36 @@ paths:
       responses:
         '200':
           description: OK
-
+  /tenants/{tenantName}/clusters/{clusterName}/groups/{groupName}:
+    parameters:
+      - in: path
+        name: tenantName
+        schema:
+          type: string
+        required: true
+        description: the name of tenant
+      - in: path
+        name: clusterName
+        schema:
+          type: string
+        required: true
+        description: the name of cluster
+      - in: path
+        name: groupName
+        schema:
+          type: string
+        required: true
+        description: the name of DB group
+    get:
+      operationId: getGroup
+      summary: Get a DB group
+      responses:
+        '200':
+          description: Single DB group
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
     put:
       operationId: putGroup
       summary: Update a DB group
@@ -175,15 +279,20 @@ paths:
       responses:
         '200':
           description: OK
-
     delete:
       operationId: deleteGroup
       summary: Delete a DB group
       responses:
         '204':
           description: NONE
-
   /tenants/{tenantName}/clusters:
+    parameters:
+      - in: path
+        name: tenantName
+        schema:
+          type: string
+        required: true
+        description: the name of tenant
     get:
       operationId: listClusters
       summary: List all clusters
@@ -194,19 +303,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Clusters'
-
-  /tenants/{tenantName}/clusters/{clusterName}:
-    get:
-      operationId: getCluster
-      summary: Get a cluster
-      responses:
-        '200':
-          description: Single Cluster
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Cluster'
-
     post:
       operationId: createCluster
       summary: Create a cluster
@@ -218,7 +314,30 @@ paths:
       responses:
         '200':
           description: OK
-
+  /tenants/{tenantName}/clusters/{clusterName}:
+    parameters:
+      - in: path
+        name: tenantName
+        schema:
+          type: string
+        required: true
+        description: the name of tenant
+      - in: path
+        name: clusterName
+        schema:
+          type: string
+        required: true
+        description: the name of cluster
+    get:
+      operationId: getCluster
+      summary: Get a cluster
+      responses:
+        '200':
+          description: Single Cluster
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cluster'
     put:
       operationId: putCluster
       summary: Update a cluster
@@ -230,16 +349,110 @@ paths:
       responses:
         '200':
           description: OK
-
     delete:
       operationId: deleteCluster
       summary: Delete a cluster
       responses:
         '204':
           description: NONE
-
+  /tenants/{tenantName}/clusters/{clusterName}/tables:
+    parameters:
+      - in: path
+        name: tenantName
+        schema:
+          type: string
+        required: true
+        description: the name of tenant
+      - in: path
+        name: clusterName
+        schema:
+          type: string
+        required: true
+        description: the name of cluster
+    get:
+      operationId: listTables
+      summary: List all tables
+      responses:
+        '200':
+          description: All Tables
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tables'
+    post:
+      operationId: createTable
+      summary: Create a table
+      requestBody:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Table'
+      responses:
+      '200':
+        description: OK
+  /tenants/{tenantName}/clusters/{clusterName}/tables/{tableName}:
+    parameters:
+      - in: path
+        name: tenantName
+        schema:
+          type: string
+        required: true
+        description: the name of tenant
+      - in: path
+        name: clusterName
+        schema:
+          type: string
+        required: true
+        description: the name of cluster
+      - in: path
+        name: tableName
+        schema:
+          type: string
+        required: true
+        description: the name of logical table
+    get:
+      operationId: getTable
+      summary: Get a table
+      responses:
+        '200':
+          description: Single Table
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Table'
+    put:
+      operationId: upsertTable
+      summary: Upsert a table
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Table'
+      responses:
+        '200':
+          description: OK
+    delete:
+      operationId: deleteTable
+      summary: Delete a table
+      responses:
+        '204':
+          description: NONE
 components:
   schemas:
+    User:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+      example:
+        username: 'tom'
+        password: 'tom123456'
+    Users:
+      type: array
+      items:
+        $ref: '#/components/schemas/User'
     Tenant:
       type: object
       properties:
@@ -248,12 +461,7 @@ components:
         users:
           type: array
           items:
-            type: object
-            properties:
-              username:
-                type: string
-              password:
-                type: string
+            $ref: '#/components/schemas/User'
       example:
         name: "foobar"
         users:
@@ -265,7 +473,6 @@ components:
       type: array
       items:
         $ref: '#/components/schemas/Tenant'
-
     Node:
       type: object
       required:
@@ -300,12 +507,10 @@ components:
         password: 12345678
         database: employees_0000
         weight: r10w10
-
     Nodes:
       type: array
       items:
         $ref: '#/components/schemas/Node'
-
     Group:
       type: object
       required:
@@ -324,12 +529,27 @@ components:
           - mysql-fwijfo8
           - mysql-we7nvil
           - mysql-vjm24if
-
     Groups:
       type: array
       items:
         $ref: '#/components/schemas/Group'
-
+    Table:
+      type: object
+      required:
+        - sequence
+        - db_rules
+        - tbl_rules
+        - topology
+        - shadow_topology
+        - attributes
+      properties:
+      # TODO
+      example:
+      # TODO
+    Tables:
+      type: array
+      items:
+        $ref: '#/components/schemas/Table'
     Cluster:
       type: object
       properties:
@@ -353,7 +573,6 @@ components:
           - employees_0005
           - employees_0006
           - employees_0007
-
     Clusters:
       type: array
       items:
