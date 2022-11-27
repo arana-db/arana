@@ -271,6 +271,11 @@ func (c *ConstantExpressionAtom) String() string {
 	return constant2string(c.Inner)
 }
 
+func (c *ConstantExpressionAtom) IsNull() bool {
+	_, ok := c.Value().(Null)
+	return ok
+}
+
 func (c *ConstantExpressionAtom) Value() interface{} {
 	return c.Inner
 }

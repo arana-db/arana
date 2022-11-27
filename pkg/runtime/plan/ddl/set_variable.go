@@ -120,7 +120,7 @@ func (d *SetVariablePlan) nextVars() (map[string]interface{}, error) {
 	ret := make(map[string]interface{})
 	var key strings.Builder
 	for _, next := range d.Stmt.Variables {
-		v, err := extvalue.GetValueFromAtom(next.Value, d.Args)
+		v, err := extvalue.Compute(next.Value, d.Args)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}

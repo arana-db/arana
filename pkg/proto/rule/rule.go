@@ -61,6 +61,11 @@ type VTable struct {
 	shards        map[string][2]*ShardMetadata // column -> [db shard metadata,table shard metadata]
 }
 
+func (vt *VTable) HasColumn(column string) bool {
+	_, ok := vt.shards[column]
+	return ok
+}
+
 func (vt *VTable) Name() string {
 	return vt.name
 }
@@ -96,25 +101,28 @@ func (vt *VTable) Topology() *Topology {
 }
 
 // Shard returns the shard result.
-func (vt *VTable) Shard(column string, value interface{}) (db int, table int, err error) {
+func (vt *VTable) Shard(column string, value interface{}) (uint32 /* db */, uint32 /* table */, error) {
+	var (
+		db, table int
+		err       error
+	)
 	sm, ok := vt.shards[column]
 	if !ok {
-		err = errors.Errorf("no shard metadata for column %s", column)
-		return
+		return 0, 0, errors.Errorf("no shard metadata for column %s", column)
 	}
 
 	if sm[0] != nil { // compute the index of db
 		if db, err = sm[0].Computer.Compute(value); err != nil {
-			return
+			return 0, 0, errors.WithStack(err)
 		}
 	}
 	if sm[1] != nil { // compute the index of table
 		if table, err = sm[1].Computer.Compute(value); err != nil {
-			return
+			return 0, 0, errors.WithStack(err)
 		}
 	}
 
-	return
+	return uint32(db), uint32(table), nil
 }
 
 // GetShardMetadata returns the shard metadata with given column.

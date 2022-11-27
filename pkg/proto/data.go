@@ -19,6 +19,7 @@
 package proto
 
 import (
+	"fmt"
 	"io"
 	"reflect"
 )
@@ -107,3 +108,14 @@ type (
 		RowsAffected() (uint64, error)
 	}
 )
+
+func PrintValue(input Value) string {
+	switch v := input.(type) {
+	case string:
+		return v
+	case fmt.Stringer:
+		return v.String()
+	default:
+		return fmt.Sprint(input)
+	}
+}

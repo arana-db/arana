@@ -19,7 +19,10 @@ package dml
 
 import (
 	"context"
+	"fmt"
+	"reflect"
 	"strings"
+	"unicode"
 )
 
 import (
@@ -28,6 +31,8 @@ import (
 	gxbig "github.com/dubbogo/gost/math/big"
 
 	"github.com/pkg/errors"
+
+	"github.com/shopspring/decimal"
 )
 
 import (
@@ -123,7 +128,7 @@ type virtualValueVisitor struct {
 
 func (vt *virtualValueVisitor) VisitSelectElementFunction(node *ast.SelectElementFunction) (interface{}, error) {
 	switch f := node.Function().(type) {
-	case *ast.Function:
+	case *ast.Function, *ast.CaseWhenElseFunction:
 		res, err := f.Accept(vt)
 		if err != nil {
 			return nil, errors.WithStack(err)
@@ -131,7 +136,7 @@ func (vt *virtualValueVisitor) VisitSelectElementFunction(node *ast.SelectElemen
 		return res, nil
 	}
 	// TODO: need implementation
-	panic("implement me")
+	panic(fmt.Sprintf("implement me: %T.VisitSelectElementFunction!", vt))
 }
 
 func (vt *virtualValueVisitor) VisitSelectElementExpr(node *ast.SelectElementExpr) (interface{}, error) {
@@ -181,40 +186,139 @@ func (vt *virtualValueVisitor) VisitAtomFunction(node *ast.FunctionCallExpressio
 	}
 }
 
+func (vt *virtualValueVisitor) VisitAtomUnary(node *ast.UnaryExpressionAtom) (interface{}, error) {
+	val, err := node.Inner.Accept(vt)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	switch strings.ToLower(strings.TrimSpace(node.Operator)) {
+	case "not":
+		if strings.TrimFunc(proto.PrintValue(val), func(r rune) bool {
+			return unicode.IsSpace(r) || r == '0'
+		}) == "" {
+			return int64(1), nil
+		}
+		return int64(0), nil
+	case "-":
+		switch v := val.(type) {
+		case int:
+			return -1 * v, nil
+		case int64:
+			return -1 * v, nil
+		case int32:
+			return -1 * v, nil
+		case int16:
+			return -1 * v, nil
+		case int8:
+			return -1 * v, nil
+		case float32:
+			return -1 * v, nil
+		case float64:
+			return -1 * v, nil
+		case *gxbig.Decimal:
+			d, _ := decimal.NewFromString(v.String())
+			d = d.Mul(decimal.NewFromInt(-1))
+			ret, _ := gxbig.NewDecFromString(d.String())
+			return ret, nil
+		default:
+			panic(fmt.Sprintf("todo: unary for %T!", v))
+		}
+	}
+
+	panic(fmt.Sprintf("todo: unary operator %s", node.Operator))
+}
+
+func (vt *virtualValueVisitor) VisitFunctionCaseWhenElse(node *ast.CaseWhenElseFunction) (interface{}, error) {
+	var (
+		caseValue    proto.Value
+		hasCaseValue bool
+	)
+	if c := node.CaseBlock; c != nil {
+		hasCaseValue = true
+		v, err := c.Accept(vt)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+		caseValue = v.(proto.Value)
+	}
+
+	for i := range node.BranchBlocks {
+		v1, err := node.BranchBlocks[i].When.Accept(vt)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+		whenValue := v1.(proto.Value)
+
+		v2, err := node.BranchBlocks[i].Then.Accept(vt)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+		thenValue := v2.(proto.Value)
+
+		if hasCaseValue && (whenValue == caseValue || proto.PrintValue(whenValue) == proto.PrintValue(caseValue)) {
+			return thenValue, nil
+		}
+
+		if !hasCaseValue && reflect.ValueOf(whenValue).IsValid() {
+			return thenValue, nil
+		}
+	}
+
+	if node.ElseBlock != nil {
+		elseValue, err := node.ElseBlock.Accept(vt)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+		return elseValue.(proto.Value), nil
+	}
+
+	return nil, nil
+}
+
+func (vt *virtualValueVisitor) VisitFunctionArg(arg *ast.FunctionArg) (interface{}, error) {
+	var (
+		next interface{}
+		err  error
+	)
+	switch arg.Type {
+	case ast.FunctionArgColumn:
+		next, err = arg.Value.(ast.ColumnNameExpressionAtom).Accept(vt)
+	case ast.FunctionArgExpression:
+		next, err = arg.Value.(ast.ExpressionNode).Accept(vt)
+	case ast.FunctionArgConstant:
+		next = arg.Value
+	case ast.FunctionArgFunction:
+		next, err = arg.Value.(*ast.Function).Accept(vt)
+	case ast.FunctionArgAggrFunction:
+		next, err = arg.Value.(*ast.AggrFunction).Accept(vt)
+	case ast.FunctionArgCaseWhenElseFunction:
+		next, err = arg.Value.(*ast.CaseWhenElseFunction).Accept(vt)
+	case ast.FunctionArgCastFunction:
+		next, err = arg.Value.(*ast.CastFunction).Accept(vt)
+	default:
+		panic("unreachable")
+	}
+
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	return next.(proto.Value), nil
+}
+
 func (vt *virtualValueVisitor) VisitFunction(node *ast.Function) (interface{}, error) {
 	getValuers := func(args []*ast.FunctionArg) []proto.Valuer {
 		valuers := make([]proto.Valuer, 0, len(args))
 		for i := range args {
 			arg := args[i]
-			valuers = append(valuers, proto.FuncValuer(func(ctx context.Context) (proto.Value, error) {
-				var (
-					next interface{}
-					err  error
-				)
-				switch arg.Type {
-				case ast.FunctionArgColumn:
-					next, err = arg.Value.(ast.ColumnNameExpressionAtom).Accept(vt)
-				case ast.FunctionArgExpression:
-					next, err = arg.Value.(ast.ExpressionNode).Accept(vt)
-				case ast.FunctionArgConstant:
-					next = arg.Value
-				case ast.FunctionArgFunction:
-					next, err = arg.Value.(*ast.Function).Accept(vt)
-				case ast.FunctionArgAggrFunction:
-					next, err = arg.Value.(*ast.AggrFunction).Accept(vt)
-				case ast.FunctionArgCaseWhenElseFunction:
-					next, err = arg.Value.(*ast.CaseWhenElseFunction).Accept(vt)
-				case ast.FunctionArgCastFunction:
-					next, err = arg.Value.(*ast.CastFunction).Accept(vt)
-				default:
-					panic("unreachable")
-				}
-
+			valuer := func(ctx context.Context) (proto.Value, error) {
+				next, err := arg.Accept(vt)
 				if err != nil {
 					return nil, errors.WithStack(err)
 				}
 				return next.(proto.Value), nil
-			}))
+			}
+			valuers = append(valuers, proto.FuncValuer(valuer))
 		}
 		return valuers
 	}
