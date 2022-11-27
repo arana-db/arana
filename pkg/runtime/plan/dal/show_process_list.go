@@ -19,6 +19,8 @@ package dal
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -27,9 +29,16 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/dataset"
+	"github.com/arana-db/arana/pkg/mysql/rows"
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/resultx"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/plan"
+)
+
+const (
+	sep = "_"
 )
 
 type ShowProcessListPlan struct {
@@ -52,17 +61,59 @@ func (s *ShowProcessListPlan) ExecIn(ctx context.Context, conn proto.VConn) (pro
 	var (
 		sb      strings.Builder
 		indexes []int
-		err     error
 	)
 
 	ctx, span := plan.Tracer.Start(ctx, "ShowProcessListPlan.ExecIn")
 	defer span.End()
 
-	if err = s.Stmt.Restore(ast.RestoreDefault, &sb, &indexes); err != nil {
+	if err := s.Stmt.Restore(ast.RestoreDefault, &sb, &indexes); err != nil {
 		return nil, errors.WithStack(err)
 	}
 
-	return conn.Query(ctx, s.db, sb.String(), s.ToArgs(indexes)...)
+	res, err := conn.Query(ctx, s.db, sb.String(), s.ToArgs(indexes)...)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	ds, err := res.Dataset()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	fields, err := ds.Fields()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	strs := strings.Split(s.db, sep)
+	if len(strs) < 2 {
+		return nil, fmt.Errorf("can get the id of sub database")
+	}
+	groupId, err := strconv.ParseInt(strs[1], 10, 64)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	ds = dataset.Pipe(ds,
+		dataset.Map(nil, func(next proto.Row) (proto.Row, error) {
+			dest := make([]proto.Value, len(fields))
+			if next.Scan(dest) != nil {
+				return next, nil
+			}
+
+			id := dest[0].(int64) << 16
+			if id <= 0 {
+				return nil, fmt.Errorf("integer operation result is out of range")
+			}
+			dest[0] = id + groupId
+
+			if next.IsBinary() {
+				return rows.NewBinaryVirtualRow(fields, dest), nil
+			}
+			return rows.NewTextVirtualRow(fields, dest), nil
+		}))
+
+	return resultx.New(resultx.WithDataset(ds)), nil
 }
 
 func (s *ShowProcessListPlan) SetDatabase(db string) {
