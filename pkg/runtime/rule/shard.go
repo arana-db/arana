@@ -41,7 +41,6 @@ const (
 	HashCrc32Shard ShardType = "hashCrc32Shard"
 	HashBKDRShard  ShardType = "hashBKDRShard"
 	ScriptExpr     ShardType = "scriptExpr"
-	FunctionExpr   ShardType = "functionExpr"
 )
 
 var shardMap = map[ShardType]ShardComputerFunc{

@@ -136,6 +136,10 @@ type FunctionArg struct {
 	Value interface{}
 }
 
+func (f *FunctionArg) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitFunctionArg(f)
+}
+
 func (f *FunctionArg) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	var err error
 	switch f.Type {
@@ -267,57 +271,47 @@ func NewAggrFunction(name string, aggregator string, args []*FunctionArg) *AggrF
 	}
 }
 
+type CaseWhenBranch struct {
+	When *FunctionArg
+	Then *FunctionArg
+}
+
 type CaseWhenElseFunction struct {
-	caseBlock ExpressionNode
-	branches  [][2]*FunctionArg
-	elseBlock *FunctionArg
+	CaseBlock    ExpressionNode
+	BranchBlocks []*CaseWhenBranch
+	ElseBlock    *FunctionArg
 }
 
 func (c *CaseWhenElseFunction) Accept(visitor Visitor) (interface{}, error) {
 	return visitor.VisitFunctionCaseWhenElse(c)
 }
 
-func (c *CaseWhenElseFunction) Case() ExpressionNode {
-	return c.caseBlock
-}
-
-func (c *CaseWhenElseFunction) Branches() [][2]*FunctionArg {
-	return c.branches
-}
-
-func (c *CaseWhenElseFunction) Else() (*FunctionArg, bool) {
-	if c.elseBlock != nil {
-		return c.elseBlock, true
-	}
-	return nil, false
-}
-
 func (c *CaseWhenElseFunction) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("CASE")
 
-	if c.caseBlock != nil {
+	if c.CaseBlock != nil {
 		sb.WriteByte(' ')
 
-		if err := c.caseBlock.Restore(flag, sb, args); err != nil {
+		if err := c.CaseBlock.Restore(flag, sb, args); err != nil {
 			return errors.WithStack(err)
 		}
 	}
 
-	for _, it := range c.branches {
+	for _, it := range c.BranchBlocks {
 		sb.WriteString(" WHEN ")
 
-		if err := it[0].Restore(flag, sb, args); err != nil {
+		if err := it.When.Restore(flag, sb, args); err != nil {
 			return errors.WithStack(err)
 		}
 		sb.WriteString(" THEN ")
-		if err := it[1].Restore(flag, sb, args); err != nil {
+		if err := it.Then.Restore(flag, sb, args); err != nil {
 			return errors.WithStack(err)
 		}
 	}
 
-	if c.elseBlock != nil {
+	if c.ElseBlock != nil {
 		sb.WriteString(" ELSE ")
-		if err := c.elseBlock.Restore(flag, sb, args); err != nil {
+		if err := c.ElseBlock.Restore(flag, sb, args); err != nil {
 			return errors.WithStack(err)
 		}
 	}
@@ -327,15 +321,15 @@ func (c *CaseWhenElseFunction) Restore(flag RestoreFlag, sb *strings.Builder, ar
 }
 
 func (c *CaseWhenElseFunction) CntParams() (n int) {
-	if c.caseBlock != nil {
-		n += c.caseBlock.CntParams()
+	if c.CaseBlock != nil {
+		n += c.CaseBlock.CntParams()
 	}
-	for _, it := range c.branches {
-		n += it[0].CntParams()
-		n += it[1].CntParams()
+	for _, it := range c.BranchBlocks {
+		n += it.When.CntParams()
+		n += it.Then.CntParams()
 	}
-	if c.elseBlock != nil {
-		n += c.elseBlock.CntParams()
+	if c.ElseBlock != nil {
+		n += c.ElseBlock.CntParams()
 	}
 	return
 }

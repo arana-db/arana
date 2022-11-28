@@ -207,6 +207,7 @@ func buildNamespace(ctx context.Context, tenant string, provider Discovery, clus
 		namespace.UpdateParameters(cluster.Parameters),
 		namespace.UpdateSlowThreshold(),
 	}
+
 	for _, group := range groups {
 		var nodes []string
 		if nodes, err = provider.ListNodes(ctx, tenant, clusterName, group); err != nil {

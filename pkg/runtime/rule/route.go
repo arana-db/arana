@@ -96,11 +96,7 @@ func (c *cmpExpMatcher) Eval() (rule.Range, error) {
 	return c.innerEval(c.c)
 }
 
-func Route(r *rule.Rule, tableName string, c *cmp.Comparative) (Matcher, error) {
-	vt, ok := r.VTable(tableName)
-	if !ok {
-		return nil, errors.Errorf("no vtable '%s' found", tableName)
-	}
+func Route(vt *rule.VTable, c *cmp.Comparative) (Matcher, error) {
 	mat := &cmpExpMatcher{
 		baseExpMatcher: (*baseExpMatcher)(vt),
 		c:              c,
@@ -108,12 +104,7 @@ func Route(r *rule.Rule, tableName string, c *cmp.Comparative) (Matcher, error) 
 	return mat, nil
 }
 
-func MatchTables(r *rule.Rule, tableName, column string, it rule.Range) (rule.DatabaseTables, error) {
-	vt, ok := r.VTable(tableName)
-	if !ok {
-		return nil, errors.Errorf("no vtable '%s' found", tableName)
-	}
-
+func MatchTables(vt *rule.VTable, column string, it rule.Range) (*rule.Shards, error) {
 	if it == nil {
 		return nil, nil
 	}
@@ -123,29 +114,16 @@ func MatchTables(r *rule.Rule, tableName, column string, it rule.Range) (rule.Da
 	}
 
 	if len(values) < 1 {
-		return emptyDatabaseTables, nil
+		return rule.NewShards(), nil
 	}
 
-	visits := make(map[uint64]struct{})
-	ret := make(rule.DatabaseTables)
+	ret := rule.NewShards()
 	for _, value := range values {
 		dbIdx, tbIdx, err := vt.Shard(column, value)
 		if err != nil {
 			return nil, err
 		}
-
-		vk := uint64(dbIdx)<<32 | (uint64(tbIdx) & (1<<32 - 1))
-		if _, ok = visits[vk]; ok {
-			continue
-		}
-
-		visits[vk] = struct{}{}
-
-		var db, tb string
-		if db, tb, ok = vt.Topology().Render(dbIdx, tbIdx); !ok {
-			continue
-		}
-		ret[db] = append(ret[db], tb)
+		ret.Add(dbIdx, tbIdx)
 	}
 
 	return ret, nil
