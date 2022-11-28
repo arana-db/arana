@@ -20,7 +20,6 @@ package function
 import (
 	"context"
 	"fmt"
-	"github.com/arana-db/arana/pkg/runtime/ast"
 	"testing"
 )
 
@@ -30,6 +29,7 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
 func TestReplace(t *testing.T) {
