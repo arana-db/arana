@@ -19,7 +19,6 @@ package function
 
 import (
 	"context"
-	"github.com/arana-db/arana/pkg/runtime/ast"
 	"strconv"
 	"strings"
 )
@@ -30,9 +29,10 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
-// FuncLower is https://dev.mysql.com/doc/refman/5.6/en/string-functions.html#function_replace
+// FuncReplace is https://dev.mysql.com/doc/refman/5.6/en/string-functions.html#function_replace
 const FuncReplace = "REPLACE"
 
 var _ proto.Func = (*replaceFunc)(nil)
@@ -94,5 +94,5 @@ func (c replaceFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.V
 }
 
 func (c replaceFunc) NumInput() int {
-	return 1
+	return 3
 }
