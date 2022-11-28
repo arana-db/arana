@@ -41,10 +41,11 @@ func TestFuncCastChar(t *testing.T) {
 		want     string
 	}
 	for _, v := range []tt{
-		{"Hello", -1, "ASCII", "Hello"},
-		{"Hello", -1, "UNICODE", "\x00H\x00e\x00l\x00l\x00o"},
-		{"Hello世界", -1, "CHARACTER SET gbk", "Hello\xca\xc0\xbd\xe7"},
-		{"Hello世界", -1, "CHARACTER SET gb18030", "Hello\xca\xc0\xbd\xe7"},
+		{"Hello", len("Hello"), "ASCII", "Hello"},
+		{"Hello", len("Hello"), "unicode", "\x00H\x00e\x00l\x00l\x00o"},
+		{"Hello世界", len("Hello世界"), "CHARACTER SET GBK", "Hello\xca\xc0\xbd\xe7"},
+		{"Hello世界", len("Hello世界"), "CHARACTER SET gb18030", "Hello\xca\xc0\xbd\xe7"},
+		{"Hello世界", len("Hello世界"), "", "Hello世界"},
 		{"Hello世界", 5, "CHARACTER SET latin2", "Hello"},
 	} {
 		t.Run(v.want, func(t *testing.T) {

@@ -27,17 +27,19 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/util/runes"
-)
-
-import (
 	gxbig "github.com/dubbogo/gost/math/big"
+
 	"github.com/pkg/errors"
+
 	"golang.org/x/text/encoding/charmap"
 	"golang.org/x/text/encoding/simplifiedchinese"
 	"golang.org/x/text/encoding/unicode"
 	"golang.org/x/text/transform"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/util/runes"
 )
 
 // FuncCastChar is  https://dev.mysql.com/doc/refman/5.6/en/cast-functions.html#function_cast
@@ -70,12 +72,9 @@ func (a castcharFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.
 	}
 	d2, _ := gxbig.NewDecFromString(fmt.Sprint(val2))
 	if d2.IsNegative() {
-		ret, err := d2.ToInt()
-		if err != nil {
-			return "", err
-		}
-		num = ret
-	} else if !strings.Contains(fmt.Sprint(val2), ".") {
+		return "", errors.New("CHAR[(N) Variable N is not allowed to be negative")
+	}
+	if !strings.Contains(fmt.Sprint(val2), ".") {
 		ret, err := d2.ToInt()
 		if err != nil {
 			return "", err
@@ -115,13 +114,13 @@ func (a castcharFunc) getResult(runes []rune, num int64, charEncode string) (str
 	}
 
 	// charset_info
-	if !utf8.ValidString(srcString) {
+	if !utf8.ValidString(srcString) || strings.EqualFold(charEncode, "") {
 		// source string only support utf8
 		return srcString, nil
 	}
 	charInfo := strings.Split(charEncode, " ")
-	if len(charInfo) >= 3 && charInfo[0] == "CHARACTER" && charInfo[1] == "SET" {
-		if strings.ToLower(charInfo[2]) == "gbk" {
+	if len(charInfo) >= 3 && strings.EqualFold(charInfo[0], "CHARACTER") && strings.EqualFold(charInfo[1], "SET") {
+		if strings.EqualFold(charInfo[2], "gbk") {
 			// CHARACTER SET gbk
 			srcEncode := simplifiedchinese.GBK.NewEncoder()
 			dstString, err := srcEncode.String(srcString)
@@ -130,7 +129,7 @@ func (a castcharFunc) getResult(runes []rune, num int64, charEncode string) (str
 			} else {
 				return "", errors.New("CHAR[(N)][charset_info] gbk encode error")
 			}
-		} else if strings.ToLower(charInfo[2]) == "gb18030" {
+		} else if strings.EqualFold(charInfo[2], "gb18030") {
 			// CHARACTER SET gb18030
 			srcEncode := simplifiedchinese.GB18030.NewEncoder()
 			dstString, err := srcEncode.String(srcString)
@@ -139,7 +138,7 @@ func (a castcharFunc) getResult(runes []rune, num int64, charEncode string) (str
 			} else {
 				return "", errors.New("CHAR[(N)][charset_info] gb18030 encode error")
 			}
-		} else if strings.ToLower(charInfo[2]) == "latin2" {
+		} else if strings.EqualFold(charInfo[2], "latin2") {
 			// CHARACTER SET latin2
 			srcEncode := charmap.ISO8859_2.NewEncoder()
 			dstString, err := srcEncode.String(srcString)
@@ -148,7 +147,7 @@ func (a castcharFunc) getResult(runes []rune, num int64, charEncode string) (str
 			} else {
 				return "", errors.New("CHAR[(N)][charset_info] latin2 encode error")
 			}
-		} else if strings.ToLower(charInfo[2]) == "latin5" {
+		} else if strings.EqualFold(charInfo[2], "latin5") {
 			// CHARACTER SET latin5
 			srcEncode := charmap.ISO8859_9.NewEncoder()
 			dstString, err := srcEncode.String(srcString)
@@ -157,7 +156,7 @@ func (a castcharFunc) getResult(runes []rune, num int64, charEncode string) (str
 			} else {
 				return "", errors.New("CHAR[(N)][charset_info] latin5 encode error")
 			}
-		} else if strings.ToLower(charInfo[2]) == "greek" {
+		} else if strings.EqualFold(charInfo[2], "greek") {
 			// CHARACTER SET greek
 			srcEncode := charmap.ISO8859_7.NewEncoder()
 			dstString, err := srcEncode.String(srcString)
@@ -166,7 +165,7 @@ func (a castcharFunc) getResult(runes []rune, num int64, charEncode string) (str
 			} else {
 				return "", errors.New("CHAR[(N)][charset_info] greek encode error")
 			}
-		} else if strings.ToLower(charInfo[2]) == "hebrew" {
+		} else if strings.EqualFold(charInfo[2], "hebrew") {
 			// CHARACTER SET hebrew
 			srcEncode := charmap.ISO8859_8.NewEncoder()
 			dstString, err := srcEncode.String(srcString)
@@ -175,7 +174,7 @@ func (a castcharFunc) getResult(runes []rune, num int64, charEncode string) (str
 			} else {
 				return "", errors.New("CHAR[(N)][charset_info] hebrew encode error")
 			}
-		} else if strings.ToLower(charInfo[2]) == "latin7" {
+		} else if strings.EqualFold(charInfo[2], "latin7") {
 			// CHARACTER SET latin7
 			srcEncode := charmap.ISO8859_13.NewEncoder()
 			dstString, err := srcEncode.String(srcString)
@@ -187,7 +186,7 @@ func (a castcharFunc) getResult(runes []rune, num int64, charEncode string) (str
 		} else {
 			return "", errors.New("CHAR[(N)][charset_info] Variable charset_info is not supported")
 		}
-	} else if len(charInfo) >= 1 && charInfo[0] == "ASCII" {
+	} else if len(charInfo) >= 1 && strings.EqualFold(charInfo[0], "ASCII") {
 		// ASCII: CHARACTER SET latin1
 		srcEncode := charmap.ISO8859_1.NewEncoder()
 		dstString, err := srcEncode.String(srcString)
@@ -196,7 +195,7 @@ func (a castcharFunc) getResult(runes []rune, num int64, charEncode string) (str
 		} else {
 			return "", errors.New("CHAR[(N)][charset_info] latin1 encode error")
 		}
-	} else if len(charInfo) >= 1 && charInfo[0] == "UNICODE" {
+	} else if len(charInfo) >= 1 && strings.EqualFold(charInfo[0], "UNICODE") {
 		// UNICODE: CHARACTER SET ucs2
 		srcReader := bytes.NewReader([]byte(srcString))
 		//UTF-16 bigendian, no-bom
