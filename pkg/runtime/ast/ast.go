@@ -1100,25 +1100,25 @@ func (cc *convCtx) convCastExpr(node *ast.FuncCastExpr) PredicateNode {
 func (cc *convCtx) convCaseExpr(node *ast.CaseExpr) PredicateNode {
 	caseBlock := cc.convExpr(node.Value)
 
-	branches := make([][2]*FunctionArg, 0, len(node.WhenClauses))
+	branches := make([]*CaseWhenBranch, 0, len(node.WhenClauses))
 	for _, it := range node.WhenClauses {
-		var branch [2]*FunctionArg
-		branch[0] = cc.toArg(it.Expr)
-		branch[1] = cc.toArg(it.Result)
-		branches = append(branches, branch)
+		branches = append(branches, &CaseWhenBranch{
+			cc.toArg(it.Expr),
+			cc.toArg(it.Result),
+		})
 	}
 
 	elseBlock := cc.toArg(node.ElseClause)
 
 	f := &CaseWhenElseFunction{
-		branches:  branches,
-		elseBlock: elseBlock,
+		BranchBlocks: branches,
+		ElseBlock:    elseBlock,
 	}
 
 	if caseBlock != nil {
 		switch it := caseBlock.(type) {
 		case PredicateNode:
-			f.caseBlock = &PredicateExpressionNode{P: it}
+			f.CaseBlock = &PredicateExpressionNode{P: it}
 		default:
 			panic(fmt.Sprintf("unimplement: case when block type %T!", it))
 		}

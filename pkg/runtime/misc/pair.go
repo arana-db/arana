@@ -15,35 +15,9 @@
  * limitations under the License.
  */
 
-/**
- * bind mysql function MD5.
- * see https://dev.mysql.com/doc/refman/5.6/en/encryption-functions.html#function_md5
- *
- * @param s
- * @returns {*}
- */
-function $MD5(s) {
-    return __md5(s);
-}
+package misc
 
-/**
- * bind mysql function SHA.
- * see https://dev.mysql.com/doc/refman/5.6/en/encryption-functions.html#function_sha1
- *
- * @param s
- * @returns {*}
- */
-function $SHA(s) {
-    return __sha(s);
-}
-
-/**
- * bind mysql function SHA1.
- * see https://dev.mysql.com/doc/refman/5.6/en/encryption-functions.html#function_sha1
- *
- * @param s
- * @returns {*}
- */
-function $SHA1(s) {
-    return __sha1(s);
+type Pair[L any, R any] struct {
+	L L
+	R R
 }

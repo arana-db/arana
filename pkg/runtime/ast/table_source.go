@@ -25,13 +25,20 @@ import (
 	"github.com/pkg/errors"
 )
 
-var _ Restorer = (*TableSourceNode)(nil)
+var (
+	_ Restorer = (*TableSourceNode)(nil)
+	_ Node     = (*TableSourceNode)(nil)
+)
 
 type TableSourceNode struct {
 	source     interface{} // TableName or Statement or *JoinNode
 	Alias      string
 	Partitions []string
 	IndexHints []*IndexHint
+}
+
+func (t *TableSourceNode) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitTableSource(t)
 }
 
 func (t *TableSourceNode) ResetTableName(newTableName string) bool {

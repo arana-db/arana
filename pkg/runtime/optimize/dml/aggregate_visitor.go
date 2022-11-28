@@ -156,6 +156,14 @@ func (av *aggregateVisitor) VisitSelectElementFunction(node *ast.SelectElementFu
 				av.hasMapping = true
 				return &vs, nil
 			}
+		case *ast.CaseWhenElseFunction:
+			if after := len(av.aggregations); after > before {
+				var vs ext.MappingSelectElement
+				vs.SelectElement = node
+				vs.Mapping = ast.NewSelectElementCaseWhenFunction(f, "")
+				av.hasMapping = true
+				return &vs, nil
+			}
 		}
 		return node, nil
 	}
@@ -301,27 +309,74 @@ func (av *aggregateVisitor) VisitAtomFunction(node *ast.FunctionCallExpressionAt
 }
 
 func (av *aggregateVisitor) VisitFunction(node *ast.Function) (interface{}, error) {
-	for _, arg := range node.Args() {
-		var (
-			next = arg.Value
-			err  error
-		)
-		switch arg.Type {
-		case ast.FunctionArgExpression:
-			next, err = arg.Value.(ast.ExpressionNode).Accept(av)
-		case ast.FunctionArgFunction:
-			next, err = arg.Value.(*ast.Function).Accept(av)
-		case ast.FunctionArgAggrFunction:
-			next, err = arg.Value.(*ast.AggrFunction).Accept(av)
-		case ast.FunctionArgCaseWhenElseFunction:
-			next, err = arg.Value.(*ast.CaseWhenElseFunction).Accept(av)
-		case ast.FunctionArgCastFunction:
-			next, err = arg.Value.(*ast.CastFunction).Accept(av)
-		}
+	args := node.Args()
+	for i := range args {
+		next, err := args[i].Accept(av)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
-		arg.Value = next
+		if arg2 := next.(*ast.FunctionArg); arg2 != args[i] {
+			args[i] = arg2
+		}
 	}
+	return node, nil
+}
+
+func (av *aggregateVisitor) VisitFunctionArg(node *ast.FunctionArg) (interface{}, error) {
+	var (
+		next = node.Value
+		err  error
+	)
+	switch node.Type {
+	case ast.FunctionArgExpression:
+		next, err = node.Value.(ast.ExpressionNode).Accept(av)
+	case ast.FunctionArgFunction:
+		next, err = node.Value.(*ast.Function).Accept(av)
+	case ast.FunctionArgAggrFunction:
+		next, err = node.Value.(*ast.AggrFunction).Accept(av)
+	case ast.FunctionArgCaseWhenElseFunction:
+		next, err = node.Value.(*ast.CaseWhenElseFunction).Accept(av)
+	case ast.FunctionArgCastFunction:
+		next, err = node.Value.(*ast.CastFunction).Accept(av)
+	}
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	node.Value = next
+
+	return node, nil
+}
+
+func (av *aggregateVisitor) VisitFunctionCaseWhenElse(node *ast.CaseWhenElseFunction) (interface{}, error) {
+	var (
+		next interface{}
+		err  error
+	)
+	if c := node.CaseBlock; c != nil {
+		if next, err = c.Accept(av); err != nil {
+			return nil, errors.WithStack(err)
+		}
+		node.CaseBlock = next.(ast.ExpressionNode)
+	}
+
+	for _, b := range node.BranchBlocks {
+		if next, err = b.When.Accept(av); err != nil {
+			return nil, errors.WithStack(err)
+		}
+		b.When = next.(*ast.FunctionArg)
+
+		if next, err = b.Then.Accept(av); err != nil {
+			return nil, errors.WithStack(err)
+		}
+		b.Then = next.(*ast.FunctionArg)
+	}
+
+	if node.ElseBlock != nil {
+		if next, err = node.ElseBlock.Accept(av); err != nil {
+			return nil, errors.WithStack(err)
+		}
+		node.ElseBlock = next.(*ast.FunctionArg)
+	}
+
 	return node, nil
 }
