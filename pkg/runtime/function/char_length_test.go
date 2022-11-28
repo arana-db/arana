@@ -15,31 +15,40 @@
  * limitations under the License.
  */
 
-package extvalue
+package function
 
 import (
-	"github.com/shopspring/decimal"
+	"context"
+	"fmt"
+	"testing"
 )
 
 import (
-	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/stretchr/testify/assert"
 )
 
-func Compute(node ast.Node, args []interface{}) (interface{}, error) {
-	var vv valueVisitor
-	vv.args = args
-	ret, err := node.Accept(&vv)
-	if err != nil {
-		return nil, err
+import (
+	"github.com/arana-db/arana/pkg/proto"
+)
+
+func TestCharLength(t *testing.T) {
+	fn := proto.MustGetFunc(FuncCharLength)
+	assert.Equal(t, 1, fn.NumInput())
+	type tt struct {
+		inFirst proto.Value
+		want    int64
+	}
+	for _, v := range []tt{
+		{"Hello世界", 7},
+		{"Hello", 5},
+		{"世界", 2},
+		{"你好世界！", 5},
+	} {
+		t.Run(fmt.Sprint(v.inFirst), func(t *testing.T) {
+			out, err := fn.Apply(context.Background(), proto.ToValuer(v.inFirst))
+			assert.NoError(t, err)
+			assert.Equal(t, v.want, out)
+		})
 	}
 
-	switch val := ret.(type) {
-	case decimal.Decimal:
-		if val.IsInteger() {
-			return val.IntPart(), nil
-		}
-		return val.InexactFloat64(), nil
-	default:
-		return val, nil
-	}
 }

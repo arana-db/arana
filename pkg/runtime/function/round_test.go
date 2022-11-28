@@ -15,31 +15,50 @@
  * limitations under the License.
  */
 
-package extvalue
+package function
 
 import (
-	"github.com/shopspring/decimal"
+	"context"
+	"fmt"
+	"testing"
 )
 
 import (
-	"github.com/arana-db/arana/pkg/runtime/ast"
+	gxbig "github.com/dubbogo/gost/math/big"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func Compute(node ast.Node, args []interface{}) (interface{}, error) {
-	var vv valueVisitor
-	vv.args = args
-	ret, err := node.Accept(&vv)
-	if err != nil {
-		return nil, err
+import (
+	"github.com/arana-db/arana/pkg/proto"
+)
+
+func TestRound(t *testing.T) {
+	fn := proto.MustGetFunc(FuncRound)
+	assert.Equal(t, 2, fn.NumInput())
+
+	type tt struct {
+		in  proto.Value
+		in2 proto.Value
+		out string
 	}
 
-	switch val := ret.(type) {
-	case decimal.Decimal:
-		if val.IsInteger() {
-			return val.IntPart(), nil
-		}
-		return val.InexactFloat64(), nil
-	default:
-		return val, nil
+	mustDecimal := func(s string) *gxbig.Decimal {
+		d, _ := gxbig.NewDecFromString(s)
+		return d
+	}
+
+	for _, it := range []tt{
+		{int8(12), 0, "12"},
+		{12.34, 1, "12.3"},
+		{float64(-1.999), 2, "-2.00"},
+		{mustDecimal("-5.1256"), 2, "-5.13"},
+		{"foobar", -1, "NaN"},
+	} {
+		t.Run(it.out, func(t *testing.T) {
+			out, err := fn.Apply(context.Background(), proto.ToValuer(it.in), proto.ToValuer(it.in2))
+			assert.NoError(t, err)
+			assert.Equal(t, it.out, fmt.Sprint(out))
+		})
 	}
 }

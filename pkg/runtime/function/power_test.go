@@ -15,56 +15,51 @@
  * limitations under the License.
  */
 
-package rule
+package function
 
 import (
-	"sort"
+	"context"
+	"fmt"
 	"testing"
 )
 
 import (
+	gxbig "github.com/dubbogo/gost/math/big"
+
 	"github.com/stretchr/testify/assert"
 )
 
 import (
-	"github.com/arana-db/arana/pkg/runtime/cmp"
+	"github.com/arana-db/arana/pkg/proto"
 )
 
-func TestRule_Route(t *testing.T) {
-	ru := makeTestRule(4)
+func TestPower(t *testing.T) {
+	fn := proto.MustGetFunc(FuncPower)
+	assert.Equal(t, 2, fn.NumInput())
 
-	const key = "uid"
-
-	vtab, _ := ru.VTable(fakeTable)
-
-	tb := []struct {
-		C *cmp.Comparative
-		E []int
-	}{
-		// simple
-		{cmp.NewInt64(key, cmp.Ceq, 1), []int{1}},
-		{cmp.NewInt64(key, cmp.Cgt, 1), nil},
-		{cmp.NewInt64(key, cmp.Cgte, 1), nil},
-		{cmp.NewInt64(key, cmp.Clt, 3), nil},
-		{cmp.NewInt64(key, cmp.Clte, 3), nil},
+	type tt struct {
+		in  proto.Value
+		in2 proto.Value
+		out string
 	}
-	for _, it := range tb {
-		mat, err := Route(vtab, it.C)
-		assert.NoError(t, err)
-		ret, err := mat.Eval()
-		assert.NoError(t, err, "eval failed")
-		t.Logf("+++++++++ %s ++++++++\n", it.C)
 
-		actual := make([]int, 0)
-		for ret.HasNext() {
-			actual = append(actual, int(ret.Next().(int64)))
-		}
+	mustDecimal := func(s string) *gxbig.Decimal {
+		d, _ := gxbig.NewDecFromString(s)
+		return d
+	}
 
-		t.Log("route result:", actual)
-		if it.E != nil {
-			sort.Ints(actual)
-			sort.Ints(it.E)
-			assert.EqualValues(t, it.E, actual)
-		}
+	for _, it := range []tt{
+		{int8(12), 0, "1"},
+		{12.34, 2, "152.2756"},
+		{float64(-1.999), 2, "3.9960010000000006"},
+		{mustDecimal("-5"), -2, "0.04"},
+		{"foobar", -1, "NaN"},
+		{"1", "foobar", "NaN"},
+	} {
+		t.Run(it.out, func(t *testing.T) {
+			out, err := fn.Apply(context.Background(), proto.ToValuer(it.in), proto.ToValuer(it.in2))
+			assert.NoError(t, err)
+			assert.Equal(t, it.out, fmt.Sprint(out))
+		})
 	}
 }

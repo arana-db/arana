@@ -15,33 +15,43 @@
  * limitations under the License.
  */
 
-/**
- * bind mysql function IF.
- * see https://dev.mysql.com/doc/refman/5.6/en/flow-control-functions.html#function_if
- *
- * @param a
- * @param b
- * @param c
- * @returns {*}
- */
-function $IF(a, b, c) {
-    if (typeof a === "string") {
-        return a === "0" ? c : b;
-    }
-    return a ? b : c;
+package function
+
+import (
+	"context"
+	"fmt"
+	"unicode/utf8"
+)
+
+import (
+	"github.com/pkg/errors"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/proto"
+)
+
+// FuncCharLength is  https://dev.mysql.com/doc/refman/5.6/en/string-functions.html#function_character-length
+const FuncCharLength = "CHAR_LENGTH"
+
+var _ proto.Func = (*charlengthFunc)(nil)
+
+func init() {
+	proto.RegisterFunc(FuncCharLength, charlengthFunc{})
 }
 
-/**
- * bind mysql function IFNULL
- * see https://dev.mysql.com/doc/refman/5.6/en/flow-control-functions.html#function_ifnull
- *
- * @param a
- * @param b
- * @returns {*}
- */
-function $IFNULL(a, b) {
-    if (a === null || a === undefined) {
-        return b;
-    }
-    return a;
+type charlengthFunc struct{}
+
+func (a charlengthFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
+	val, err := inputs[0].Value(ctx)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	result := utf8.RuneCountInString(fmt.Sprint(val))
+	return int64(result), nil
+}
+
+func (a charlengthFunc) NumInput() int {
+	return 1
 }

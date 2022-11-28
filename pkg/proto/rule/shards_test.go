@@ -15,35 +15,42 @@
  * limitations under the License.
  */
 
-/**
- * bind mysql function MD5.
- * see https://dev.mysql.com/doc/refman/5.6/en/encryption-functions.html#function_md5
- *
- * @param s
- * @returns {*}
- */
-function $MD5(s) {
-    return __md5(s);
-}
+package rule
 
-/**
- * bind mysql function SHA.
- * see https://dev.mysql.com/doc/refman/5.6/en/encryption-functions.html#function_sha1
- *
- * @param s
- * @returns {*}
- */
-function $SHA(s) {
-    return __sha(s);
-}
+import (
+	"fmt"
+	"strings"
+	"testing"
+)
 
-/**
- * bind mysql function SHA1.
- * see https://dev.mysql.com/doc/refman/5.6/en/encryption-functions.html#function_sha1
- *
- * @param s
- * @returns {*}
- */
-function $SHA1(s) {
-    return __sha1(s);
+import (
+	"github.com/stretchr/testify/assert"
+)
+
+func TestShards(t *testing.T) {
+	s := NewShards()
+	s.Add(0, 0, 1, 2, 3)
+	s.Add(1, 4, 5, 6, 7)
+	s.Add(2, 8, 9, 10, 11)
+
+	assert.Equal(t, 12, s.Len())
+	t.Log("shards:", s)
+
+	var sb strings.Builder
+	s.Each(func(db, tb uint32) bool {
+		sb.WriteString(fmt.Sprintf("%d.%d;", db, tb))
+		return true
+	})
+
+	assert.Equal(t, "0.0;0.1;0.2;0.3;1.4;1.5;1.6;1.7;2.8;2.9;2.10;2.11;", sb.String())
+
+	db, tb, ok := s.Min()
+	assert.True(t, ok)
+	assert.Equal(t, uint32(0), db)
+	assert.Equal(t, uint32(0), tb)
+
+	db, tb, ok = s.Max()
+	assert.True(t, ok)
+	assert.Equal(t, uint32(2), db)
+	assert.Equal(t, uint32(11), tb)
 }

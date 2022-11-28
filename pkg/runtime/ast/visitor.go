@@ -206,7 +206,7 @@ func (b BaseVisitor) VisitFunctionCast(node *CastFunction) (interface{}, error) 
 }
 
 func (b BaseVisitor) VisitFunctionCaseWhenElse(node *CaseWhenElseFunction) (interface{}, error) {
-	panic("implement me")
+	panic("implement me: VisitFunctionCaseWhenElse")
 }
 
 func (b BaseVisitor) VisitFunctionArg(node *FunctionArg) (interface{}, error) {

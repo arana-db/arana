@@ -15,5 +15,9 @@
  * limitations under the License.
  */
 
-// Package js represents a computer to eval scripts.
-package js
+package misc
+
+type Pair[L any, R any] struct {
+	L L
+	R R
+}

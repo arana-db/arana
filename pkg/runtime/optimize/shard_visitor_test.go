@@ -19,9 +19,7 @@ package optimize_test
 
 import (
 	"fmt"
-	"sort"
 	"strconv"
-	"strings"
 	"testing"
 )
 
@@ -34,11 +32,12 @@ import (
 import (
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/ast"
+	_ "github.com/arana-db/arana/pkg/runtime/function"
 	. "github.com/arana-db/arana/pkg/runtime/optimize"
 	"github.com/arana-db/arana/testdata"
 )
 
-func TestShard(t *testing.T) {
+func TestShardNG(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -53,30 +52,19 @@ func TestShard(t *testing.T) {
 
 	for _, it := range []tt{
 		{"select * from student where uid = ? or uid = ?", []interface{}{7, 12}, []int{4, 7}},
-		{"select * from student where uid = if(PI()>3, 1, 0)", nil, []int{1}},
-		{"select * from student where uid = if(PI()<3, 1, ?)", []interface{}{0}, []int{0}},
+		{"select * from student where uid = PI() div 3", nil, []int{1}},
+		{"select * from student where uid = PI() div ?", []interface{}{3}, []int{1}},
+		{"select * from student where 1+2", nil, nil},
 	} {
 		t.Run(it.sql, func(t *testing.T) {
 			_, rawStmt := ast.MustParse(it.sql)
 			stmt := rawStmt.(*ast.SelectStatement)
 
-			result, _, err := (*Sharder)(fakeRule).Shard(stmt.From[0].TableName(), stmt.Where, it.args...)
-			assert.NoError(t, err, "shard failed")
+			shd := NewXSharder(fakeRule, it.args)
 
-			var sb strings.Builder
-			sort.Ints(it.expect)
-			sb.WriteByte('[')
-			_, _ = fmt.Fprintf(&sb, `"fake_db.student_%04d"`, it.expect[0])
-			for i := 1; i < len(it.expect); i++ {
-				sb.WriteByte(',')
-				sb.WriteByte(' ')
-				_, _ = fmt.Fprintf(&sb, `"fake_db.student_%04d"`, it.expect[i])
-			}
-			sb.WriteByte(']')
-
-			assert.Equal(t, sb.String(), result.String(), "bad shard result")
-
-			t.Log("shard result:", result)
+			shards, err := stmt.Accept(shd)
+			assert.NoError(t, err)
+			t.Log("shards:", shards)
 		})
 	}
 }
