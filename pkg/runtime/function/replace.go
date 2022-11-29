@@ -56,7 +56,7 @@ func (c replaceFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.V
 	if err != nil {
 		return nil, err
 	}
-	// if a NULL exists, show return NULL
+	// if a NULL exists, should return `NULL`
 	isNull := func(val any) bool {
 		_, ok := val.(ast.Null)
 		return ok
@@ -67,7 +67,7 @@ func (c replaceFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.V
 	// any input should by converted to string in advance
 	strS = fmt.Sprint(str)
 	fromStrS = fmt.Sprint(fromStr)
-	// if type(toStr) is bool, should be converted to `0` or `1` in advance
+	// if type(toStr) is bool, should be converted to `0` or `1`
 	boolVal, isToStrBool := toStr.(bool)
 	if isToStrBool {
 		if boolVal {
