@@ -59,6 +59,9 @@ func TestReplace(t *testing.T) {
 		// has Bool
 		{[]proto.Value{"www.mysql.com", "www", true}, "1.mysql.com"},
 		{[]proto.Value{"www.mysql.com", "mysql", false}, "www.0.com"},
+		{[]proto.Value{true, true, false}, "0"},
+		{[]proto.Value{"1polu", true, false}, "0polu"},
+		{[]proto.Value{"8h09", false, "AAA"}, "8hAAA9"},
 	}
 
 	for _, next := range testGroup {

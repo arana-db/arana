@@ -56,7 +56,7 @@ func (c replaceFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.V
 	if err != nil {
 		return nil, err
 	}
-	// if a NULL exists, should return `NULL`
+	// if a NULL exists, directly return `NULL`
 	isNull := func(val any) bool {
 		_, ok := val.(ast.Null)
 		return ok
@@ -64,20 +64,23 @@ func (c replaceFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.V
 	if isNull(str) || isNull(fromStr) || isNull(toStr) {
 		return ast.Null{}, nil
 	}
-	// any input should by converted to string in advance
-	strS = fmt.Sprint(str)
-	fromStrS = fmt.Sprint(fromStr)
-	// if type(toStr) is bool, should be converted to `0` or `1`
-	boolVal, isToStrBool := toStr.(bool)
-	if isToStrBool {
-		if boolVal {
-			toStrS = "1"
+	// if args' type is bool, should be converted to `0` or `1` in advanced
+	// else, convert to string
+	bool2String := func(arg proto.Value, argS *string) {
+		boolVal, isToStrBool := arg.(bool)
+		if isToStrBool {
+			if boolVal {
+				*argS = "1"
+			} else {
+				*argS = "0"
+			}
 		} else {
-			toStrS = "0"
+			*argS = fmt.Sprint(arg)
 		}
-	} else {
-		toStrS = fmt.Sprint(toStr)
 	}
+	bool2String(str, &strS)
+	bool2String(fromStr, &fromStrS)
+	bool2String(toStr, &toStrS)
 	// do replace
 	ret := strings.ReplaceAll(strS, fromStrS, toStrS)
 	return ret, nil
