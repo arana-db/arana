@@ -44,14 +44,21 @@ func TestReplace(t *testing.T) {
 		// normal
 		{[]proto.Value{"arana", "a", "A"}, "ArAnA"},
 		{[]proto.Value{"www.mysql.com", "w", "Ww"}, "WwWwWw.mysql.com"},
-		// has Number
+		// has Int
 		{[]proto.Value{"123abc", 1, "BB"}, "BB23abc"},
 		{[]proto.Value{"123abc", "a", 232}, "123232bc"},
 		{[]proto.Value{12367, "7", "C"}, "1236C"},
+		// has Float
+		{[]proto.Value{"1.23abc", 1.2, "M"}, "M3abc"},
+		{[]proto.Value{"123abc", "a", 2.2}, "1232.2bc"},
+		{[]proto.Value{123.67, "1", "C"}, "C23.67"},
 		// has NULL
 		{[]proto.Value{"123abc", ast.Null{}, "BB"}, "NULL"},
 		{[]proto.Value{"123abc", "2", ast.Null{}}, "NULL"},
 		{[]proto.Value{ast.Null{}, "2", "A"}, "NULL"},
+		// has Bool
+		{[]proto.Value{"www.mysql.com", "www", true}, "1.mysql.com"},
+		{[]proto.Value{"www.mysql.com", "mysql", false}, "www.0.com"},
 	}
 
 	for _, next := range testGroup {

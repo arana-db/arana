@@ -19,12 +19,8 @@ package function
 
 import (
 	"context"
-	"strconv"
+	"fmt"
 	"strings"
-)
-
-import (
-	"github.com/pkg/errors"
 )
 
 import (
@@ -48,17 +44,17 @@ func (c replaceFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.V
 	// arg0
 	str, err := inputs[0].Value(ctx)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 	// arg1
 	fromStr, err := inputs[1].Value(ctx)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 	// arg2
 	toStr, err := inputs[2].Value(ctx)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 	// if a NULL exists, show return NULL
 	isNull := func(val any) bool {
@@ -68,25 +64,19 @@ func (c replaceFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.V
 	if isNull(str) || isNull(fromStr) || isNull(toStr) {
 		return ast.Null{}, nil
 	}
-	// if a Number type, convert to string firstly
-	isNumber := func(val any) bool {
-		_, ok := val.(int)
-		return ok
-	}
-	if isNumber(str) {
-		strS = strconv.Itoa(str.(int))
+	// any input should by converted to string in advance
+	strS = fmt.Sprint(str)
+	fromStrS = fmt.Sprint(fromStr)
+	// if type(toStr) is bool, should be converted to `0` or `1` in advance
+	boolVal, isToStrBool := toStr.(bool)
+	if isToStrBool {
+		if boolVal {
+			toStrS = "1"
+		} else {
+			toStrS = "0"
+		}
 	} else {
-		strS = str.(string)
-	}
-	if isNumber(fromStr) {
-		fromStrS = strconv.Itoa(fromStr.(int))
-	} else {
-		fromStrS = fromStr.(string)
-	}
-	if isNumber(toStr) {
-		toStrS = strconv.Itoa(toStr.(int))
-	} else {
-		toStrS = toStr.(string)
+		toStrS = fmt.Sprint(toStr)
 	}
 	// do replace
 	ret := strings.ReplaceAll(strS, fromStrS, toStrS)
