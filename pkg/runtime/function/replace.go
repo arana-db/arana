@@ -40,7 +40,6 @@ func init() {
 type replaceFunc struct{}
 
 func (c replaceFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
-	var strS, fromStrS, toStrS string
 	// arg0
 	str, err := inputs[0].Value(ctx)
 	if err != nil {
@@ -66,21 +65,21 @@ func (c replaceFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.V
 	}
 	// if args' type is bool, should be converted to `0` or `1` in advanced
 	// else, convert to string
-	bool2String := func(arg proto.Value, argS *string) {
+	arg2String := func(arg proto.Value) string {
 		boolVal, isToStrBool := arg.(bool)
 		if isToStrBool {
 			if boolVal {
-				*argS = "1"
+				return "1"
 			} else {
-				*argS = "0"
+				return "0"
 			}
 		} else {
-			*argS = fmt.Sprint(arg)
+			return fmt.Sprint(arg)
 		}
 	}
-	bool2String(str, &strS)
-	bool2String(fromStr, &fromStrS)
-	bool2String(toStr, &toStrS)
+	strS := arg2String(str)
+	fromStrS := arg2String(fromStr)
+	toStrS := arg2String(toStr)
 	// do replace
 	ret := strings.ReplaceAll(strS, fromStrS, toStrS)
 	return ret, nil
