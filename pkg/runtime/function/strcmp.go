@@ -43,9 +43,6 @@ func init() {
 type strcmpFunc struct{}
 
 func (a strcmpFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
-	if len(inputs) < 2 {
-		return nil, errors.Errorf("%s", "STRCMP function takes two parameters")
-	}
 	val1, err := inputs[0].Value(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)
