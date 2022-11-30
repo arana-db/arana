@@ -66,20 +66,20 @@ func (a castncharFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto
 		if err != nil {
 			return "", err
 		}
-		return getResult(runes.ConvertToRune(val1), num)
+		return a.getResult(runes.ConvertToRune(val1), num)
 	}
 	num, err := d2.ToFloat64()
 	if err != nil {
 		return "", err
 	}
-	return getResult(runes.ConvertToRune(val1), int64(num))
+	return a.getResult(runes.ConvertToRune(val1), int64(num))
 }
 
 func (a castncharFunc) NumInput() int {
 	return 2
 }
 
-func getResult(runes []rune, num int64) (string, error) {
+func (a castncharFunc) getResult(runes []rune, num int64) (string, error) {
 	if num > int64(len(runes)) {
 		return string(runes), nil
 	} else if num >= 0 {
