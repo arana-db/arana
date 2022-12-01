@@ -58,6 +58,7 @@ func TestLeft(t *testing.T) {
 		{"hello, world", "NULL", "NULL"},
 		{"NULL", 3.1415, "NULL"},
 		{"NULL", "NULL", "NULL"},
+		{"Null", "NULL", "NULL"},
 
 		{int64(144), 3, "144"},
 		{int64(144), 2, "14"},

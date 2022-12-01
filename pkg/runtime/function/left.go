@@ -58,15 +58,17 @@ func (c leftFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Valu
 		return nil, errors.WithStack(err)
 	}
 
+	strStr := fmt.Sprint(strInput)
+	lenStr := fmt.Sprint(lenInput)
+
 	// NULL if any argument is NULL
-	if strings.Compare(strings.ToUpper(fmt.Sprint(strInput)), fmt.Sprint("NULL")) == 0 {
+	if strings.Compare(strings.ToUpper(strStr), "NULL") == 0 {
 		return "NULL", nil
-	} else if strings.Compare(strings.ToUpper(fmt.Sprint(lenInput)), fmt.Sprint("NULL")) == 0 {
+	} else if strings.Compare(strings.ToUpper(lenStr), "NULL") == 0 {
 		return "NULL", nil
 	}
 
-	str := fmt.Sprint(strInput)
-	lenDec, err := gxbig.NewDecFromString(fmt.Sprint(lenInput))
+	lenDec, err := gxbig.NewDecFromString(lenStr)
 	if err != nil {
 		return "", nil
 	}
@@ -74,18 +76,18 @@ func (c leftFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Valu
 		return "", nil
 	}
 
-	if !strings.Contains(fmt.Sprint(lenInput), ".") {
+	if !strings.Contains(lenStr, ".") {
 		num, err := lenDec.ToInt()
 		if err != nil {
 			return "", err
 		}
-		return getLeftChar(runes.ConvertToRune(str), num)
+		return getLeftChar(runes.ConvertToRune(strStr), num)
 	}
 	num, err := lenDec.ToFloat64()
 	if err != nil {
 		return "", err
 	}
-	return getLeftChar(runes.ConvertToRune(str), int64(num))
+	return getLeftChar(runes.ConvertToRune(strStr), int64(num))
 }
 
 func (c leftFunc) NumInput() int {
