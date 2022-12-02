@@ -34,16 +34,16 @@ import (
 // FuncSin https://dev.mysql.com/doc/refman/5.6/en/mathematical-functions.html#function_sign
 const FuncSin = "SIN"
 
-var _ proto.Func = (*sin)(nil)
+var _ proto.Func = (*sinFunc)(nil)
 
 func init() {
-	proto.RegisterFunc(FuncSin, sin{})
+	proto.RegisterFunc(FuncSin, sinFunc{})
 }
 
-type sin struct{}
+type sinFunc struct{}
 
 // Apply call the current function.
-func (s sin) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
+func (s sinFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
 	if len(inputs) > 1 {
 		return nil, errors.New("Incorrect parameter count in the call to native function sin")
 	}
@@ -57,6 +57,6 @@ func (s sin) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, er
 }
 
 // NumInput returns the minimum number of inputs.
-func (s sin) NumInput() int {
+func (s sinFunc) NumInput() int {
 	return 1
 }
