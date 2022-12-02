@@ -49,8 +49,6 @@ func TestLtrim(t *testing.T) {
 			out, err := fn.Apply(context.Background(), proto.ToValuer(v.inFirst))
 			assert.NoError(t, err)
 			assert.Equal(t, v.want, out)
-
 		})
 	}
-
 }
