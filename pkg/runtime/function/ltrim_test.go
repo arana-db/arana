@@ -21,9 +21,14 @@ import (
 	"context"
 	"fmt"
 	"testing"
+)
 
-	"github.com/arana-db/arana/pkg/proto"
+import (
 	"github.com/stretchr/testify/assert"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/proto"
 )
 
 func TestLtrim(t *testing.T) {
@@ -43,7 +48,6 @@ func TestLtrim(t *testing.T) {
 	} {
 		t.Run(fmt.Sprint(v.inFirst), func(t *testing.T) {
 			out, err := fn.Apply(context.Background(), proto.ToValuer(v.inFirst))
-			fmt.Print("|", out, "|")
 			assert.NoError(t, err)
 			assert.Equal(t, v.want, out)
 		})
