@@ -21,14 +21,9 @@ import (
 	"context"
 	"fmt"
 	"testing"
-)
 
-import (
-	"github.com/stretchr/testify/assert"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestLtrim(t *testing.T) {
@@ -39,14 +34,16 @@ func TestLtrim(t *testing.T) {
 		want    string
 	}
 	for _, v := range []tt{
-		{" barbar  ", "barbar"},
-		{"你好  世界!  ", "你好世界!"},
-		{"Hello   World!  ", "HelloWorld!"},
-		{"Hola  Mundo ", "HolaMundo"},
-		{"Hallo Welt ", "HalloWelt"},
+		{" barbar  ", "barbar  "},
+		{" 你好  世界!  ", "你好  世界!  "},
+		{"  你好  世界! ", "你好  世界! "},
+		{"  Hello   World!  ", "Hello   World!  "},
+		{"  Hola  Mundo ", "Hola  Mundo "},
+		{"  Hallo Welt ", "Hallo Welt "},
 	} {
 		t.Run(fmt.Sprint(v.inFirst), func(t *testing.T) {
 			out, err := fn.Apply(context.Background(), proto.ToValuer(v.inFirst))
+			fmt.Print("|", out, "|")
 			assert.NoError(t, err)
 			assert.Equal(t, v.want, out)
 		})
