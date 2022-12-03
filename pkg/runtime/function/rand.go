@@ -19,12 +19,12 @@ package function
 
 import (
 	"context"
-	"github.com/spf13/cast"
 	"math/rand"
 )
 
 import (
 	"github.com/pkg/errors"
+	"github.com/spf13/cast"
 )
 
 import (
