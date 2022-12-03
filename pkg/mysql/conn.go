@@ -44,6 +44,7 @@ import (
 import (
 	"github.com/arana-db/arana/pkg/constants/mysql"
 	err2 "github.com/arana-db/arana/pkg/mysql/errors"
+	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/third_party/bucketpool"
 )
 
@@ -104,7 +105,7 @@ type Conn struct {
 
 	// TransientVariables represents local transient variables.
 	// These variables will always keep sync with backend mysql conns.
-	TransientVariables map[string]interface{}
+	TransientVariables map[string]proto.Value
 
 	// closed is set to true when Close() is called on the connection.
 	closed *atomic.Bool
@@ -158,7 +159,7 @@ func newConn(conn net.Conn) *Conn {
 		conn:               conn,
 		closed:             atomic.NewBool(false),
 		bufferedReader:     bufio.NewReaderSize(conn, connBufferSize),
-		TransientVariables: make(map[string]interface{}),
+		TransientVariables: make(map[string]proto.Value),
 	}
 }
 

@@ -47,8 +47,8 @@ func TestFuse(t *testing.T) {
 
 		for i := offset; i < offset+length; i++ {
 			d.Rows = append(d.Rows, rows.NewTextVirtualRow(fields, []proto.Value{
-				int64(i),
-				fmt.Sprintf("fake-name-%d", i),
+				proto.NewValueInt64(int64(i)),
+				proto.NewValueString(fmt.Sprintf("fake-name-%d", i)),
 			}))
 		}
 

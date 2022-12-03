@@ -19,7 +19,6 @@ package function
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"testing"
 )
@@ -37,7 +36,7 @@ func TestSin(t *testing.T) {
 	assert.Equal(t, 1, fn.NumInput())
 
 	type tt struct {
-		in  proto.Value
+		in  interface{}
 		out string
 	}
 
@@ -49,9 +48,16 @@ func TestSin(t *testing.T) {
 		{100, "-0.5063656411097588"},
 	} {
 		t.Run(it.out, func(t *testing.T) {
-			out, err := fn.Apply(context.Background(), proto.ToValuer(it.in))
+			first, _ := proto.NewValue(it.in)
+			out, err := fn.Apply(context.Background(), proto.ToValuer(first))
 			assert.NoError(t, err)
-			assert.Equal(t, it.out, fmt.Sprint(out))
+			var actual string
+			if out == nil {
+				actual = "NULL"
+			} else {
+				actual = out.String()
+			}
+			assert.Equal(t, it.out, actual)
 		})
 	}
 }

@@ -722,7 +722,7 @@ func (c *Conn) parseComStmtExecute(stmts *sync.Map, data []byte) (uint32, byte, 
 	}
 
 	for i := 0; i < len(prepareStmt.ParamsType); i++ {
-		var val interface{}
+		var val proto.Value
 		parameterID := fmt.Sprintf("v%d", i+1)
 		if v, ok := prepareStmt.BindVars[parameterID]; ok {
 			if v != nil {
@@ -745,28 +745,28 @@ func (c *Conn) parseComStmtExecute(stmts *sync.Map, data []byte) (uint32, byte, 
 	return stmtID, cursorType, nil
 }
 
-func (c *Conn) parseStmtArgs(data []byte, typ mysql.FieldType, pos int) (interface{}, int, bool) {
+func (c *Conn) parseStmtArgs(data []byte, typ mysql.FieldType, pos int) (proto.Value, int, bool) {
 	switch typ {
 	case mysql.FieldTypeNULL:
 		return nil, pos, true
 	case mysql.FieldTypeTiny:
 		val, pos, ok := readByte(data, pos)
-		return int64(int8(val)), pos, ok
+		return proto.NewValueInt64(int64(int8(val))), pos, ok
 	case mysql.FieldTypeShort, mysql.FieldTypeYear:
 		val, pos, ok := readUint16(data, pos)
-		return int64(int16(val)), pos, ok
+		return proto.NewValueInt64(int64(int16(val))), pos, ok
 	case mysql.FieldTypeInt24, mysql.FieldTypeLong:
 		val, pos, ok := readUint32(data, pos)
-		return int64(int32(val)), pos, ok
+		return proto.NewValueInt64(int64(int32(val))), pos, ok
 	case mysql.FieldTypeFloat:
 		val, pos, ok := readUint32(data, pos)
-		return math.Float32frombits(val), pos, ok
+		return proto.NewValueFloat64(float64(math.Float32frombits(val))), pos, ok
 	case mysql.FieldTypeLongLong:
 		val, pos, ok := readUint64(data, pos)
-		return int64(val), pos, ok
+		return proto.NewValueInt64(int64(val)), pos, ok
 	case mysql.FieldTypeDouble:
 		val, pos, ok := readUint64(data, pos)
-		return math.Float64frombits(val), pos, ok
+		return proto.NewValueFloat64(math.Float64frombits(val)), pos, ok
 	case mysql.FieldTypeTimestamp, mysql.FieldTypeDate, mysql.FieldTypeDateTime:
 		size, pos, ok := readByte(data, pos)
 		if !ok {
@@ -774,7 +774,7 @@ func (c *Conn) parseStmtArgs(data []byte, typ mysql.FieldType, pos int) (interfa
 		}
 		switch size {
 		case 0x00:
-			return []byte{' '}, pos, ok
+			return proto.NewValueTyped(proto.NewValueString(""), proto.ValueFamilyTime), pos, ok
 		case 0x0b:
 			year, pos, ok := readUint16(data, pos)
 			if !ok {
@@ -804,6 +804,7 @@ func (c *Conn) parseStmtArgs(data []byte, typ mysql.FieldType, pos int) (interfa
 			if !ok {
 				return nil, 0, false
 			}
+
 			val := strconv.Itoa(int(year)) + "-" +
 				strconv.Itoa(int(month)) + "-" +
 				strconv.Itoa(int(day)) + " " +
@@ -811,8 +812,8 @@ func (c *Conn) parseStmtArgs(data []byte, typ mysql.FieldType, pos int) (interfa
 				strconv.Itoa(int(minute)) + ":" +
 				strconv.Itoa(int(second)) + "." +
 				fmt.Sprintf("%06d", microSecond)
+			return proto.NewValueTyped(proto.NewValueString(val), proto.ValueFamilyTime), pos, ok
 
-			return []byte(val), pos, ok
 		case 0x07:
 			year, pos, ok := readUint16(data, pos)
 			if !ok {
@@ -845,7 +846,7 @@ func (c *Conn) parseStmtArgs(data []byte, typ mysql.FieldType, pos int) (interfa
 				strconv.Itoa(int(minute)) + ":" +
 				strconv.Itoa(int(second))
 
-			return []byte(val), pos, ok
+			return proto.NewValueTyped(proto.NewValueString(val), proto.ValueFamilyTime), pos, ok
 		case 0x04:
 			year, pos, ok := readUint16(data, pos)
 			if !ok {
@@ -863,7 +864,7 @@ func (c *Conn) parseStmtArgs(data []byte, typ mysql.FieldType, pos int) (interfa
 				strconv.Itoa(int(month)) + "-" +
 				strconv.Itoa(int(day))
 
-			return []byte(val), pos, ok
+			return proto.NewValueTyped(proto.NewValueString(val), proto.ValueFamilyTime), pos, ok
 		default:
 			return nil, 0, false
 		}
@@ -872,9 +873,10 @@ func (c *Conn) parseStmtArgs(data []byte, typ mysql.FieldType, pos int) (interfa
 		if !ok {
 			return nil, 0, false
 		}
+		// TODO: should to duration value type
 		switch size {
 		case 0x00:
-			return []byte("00:00:00"), pos, ok
+			return proto.NewValueString("00:00:00"), pos, ok
 		case 0x0c:
 			isNegative, pos, ok := readByte(data, pos)
 			if !ok {
@@ -913,7 +915,7 @@ func (c *Conn) parseStmtArgs(data []byte, typ mysql.FieldType, pos int) (interfa
 				strconv.Itoa(int(second)) + "." +
 				fmt.Sprintf("%06d", microSecond)
 
-			return []byte(val), pos, ok
+			return proto.NewValueString(val), pos, ok
 		case 0x08:
 			isNegative, pos, ok := readByte(data, pos)
 			if !ok {
@@ -947,16 +949,19 @@ func (c *Conn) parseStmtArgs(data []byte, typ mysql.FieldType, pos int) (interfa
 				strconv.Itoa(int(minute)) + ":" +
 				strconv.Itoa(int(second))
 
-			return []byte(val), pos, ok
+			return proto.NewValueString(val), pos, ok
 		default:
 			return nil, 0, false
 		}
-	case mysql.FieldTypeDecimal, mysql.FieldTypeNewDecimal, mysql.FieldTypeVarChar, mysql.FieldTypeTinyBLOB,
+	case mysql.FieldTypeDecimal, mysql.FieldTypeNewDecimal:
+		val, pos, ok := readLenEncStringAsBytesCopy(data, pos)
+		return proto.MustNewValueDecimalString(string(val)), pos, ok
+	case mysql.FieldTypeVarChar, mysql.FieldTypeTinyBLOB,
 		mysql.FieldTypeMediumBLOB, mysql.FieldTypeLongBLOB, mysql.FieldTypeBLOB, mysql.FieldTypeVarString,
 		mysql.FieldTypeString, mysql.FieldTypeGeometry, mysql.FieldTypeJSON, mysql.FieldTypeBit,
 		mysql.FieldTypeEnum, mysql.FieldTypeSet:
 		val, pos, ok := readLenEncStringAsBytesCopy(data, pos)
-		return val, pos, ok
+		return proto.NewValueString(string(val)), pos, ok
 	default:
 		return nil, pos, false
 	}

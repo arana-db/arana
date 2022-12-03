@@ -19,7 +19,6 @@ package function
 
 import (
 	"context"
-	"fmt"
 	"strings"
 )
 
@@ -44,10 +43,6 @@ func init() {
 type castcharsetFunc struct{}
 
 func (a castcharsetFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
-	if len(inputs) != 2 {
-		return "", errors.New("The Charset function must accept two parameters\n")
-	}
-
 	charset, err := inputs[0].Value(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -56,30 +51,28 @@ func (a castcharsetFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (pro
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	inCharset := fmt.Sprint(charset)
-	inCharset = strings.TrimSpace(inCharset)
-	inSrc := fmt.Sprint(content)
-	inSrc = strings.TrimSpace(inSrc)
+	inCharset := strings.TrimSpace(charset.String())
+	inSrc := strings.TrimSpace(content.String())
 
 	// decode: inSrc to utf8 encode-type utf8Src
-	utf8_charset, err := charsetconv.GetCharset("utf8")
+	utf8c, err := charsetconv.GetCharset("utf8")
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	utf8Src, err := charsetconv.Decode(inSrc, utf8_charset)
+	utf8Src, err := charsetconv.Decode(inSrc, utf8c)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	// encode: utf8Src to special encode-type res
-	in_charset, err := charsetconv.GetCharset(inCharset)
+	c, err := charsetconv.GetCharset(inCharset)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	res, err := charsetconv.Encode(utf8Src, in_charset)
+	res, err := charsetconv.Encode(utf8Src, c)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return res, nil
+	return proto.NewValueString(res), nil
 }
 
 func (a castcharsetFunc) NumInput() int {

@@ -19,13 +19,9 @@ package function
 
 import (
 	"context"
-	"fmt"
-	"math"
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
-
 	"github.com/pkg/errors"
 )
 
@@ -47,34 +43,24 @@ type floorFunc struct{}
 func (f floorFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
 	val, err := inputs[0].Value(ctx)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, errors.Wrapf(err, "cannot eval %s", FuncFloor)
 	}
 
-	decFloor := func(d *gxbig.Decimal) *gxbig.Decimal {
-		f, err := d.ToFloat64()
-		if err != nil {
-			return _zeroDecimal
-		}
-		ret, _ := gxbig.NewDecFromFloat(math.Floor(f))
-		return ret
+	if val == nil {
+		return nil, nil
 	}
 
-	switch v := val.(type) {
-	case *gxbig.Decimal:
-		return decFloor(v), nil
-	case uint8, uint16, uint32, uint64, uint, int64, int32, int16, int8, int:
-		return v, nil
-	case float64:
-		return math.Floor(v), nil
-	case float32:
-		return math.Floor(float64(v)), nil
+	d, err := val.Decimal()
+	if err != nil {
+		return proto.NewValueFloat64(0), nil
+	}
+
+	d = d.Floor()
+	switch val.Family() {
+	case proto.ValueFamilyString:
+		return proto.NewValueFloat64(d.InexactFloat64()), nil
 	default:
-		var d *gxbig.Decimal
-		if d, err = gxbig.NewDecFromString(fmt.Sprint(v)); err != nil {
-			return 0, nil
-		}
-
-		return decFloor(d), nil
+		return proto.NewValueInt64(d.IntPart()), nil
 	}
 }
 

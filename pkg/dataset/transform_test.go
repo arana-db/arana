@@ -46,11 +46,11 @@ func TestTransform(t *testing.T) {
 		Columns: fields,
 	}
 
-	for i := 0; i < 10; i++ {
+	for i := int64(0); i < 10; i++ {
 		root.Rows = append(root.Rows, rows.NewTextVirtualRow(fields, []proto.Value{
-			int64(i),
-			fmt.Sprintf("fake-name-%d", i),
-			rand2.Int63n(10),
+			proto.NewValueInt64(i),
+			proto.NewValueString(fmt.Sprintf("fake-name-%d", i)),
+			proto.NewValueInt64(rand2.Int63n(10)),
 		}))
 	}
 
@@ -59,7 +59,7 @@ func TestTransform(t *testing.T) {
 	}, func(row proto.Row) (proto.Row, error) {
 		dest := make([]proto.Value, len(fields))
 		_ = row.Scan(dest)
-		dest[2] = int64(100)
+		dest[2] = proto.NewValueInt64(100)
 		return rows.NewBinaryVirtualRow(fields, dest), nil
 	}))
 

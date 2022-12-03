@@ -19,7 +19,6 @@ package function
 
 import (
 	"context"
-	"fmt"
 	"math"
 )
 
@@ -27,6 +26,8 @@ import (
 	gxbig "github.com/dubbogo/gost/math/big"
 
 	"github.com/pkg/errors"
+
+	"github.com/shopspring/decimal"
 )
 
 import (
@@ -51,7 +52,11 @@ func (a sqrtFunc) NumInput() int {
 func (a sqrtFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
 	val, err := inputs[0].Value(ctx)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, errors.Wrapf(err, "cannot eval %s", FuncSqrt)
+	}
+
+	if val == nil {
+		return nil, nil
 	}
 
 	decSqrt := func(d *gxbig.Decimal) *gxbig.Decimal {
@@ -77,37 +82,17 @@ func (a sqrtFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Valu
 		return &ret
 	}
 
-	switch v := val.(type) {
-	case *gxbig.Decimal:
-		return decSqrt(v), nil
-	case uint8:
-		return math.Sqrt(float64(v)), nil
-	case uint16:
-		return math.Sqrt(float64(v)), nil
-	case uint32:
-		return math.Sqrt(float64(v)), nil
-	case uint64:
-		return math.Sqrt(float64(v)), nil
-	case uint:
-		return math.Sqrt(float64(v)), nil
-	case int64:
-		return math.Sqrt(float64(v)), nil
-	case int32:
-		return math.Sqrt(float64(v)), nil
-	case int16:
-		return math.Sqrt(float64(v)), nil
-	case int8:
-		return math.Sqrt(float64(v)), nil
-	case int:
-		return math.Sqrt(float64(v)), nil
+	switch val.Family() {
+	case proto.ValueFamilyDecimal:
+		x, _ := gxbig.NewDecFromString(val.String())
+		y := decSqrt(x)
+		ret, _ := decimal.NewFromString(y.String())
+		return proto.NewValueDecimal(ret), nil
 	default:
-		var d *gxbig.Decimal
-		if _, err = gxbig.NewDecFromString(fmt.Sprint(v)); err != nil {
-			return _zeroDecimal, nil
+		f, _ := val.Float64()
+		if f < 0 {
+			return nil, nil
 		}
-		if d, _ = gxbig.NewDecFromString(fmt.Sprint(v)); d.IsNegative() {
-			return "NaN", nil
-		}
-		return decSqrt(d), nil
+		return proto.NewValueFloat64(math.Sqrt(f)), nil
 	}
 }

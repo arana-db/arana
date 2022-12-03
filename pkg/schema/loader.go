@@ -202,13 +202,7 @@ func convertInterfaceToStrNullable(value proto.Value) string {
 	if value == nil {
 		return ""
 	}
-
-	switch val := value.(type) {
-	case string:
-		return val
-	default:
-		return fmt.Sprint(val)
-	}
+	return value.String()
 }
 
 func (l *SimpleSchemaLoader) LoadIndexMetadata(ctx context.Context, schema string, tables []string) (map[string][]*proto.IndexMetadata, error) {
