@@ -47,19 +47,10 @@ func (a rtrimFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Val
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	temp := strings.TrimLeft(Reverse(fmt.Sprint(val)), " ")
-	norightSpaceString := Reverse(temp)
+	norightSpaceString := strings.TrimRight(fmt.Sprint(val), " ")
 	return norightSpaceString, nil
 }
 
 func (a rtrimFunc) NumInput() int {
 	return 1
-}
-
-func Reverse(s string) string {
-	r := []rune(s)
-	for i, j := 0, len(r)-1; i < j; i, j = i+1, j-1 {
-		r[i], r[j] = r[j], r[i]
-	}
-	return string(r)
 }
