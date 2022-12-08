@@ -121,10 +121,10 @@ func TestRule(t *testing.T) {
 
 	dbIdx, tblIdx, err := vtab.Shard("uid", 42)
 	assert.NoError(t, err)
-	assert.Equal(t, 2, dbIdx)
-	assert.Equal(t, 10, tblIdx)
+	assert.Equal(t, uint32(2), dbIdx)
+	assert.Equal(t, uint32(10), tblIdx)
 
-	db, tbl, ok := vtab.Topology().Render(dbIdx, tblIdx)
+	db, tbl, ok := vtab.Topology().Render(int(dbIdx), int(tblIdx))
 	assert.True(t, ok)
 
 	t.Logf("shard result: %s.%s\n", db, tbl)

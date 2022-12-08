@@ -15,55 +15,55 @@
  * limitations under the License.
  */
 
-package rule
+package function
 
 import (
-	"fmt"
-	"strconv"
+	"context"
+	"math/rand"
 )
 
 import (
 	"github.com/pkg/errors"
+	"github.com/spf13/cast"
 )
 
 import (
-	"github.com/arana-db/arana/pkg/proto/rule"
+	"github.com/arana-db/arana/pkg/proto"
 )
 
-var _ rule.ShardComputer = (*exprShardComputer)(nil)
+const FuncRand = "RAND"
 
-type exprShardComputer struct {
-	expr   string
-	column string
+var _ proto.Func = (*randFunc)(nil)
+
+func init() {
+	proto.RegisterFunc(FuncRand, randFunc{})
 }
 
-func NewExprShardComputer(expr, column string) (rule.ShardComputer, error) {
-	result := &exprShardComputer{
-		expr:   expr,
-		column: column,
+type randFunc struct{}
+
+// Apply rand func
+func (c randFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
+	if len(inputs) > 1 {
+		return nil, errors.New("Incorrect parameter count in the call to native function rand")
 	}
-	return result, nil
+
+	val, err := inputs[0].Value(ctx)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	return c.rand(val), nil
 }
 
-func (compute *exprShardComputer) Compute(value interface{}) (int, error) {
-	expr, vars, err := Parse(compute.expr)
-	if err != nil {
-		return 0, err
-	}
-	if len(vars) != 1 || vars[0] != Var(compute.column) {
-		return 0, errors.Errorf("Parse shard expr is error, expr is: %s", compute.expr)
+// rand Returns a random floating-point value v in the range 0 <= v < 1.0
+func (c randFunc) rand(value proto.Value) proto.Value {
+	if value != nil {
+		rand.Seed(cast.ToInt64(value))
 	}
 
-	shardValue := fmt.Sprintf("%v", value)
-	eval, err := expr.Eval(Env{Var(compute.column): Value(shardValue)})
-	if err != nil {
-		return 0, err
-	}
+	return rand.Float64()
+}
 
-	result, err := strconv.ParseInt(eval.ToIntString(), 10, 64)
-	if err != nil {
-		return 0, err
-	}
-
-	return int(result), nil
+func (c randFunc) NumInput() int {
+	return 1
 }

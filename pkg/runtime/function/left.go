@@ -25,7 +25,6 @@ import (
 
 import (
 	gxbig "github.com/dubbogo/gost/math/big"
-
 	"github.com/pkg/errors"
 )
 
@@ -34,56 +33,71 @@ import (
 	"github.com/arana-db/arana/pkg/util/runes"
 )
 
-// FuncCastNchar is  https://dev.mysql.com/doc/refman/5.6/en/cast-functions.html#function_cast
-const FuncCastNchar = "CAST_NCHAR"
+// FuncLeft is https://dev.mysql.com/doc/refman/5.6/en/string-functions.html#function_left
+const FuncLeft = "LEFT"
 
-var _ proto.Func = (*castncharFunc)(nil)
+var _ proto.Func = (*leftFunc)(nil)
 
 func init() {
-	proto.RegisterFunc(FuncCastNchar, castncharFunc{})
+	proto.RegisterFunc(FuncLeft, leftFunc{})
 }
 
-type castncharFunc struct{}
+type leftFunc struct{}
 
-func (a castncharFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
-	val1, err := inputs[0].Value(ctx)
+func (c leftFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
+	if len(inputs) != 2 {
+		return "", errors.New("The Left function must accept two parameters\n")
+	}
+
+	strInput, err := inputs[0].Value(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	if len(inputs) < 2 {
-		return val1, nil
-	}
-	val2, err := inputs[1].Value(ctx)
+	lenInput, err := inputs[1].Value(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	d2, _ := gxbig.NewDecFromString(fmt.Sprint(val2))
-	if d2.IsNegative() {
-		return "", errors.New("NCHAR[(N) Variable N is not allowed to be negative")
+
+	strStr := fmt.Sprint(strInput)
+	lenStr := fmt.Sprint(lenInput)
+
+	// NULL if any argument is NULL
+	if strings.Compare(strings.ToUpper(strStr), "NULL") == 0 {
+		return "NULL", nil
+	} else if strings.Compare(strings.ToUpper(lenStr), "NULL") == 0 {
+		return "NULL", nil
 	}
-	if !strings.Contains(fmt.Sprint(val2), ".") {
-		num, err := d2.ToInt()
+
+	lenDec, err := gxbig.NewDecFromString(lenStr)
+	if err != nil {
+		return "", nil
+	}
+	if lenDec.IsNegative() || lenDec.IsZero() {
+		return "", nil
+	}
+
+	if !strings.Contains(lenStr, ".") {
+		num, err := lenDec.ToInt()
 		if err != nil {
 			return "", err
 		}
-		return a.getResult(runes.ConvertToRune(val1), num)
+		return getLeftChar(runes.ConvertToRune(strStr), num)
 	}
-	num, err := d2.ToFloat64()
+	num, err := lenDec.ToFloat64()
 	if err != nil {
 		return "", err
 	}
-	return a.getResult(runes.ConvertToRune(val1), int64(num))
+	return getLeftChar(runes.ConvertToRune(strStr), int64(num))
 }
 
-func (a castncharFunc) NumInput() int {
+func (c leftFunc) NumInput() int {
 	return 2
 }
-
-func (a castncharFunc) getResult(runes []rune, num int64) (string, error) {
+func getLeftChar(runes []rune, num int64) (string, error) {
 	if num > int64(len(runes)) {
 		return string(runes), nil
 	} else if num >= 0 {
 		return string(runes[:num]), nil
 	}
-	return "", errors.New("NCHAR[(N) Variable N is not allowed to be negative")
+	return "", nil
 }

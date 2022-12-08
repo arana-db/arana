@@ -15,35 +15,43 @@
  * limitations under the License.
  */
 
-/**
- * bind mysql function MD5.
- * see https://dev.mysql.com/doc/refman/5.6/en/encryption-functions.html#function_md5
- *
- * @param s
- * @returns {*}
- */
-function $MD5(s) {
-    return __md5(s);
-}
+package function
 
-/**
- * bind mysql function SHA.
- * see https://dev.mysql.com/doc/refman/5.6/en/encryption-functions.html#function_sha1
- *
- * @param s
- * @returns {*}
- */
-function $SHA(s) {
-    return __sha(s);
-}
+import (
+	"context"
+	"fmt"
+	"math"
+	"testing"
+)
 
-/**
- * bind mysql function SHA1.
- * see https://dev.mysql.com/doc/refman/5.6/en/encryption-functions.html#function_sha1
- *
- * @param s
- * @returns {*}
- */
-function $SHA1(s) {
-    return __sha1(s);
+import (
+	"github.com/stretchr/testify/assert"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/proto"
+)
+
+func TestSin(t *testing.T) {
+	fn := proto.MustGetFunc(FuncSin)
+	assert.Equal(t, 1, fn.NumInput())
+
+	type tt struct {
+		in  proto.Value
+		out string
+	}
+
+	for _, it := range []tt{
+		{math.Pi / 2, "1"},
+		{(3 * math.Pi) / 2, "-1"},
+		{1, "0.8414709848078965"},
+		{0, "0"},
+		{100, "-0.5063656411097588"},
+	} {
+		t.Run(it.out, func(t *testing.T) {
+			out, err := fn.Apply(context.Background(), proto.ToValuer(it.in))
+			assert.NoError(t, err)
+			assert.Equal(t, it.out, fmt.Sprint(out))
+		})
+	}
 }

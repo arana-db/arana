@@ -15,9 +15,11 @@
  * limitations under the License.
  */
 
-package dml
+package function
 
 import (
+	"context"
+	"fmt"
 	"testing"
 )
 
@@ -26,34 +28,30 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/proto"
 )
 
-func TestAggregateVisitor(t *testing.T) {
+func TestFuncCastChar(t *testing.T) {
+	fn := proto.MustGetFunc(FuncCastChar)
+	assert.Equal(t, 3, fn.NumInput())
 	type tt struct {
-		sql string // input sql
-		cnt int    // aggregate function amount
+		inFirst  proto.Value
+		inSecond proto.Value
+		intThird proto.Value
+		want     string
 	}
-
-	for _, it := range []tt{
-		{"select id,name from t", 0},
-		{"select count(*) from t", 1},
-		{"select avg(age) from t", 2},
-		{"select avg(age)+1 from t", 2},
-		{"select count(*)+1 from t", 1},
-		{"select sum(age)/count(age) from t", 2},
-		{"select id,avg(age)+1,count(*),min(age),max(age) from t", 5},
-		{"select CONCAT('total:',count(*)) from t", 1},
-		{"select case count(*) when 0 then 'bad' else 'good' end from t", 1},
-		{"select case count(*) when not 0 then 'bad' else 'good' end from t", 1},
+	for _, v := range []tt{
+		{"Hello", len("Hello"), "ASCII", "Hello"},
+		{"Hello", len("Hello"), "unicode", "\x00H\x00e\x00l\x00l\x00o"},
+		{"Hello世界", len("Hello世界"), "CHARACTER SET GBK", "Hello\xca\xc0\xbd\xe7"},
+		{"Hello世界", len("Hello世界"), "CHARACTER SET gb18030", "Hello\xca\xc0\xbd\xe7"},
+		{"Hello世界", len("Hello世界"), "", "Hello世界"},
+		{"Hello世界", 5, "CHARACTER SET latin2", "Hello"},
 	} {
-		t.Run(it.sql, func(t *testing.T) {
-			var av aggregateVisitor
-			_, stmt, err := ast.ParseSelect(it.sql)
+		t.Run(v.want, func(t *testing.T) {
+			out, err := fn.Apply(context.Background(), proto.ToValuer(v.inFirst), proto.ToValuer(v.inSecond), proto.ToValuer(v.intThird))
 			assert.NoError(t, err)
-			_, err = stmt.Accept(&av)
-			assert.NoError(t, err)
-			assert.Len(t, av.aggregations, it.cnt)
+			assert.Equal(t, v.want, fmt.Sprint(out))
 		})
 	}
 }

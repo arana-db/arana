@@ -20,12 +20,10 @@ package function
 import (
 	"context"
 	"fmt"
-	"strings"
 )
 
 import (
 	gxbig "github.com/dubbogo/gost/math/big"
-
 	"github.com/pkg/errors"
 )
 
@@ -34,24 +32,21 @@ import (
 	"github.com/arana-db/arana/pkg/util/runes"
 )
 
-// FuncCastNchar is  https://dev.mysql.com/doc/refman/5.6/en/cast-functions.html#function_cast
-const FuncCastNchar = "CAST_NCHAR"
+// FuncRpad is  https://dev.mysql.com/doc/refman/5.6/en/string-functions.html#function_rpad
+const FuncRpad = "RPAD"
 
-var _ proto.Func = (*castncharFunc)(nil)
+var _ proto.Func = (*rpadFunc)(nil)
 
 func init() {
-	proto.RegisterFunc(FuncCastNchar, castncharFunc{})
+	proto.RegisterFunc(FuncRpad, rpadFunc{})
 }
 
-type castncharFunc struct{}
+type rpadFunc struct{}
 
-func (a castncharFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
+func (r rpadFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
 	val1, err := inputs[0].Value(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)
-	}
-	if len(inputs) < 2 {
-		return val1, nil
 	}
 	val2, err := inputs[1].Value(ctx)
 	if err != nil {
@@ -59,31 +54,39 @@ func (a castncharFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto
 	}
 	d2, _ := gxbig.NewDecFromString(fmt.Sprint(val2))
 	if d2.IsNegative() {
-		return "", errors.New("NCHAR[(N) Variable N is not allowed to be negative")
+		return nil, nil
 	}
-	if !strings.Contains(fmt.Sprint(val2), ".") {
-		num, err := d2.ToInt()
-		if err != nil {
-			return "", err
-		}
-		return a.getResult(runes.ConvertToRune(val1), num)
-	}
-	num, err := d2.ToFloat64()
+	val3, err := inputs[2].Value(ctx)
 	if err != nil {
-		return "", err
+		return nil, errors.WithStack(err)
 	}
-	return a.getResult(runes.ConvertToRune(val1), int64(num))
+	num, err := d2.ToInt()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	result, err := r.getResult(runes.ConvertToRune(val1), num, runes.ConvertToRune(val3))
+	return result, err
 }
 
-func (a castncharFunc) NumInput() int {
-	return 2
+func (r rpadFunc) NumInput() int {
+	return 3
 }
 
-func (a castncharFunc) getResult(runes []rune, num int64) (string, error) {
-	if num > int64(len(runes)) {
-		return string(runes), nil
-	} else if num >= 0 {
-		return string(runes[:num]), nil
+func (r rpadFunc) getResult(runesfirst []rune, num int64, runessecond []rune) (string, error) {
+	if num == 0 || len(runessecond) == 0 {
+		return "", nil
 	}
-	return "", errors.New("NCHAR[(N) Variable N is not allowed to be negative")
+	if num < int64(len(runesfirst)) {
+		return string(runesfirst[:num]), nil
+	} else if num == int64(len(runesfirst)) {
+		return string(runesfirst), nil
+	} else {
+		for {
+			if num <= int64(len(runesfirst)) {
+				break
+			}
+			runesfirst = append(runesfirst, runessecond...)
+		}
+		return string(runesfirst[:num]), nil
+	}
 }

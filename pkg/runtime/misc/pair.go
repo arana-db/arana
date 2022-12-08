@@ -15,31 +15,9 @@
  * limitations under the License.
  */
 
-package extvalue
+package misc
 
-import (
-	"github.com/shopspring/decimal"
-)
-
-import (
-	"github.com/arana-db/arana/pkg/runtime/ast"
-)
-
-func Compute(node ast.Node, args []interface{}) (interface{}, error) {
-	var vv valueVisitor
-	vv.args = args
-	ret, err := node.Accept(&vv)
-	if err != nil {
-		return nil, err
-	}
-
-	switch val := ret.(type) {
-	case decimal.Decimal:
-		if val.IsInteger() {
-			return val.IntPart(), nil
-		}
-		return val.InexactFloat64(), nil
-	default:
-		return val, nil
-	}
+type Pair[L any, R any] struct {
+	L L
+	R R
 }

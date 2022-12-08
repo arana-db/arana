@@ -15,33 +15,44 @@
  * limitations under the License.
  */
 
-/**
- * bind mysql function IF.
- * see https://dev.mysql.com/doc/refman/5.6/en/flow-control-functions.html#function_if
- *
- * @param a
- * @param b
- * @param c
- * @returns {*}
- */
-function $IF(a, b, c) {
-    if (typeof a === "string") {
-        return a === "0" ? c : b;
-    }
-    return a ? b : c;
-}
+package function
 
-/**
- * bind mysql function IFNULL
- * see https://dev.mysql.com/doc/refman/5.6/en/flow-control-functions.html#function_ifnull
- *
- * @param a
- * @param b
- * @returns {*}
- */
-function $IFNULL(a, b) {
-    if (a === null || a === undefined) {
-        return b;
-    }
-    return a;
+import (
+	"context"
+	"fmt"
+	"testing"
+)
+
+import (
+	gxbig "github.com/dubbogo/gost/math/big"
+
+	"github.com/stretchr/testify/assert"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/proto"
+)
+
+func TestReverse(t *testing.T) {
+	fn := proto.MustGetFunc(FuncReverse)
+	assert.Equal(t, 1, fn.NumInput())
+
+	type tt struct {
+		in  proto.Value
+		out string
+	}
+
+	for _, it := range []tt{
+		{1111, "1111"},
+		{&gxbig.Decimal{Value: "12.23"}, "32.21"},
+		{"arana", "anara"},
+		{"db-mesh", "hsem-bd"},
+		{20.22, "22.02"},
+	} {
+		t.Run(it.out, func(t *testing.T) {
+			out, err := fn.Apply(context.Background(), proto.ToValuer(it.in))
+			assert.NoError(t, err)
+			assert.Equal(t, it.out, fmt.Sprint(out))
+		})
+	}
 }

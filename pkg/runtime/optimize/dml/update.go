@@ -75,9 +75,10 @@ func optimizeUpdate(_ context.Context, o *optimize.Optimizer) (proto.Plan, error
 		}
 
 		if shards == nil {
-			if shards, fullScan, err = (*optimize.Sharder)(o.Rule).Shard(table, where, o.Args...); err != nil {
+			if shards, err = optimize.NewXSharder(o.Rule, o.Args).SimpleShard(table, where); err != nil {
 				return nil, errors.Wrap(err, "failed to update")
 			}
+			fullScan = shards == nil
 		}
 	}
 

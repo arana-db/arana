@@ -28,6 +28,7 @@ type DatabaseTable struct {
 }
 
 // DatabaseTables represents a bundle of databases and tables.
+// Deprecated: will use Shards instead in the future.
 type DatabaseTables map[string][]string
 
 // IsConfused returns weather the database tables contains conflicts.

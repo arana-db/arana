@@ -15,31 +15,45 @@
  * limitations under the License.
  */
 
-package extvalue
+package function
 
 import (
-	"github.com/shopspring/decimal"
+	"context"
+	"fmt"
+	"strings"
 )
 
 import (
-	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/pkg/errors"
 )
 
-func Compute(node ast.Node, args []interface{}) (interface{}, error) {
-	var vv valueVisitor
-	vv.args = args
-	ret, err := node.Accept(&vv)
+import (
+	"github.com/arana-db/arana/pkg/proto"
+)
+
+// FuncStrcmp is  https://dev.mysql.com/doc/refman/5.6/en/string-comparison-functions.html
+const FuncStrcmp = "STRCMP"
+
+var _ proto.Func = (*charlengthFunc)(nil)
+
+func init() {
+	proto.RegisterFunc(FuncStrcmp, strcmpFunc{})
+}
+
+type strcmpFunc struct{}
+
+func (a strcmpFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
+	val1, err := inputs[0].Value(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
+	val2, err := inputs[1].Value(ctx)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	return strings.Compare(fmt.Sprint(val1), fmt.Sprint(val2)), nil
+}
 
-	switch val := ret.(type) {
-	case decimal.Decimal:
-		if val.IsInteger() {
-			return val.IntPart(), nil
-		}
-		return val.InexactFloat64(), nil
-	default:
-		return val, nil
-	}
+func (a strcmpFunc) NumInput() int {
+	return 2
 }

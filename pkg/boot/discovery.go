@@ -479,8 +479,6 @@ func toSharder(input *config.Rule) (rule.ShardComputer, error) {
 		computer = rrule.NewHashBKDRShard(mod)
 	case rrule.HashCrc32Shard:
 		computer = rrule.NewHashCrc32Shard(mod)
-	case rrule.FunctionExpr:
-		computer, err = rrule.NewExprShardComputer(input.Expr, input.Column)
 	case rrule.ScriptExpr:
 		computer, err = rrule.NewJavascriptShardComputer(input.Expr)
 	default:
