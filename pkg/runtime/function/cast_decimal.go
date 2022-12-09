@@ -20,6 +20,7 @@ package function
 import (
 	"context"
 	"fmt"
+	"strconv"
 )
 
 import (
@@ -30,64 +31,71 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/util/runes"
+	"github.com/arana-db/arana/pkg/util/math"
 )
 
-// FuncRpad is  https://dev.mysql.com/doc/refman/5.6/en/string-functions.html#function_rpad
-const FuncRpad = "RPAD"
+// FuncCastDecimal is https://dev.mysql.com/doc/refman/5.6/en/cast-functions.html#function_cast
+const FuncCastDecimal = "CAST_DECIMAL"
 
-var _ proto.Func = (*rpadFunc)(nil)
+var _ proto.Func = (*castDecimalFunc)(nil)
 
 func init() {
-	proto.RegisterFunc(FuncRpad, rpadFunc{})
+	proto.RegisterFunc(FuncCastDecimal, castDecimalFunc{})
 }
 
-type rpadFunc struct{}
+type castDecimalFunc struct{}
 
-func (r rpadFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
-	val1, err := inputs[0].Value(ctx)
-	if err != nil {
-		return nil, errors.WithStack(err)
+func (a castDecimalFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
+	if len(inputs) != 3 {
+		return "", errors.New("The Decimal function must accept three parameters\n")
 	}
-	val2, err := inputs[1].Value(ctx)
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-	d2, _ := gxbig.NewDecFromString(fmt.Sprint(val2))
-	if d2.IsNegative() {
-		return nil, nil
-	}
-	val3, err := inputs[2].Value(ctx)
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-	num, err := d2.ToInt()
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-	result, err := r.getResult(runes.ConvertToRune(val1), num, runes.ConvertToRune(val3))
-	return result, err
-}
 
-func (r rpadFunc) NumInput() int {
-	return 3
-}
-
-func (r rpadFunc) getResult(runesfirst []rune, num int64, runessecond []rune) (string, error) {
-	if num == 0 || len(runessecond) == 0 {
-		return "", nil
+	val, err := inputs[0].Value(ctx)
+	if err != nil {
+		return nil, errors.WithStack(err)
 	}
-	if num < int64(len(runesfirst)) {
-		return string(runesfirst[:num]), nil
-	} else if num == int64(len(runesfirst)) {
-		return string(runesfirst), nil
-	} else {
-		for {
-			if num <= int64(len(runesfirst)) {
-				break
-			}
-			runesfirst = append(runesfirst, runessecond...)
+	v := math.ToDecimal(val)
+
+	maxNum, err := inputs[1].Value(ctx)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	if maxNum == nil {
+		maxNum = 0
+	}
+	m, err := strconv.Atoi(fmt.Sprint(maxNum))
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	precision, err := inputs[2].Value(ctx)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	if precision == nil {
+		precision = 0
+	}
+	d, err := strconv.Atoi(fmt.Sprint(precision))
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	if m > 0 || d > 0 {
+		buf, err := v.ToBin(m, d)
+		if err != nil {
+			return nil, errors.WithStack(err)
 		}
-		return string(runesfirst[:num]), nil
+		var dec2 gxbig.Decimal
+		_, err = dec2.FromBin(buf, m, d)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+		return &dec2, nil
 	}
+	return v, nil
+
+}
+
+func (a castDecimalFunc) NumInput() int {
+	return 3
 }

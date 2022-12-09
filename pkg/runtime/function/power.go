@@ -26,9 +26,9 @@ import (
 import (
 	gxbig "github.com/dubbogo/gost/math/big"
 
-	"github.com/shopspring/decimal"
-
 	"github.com/pkg/errors"
+
+	"github.com/shopspring/decimal"
 )
 
 import (

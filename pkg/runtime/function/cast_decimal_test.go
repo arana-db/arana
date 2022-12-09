@@ -19,52 +19,41 @@ package function
 
 import (
 	"context"
-	"math/rand"
+	"fmt"
+	"testing"
 )
 
 import (
-	"github.com/pkg/errors"
-
-	"github.com/spf13/cast"
+	"github.com/stretchr/testify/assert"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
-const FuncRand = "RAND"
+func TestCastDecimal(t *testing.T) {
+	fn := proto.MustGetFunc(FuncCastDecimal)
+	assert.Equal(t, 3, fn.NumInput())
 
-var _ proto.Func = (*randFunc)(nil)
-
-func init() {
-	proto.RegisterFunc(FuncRand, randFunc{})
-}
-
-type randFunc struct{}
-
-// Apply rand func
-func (c randFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
-	if len(inputs) > 1 {
-		return nil, errors.New("Incorrect parameter count in the call to native function rand")
+	type tt struct {
+		inFirst  proto.Value
+		inSecond proto.Value
+		intThird proto.Value
+		out      string
 	}
 
-	val, err := inputs[0].Value(ctx)
-	if err != nil {
-		return nil, errors.WithStack(err)
+	for _, it := range []tt{
+		{15, 4, 2, "15.00"},
+		{15, 4, 0, ("15")},
+		{15, 4, nil, ("15")},
+		{15, nil, nil, ("15")},
+		{(8 / 5.0), 11, 4, "1.6000"},
+		{".885", 11, 3, "0.885"},
+	} {
+		t.Run(it.out, func(t *testing.T) {
+			out, err := fn.Apply(context.Background(), proto.ToValuer(it.inFirst), proto.ToValuer(it.inSecond), proto.ToValuer(it.intThird))
+			assert.NoError(t, err)
+			assert.Equal(t, it.out, fmt.Sprint(out))
+		})
 	}
-
-	return c.rand(val), nil
-}
-
-// rand Returns a random floating-point value v in the range 0 <= v < 1.0
-func (c randFunc) rand(value proto.Value) proto.Value {
-	if value != nil {
-		rand.Seed(cast.ToInt64(value))
-	}
-
-	return rand.Float64()
-}
-
-func (c randFunc) NumInput() int {
-	return 1
 }
