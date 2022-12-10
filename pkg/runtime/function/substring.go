@@ -45,7 +45,12 @@ func (a substringFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto
 		_, ok := val.(ast.Null)
 		return ok
 	}
-	// if args' type is bool, should be converted to `0` or `1` in advanced
+	// judge if `err` == `strconv.ErrSync`
+	isNotNumberString := func(err error) bool {
+		_, isThisErr := err.(*strconv.NumError)
+		return isThisErr
+	}
+	// if arg is boolean, should be converted to `0` or `1` at first
 	arg2String := func(arg proto.Value) string {
 		boolVal, isToStrBool := arg.(bool)
 		if isToStrBool {
@@ -75,11 +80,15 @@ func (a substringFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto
 	}
 	str := arg2String(strV)
 	pos, err := strconv.Atoi(arg2String(posV))
-	if err == strconv.ErrSyntax {
-		// if `pos`,`len` is string but not a number string,(such as "w","e"...)
+	if isNotNumberString(err) {
+		// if `pos`,`length` is string but not a number string(such as "w","e"...)
 		// return empty string
 		return "", nil
 	}
+	if err != nil {
+		return nil, err
+	}
+
 	// `SUBSTRING(str, pos)`
 	if len(inputs) == 2 {
 		// cut string
@@ -92,20 +101,27 @@ func (a substringFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto
 		}
 	}
 
-	// `SUBSTRING(str, pos, len)`
-	// arg2[optional]: `len`
+	// `SUBSTRING(str, pos, length)`
+	// arg2[optional]: `length`
 	lenV, err := inputs[2].Value(ctx)
 	if err != nil {
 		return nil, err
 	}
+	// if any arg is `NULL`, return `NULL`
 	if isNull(lenV) {
 		return ast.Null{}, nil
 	}
 	length, err := strconv.Atoi(arg2String(lenV))
-	if err == strconv.ErrSyntax || length < 1 {
-		// if `pos`,`len` is a string but not a number string,(such as "w","e"...)
-		// if len < 1,
+	if isNotNumberString(err) {
+		// if `pos`,`length` is a string but not a number string(such as "w","e"...)
 		// return empty string
+		return "", nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if length < 1 {
+		// if length < 1, return empty string
 		return "", nil
 	}
 	// cut string
