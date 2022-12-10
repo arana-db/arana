@@ -52,6 +52,7 @@ func TestSubstring(t *testing.T) {
 		{[]proto.Value{"Quadratically", "5", "6"}, "ratica"},
 		{[]proto.Value{"Sakila", "-5", "3"}, "aki"},
 		{[]proto.Value{"Quadratically", "e"}, ""},
+		{[]proto.Value{"Quadratically", ""}, ""},
 		{[]proto.Value{"Quadratically", 2, "m"}, ""},
 		// has `NULL`
 		{[]proto.Value{"Quadratically", ast.Null{}}, "NULL"},
