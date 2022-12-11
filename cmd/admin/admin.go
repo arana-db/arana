@@ -33,6 +33,7 @@ import (
 	_ "github.com/arana-db/arana/pkg/admin/router"
 	"github.com/arana-db/arana/pkg/config"
 	_ "github.com/arana-db/arana/pkg/config/etcd"
+	_ "github.com/arana-db/arana/pkg/config/file"
 	_ "github.com/arana-db/arana/pkg/config/nacos"
 	"github.com/arana-db/arana/pkg/constants"
 	"github.com/arana-db/arana/pkg/util/log"

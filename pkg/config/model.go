@@ -93,7 +93,8 @@ type (
 	DataSourceType string
 
 	Data struct {
-		Tenants []*Tenant `validate:"required,dive" yaml:"tenants" json:"tenants"`
+		Supervisor *User     `validate:"required,dive" yaml:"supervisor" json:"supervisor"`
+		Tenants    []*Tenant `validate:"required,dive" yaml:"tenants" json:"tenants"`
 	}
 
 	Tenant struct {
