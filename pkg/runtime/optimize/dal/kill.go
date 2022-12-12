@@ -54,7 +54,7 @@ func optimizeKill(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error
 	}
 	strs := strings.Split(groups[0], sep)
 	if len(strs) < 2 {
-		return nil, fmt.Errorf("can't resovle the group name: %s", groups[0])
+		return nil, fmt.Errorf("can't resolve the group name: %s", groups[0])
 	}
 	schema := strs[0]
 	format := fmt.Sprintf("%%s_%%0%dd", len(strs[1]))

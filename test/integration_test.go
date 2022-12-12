@@ -1080,8 +1080,8 @@ func (s *IntegrationSuite) TestKill() {
 
 	// 1. get a process id
 	rows, err := db.Query("SHOW PROCESSLIST")
-	defer rows.Close()
 	assert.NoError(t, err)
+	defer rows.Close()
 	data, _ := utils.PrintTable(rows)
 	row := len(data)
 
