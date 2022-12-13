@@ -20,6 +20,7 @@ package dal
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -45,20 +46,22 @@ func optimizeKill(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error
 	stmt := o.Stmt.(*ast.KillStmt)
 	ret := dal.NewKillPlan(stmt)
 
-	processId, groupId := math.Decode(int64(stmt.ConnectionID), math.DefaultBase)
+	processId, groupId := math.DecodeProcessID(int64(stmt.ConnectionID), math.DefaultBase)
 	stmt.ConnectionID = uint64(processId)
 
 	groups := namespace.Load(rcontext.Schema(ctx)).DBGroups()
-	if len(groups) < 1 {
-		return nil, fmt.Errorf("there is no group")
-	}
-	strs := strings.Split(groups[0], sep)
-	if len(strs) < 2 {
-		return nil, fmt.Errorf("can't resolve the group name: %s", groups[0])
-	}
-	schema := strs[0]
-	format := fmt.Sprintf("%%s_%%0%dd", len(strs[1]))
-	ret.SetDatabase(fmt.Sprintf(format, schema, groupId))
+	for _, group := range groups {
+		strs := strings.Split(group, sep)
+		if len(strs) < 2 {
+			continue
+		}
 
-	return ret, nil
+		t, err := strconv.ParseInt(strs[1], 10, 64)
+		if err == nil && t == groupId {
+			ret.SetDatabase(group)
+			return ret, nil
+		}
+	}
+
+	return nil, fmt.Errorf("can't find a proper db group")
 }

@@ -102,7 +102,7 @@ func (s *ShowProcessListPlan) ExecIn(ctx context.Context, conn proto.VConn) (pro
 				return next, nil
 			}
 
-			dest[0], err = math.Code(dest[0].(int64), math.DefaultBase, groupId)
+			dest[0], err = math.EncodeProcessID(dest[0].(int64), math.DefaultBase, groupId)
 			if err != nil {
 				return nil, err
 			}

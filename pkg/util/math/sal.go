@@ -23,7 +23,7 @@ import (
 
 const DefaultBase = 16
 
-func Code(num1, base, num2 int64) (int64, error) {
+func EncodeProcessID(num1, base, num2 int64) (int64, error) {
 	t := num1 << base
 	if t < 0 {
 		return 0, fmt.Errorf("integer operation result is out of range")
@@ -31,7 +31,7 @@ func Code(num1, base, num2 int64) (int64, error) {
 	return t + num2, nil
 }
 
-func Decode(num, base int64) (int64, int64) {
+func DecodeProcessID(num, base int64) (int64, int64) {
 	t := int64(1<<base - 1)
 
 	return num >> base, num & t
