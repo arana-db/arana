@@ -35,6 +35,7 @@ import (
 	"github.com/arana-db/arana/pkg/resultx"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/plan"
+	"github.com/arana-db/arana/pkg/util/math"
 )
 
 const (
@@ -101,11 +102,10 @@ func (s *ShowProcessListPlan) ExecIn(ctx context.Context, conn proto.VConn) (pro
 				return next, nil
 			}
 
-			id := dest[0].(int64) << 16
-			if id <= 0 {
-				return nil, fmt.Errorf("integer operation result is out of range")
+			dest[0], err = math.EncodeProcessID(dest[0].(int64), math.DefaultBase, groupId)
+			if err != nil {
+				return nil, err
 			}
-			dest[0] = id + groupId
 
 			if next.IsBinary() {
 				return rows.NewBinaryVirtualRow(fields, dest), nil

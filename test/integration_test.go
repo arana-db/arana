@@ -1071,3 +1071,22 @@ func (s *IntegrationSuite) TestShowReplicaStatus() {
 	assert.Nil(t, err)
 	assert.NotNil(t, stmtNodes)
 }
+
+func (s *IntegrationSuite) TestKill() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	// 1. get a process id
+	rows, err := db.Query("SHOW PROCESSLIST")
+	assert.NoError(t, err)
+	defer rows.Close()
+	data, _ := utils.PrintTable(rows)
+	row := len(data)
+
+	// 2. kill the last process
+	_, err = db.Query(fmt.Sprintf("KILL %s", data[row-1][0]))
+	assert.NoError(t, err)
+
+}
