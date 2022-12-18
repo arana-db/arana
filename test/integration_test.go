@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -847,8 +850,6 @@ func (s *IntegrationSuite) TestInsertAutoIncrement() {
 		assert.NoErrorf(t, err, "insert row error: %+v", err)
 		assert.True(t, lastId != 0, fmt.Sprintf("LastInsertId : %d", lastId))
 
-		t.Log("LastInsertId", lastId)
-
 		if lastId%2 == 0 {
 			even++
 		} else {
@@ -1088,5 +1089,4 @@ func (s *IntegrationSuite) TestKill() {
 	// 2. kill the last process
 	_, err = db.Query(fmt.Sprintf("KILL %s", data[row-1][0]))
 	assert.NoError(t, err)
-
 }

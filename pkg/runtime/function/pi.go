@@ -38,8 +38,8 @@ func init() {
 
 type piFunc struct{}
 
-func (p piFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
-	return _piDefault, nil
+func (p piFunc) Apply(_ context.Context, _ ...proto.Valuer) (proto.Value, error) {
+	return proto.NewValueFloat64(_piDefault), nil
 }
 
 func (p piFunc) NumInput() int {

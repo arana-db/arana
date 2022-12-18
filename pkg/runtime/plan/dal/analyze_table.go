@@ -104,8 +104,8 @@ func (a *AnalyzeTablePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.
 		}
 
 		// format physical database name to logic database name
-		if strings.Contains(dest[0].(string), ".") {
-			dbTable := strings.Split(dest[0].(string), ".")
+		if strings.Contains(dest[0].String(), ".") {
+			dbTable := strings.Split(dest[0].String(), ".")
 			dbName := dbTable[0]
 			dbNameIndex := strings.LastIndex(dbTable[0], "_")
 			if dbNameIndex > 0 {
@@ -118,13 +118,13 @@ func (a *AnalyzeTablePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.
 				tbName = tbName[:tbNameIndex]
 			}
 
-			dest[0] = dbName + "." + tbName
+			dest[0] = proto.NewValueString(dbName + "." + tbName)
 		}
 
 		// msg text transfer to string
-		if v, ok := dest[len(dest)-1].([]byte); ok {
-			dest[len(dest)-1] = string(v)
-		}
+		//if v, ok := dest[len(dest)-1].([]byte); ok {
+		//	dest[len(dest)-1] = string(v)
+		//}
 
 		return rows.NewTextVirtualRow(fields, dest), nil
 	}))

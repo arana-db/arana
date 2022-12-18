@@ -19,16 +19,12 @@ package rows
 
 import (
 	"errors"
-	"fmt"
 	"io"
-	"strconv"
 	"sync"
 	"time"
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
-
 	perrors "github.com/pkg/errors"
 )
 
@@ -141,47 +137,80 @@ func (vi *binaryVirtualRow) WriteTo(w io.Writer) (n int64, err error) {
 				bitPos  = (i + 2) % 8
 			)
 			b.Bytes()[bytePos] |= 1 << bitPos
+			continue
 		}
 
-		switch val := next.(type) {
-		case uint64:
-			_, err = bw.WriteUint64(val)
-		case int64:
-			_, err = bw.WriteUint64(uint64(val))
-		case uint32:
-			_, err = bw.WriteUint32(val)
-		case int32:
-			_, err = bw.WriteUint32(uint32(val))
-		case uint16:
-			_, err = bw.WriteUint16(val)
-		case int16:
-			_, err = bw.WriteUint16(uint16(val))
-		case string:
-			switch vi.fields[i].(*mysql.Field).FieldType() {
-			case consts.FieldTypeLong:
-				var l int64
-				if l, err = strconv.ParseInt(val, 10, 64); err == nil {
-					_, err = bw.WriteUint64(uint64(l))
-				}
-			default:
-				_, err = bw.WriteString(val)
+		field := vi.fields[i].(*mysql.Field)
+		switch field.FieldType() {
+
+		case consts.FieldTypeTiny:
+			var val int64
+			if val, err = next.Int64(); err != nil {
+				break
 			}
-		case []uint8:
-			// FIXME: how to write binary bytes???
-			_, err = bw.WriteString(bytesconv.BytesToString(val))
-		case float32:
-			_, err = bw.WriteFloat32(val)
-		case float64:
-			_, err = bw.WriteFloat64(val)
-		case time.Time:
+			// TODO: check signed/unsigned
+			_, err = bw.WriteUint8(uint8(val))
+
+		case consts.FieldTypeLongLong:
+			var val uint64
+			if val, err = next.Uint64(); err != nil {
+				break
+			}
+			_, err = bw.WriteUint64(val)
+
+		case consts.FieldTypeInt24, consts.FieldTypeLong:
+			var val int64
+			if val, err = next.Int64(); err != nil {
+				break
+			}
+			_, err = bw.WriteUint32(uint32(int32(val)))
+
+		case consts.FieldTypeShort, consts.FieldTypeYear:
+			var val int64
+			if val, err = next.Int64(); err != nil {
+				break
+			}
+			_, err = bw.WriteUint16(uint16(val))
+
+		case consts.FieldTypeDecimal, consts.FieldTypeNewDecimal, consts.FieldTypeVarChar,
+			consts.FieldTypeBit, consts.FieldTypeEnum, consts.FieldTypeSet, consts.FieldTypeTinyBLOB,
+			consts.FieldTypeMediumBLOB, consts.FieldTypeLongBLOB, consts.FieldTypeBLOB,
+			consts.FieldTypeVarString, consts.FieldTypeString, consts.FieldTypeGeometry, consts.FieldTypeJSON:
+			_, err = bw.WriteString(next.String())
+
+		case consts.FieldTypeDouble:
+			var f float64
+			if f, err = next.Float64(); err != nil {
+				break
+			}
+			_, err = bw.WriteFloat64(f)
+
+		case consts.FieldTypeFloat:
+			var f float64
+			if f, err = next.Float64(); err != nil {
+				break
+			}
+			_, err = bw.WriteFloat32(float32(f))
+
+		case consts.FieldTypeDate, consts.FieldTypeNewDate: // Date YYYY-MM-DD
+			var val time.Time
+			if val, err = next.Time(); err != nil {
+				break
+			}
+			_, err = bw.WriteDate(val)
+
+		case consts.FieldTypeTime: // Time [-][H]HH:MM:SS[.fractal]
+		// TODO: duration
+
+		case consts.FieldTypeTimestamp, consts.FieldTypeDateTime: // Timestamp YYYY-MM-DD HH:MM:SS[.fractal]
+			var val time.Time
+			if val, err = next.Time(); err != nil {
+				break
+			}
 			_, err = bw.WriteDateTime(val)
-		case time.Duration:
-			_, err = bw.WriteDuration(val)
-		case *gxbig.Decimal:
-			_, err = bw.WriteString(val.String())
 
 		default:
-			err = perrors.Errorf("unknown value type %T", val)
+			err = perrors.Errorf("unsupported mysql field type: %v", field.FieldType())
 		}
 
 		if err != nil {
@@ -221,10 +250,10 @@ func (t *textVirtualRow) WriteTo(w io.Writer) (n int64, err error) {
 	for i := 0; i < len(t.fields); i++ {
 		var (
 			field = t.fields[i].(*mysql.Field)
-			cell  = t.cells[i]
+			next  = t.cells[i]
 		)
 
-		if cell == nil {
+		if next == nil {
 			if err = bf.WriteByte(0xfb); err != nil {
 				err = perrors.WithStack(err)
 				return
@@ -234,8 +263,16 @@ func (t *textVirtualRow) WriteTo(w io.Writer) (n int64, err error) {
 
 		switch field.FieldType() {
 		case consts.FieldTypeTimestamp, consts.FieldTypeDateTime, consts.FieldTypeDate, consts.FieldTypeNewDate:
-			var b []byte
-			if b, err = mysql.AppendDateTime(b, t.cells[i].(time.Time)); err != nil {
+			var (
+				val time.Time
+				b   []byte
+			)
+
+			if val, err = next.Time(); err != nil {
+				return
+			}
+
+			if b, err = mysql.AppendDateTime(b, val); err != nil {
 				err = perrors.WithStack(err)
 				return
 			}
@@ -243,13 +280,7 @@ func (t *textVirtualRow) WriteTo(w io.Writer) (n int64, err error) {
 				err = perrors.WithStack(err)
 			}
 		default:
-			var s string
-			switch val := cell.(type) {
-			case fmt.Stringer:
-				s = val.String()
-			default:
-				s = fmt.Sprint(cell)
-			}
+			s := next.String()
 			if _, err = (*BinaryValueWriter)(bf).WriteString(s); err != nil {
 				err = perrors.WithStack(err)
 				return

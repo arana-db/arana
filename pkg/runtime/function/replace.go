@@ -19,13 +19,11 @@ package function
 
 import (
 	"context"
-	"fmt"
 	"strings"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
 // FuncReplace is https://dev.mysql.com/doc/refman/5.6/en/string-functions.html#function_replace
@@ -55,34 +53,13 @@ func (c replaceFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.V
 	if err != nil {
 		return nil, err
 	}
-	// if a NULL exists, directly return `NULL`
-	isNull := func(val any) bool {
-		_, ok := val.(ast.Null)
-		return ok
+
+	if str == nil || fromStr == nil || toStr == nil {
+		return nil, nil
 	}
-	if isNull(str) || isNull(fromStr) || isNull(toStr) {
-		return ast.Null{}, nil
-	}
-	// if args' type is bool, should be converted to `0` or `1` in advanced
-	// else, convert to string
-	arg2String := func(arg proto.Value) string {
-		boolVal, isToStrBool := arg.(bool)
-		if isToStrBool {
-			if boolVal {
-				return "1"
-			} else {
-				return "0"
-			}
-		} else {
-			return fmt.Sprint(arg)
-		}
-	}
-	strS := arg2String(str)
-	fromStrS := arg2String(fromStr)
-	toStrS := arg2String(toStr)
-	// do replace
-	ret := strings.ReplaceAll(strS, fromStrS, toStrS)
-	return ret, nil
+
+	s := strings.ReplaceAll(str.String(), fromStr.String(), toStr.String())
+	return proto.NewValueString(s), nil
 }
 
 func (c replaceFunc) NumInput() int {

@@ -24,8 +24,6 @@ import (
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -39,24 +37,19 @@ func TestTruncate(t *testing.T) {
 
 	type tt struct {
 		in  proto.Value
-		in2 proto.Value
+		in2 int64
 		out string
 	}
 
-	mustDecimal := func(s string) *gxbig.Decimal {
-		d, _ := gxbig.NewDecFromString(s)
-		return d
-	}
-
 	for _, it := range []tt{
-		{int8(12), 0, "12"},
-		{1234, -2, "1200"},
-		{float64(-1.999), 2, "-1.99"},
+		{proto.NewValueInt64(12), 0, "12"},
+		{proto.NewValueInt64(1234), -2, "1200"},
+		{proto.NewValueFloat64(-1.999), 2, "-1.99"},
 		{mustDecimal("-5.1234"), 2, "-5.12"},
-		{int64(-123), -1, "-120"},
+		{proto.NewValueInt64(-123), -1, "-120"},
 	} {
 		t.Run(it.out, func(t *testing.T) {
-			out, err := fn.Apply(context.Background(), proto.ToValuer(it.in), proto.ToValuer(it.in2))
+			out, err := fn.Apply(context.Background(), proto.ToValuer(it.in), proto.ToValuer(proto.NewValueInt64(it.in2)))
 			assert.NoError(t, err)
 			assert.Equal(t, it.out, fmt.Sprint(out))
 		})

@@ -102,10 +102,12 @@ func (s *ShowProcessListPlan) ExecIn(ctx context.Context, conn proto.VConn) (pro
 				return next, nil
 			}
 
-			dest[0], err = math.EncodeProcessID(dest[0].(int64), math.DefaultBase, groupId)
+			id, _ := dest[0].Int64()
+			id, err = math.EncodeProcessID(id, math.DefaultBase, groupId)
 			if err != nil {
 				return nil, err
 			}
+			dest[0] = proto.NewValueInt64(id)
 
 			if next.IsBinary() {
 				return rows.NewBinaryVirtualRow(fields, dest), nil

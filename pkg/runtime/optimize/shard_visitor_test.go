@@ -30,6 +30,7 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	_ "github.com/arana-db/arana/pkg/runtime/function"
@@ -60,7 +61,14 @@ func TestShardNG(t *testing.T) {
 			_, rawStmt := ast.MustParse(it.sql)
 			stmt := rawStmt.(*ast.SelectStatement)
 
-			shd := NewXSharder(fakeRule, it.args)
+			args := make([]proto.Value, 0, len(it.args))
+			for i := range it.args {
+				arg, err := proto.NewValue(it.args[i])
+				assert.NoError(t, err)
+				args = append(args, arg)
+			}
+
+			shd := NewXSharder(fakeRule, args)
 
 			shards, err := stmt.Accept(shd)
 			assert.NoError(t, err)

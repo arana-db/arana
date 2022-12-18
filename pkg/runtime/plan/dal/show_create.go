@@ -91,8 +91,8 @@ func (st *ShowCreatePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 				if next.Scan(dest) != nil {
 					return next, nil
 				}
-				dest[0] = target
-				dest[1] = strings.Replace(dest[1].(string), st.Table, target, 1)
+				dest[0] = proto.NewValueString(target)
+				dest[1] = proto.NewValueString(strings.Replace(dest[1].String(), st.Table, target, 1))
 
 				if next.IsBinary() {
 					return rows.NewBinaryVirtualRow(fields, dest), nil

@@ -24,8 +24,6 @@ import (
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -38,28 +36,27 @@ func TestPower(t *testing.T) {
 	assert.Equal(t, 2, fn.NumInput())
 
 	type tt struct {
-		in  proto.Value
-		in2 proto.Value
-		out string
-	}
-
-	mustDecimal := func(s string) *gxbig.Decimal {
-		d, _ := gxbig.NewDecFromString(s)
-		return d
+		description string
+		in          proto.Value
+		in2         proto.Value
+		out         string
 	}
 
 	for _, it := range []tt{
-		{int8(12), 0, "1"},
-		{12.34, 2, "152.2756"},
-		{float64(-1.999), 2, "3.9960010000000006"},
-		{mustDecimal("-5"), -2, "0.04"},
-		{"foobar", -1, "NaN"},
-		{"1", "foobar", "NaN"},
+		{"POW(12,0)", proto.NewValueInt64(12), proto.NewValueInt64(0), "1"},
+		{"POW(12.34,2)", proto.NewValueFloat64(12.34), proto.NewValueInt64(2), "152.2756"},
+		{"POW(-5,-2)", proto.NewValueFloat64(-1.999), proto.NewValueInt64(2), "3.9960010000000006"},
+		{"POW(-5,-2)", proto.MustNewValueDecimalString("-5"), proto.NewValueInt64(-2), "0.04"},
+		{"POW('1','foobar')", proto.NewValueString("1"), proto.NewValueString("foobar"), "1"},
 	} {
-		t.Run(it.out, func(t *testing.T) {
+		t.Run(it.description, func(t *testing.T) {
 			out, err := fn.Apply(context.Background(), proto.ToValuer(it.in), proto.ToValuer(it.in2))
 			assert.NoError(t, err)
 			assert.Equal(t, it.out, fmt.Sprint(out))
 		})
 	}
+
+	// POW('foobar',-1)
+	_, err := fn.Apply(context.Background(), proto.ToValuer(proto.NewValueString("foobar")), proto.ToValuer(proto.NewValueInt64(-1)))
+	assert.Error(t, err, "POW('foobar',-1) should return an error")
 }

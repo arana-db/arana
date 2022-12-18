@@ -69,7 +69,11 @@ func TestOptimizer_OptimizeSelect(t *testing.T) {
 
 	p := parser.New()
 	stmt, _ := p.ParseOneStmt(sql, "", "")
-	opt, err := NewOptimizer(ru, nil, stmt, []interface{}{1, 2, 3})
+	opt, err := NewOptimizer(ru, nil, stmt, []proto.Value{
+		proto.NewValueInt64(1),
+		proto.NewValueInt64(2),
+		proto.NewValueInt64(3),
+	})
 	assert.NoError(t, err)
 	plan, err := opt.Optimize(ctx)
 	assert.NoError(t, err)
@@ -148,7 +152,11 @@ func TestOptimizer_OptimizeInsert(t *testing.T) {
 		p := parser.New()
 		stmt, _ := p.ParseOneStmt(sql, "", "")
 
-		opt, err := NewOptimizer(ru, nil, stmt, []interface{}{8, 9, 16})
+		opt, err := NewOptimizer(ru, nil, stmt, []proto.Value{
+			proto.NewValueInt64(8),
+			proto.NewValueInt64(9),
+			proto.NewValueInt64(16),
+		})
 		assert.NoError(t, err)
 
 		plan, err := opt.Optimize(ctx) // 8,16 -> fake_db_0000, 9 -> fake_db_0001
@@ -169,7 +177,7 @@ func TestOptimizer_OptimizeInsert(t *testing.T) {
 		p := parser.New()
 		stmt, _ := p.ParseOneStmt(sql, "", "")
 
-		opt, err := NewOptimizer(ru, nil, stmt, []interface{}{1})
+		opt, err := NewOptimizer(ru, nil, stmt, []proto.Value{proto.NewValueInt64(1)})
 		assert.NoError(t, err)
 
 		plan, err := opt.Optimize(ctx)
@@ -283,7 +291,7 @@ func TestOptimizer_OptimizeInsertSelect(t *testing.T) {
 		p := parser.New()
 		stmt, _ := p.ParseOneStmt(sql, "", "")
 
-		opt, err := NewOptimizer(&ru, nil, stmt, []interface{}{1})
+		opt, err := NewOptimizer(&ru, nil, stmt, []proto.Value{proto.NewValueInt64(1)})
 		assert.NoError(t, err)
 
 		plan, err := opt.Optimize(ctx)

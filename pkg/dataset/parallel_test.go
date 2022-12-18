@@ -80,9 +80,9 @@ func generateFakeParallelDataset(ctrl *gomock.Controller, pairs ...int) RandomAc
 		l := list.New()
 		for i := 0; i < n; i++ {
 			r := rows.NewTextVirtualRow(fields, []proto.Value{
-				int64(offset + i),
-				fmt.Sprintf("Fake %d", offset+i),
-				rand2.Int63n(2),
+				proto.NewValueInt64(int64(offset + i)),
+				proto.NewValueString(fmt.Sprintf("Fake %d", offset+i)),
+				proto.NewValueInt64(rand2.Int63n(2)),
 			})
 			l.PushBack(r)
 		}

@@ -88,21 +88,27 @@ func (st *ShowTopology) ExecIn(ctx context.Context, conn proto.VConn) (proto.Res
 	t.Each(func(x, y int) bool {
 		if dbGroup, phyTable, ok := t.Render(x, y); ok {
 			ds.Rows = append(ds.Rows, rows.NewTextVirtualRow(fields, []proto.Value{
-				0, dbGroup, phyTable,
+				proto.NewValueInt64(0), proto.NewValueString(dbGroup), proto.NewValueString(phyTable),
 			}))
 		}
 		return true
 	})
 	sort.Slice(ds.Rows, func(i, j int) bool {
-		if ds.Rows[i].(rows.VirtualRow).Values()[1].(string) < ds.Rows[j].(rows.VirtualRow).Values()[1].(string) {
-			return true
+		c := strings.Compare(
+			ds.Rows[i].(rows.VirtualRow).Values()[1].String(),
+			ds.Rows[j].(rows.VirtualRow).Values()[1].String(),
+		)
+		if c == 0 {
+			c = strings.Compare(
+				ds.Rows[i].(rows.VirtualRow).Values()[2].String(),
+				ds.Rows[j].(rows.VirtualRow).Values()[2].String(),
+			)
 		}
-		return ds.Rows[i].(rows.VirtualRow).Values()[1].(string) == ds.Rows[j].(rows.VirtualRow).Values()[1].(string) &&
-			ds.Rows[i].(rows.VirtualRow).Values()[2].(string) < ds.Rows[j].(rows.VirtualRow).Values()[2].(string)
+		return c < 0
 	})
 
 	for id := 0; id < len(ds.Rows); id++ {
-		ds.Rows[id].(rows.VirtualRow).Values()[0] = id
+		ds.Rows[id].(rows.VirtualRow).Values()[0] = proto.NewValueInt64(int64(id))
 	}
 
 	return resultx.New(resultx.WithDataset(ds)), nil

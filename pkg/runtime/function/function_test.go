@@ -18,44 +18,14 @@
 package function
 
 import (
-	"context"
-	"math"
-)
-
-import (
-	"github.com/pkg/errors"
+	"github.com/shopspring/decimal"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
-// FuncSin https://dev.mysql.com/doc/refman/5.6/en/mathematical-functions.html#function_sign
-const FuncSin = "SIN"
-
-var _ proto.Func = (*sinFunc)(nil)
-
-func init() {
-	proto.RegisterFunc(FuncSin, sinFunc{})
-}
-
-type sinFunc struct{}
-
-// Apply call the current function.
-func (s sinFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
-	param, err := inputs[0].Value(ctx)
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-
-	if param == nil {
-		return nil, nil
-	}
-	f, _ := param.Float64()
-	return proto.NewValueFloat64(math.Sin(f)), nil
-}
-
-// NumInput returns the minimum number of inputs.
-func (s sinFunc) NumInput() int {
-	return 1
+func mustDecimal(s string) proto.Value {
+	d, _ := decimal.NewFromString(s)
+	return proto.NewValueDecimal(d)
 }

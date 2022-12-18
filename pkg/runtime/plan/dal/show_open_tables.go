@@ -97,8 +97,8 @@ func (st *ShowOpenTablesPlan) ExecIn(ctx context.Context, conn proto.VConn) (pro
 				return next, nil
 			}
 
-			if logicalTableName, ok := st.invertedShards[dest[1].(string)]; ok {
-				dest[1] = logicalTableName
+			if logicalTableName, ok := st.invertedShards[dest[1].String()]; ok {
+				dest[1] = proto.NewValueString(logicalTableName)
 			}
 
 			if next.IsBinary() {
@@ -117,7 +117,7 @@ func (st *ShowOpenTablesPlan) ExecIn(ctx context.Context, conn proto.VConn) (pro
 				return true
 			}
 
-			tableName := vr.Values()[1].(string)
+			tableName := vr.Values()[1].String()
 			if _, ok := duplicates[tableName]; ok {
 				return false
 			}

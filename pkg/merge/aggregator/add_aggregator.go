@@ -18,28 +18,44 @@
 package aggregator
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
+	"github.com/shopspring/decimal"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/proto"
 )
 
 type AddAggregator struct {
-	count *gxbig.Decimal
+	count decimal.NullDecimal
 }
 
-func (s *AddAggregator) Aggregate(values []interface{}) {
+func (s *AddAggregator) Aggregate(values []proto.Value) {
 	if len(values) == 0 {
 		return
 	}
 
-	val1, err := parseDecimal2(values[0])
+	if values[0] == nil {
+		return
+	}
+
+	val1, err := values[0].Decimal()
 	if err != nil {
-		panic(err)
+		panic(err.Error())
 	}
-	if s.count == nil {
-		s.count = &gxbig.Decimal{}
+
+	if !s.count.Valid {
+		s.count.Valid = true
+		s.count.Decimal = val1
+		return
 	}
-	gxbig.DecimalAdd(s.count, val1, s.count)
+
+	s.count.Decimal = s.count.Decimal.Add(val1)
 }
 
-func (s *AddAggregator) GetResult() (*gxbig.Decimal, bool) {
-	return s.count, true
+func (s *AddAggregator) GetResult() (proto.Value, bool) {
+	if !s.count.Valid {
+		return nil, false
+	}
+
+	return proto.NewValueDecimal(s.count.Decimal), true
 }

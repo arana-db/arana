@@ -42,7 +42,7 @@ type TransparentPlan struct {
 }
 
 // Transparent creates a plan which will be executed by upstream db transparently.
-func Transparent(stmt rast.Statement, args []interface{}) *TransparentPlan {
+func Transparent(stmt rast.Statement, args []proto.Value) *TransparentPlan {
 	var typ proto.PlanType
 	switch stmt.Mode() {
 	case rast.SQLTypeInsert, rast.SQLTypeDelete, rast.SQLTypeReplace, rast.SQLTypeUpdate, rast.SQLTypeTruncate, rast.SQLTypeDropTable,

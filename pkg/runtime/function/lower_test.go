@@ -24,8 +24,6 @@ import (
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -42,21 +40,16 @@ func TestLower(t *testing.T) {
 		out string
 	}
 
-	mustDecimal := func(s string) *gxbig.Decimal {
-		d, _ := gxbig.NewDecFromString(s)
-		return d
-	}
-
 	for _, it := range []tt{
-		{0, "0"},
-		{int64(144), "144"},
-		{-3.14, "-3.14"},
-		{float32(2.77), "2.77"},
+		{proto.NewValueInt64(0), "0"},
+		{proto.NewValueInt64(144), "144"},
+		{proto.NewValueFloat64(-3.14), "-3.14"},
+		{proto.NewValueFloat64(2.77), "2.77"},
 		{mustDecimal("12.3"), "12.3"},
-		{"20", "20"},
-		{"11.11", "11.11"},
-		{"foobar", "foobar"},
-		{"TeST", "test"},
+		{proto.NewValueString("20"), "20"},
+		{proto.NewValueString("11.11"), "11.11"},
+		{proto.NewValueString("foobar"), "foobar"},
+		{proto.NewValueString("TeST"), "test"},
 	} {
 		t.Run(it.out, func(t *testing.T) {
 			out, err := fn.Apply(context.Background(), proto.ToValuer(it.in))

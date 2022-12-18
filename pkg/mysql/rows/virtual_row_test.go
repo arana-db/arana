@@ -45,7 +45,11 @@ func TestNew(t *testing.T) {
 		row    VirtualRow
 		b      bytes.Buffer
 		now    = time.Unix(time.Now().Unix(), 0)
-		values = []proto.Value{"foobar", int64(1), now}
+		values = []proto.Value{
+			proto.NewValueString("foobar"),
+			proto.NewValueInt64(1),
+			proto.NewValueTime(now),
+		}
 	)
 
 	t.Run("Binary", func(t *testing.T) {
