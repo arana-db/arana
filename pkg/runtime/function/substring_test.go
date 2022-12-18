@@ -19,7 +19,6 @@ package function
 
 import (
 	"context"
-	"fmt"
 	"testing"
 )
 
@@ -29,7 +28,6 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
 func TestSubstring(t *testing.T) {
@@ -42,43 +40,43 @@ func TestSubstring(t *testing.T) {
 
 	testGroup := []tt{
 		// normal
-		{[]proto.Value{"Quadratically", 5}, "ratically"},
-		{[]proto.Value{"Sakila", -3}, "ila"},
-		{[]proto.Value{"Quadratically", 5, 6}, "ratica"},
-		{[]proto.Value{"Sakila", -5, 3}, "aki"},
+		{[]proto.Value{proto.NewValueString("Quadratically"), proto.NewValueInt64(5)}, "ratically"},
+		{[]proto.Value{proto.NewValueString("Sakila"), proto.NewValueInt64(-3)}, "ila"},
+		{[]proto.Value{proto.NewValueString("Quadratically"), proto.NewValueInt64(5), proto.NewValueInt64(6)}, "ratica"},
+		{[]proto.Value{proto.NewValueString("Sakila"), proto.NewValueInt64(-5), proto.NewValueInt64(3)}, "aki"},
 		// `pos` or `len` is number/not number string
-		{[]proto.Value{"Quadratically", "5"}, "ratically"},
-		{[]proto.Value{"Sakila", "-3"}, "ila"},
-		{[]proto.Value{"Quadratically", "5", "6"}, "ratica"},
-		{[]proto.Value{"Sakila", "-5", "3"}, "aki"},
-		{[]proto.Value{"Quadratically", "e"}, ""},
-		{[]proto.Value{"Quadratically", ""}, ""},
-		{[]proto.Value{"Quadratically", 2, "m"}, ""},
+		{[]proto.Value{proto.NewValueString("Quadratically"), proto.NewValueString("5")}, "ratically"},
+		{[]proto.Value{proto.NewValueString("Sakila"), proto.NewValueString("-3")}, "ila"},
+		{[]proto.Value{proto.NewValueString("Quadratically"), proto.NewValueString("5"), proto.NewValueString("6")}, "ratica"},
+		{[]proto.Value{proto.NewValueString("Sakila"), proto.NewValueString("-5"), proto.NewValueString("3")}, "aki"},
+		{[]proto.Value{proto.NewValueString("Quadratically"), proto.NewValueString("e")}, ""},
+		{[]proto.Value{proto.NewValueString("Quadratically"), proto.NewValueString("")}, ""},
+		{[]proto.Value{proto.NewValueString("Quadratically"), proto.NewValueInt64(2), proto.NewValueString("m")}, ""},
 		// has `NULL`
-		{[]proto.Value{"Quadratically", ast.Null{}}, "NULL"},
-		{[]proto.Value{ast.Null{}, 5}, "NULL"},
-		{[]proto.Value{"Quadratically", ast.Null{}, 6}, "NULL"},
-		{[]proto.Value{"Quadratically", 5, ast.Null{}}, "NULL"},
-		{[]proto.Value{ast.Null{}, 5, 6}, "NULL"},
-		{[]proto.Value{ast.Null{}, ast.Null{}, ast.Null{}}, "NULL"},
+		{[]proto.Value{proto.NewValueString("Quadratically"), nil}, "NULL"},
+		{[]proto.Value{nil, proto.NewValueInt64(5)}, "NULL"},
+		{[]proto.Value{proto.NewValueString("Quadratically"), nil, proto.NewValueInt64(6)}, "NULL"},
+		{[]proto.Value{proto.NewValueString("Quadratically"), proto.NewValueInt64(5), nil}, "NULL"},
+		{[]proto.Value{nil, proto.NewValueInt64(5), proto.NewValueInt64(6)}, "NULL"},
+		{[]proto.Value{nil, nil, nil}, "NULL"},
 		// has boolean
-		{[]proto.Value{"Quadratically", true}, "Quadratically"},
-		{[]proto.Value{"Quadratically", false}, ""},
-		{[]proto.Value{true, 1}, "1"},
-		{[]proto.Value{false, 1}, "0"},
-		{[]proto.Value{true, true}, "1"},
-		{[]proto.Value{true, false}, ""},
-		{[]proto.Value{false, true}, "0"},
-		{[]proto.Value{false, false}, ""},
-		{[]proto.Value{"Quadratically", 5, true}, "r"},
-		{[]proto.Value{"Quadratically", 5, false}, ""},
-		{[]proto.Value{"Quadratically", true, 6}, "Quadra"},
-		{[]proto.Value{"Quadratically", false, 6}, ""},
-		{[]proto.Value{true, 1, 1}, "1"},
-		{[]proto.Value{false, 1, 1}, "0"},
-		{[]proto.Value{true, true, true}, "1"},
-		{[]proto.Value{false, true, true}, "0"},
-		{[]proto.Value{false, false, false}, ""},
+		{[]proto.Value{proto.NewValueString("Quadratically"), proto.NewValueBool(true)}, "Quadratically"},
+		{[]proto.Value{proto.NewValueString("Quadratically"), proto.NewValueBool(false)}, ""},
+		{[]proto.Value{proto.NewValueBool(true), proto.NewValueInt64(1)}, "1"},
+		{[]proto.Value{proto.NewValueBool(false), proto.NewValueInt64(1)}, "0"},
+		{[]proto.Value{proto.NewValueBool(true), proto.NewValueBool(true)}, "1"},
+		{[]proto.Value{proto.NewValueBool(true), proto.NewValueBool(false)}, ""},
+		{[]proto.Value{proto.NewValueBool(false), proto.NewValueBool(true)}, "0"},
+		{[]proto.Value{proto.NewValueBool(false), proto.NewValueBool(false)}, ""},
+		{[]proto.Value{proto.NewValueString("Quadratically"), proto.NewValueInt64(5), proto.NewValueBool(true)}, "r"},
+		{[]proto.Value{proto.NewValueString("Quadratically"), proto.NewValueInt64(5), proto.NewValueBool(false)}, ""},
+		{[]proto.Value{proto.NewValueString("Quadratically"), proto.NewValueBool(true), proto.NewValueInt64(6)}, "Quadra"},
+		{[]proto.Value{proto.NewValueString("Quadratically"), proto.NewValueBool(false), proto.NewValueInt64(6)}, ""},
+		{[]proto.Value{proto.NewValueBool(true), proto.NewValueInt64(1), proto.NewValueInt64(1)}, "1"},
+		{[]proto.Value{proto.NewValueBool(false), proto.NewValueInt64(1), proto.NewValueInt64(1)}, "0"},
+		{[]proto.Value{proto.NewValueBool(true), proto.NewValueBool(true), proto.NewValueBool(true)}, "1"},
+		{[]proto.Value{proto.NewValueBool(false), proto.NewValueBool(true), proto.NewValueBool(true)}, "0"},
+		{[]proto.Value{proto.NewValueBool(false), proto.NewValueBool(false), proto.NewValueBool(false)}, ""},
 	}
 
 	for _, next := range testGroup {
@@ -88,6 +86,12 @@ func TestSubstring(t *testing.T) {
 		}
 		out, err := fn.Apply(context.Background(), inputs...)
 		assert.NoError(t, err)
-		assert.Equal(t, next.output, fmt.Sprint(out))
+		var actual string
+		if out == nil {
+			actual = "NULL"
+		} else {
+			actual = out.String()
+		}
+		assert.Equal(t, next.output, actual)
 	}
 }

@@ -19,13 +19,11 @@ package function
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
 // FuncSubstring is https://dev.mysql.com/doc/refman/5.6/en/string-functions.html#function_substring
@@ -40,97 +38,56 @@ func init() {
 type substringFunc struct{}
 
 func (a substringFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
-	// judge if `val` is `NULL`
-	isNull := func(val any) bool {
-		_, ok := val.(ast.Null)
-		return ok
-	}
-	// judge if `err` == `strconv.ErrSync`
-	isNotNumberString := func(err error) bool {
-		_, isThisErr := err.(*strconv.NumError)
-		return isThisErr
-	}
-	// if arg is boolean, should be converted to `0` or `1` at first
-	arg2String := func(arg proto.Value) string {
-		boolVal, isToStrBool := arg.(bool)
-		if isToStrBool {
-			if boolVal {
-				return "1"
-			} else {
-				return "0"
-			}
-		} else {
-			return fmt.Sprint(arg)
-		}
-	}
-
-	// arg0: str
 	strV, err := inputs[0].Value(ctx)
 	if err != nil {
 		return nil, err
 	}
-	// arg1: pos
 	posV, err := inputs[1].Value(ctx)
 	if err != nil {
 		return nil, err
 	}
-	// if any arg is `NULL`, return `NULL`
-	if isNull(strV) || isNull(posV) {
-		return ast.Null{}, nil
+	// if any arg is NULL, return NULL
+	if strV == nil || posV == nil {
+		return nil, nil
 	}
-	str := arg2String(strV)
-	pos, err := strconv.Atoi(arg2String(posV))
-	if isNotNumberString(err) {
-		// if `pos`,`length` is string but not a number string(such as "w","e"...)
-		// return empty string
-		return "", nil
-	}
+	str := strV.String()
+	pos, err := strconv.Atoi(posV.String())
 	if err != nil {
-		return nil, err
+		return proto.NewValueString(""), nil
 	}
 
-	// `SUBSTRING(str, pos)`
+	// SUBSTRING(str, pos)
 	if len(inputs) == 2 {
 		// cut string
 		if pos > 0 {
-			return str[pos-1:], nil
+			return proto.NewValueString(str[pos-1:]), nil
 		} else if pos < 0 {
-			return str[len(str)+pos:], nil
+			return proto.NewValueString(str[len(str)+pos:]), nil
 		} else {
-			return "", nil
+			return proto.NewValueString(""), nil
 		}
 	}
 
-	// `SUBSTRING(str, pos, length)`
-	// arg2[optional]: `length`
+	// SUBSTRING(str, pos, length)
 	lenV, err := inputs[2].Value(ctx)
 	if err != nil {
 		return nil, err
 	}
-	// if any arg is `NULL`, return `NULL`
-	if isNull(lenV) {
-		return ast.Null{}, nil
+	// if any arg is NULL, return NULL
+	if lenV == nil {
+		return nil, nil
 	}
-	length, err := strconv.Atoi(arg2String(lenV))
-	if isNotNumberString(err) {
-		// if `pos`,`length` is a string but not a number string(such as "w","e"...)
-		// return empty string
-		return "", nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	if length < 1 {
-		// if length < 1, return empty string
-		return "", nil
+	length, err := strconv.Atoi(lenV.String())
+	if err != nil || length < 1 {
+		return proto.NewValueString(""), nil
 	}
 	// cut string
 	if pos > 0 {
-		return str[pos-1 : pos-1+length], nil
+		return proto.NewValueString(str[pos-1 : pos-1+length]), nil
 	} else if pos < 0 {
-		return str[len(str)+pos : len(str)+pos+length], nil
+		return proto.NewValueString(str[len(str)+pos : len(str)+pos+length]), nil
 	} else {
-		return "", nil
+		return proto.NewValueString(""), nil
 	}
 }
 
