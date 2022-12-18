@@ -104,10 +104,10 @@ func (st *ShowTablesPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 			}
 			var tableName sql.NullString
 			_ = tableName.Scan(dest[0])
-			dest[0] = tableName.String
+			dest[0] = proto.NewValueString(tableName.String)
 
 			if logicalTableName, ok := st.invertedShards[tableName.String]; ok {
-				dest[0] = logicalTableName
+				dest[0] = proto.NewValueString(logicalTableName)
 			}
 
 			if next.IsBinary() {
@@ -126,7 +126,7 @@ func (st *ShowTablesPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 				return true
 			}
 
-			tableName := vr.Values()[0].(string)
+			tableName := vr.Values()[0].String()
 			if _, ok := duplicates[tableName]; ok {
 				return false
 			}

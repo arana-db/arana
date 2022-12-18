@@ -19,7 +19,6 @@ package function
 
 import (
 	"context"
-	"fmt"
 	"testing"
 )
 
@@ -41,35 +40,42 @@ func TestLeft(t *testing.T) {
 	}
 
 	for _, it := range []tt{
-		{"hello, world", 2, "he"},
-		{"hello, world", 6, "hello,"},
-		{"hello, world", 20, "hello, world"},
-		{"hello, world", 3.1415, "hel"},
-		{"hello, world", 1.1415, "h"},
-		{"hello, world", -3.1415, ""},
-		{"hello, world", 0, ""},
-		{"hello, world", -0.1, ""},
-		{"hello, world", "3", "hel"},
-		{"hello, world", "14", "hello, world"},
-		{"hello, world", "1.1415", "h"},
-		{"hello, world", "-3.1415", ""},
-		{"hello, world", "test", ""},
+		{proto.NewValueString("hello, world"), proto.NewValueInt64(2), "he"},
+		{proto.NewValueString("hello, world"), proto.NewValueInt64(6), "hello,"},
+		{proto.NewValueString("hello, world"), proto.NewValueInt64(20), "hello, world"},
+		{proto.NewValueString("hello, world"), proto.NewValueFloat64(3.1415), "hel"},
+		{proto.NewValueString("hello, world"), proto.NewValueFloat64(1.1415), "h"},
+		{proto.NewValueString("hello, world"), proto.NewValueFloat64(-3.1415), ""},
+		{proto.NewValueString("hello, world"), proto.NewValueInt64(0), ""},
+		{proto.NewValueString("hello, world"), proto.NewValueFloat64(-0.1), ""},
+		{proto.NewValueString("hello, world"), proto.NewValueString("3"), "hel"},
+		{proto.NewValueString("hello, world"), proto.NewValueString("14"), "hello, world"},
+		{proto.NewValueString("hello, world"), proto.NewValueString("1.1415"), "h"},
+		{proto.NewValueString("hello, world"), proto.NewValueString("-3.1415"), ""},
+		{proto.NewValueString("hello, world"), proto.NewValueString("test"), ""},
 
-		{"hello, world", "NULL", "NULL"},
-		{"NULL", 3.1415, "NULL"},
-		{"NULL", "NULL", "NULL"},
-		{"Null", "NULL", "NULL"},
+		{proto.NewValueString("hello, world"), nil, "NULL"},
+		{nil, proto.NewValueFloat64(3.1415), "NULL"},
+		{nil, nil, "NULL"},
+		{nil, nil, "NULL"},
 
-		{int64(144), 3, "144"},
-		{int64(144), 2, "14"},
-		{-3.14, 3, "-3."},
-		{float32(2.77), "2", "2."},
-		{"", "2", ""},
+		{proto.NewValueInt64(144), proto.NewValueInt64(3), "144"},
+		{proto.NewValueInt64(144), proto.NewValueInt64(2), "14"},
+		{proto.NewValueFloat64(-3.14), proto.NewValueInt64(3), "-3."},
+		{proto.NewValueFloat64(2.77), proto.NewValueString("2"), "2."},
+		{proto.NewValueString(""), proto.NewValueString("2"), ""},
 	} {
 		t.Run(it.want, func(t *testing.T) {
 			out, err := fn.Apply(context.Background(), proto.ToValuer(it.inFirst), proto.ToValuer(it.inSecond))
 			assert.NoError(t, err)
-			assert.Equal(t, it.want, fmt.Sprint(out))
+			var actual string
+			if out == nil {
+				actual = "NULL"
+			} else {
+				actual = out.String()
+			}
+
+			assert.Equal(t, it.want, actual)
 		})
 	}
 }

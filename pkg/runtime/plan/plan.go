@@ -21,21 +21,25 @@ import (
 	"go.opentelemetry.io/otel"
 )
 
+import (
+	"github.com/arana-db/arana/pkg/proto"
+)
+
 var Tracer = otel.Tracer("ExecPlan")
 
 type BasePlan struct {
-	Args []interface{}
+	Args []proto.Value
 }
 
-func (bp *BasePlan) BindArgs(args []interface{}) {
+func (bp *BasePlan) BindArgs(args []proto.Value) {
 	bp.Args = args
 }
 
-func (bp *BasePlan) ToArgs(indexes []int) []interface{} {
+func (bp *BasePlan) ToArgs(indexes []int) []proto.Value {
 	if len(indexes) < 1 || len(bp.Args) < 1 {
 		return nil
 	}
-	ret := make([]interface{}, 0, len(indexes))
+	ret := make([]proto.Value, 0, len(indexes))
 	for _, idx := range indexes {
 		ret = append(ret, bp.Args[idx])
 	}

@@ -19,13 +19,11 @@ package function
 
 import (
 	"context"
-	"fmt"
+	"math"
 	"testing"
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -38,29 +36,32 @@ func TestSqrt(t *testing.T) {
 	assert.Equal(t, 1, fn.NumInput())
 
 	type tt struct {
-		in  proto.Value
-		out string
-	}
-
-	mustDecimal := func(s string) *gxbig.Decimal {
-		d, _ := gxbig.NewDecFromString(s)
-		return d
+		desc  string
+		in    proto.Value
+		out   float64
+		valid bool
 	}
 
 	for _, it := range []tt{
-		{0, "0"},
-		{int64(144), "12"},
-		{-3.14, "NaN"},
-		{float32(2.77), "1.6643316977093238"},
-		{mustDecimal("12.3"), "3.5071355833500364"},
-		{"20", "4.4721359549995794"},
-		{"11.11", "3.3331666624997917"},
-		{"foobar", "0.0"},
+		{"SQRT(0)", proto.NewValueInt64(0), math.Sqrt(0), true},
+		{"SQRT(144)", proto.NewValueInt64(144), math.Sqrt(144), true},
+		{"SQRT(-3.14)", proto.NewValueFloat64(-3.14), 0, false},
+		{"SQRT(2.77)", proto.NewValueFloat64(2.77), math.Sqrt(2.77), true},
+		{"SQRT(12.3)", proto.MustNewValueDecimalString("12.3"), math.Sqrt(12.3), true},
+		{"SQRT('20')", proto.NewValueString("20"), math.Sqrt(20), true},
+		{"SQRT('11.11')", proto.NewValueString("11.11"), math.Sqrt(11.11), true},
+		{"SQRT('foobar')", proto.NewValueString("foobar"), math.Sqrt(0), true},
 	} {
-		t.Run(it.out, func(t *testing.T) {
+		t.Run(it.desc, func(t *testing.T) {
 			out, err := fn.Apply(context.Background(), proto.ToValuer(it.in))
 			assert.NoError(t, err)
-			assert.Equal(t, it.out, fmt.Sprint(out))
+			if it.valid {
+				assert.NotNil(t, out)
+				f, _ := out.Float64()
+				assert.Equal(t, it.out, f)
+			} else {
+				assert.Nil(t, out)
+			}
 		})
 	}
 }

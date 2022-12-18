@@ -15,47 +15,50 @@
  * limitations under the License.
  */
 
-package group
+package dal
 
 import (
-	"fmt"
+	"context"
+	"strings"
+)
+
+import (
+	"github.com/pkg/errors"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/runtime/plan"
 )
 
-type GroupByValue struct {
-	groupByColumns []string
-	groupByValues  []interface{}
+type KillPlan struct {
+	plan.BasePlan
+	db   string
+	Stmt *ast.KillStmt
 }
 
-func NewGroupByValue(groupByColumns []string, row proto.Row) *GroupByValue {
-	return &GroupByValue{
-		groupByColumns: groupByColumns,
-		groupByValues:  buildGroupValues(groupByColumns, row),
-	}
+func (k *KillPlan) Type() proto.PlanType {
+	return proto.PlanTypeExec
 }
 
-func buildGroupValues(groupByColumns []string, row proto.Row) []interface{} {
-	values := make([]interface{}, 0)
+func (k *KillPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+	var sb strings.Builder
+	ctx, span := plan.Tracer.Start(ctx, "KillPlan.ExecIn")
+	defer span.End()
 
-	for _, column := range groupByColumns {
-		value, err := row.(proto.KeyedRow).Get(column)
-		if err != nil {
-			panic("get column value error:" + err.Error())
-		}
-		values = append(values, value)
+	if err := k.Stmt.Restore(ast.RestoreDefault, &sb, nil); err != nil {
+		return nil, errors.WithStack(err)
 	}
-	return values
+	return conn.Exec(ctx, k.db, sb.String())
 }
 
-func (g *GroupByValue) equals(row proto.Row) bool {
-	values := buildGroupValues(g.groupByColumns, row)
-	for k := range values {
-		if fmt.Sprintf("%v", values[k]) != fmt.Sprintf("%v", g.groupByValues[k]) {
-			return false
-		}
+func (k *KillPlan) SetDatabase(db string) {
+	k.db = db
+}
+
+func NewKillPlan(stmt *ast.KillStmt) *KillPlan {
+	return &KillPlan{
+		Stmt: stmt,
 	}
-	return true
 }

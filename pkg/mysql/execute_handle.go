@@ -192,7 +192,7 @@ func (l *Listener) handleStmtExecute(c *Conn, ctx *proto.Context) error {
 			// Allocate a new bindvar map every time since VTGate.Execute() mutates it.
 			if prepare, ok := l.stmts.Load(stmtID); ok {
 				prepareStmt, _ := prepare.(*proto.Stmt)
-				prepareStmt.BindVars = make(map[string]interface{}, prepareStmt.ParamsCount)
+				prepareStmt.BindVars = make(map[string]proto.Value, prepareStmt.ParamsCount)
 			}
 		}()
 	}
@@ -301,7 +301,7 @@ func (l *Listener) handlePrepare(c *Conn, ctx *proto.Context) error {
 	if paramsCount > 0 {
 		stmt.ParamsCount = paramsCount
 		stmt.ParamsType = make([]int32, paramsCount)
-		stmt.BindVars = make(map[string]interface{}, paramsCount)
+		stmt.BindVars = make(map[string]proto.Value, paramsCount)
 	}
 
 	l.stmts.Store(statementID, stmt)
@@ -317,7 +317,7 @@ func (l *Listener) handleStmtReset(c *Conn, ctx *proto.Context) error {
 	if ok {
 		if prepare, ok := l.stmts.Load(stmtID); ok {
 			prepareStmt, _ := prepare.(*proto.Stmt)
-			prepareStmt.BindVars = make(map[string]interface{})
+			prepareStmt.BindVars = make(map[string]proto.Value)
 		}
 	}
 	return c.writeOKPacket(0, 0, c.StatusFlags, 0)

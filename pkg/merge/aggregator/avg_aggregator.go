@@ -18,99 +18,59 @@
 package aggregator
 
 import (
-	"fmt"
-	"reflect"
+	"github.com/shopspring/decimal"
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
+	"github.com/arana-db/arana/pkg/proto"
 )
 
 type AvgAggregator struct {
-	sum   gxbig.Decimal
-	count gxbig.Decimal
+	sum   decimal.NullDecimal
+	count decimal.NullDecimal
 }
 
-func (s *AvgAggregator) Aggregate(values []interface{}) {
+func (s *AvgAggregator) Aggregate(values []proto.Value) {
 	if len(values) < 2 {
 		return
 	}
 
-	val1, err := parseDecimal2(values[0])
-	if err != nil {
-		panic(err)
-	}
-	val2, err := parseDecimal2(values[1])
-	if err != nil {
-		panic(err)
+	if values[0] != nil {
+		val1, err := values[0].Decimal()
+		if err != nil {
+			panic(err.Error())
+		}
+
+		if !s.sum.Valid {
+			s.sum.Valid = true
+			s.sum.Decimal = decimal.Zero
+		}
+		s.sum.Decimal = s.sum.Decimal.Add(val1)
 	}
 
-	gxbig.DecimalAdd(&s.sum, val1, &s.sum)
-	gxbig.DecimalAdd(&s.count, val2, &s.count)
+	if values[1] != nil {
+		val, err := values[1].Decimal()
+		if err != nil {
+			panic(err.Error())
+		}
+
+		if !s.count.Valid {
+			s.count.Valid = true
+			s.count.Decimal = decimal.Zero
+		}
+		s.count.Decimal = s.count.Decimal.Add(val)
+	}
 }
 
-func (s *AvgAggregator) GetResult() (*gxbig.Decimal, bool) {
-	if s.count.IsZero() {
+func (s *AvgAggregator) GetResult() (proto.Value, bool) {
+	if !s.sum.Valid || !s.count.Valid {
 		return nil, false
 	}
-	var res gxbig.Decimal
-	gxbig.DecimalDiv(&s.sum, &s.count, &res, gxbig.DivFracIncr)
-	return &res, true
-}
 
-func parseDecimal2(val interface{}) (*gxbig.Decimal, error) {
-	kd := reflect.TypeOf(val).Kind()
-
-	elemPtrType := kd == reflect.Ptr
-	floatType := validateFloatKind(kd)
-	intType := validateIntKind(kd)
-	uintType := validateUintKind(kd)
-
-	value := reflect.ValueOf(val)
-	if elemPtrType {
-		value = value.Elem()
+	if s.count.Decimal.IsZero() {
+		return nil, false
 	}
 
-	switch {
-	case floatType:
-		dec := &gxbig.Decimal{}
-		err := dec.FromFloat64(value.Float())
-		return dec, err
-	case intType:
-		return gxbig.NewDecFromInt(value.Int()), nil
-	case uintType:
-		return gxbig.NewDecFromUint(value.Uint()), nil
-	default:
-		return nil, fmt.Errorf("invalid decimal value: %v", val)
-	}
-}
-
-// validateIntKind check whether k is int kind
-func validateIntKind(k reflect.Kind) bool {
-	switch k {
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return true
-	default:
-		return false
-	}
-}
-
-// validateUintKind check whether k is uint kind
-func validateUintKind(k reflect.Kind) bool {
-	switch k {
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return true
-	default:
-		return false
-	}
-}
-
-// validateFloatKind check whether k is float kind
-func validateFloatKind(k reflect.Kind) bool {
-	switch k {
-	case reflect.Float32, reflect.Float64:
-		return true
-	default:
-		return false
-	}
+	result := s.sum.Decimal.Div(s.count.Decimal)
+	return proto.NewValueDecimal(result), true
 }

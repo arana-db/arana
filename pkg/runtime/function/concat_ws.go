@@ -19,13 +19,11 @@ package function
 
 import (
 	"context"
-	"fmt"
 	"strings"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
 // FuncConcatWS https://dev.mysql.com/doc/refman/5.6/en/string-functions.html#function_concat-ws
@@ -41,43 +39,51 @@ type concatWSFunc struct{}
 
 func (c concatWSFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
 	var (
-		sb  strings.Builder
-		sep proto.Value
-		err error
+		sb       strings.Builder
+		sep, val proto.Value
+		err      error
 	)
 
 	if sep, err = inputs[0].Value(ctx); err != nil {
 		return nil, err
 	}
 	// check separator is NULL
-	if isNull(sep) {
-		return ast.Null{}.String(), nil
+	if sep == nil {
+		return nil, nil
 	}
 
-	for i := range inputs {
-		val, err := inputs[i].Value(ctx)
-		if err != nil {
+	i := 1
+
+	// 1. write the first not-null value in string
+	for ; i < len(inputs); i++ {
+		if val, err = inputs[i].Value(ctx); err != nil {
+			return nil, err
+		}
+		if val != nil {
+			sb.WriteString(val.String())
+			break
+		}
+	}
+
+	i++
+
+	// 2. write other non-null value in string, includes sep
+	for ; i < len(inputs); i++ {
+		if val, err = inputs[i].Value(ctx); err != nil {
 			return nil, err
 		}
 
-		if i == 0 || isNull(val) {
+		if val == nil {
 			continue
 		}
 
-		if i != 1 {
-			_, _ = fmt.Fprint(&sb, sep)
-		}
-		_, _ = fmt.Fprint(&sb, val)
+		sb.WriteString(sep.String())
+		sb.WriteString(val.String())
 	}
 
-	return sb.String(), nil
+	return proto.NewValueString(sb.String()), nil
 }
 
 func (c concatWSFunc) NumInput() int {
 	return 2
-}
-
-func isNull(val any) bool {
-	_, ok := val.(ast.Null)
-	return ok
 }

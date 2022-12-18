@@ -88,7 +88,7 @@ func (s *TruncatePlan) SetShards(shards rule.DatabaseTables) {
 	s.shards = shards
 }
 
-func (s *TruncatePlan) execOne(ctx context.Context, conn proto.VConn, db, query string, args []interface{}) error {
+func (s *TruncatePlan) execOne(ctx context.Context, conn proto.VConn, db, query string, args []proto.Value) error {
 	res, err := conn.Exec(ctx, db, query, args...)
 	if err != nil {
 		return errors.WithStack(err)

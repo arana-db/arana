@@ -83,7 +83,7 @@ func (d *DropIndexPlan) SetShard(shard rule.DatabaseTables) {
 	d.shard = shard
 }
 
-func (d *DropIndexPlan) execOne(ctx context.Context, conn proto.VConn, db, query string, args []interface{}) error {
+func (d *DropIndexPlan) execOne(ctx context.Context, conn proto.VConn, db, query string, args []proto.Value) error {
 	res, err := conn.Exec(ctx, db, query, args...)
 	if err != nil {
 		return err

@@ -19,7 +19,6 @@ package function
 
 import (
 	"context"
-	"fmt"
 )
 
 import (
@@ -30,7 +29,6 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/util/math"
 )
 
 // FuncAbs is https://dev.mysql.com/doc/refman/8.0/en/mathematical-functions.html#function_abs
@@ -58,47 +56,21 @@ func (a absFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value
 		return nil, errors.WithStack(err)
 	}
 
-	decAbs := func(d *gxbig.Decimal) *gxbig.Decimal {
-		if !d.IsNegative() {
-			return d
-		}
-
-		var ret gxbig.Decimal
-		_ = gxbig.DecimalMul(d, _negativeOne, &ret)
-		return &ret
+	d, err := val.Decimal()
+	if err != nil {
+		return proto.NewValueFloat64(0), nil
 	}
+	d = d.Abs()
 
-	switch v := val.(type) {
-	case *gxbig.Decimal:
-		return decAbs(v), nil
-	case uint8, uint16, uint32, uint64, uint:
-		return v, nil
-	case int64:
-		return math.Abs(v), nil
-	case int32:
-		return math.Abs(v), nil
-	case int16:
-		return math.Abs(v), nil
-	case int8:
-		return math.Abs(v), nil
-	case int:
-		return math.Abs(v), nil
-	case float64:
-		if v < 0 {
-			return -v, nil
-		}
-		return v, nil
-	case float32:
-		if v < 0 {
-			return -v, nil
-		}
-		return v, nil
+	switch val.Family() {
+	case proto.ValueFamilyFloat:
+		return proto.NewValueFloat64(d.InexactFloat64()), nil
+	case proto.ValueFamilyDecimal, proto.ValueFamilyString:
+		return proto.NewValueDecimal(d), nil
+	case proto.ValueFamilySign:
+		return proto.NewValueInt64(d.IntPart()), nil
 	default:
-		var d *gxbig.Decimal
-		if d, err = gxbig.NewDecFromString(fmt.Sprint(v)); err != nil {
-			return _zeroDecimal, nil
-		}
-		return decAbs(d), nil
+		panic("unreachable")
 	}
 }
 

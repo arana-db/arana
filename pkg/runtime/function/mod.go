@@ -19,18 +19,16 @@ package function
 
 import (
 	"context"
-	"fmt"
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
-
 	"github.com/pkg/errors"
+
+	"github.com/shopspring/decimal"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/util/math"
 )
 
 // FuncMod is https://dev.mysql.com/doc/refman/5.6/en/mathematical-functions.html#function_mod
@@ -47,30 +45,41 @@ type modFunc struct{}
 func (a modFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
 	val1, err := inputs[0].Value(ctx)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, errors.Wrapf(err, "cannot eval %s", FuncMod)
 	}
+
 	val2, err := inputs[1].Value(ctx)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, errors.Wrapf(err, "cannot eval %s", FuncMod)
 	}
-	decmod := func(d1 *gxbig.Decimal, d2 *gxbig.Decimal) *gxbig.Decimal {
-		var ret gxbig.Decimal
-		_ = gxbig.DecimalMod(d1, d2, &ret)
-		return &ret
+
+	if val1 == nil || val2 == nil {
+		return nil, nil
 	}
-	d1 := math.ToDecimal(val1)
-	d2 := math.ToDecimal(val2)
-	if !math.IsZero(d1) {
-		if !math.IsZero(d2) {
-			ret := decmod(d1, d2)
-			return ret, nil
-		} else {
-			return "NULL", err
+	x, err := val1.Decimal()
+	if err != nil {
+		x = decimal.Zero
+	}
+	y, err := val2.Decimal()
+	if err != nil {
+		return nil, nil
+	}
+
+	if y.IsZero() {
+		return nil, nil
+	}
+
+	z := x.Mod(y)
+
+	switch val1.Family() {
+	case proto.ValueFamilySign, proto.ValueFamilyUnsigned:
+		switch val2.Family() {
+		case proto.ValueFamilySign, proto.ValueFamilyUnsigned:
+			return proto.NewValueInt64(z.IntPart()), nil
 		}
-	} else {
-		d, err := gxbig.NewDecFromString(fmt.Sprint(0))
-		return d, err
 	}
+
+	return proto.NewValueDecimal(z), nil
 }
 
 func (a modFunc) NumInput() int {

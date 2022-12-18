@@ -24,8 +24,6 @@ import (
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
-
 	"github.com/pkg/errors"
 )
 
@@ -46,19 +44,15 @@ type md5Func struct{}
 func (c md5Func) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
 	val, err := inputs[0].Value(ctx)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, errors.Wrapf(err, "cannot eval %s", FuncMd5)
 	}
 
-	decMd5 := func(v interface{}) string {
-		return fmt.Sprintf("%x", md5.Sum([]byte(fmt.Sprint(v))))
+	if val == nil {
+		return nil, nil
 	}
 
-	switch v := val.(type) {
-	case *gxbig.Decimal:
-		return decMd5(v.Value), nil
-	default:
-		return decMd5(v), nil
-	}
+	h := fmt.Sprintf("%x", md5.Sum([]byte(val.String())))
+	return proto.NewValueString(h), nil
 }
 
 func (c md5Func) NumInput() int {

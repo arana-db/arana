@@ -24,7 +24,6 @@ import (
 
 import (
 	"github.com/pkg/errors"
-	"github.com/spf13/cast"
 )
 
 import (
@@ -44,16 +43,16 @@ type sinFunc struct{}
 
 // Apply call the current function.
 func (s sinFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
-	if len(inputs) > 1 {
-		return nil, errors.New("Incorrect parameter count in the call to native function sin")
-	}
-
 	param, err := inputs[0].Value(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
 
-	return math.Sin(cast.ToFloat64(param)), nil
+	if param == nil {
+		return nil, nil
+	}
+	f, _ := param.Float64()
+	return proto.NewValueFloat64(math.Sin(f)), nil
 }
 
 // NumInput returns the minimum number of inputs.

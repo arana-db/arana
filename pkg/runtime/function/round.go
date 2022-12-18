@@ -19,13 +19,10 @@ package function
 
 import (
 	"context"
-	"fmt"
 	"math"
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
-
 	"github.com/pkg/errors"
 )
 
@@ -48,56 +45,27 @@ func (a roundFunc) NumInput() int {
 	return 2
 }
 
-func Round(val float64, precision proto.Value) float64 {
-	v, _ := precision.(int)
-	p := math.Pow10(v)
+func Round(val float64, precision int) float64 {
+	p := math.Pow10(precision)
 	return math.Floor(val*p+0.5) / p
 }
 
 func (a roundFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
-	x, err := inputs[0].Value(ctx)
+	first, err := inputs[0].Value(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	precision, err := inputs[1].Value(ctx)
+	second, err := inputs[1].Value(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)
-	}
-	decRound := func(d *gxbig.Decimal) *gxbig.Decimal {
-		if err = d.Round(d, precision.(int), 5); err != nil {
-			return nil
-		}
-		return d
 	}
 
-	switch v := x.(type) {
-	case *gxbig.Decimal:
-		return decRound(v), nil
-	case uint8:
-		return Round(float64(v), precision), nil
-	case uint16:
-		return Round(float64(v), precision), nil
-	case uint32:
-		return Round(float64(v), precision), nil
-	case uint64:
-		return Round(float64(v), precision), nil
-	case uint:
-		return Round(float64(v), precision), nil
-	case int64:
-		return Round(float64(v), precision), nil
-	case int32:
-		return Round(float64(v), precision), nil
-	case int16:
-		return Round(float64(v), precision), nil
-	case int8:
-		return Round(float64(v), precision), nil
-	case int:
-		return Round(float64(v), precision), nil
-	default:
-		var d *gxbig.Decimal
-		if d, err = gxbig.NewDecFromString(fmt.Sprint(v)); err != nil {
-			return "NaN", nil
-		}
-		return decRound(d), nil
+	if first == nil || second == nil {
+		return nil, nil
 	}
+
+	x, _ := first.Float64()
+	precision, _ := second.Int64()
+
+	return proto.NewValueFloat64(Round(x, int(precision))), nil
 }

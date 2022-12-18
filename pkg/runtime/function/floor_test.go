@@ -24,8 +24,6 @@ import (
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -42,21 +40,16 @@ func TestFloor(t *testing.T) {
 		out string
 	}
 
-	mustDecimal := func(s string) *gxbig.Decimal {
-		d, _ := gxbig.NewDecFromString(s)
-		return d
-	}
-
 	for _, it := range []tt{
-		{0, "0"},
-		{int64(-123), "-123"},
-		{-3.14, "-4"},
-		{float32(2.78), "2"},
-		{mustDecimal("-5.1234"), "-6"},
-		{mustDecimal("5.1234"), "5"},
-		{"-618", "-618"},
-		{"-11.11", "-12"},
-		{"foobar", "0"},
+		{proto.NewValueInt64(0), "0"},
+		{proto.NewValueInt64(-123), "-123"},
+		{proto.NewValueFloat64(-3.14), "-4"},
+		{proto.NewValueFloat64(2.78), "2"},
+		{proto.MustNewValueDecimalString("-5.1234"), "-6"},
+		{proto.MustNewValueDecimalString("5.1234"), "5"},
+		{proto.NewValueString("-618"), "-618"},
+		{proto.NewValueString("-11.11"), "-12"},
+		{proto.NewValueString("foobar"), "0"},
 	} {
 		t.Run(it.out, func(t *testing.T) {
 			out, err := fn.Apply(context.Background(), proto.ToValuer(it.in))

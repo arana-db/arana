@@ -19,10 +19,12 @@ package mysql
 
 import (
 	"encoding/binary"
-	"encoding/json"
 	"fmt"
 	"math"
-	"time"
+)
+
+import (
+	perrors "github.com/pkg/errors"
 )
 
 import (
@@ -122,7 +124,7 @@ func (stmt *BackendStatement) writeCommandLongData(paramID int, arg []byte) erro
 
 // Execute Prepared Statement
 // http://dev.mysql.com/doc/internals/en/com-stmt-execute.html
-func (stmt *BackendStatement) writeExecutePacket(args []interface{}) error {
+func (stmt *BackendStatement) writeExecutePacket(args []proto.Value) error {
 	if len(args) != stmt.paramCount {
 		return fmt.Errorf(
 			"argument count mismatch (got: %d; has: %d)",
@@ -216,12 +218,11 @@ func (stmt *BackendStatement) writeExecutePacket(args []interface{}) error {
 				continue
 			}
 
-			if v, ok := arg.(json.RawMessage); ok {
-				arg = []byte(v)
-			}
 			// cache types and values
-			switch v := arg.(type) {
-			case int64:
+			switch arg.Family() {
+			case proto.ValueFamilySign:
+				v, _ := arg.Int64()
+
 				paramTypes[i+i] = byte(mysql.FieldTypeLongLong)
 				paramTypes[i+i+1] = 0x00
 
@@ -237,7 +238,9 @@ func (stmt *BackendStatement) writeExecutePacket(args []interface{}) error {
 					)
 				}
 
-			case uint64:
+			case proto.ValueFamilyUnsigned:
+				v, _ := arg.Uint64()
+
 				paramTypes[i+i] = byte(mysql.FieldTypeLongLong)
 				paramTypes[i+i+1] = 0x80 // type is unsigned
 
@@ -245,15 +248,17 @@ func (stmt *BackendStatement) writeExecutePacket(args []interface{}) error {
 					paramValues = paramValues[:len(paramValues)+8]
 					binary.LittleEndian.PutUint64(
 						paramValues[len(paramValues)-8:],
-						uint64(v),
+						v,
 					)
 				} else {
 					paramValues = append(paramValues,
-						uint64ToBytes(uint64(v))...,
+						uint64ToBytes(v)...,
 					)
 				}
 
-			case float64:
+			case proto.ValueFamilyFloat:
+				v, _ := arg.Float64()
+
 				paramTypes[i+i] = byte(mysql.FieldTypeDouble)
 				paramTypes[i+i+1] = 0x00
 
@@ -269,7 +274,9 @@ func (stmt *BackendStatement) writeExecutePacket(args []interface{}) error {
 					)
 				}
 
-			case bool:
+			case proto.ValueFamilyBool:
+				v, _ := arg.Bool()
+
 				paramTypes[i+i] = byte(mysql.FieldTypeTiny)
 				paramTypes[i+i+1] = 0x00
 
@@ -279,31 +286,33 @@ func (stmt *BackendStatement) writeExecutePacket(args []interface{}) error {
 					paramValues = append(paramValues, 0x00)
 				}
 
-			case []byte:
-				// Common case (non-nil value) first
-				if v != nil {
-					paramTypes[i+i] = byte(mysql.FieldTypeString)
-					paramTypes[i+i+1] = 0x00
+			//case []byte:
+			//	// Common case (non-nil value) first
+			//	if v != nil {
+			//		paramTypes[i+i] = byte(mysql.FieldTypeString)
+			//		paramTypes[i+i+1] = 0x00
+			//
+			//		if len(v) < longDataSize {
+			//			paramValues = appendLengthEncodedInteger(paramValues,
+			//				uint64(len(v)),
+			//			)
+			//			paramValues = append(paramValues, v...)
+			//		} else {
+			//			if err := stmt.writeCommandLongData(i, v); err != nil {
+			//				return err
+			//			}
+			//		}
+			//		continue
+			//	}
+			//
+			//	// Handle []byte(nil) as a NULL value
+			//	nullMask[i/8] |= 1 << (uint(i) & 7)
+			//	paramTypes[i+i] = byte(mysql.FieldTypeNULL)
+			//	paramTypes[i+i+1] = 0x00
 
-					if len(v) < longDataSize {
-						paramValues = appendLengthEncodedInteger(paramValues,
-							uint64(len(v)),
-						)
-						paramValues = append(paramValues, v...)
-					} else {
-						if err := stmt.writeCommandLongData(i, v); err != nil {
-							return err
-						}
-					}
-					continue
-				}
+			case proto.ValueFamilyString, proto.ValueFamilyDecimal:
+				v := arg.String()
 
-				// Handle []byte(nil) as a NULL value
-				nullMask[i/8] |= 1 << (uint(i) & 7)
-				paramTypes[i+i] = byte(mysql.FieldTypeNULL)
-				paramTypes[i+i+1] = 0x00
-
-			case string:
 				paramTypes[i+i] = byte(mysql.FieldTypeString)
 				paramTypes[i+i+1] = 0x00
 
@@ -318,7 +327,9 @@ func (stmt *BackendStatement) writeExecutePacket(args []interface{}) error {
 					}
 				}
 
-			case time.Time:
+			case proto.ValueFamilyTime:
+				v, _ := arg.Time()
+
 				paramTypes[i+i] = byte(mysql.FieldTypeString)
 				paramTypes[i+i+1] = 0x00
 
@@ -340,7 +351,7 @@ func (stmt *BackendStatement) writeExecutePacket(args []interface{}) error {
 				paramValues = append(paramValues, b...)
 
 			default:
-				return fmt.Errorf("cannot convert type: %T", arg)
+				return perrors.Errorf("cannot convert type: %T", arg.Family())
 			}
 		}
 
@@ -357,7 +368,7 @@ func (stmt *BackendStatement) writeExecutePacket(args []interface{}) error {
 	return bc.c.writePacket(data[4:])
 }
 
-func (stmt *BackendStatement) execArgs(args []interface{}) (proto.Result, error) {
+func (stmt *BackendStatement) execArgs(args []proto.Value) (proto.Result, error) {
 	err := stmt.writeExecutePacket(args)
 	if err != nil {
 		return nil, err
@@ -377,7 +388,7 @@ func (stmt *BackendStatement) execArgs(args []interface{}) (proto.Result, error)
 	return stmt.conn.ReadQueryRow(), nil
 }
 
-func (stmt *BackendStatement) queryArgs(args []interface{}) (proto.Result, error) {
+func (stmt *BackendStatement) queryArgs(args []proto.Value) (proto.Result, error) {
 	err := stmt.writeExecutePacket(args)
 	if err != nil {
 		return nil, err

@@ -19,7 +19,6 @@ package function
 
 import (
 	"context"
-	"fmt"
 	"testing"
 )
 
@@ -31,33 +30,68 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
-func TestUnSignCast(t *testing.T) {
-	fn := proto.MustGetFunc(FuncCast)
+func TestCastSign(t *testing.T) {
+	fn := proto.MustGetFunc(FuncCastSign)
 	assert.Equal(t, 1, fn.NumInput())
 
 	type tt struct {
-		in  proto.Value
-		out string
+		desc string
+		in   proto.Value
+		out  int64
 	}
 
 	for _, it := range []tt{
-		{0, "0"},
-		{int(1), "1"},
-		{int8(2), "2"},
-		{int16(3), "3"},
-		{int32(4), "4"},
-		{int64(5), "5"},
-		{int(-1), "0"},
-		{int8(-2), "0"},
-		{int16(-3), "0"},
-		{int32(-4), "0"},
-		{int64(-5), "0"},
+		{"CAST(0 AS SIGNED)", proto.NewValueInt64(0), 0},
+		{"CAST(1 AS SIGNED)", proto.NewValueInt64(1), 1},
+		{"CAST(-1 AS SIGNED)", proto.NewValueInt64(-1), -1},
 	} {
-		t.Run(it.out, func(t *testing.T) {
+		t.Run(it.desc, func(t *testing.T) {
+			out, err := fn.Apply(context.Background(), proto.ToValuer(it.in))
+			t.Logf("res: %v\n", out.String())
+			assert.NoError(t, err)
+			v, _ := out.Int64()
+			assert.Equal(t, it.out, v)
+		})
+	}
+}
+
+func TestCastUnsigned(t *testing.T) {
+	fn := proto.MustGetFunc(FuncCastUnsigned)
+	assert.Equal(t, 1, fn.NumInput())
+
+	type tt struct {
+		desc string
+		in   proto.Value
+		out  uint64
+	}
+
+	for _, it := range []tt{
+		{
+			"CAST(0 AS UNSIGNED)",
+			proto.NewValueInt64(0),
+			0,
+		},
+		{
+			"CAST(1 AS UNSIGNED)",
+			proto.NewValueInt64(1),
+			1,
+		},
+		{
+			"CAST(-1 AS UNSIGNED)",
+			proto.NewValueInt64(-1),
+			func() uint64 {
+				var n int64 = -1
+				return uint64(n)
+			}(),
+		},
+	} {
+		t.Run(it.desc, func(t *testing.T) {
 			out, err := fn.Apply(context.Background(), proto.ToValuer(it.in))
 			t.Logf("res: %v\n", out)
 			assert.NoError(t, err)
-			assert.Equal(t, it.out, fmt.Sprint(out))
+
+			u, _ := out.Uint64()
+			assert.Equal(t, it.out, u)
 		})
 	}
 }

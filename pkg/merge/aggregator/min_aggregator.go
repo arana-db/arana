@@ -18,35 +18,45 @@
 package aggregator
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
+	"github.com/shopspring/decimal"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/proto"
 )
 
 type MinAggregator struct {
-	min  *gxbig.Decimal
-	init bool
+	min decimal.NullDecimal
 }
 
-func (s *MinAggregator) Aggregate(values []interface{}) {
+func (s *MinAggregator) Aggregate(values []proto.Value) {
 	if len(values) == 0 {
 		return
 	}
 
-	val, err := parseDecimal2(values[0])
+	if values[0] == nil {
+		return
+	}
+
+	val, err := values[0].Decimal()
 	if err != nil {
 		panic(err)
 	}
 
-	if !s.init {
-		s.min = val
-		s.init = true
-	} else if s.min.Compare(val) > 0 {
-		s.min = val
+	if !s.min.Valid {
+		s.min.Valid = true
+		s.min.Decimal = val
+		return
+	}
+
+	if s.min.Decimal.GreaterThan(val) {
+		s.min.Decimal = val
 	}
 }
 
-func (s *MinAggregator) GetResult() (*gxbig.Decimal, bool) {
-	if s.init {
-		return s.min, true
+func (s *MinAggregator) GetResult() (proto.Value, bool) {
+	if s.min.Valid {
+		return proto.NewValueDecimal(s.min.Decimal), true
 	}
 	return nil, false
 }
