@@ -79,7 +79,7 @@ func (f FilterDatasetPrefix) Next() (proto.Row, error) {
 		return nil, err
 	}
 
-	if strings.HasPrefix(values[0].(string), f.Prefix) {
+	if strings.HasPrefix(values[0].String(), f.Prefix) {
 		return f.Next()
 	}
 

@@ -18,13 +18,10 @@
 package dataset
 
 import (
-	"database/sql"
 	"io"
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
-
 	"github.com/pkg/errors"
 )
 
@@ -77,10 +74,6 @@ func (ad *ReduceDataset) Next() (proto.Row, error) {
 		return ad.Next()
 	}
 
-	var (
-		prevValue, nextValue *gxbig.Decimal
-		result               *gxbig.Decimal
-	)
 	for i := range values {
 		red, ok := ad.Reducers[i]
 		if !ok {
@@ -99,35 +92,21 @@ func (ad *ReduceDataset) Next() (proto.Row, error) {
 			continue
 		}
 
-		if prevValue, err = toValue(fields[i], prev); err != nil {
+		x, err := prev.Decimal()
+		if err != nil {
 			return nil, errors.WithStack(err)
 		}
-		if nextValue, err = toValue(fields[i], next); err != nil {
+		y, err := next.Decimal()
+		if err != nil {
 			return nil, errors.WithStack(err)
 		}
-		if result, err = red.Decimal(prevValue, nextValue); err != nil {
+		z, err := red.Decimal(x, y)
+		if err != nil {
 			return nil, errors.WithStack(err)
 		}
 
-		ad.prev[i] = result
+		ad.prev[i] = proto.NewValueDecimal(z)
 	}
 
 	return ad.Next()
-}
-
-func toValue(field proto.Field, input interface{}) (*gxbig.Decimal, error) {
-	switch v := input.(type) {
-	case *gxbig.Decimal:
-		return v, nil
-	case string:
-		return gxbig.NewDecFromString(v)
-	case int64:
-		return gxbig.NewDecFromInt(v), nil
-	}
-
-	var s sql.NullString
-	if err := s.Scan(input); err != nil {
-		return nil, errors.WithStack(err)
-	}
-	return gxbig.NewDecFromString(s.String)
 }

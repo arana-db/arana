@@ -19,15 +19,13 @@ package function
 
 import (
 	"context"
-	"fmt"
 	"math"
-	"strconv"
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
-
 	"github.com/pkg/errors"
+
+	"github.com/shopspring/decimal"
 )
 
 import (
@@ -50,7 +48,7 @@ func (t truncateFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	v, err := strconv.ParseFloat(fmt.Sprint(x), 64)
+	v, err := x.Float64()
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -58,40 +56,12 @@ func (t truncateFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	e, err := strconv.Atoi(fmt.Sprint(d))
+	e, err := d.Int64()
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	res := math.Trunc(v*math.Pow10(e)) * math.Pow10(-e)
-
-	switch x.(type) {
-	case uint8:
-		return uint8(res), nil
-	case uint16:
-		return uint16(res), nil
-	case uint32:
-		return uint32(res), nil
-	case uint64:
-		return uint64(res), nil
-	case uint:
-		return uint(res), nil
-	case int8:
-		return int8(res), nil
-	case int16:
-		return int16(res), nil
-	case int32:
-		return int32(res), nil
-	case int64:
-		return int64(res), nil
-	case int:
-		return int(res), nil
-	case float64:
-		return res, nil
-	case float32:
-		return float32(res), nil
-	default:
-		return gxbig.NewDecFromFloat(res)
-	}
+	res := math.Trunc(v*math.Pow10(int(e))) * math.Pow10(-int(e))
+	return proto.NewValueDecimal(decimal.NewFromFloat(res)), nil
 }
 
 func (t truncateFunc) NumInput() int {

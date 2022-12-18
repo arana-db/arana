@@ -24,8 +24,6 @@ import (
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -43,11 +41,10 @@ func TestMd5(t *testing.T) {
 	}
 
 	for _, it := range []tt{
-		{1111, "b59c67bf196a4758191e42f76670ceba"},
-		{&gxbig.Decimal{Value: "arana"}, "9761ad4d3bfd97b86287fc7a4a136d38"},
-		{"arana", "9761ad4d3bfd97b86287fc7a4a136d38"},
-		{"db-mesh", "a4e7264c356b8f0c4a1c343a7cce128f"},
-		{20.22, "07fddc088bedbf68f04214c0d52b1233"},
+		{proto.NewValueInt64(1111), "b59c67bf196a4758191e42f76670ceba"},
+		{proto.NewValueString("arana"), "9761ad4d3bfd97b86287fc7a4a136d38"},
+		{proto.NewValueString("db-mesh"), "a4e7264c356b8f0c4a1c343a7cce128f"},
+		{proto.NewValueFloat64(20.22), "07fddc088bedbf68f04214c0d52b1233"},
 	} {
 		t.Run(it.out, func(t *testing.T) {
 			out, err := fn.Apply(context.Background(), proto.ToValuer(it.in))

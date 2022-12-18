@@ -18,12 +18,8 @@
 package rule
 
 import (
-	"encoding/binary"
 	stdErrors "errors"
 	"fmt"
-	"math"
-	"strconv"
-	"time"
 )
 
 import (
@@ -31,8 +27,8 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
-	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
 	"github.com/arana-db/arana/pkg/runtime/logical"
 	"github.com/arana-db/arana/pkg/runtime/misc"
@@ -147,76 +143,30 @@ func (n noopEvaluator) Eval(_ *rule.VTable) (*rule.Shards, error) {
 type KeyedEvaluator struct {
 	k  string
 	op cmp.Comparison
-	v  interface{}
+	v  proto.Value
 }
 
 func (t *KeyedEvaluator) toComparative(metadata *rule.ShardMetadata) *cmp.Comparative {
 	var (
-		s   string
-		k   cmp.Kind
-		val = t.v
+		s string
+		k cmp.Kind
 	)
 
-	// convert nil
-	if val == nil {
-		val = ast.Null{}
+	if t.v == nil {
+		return nil
 	}
 
-	switch v := val.(type) {
-	case time.Time:
-		s = v.Format("2006-01-02 15:04:05")
-		k = cmp.Kdate
-	case *time.Time:
-		s = v.Format("2006-01-02 15:04:05")
-		k = cmp.Kdate
-	case string:
+	switch t.v.Family() {
+	case proto.ValueFamilyString:
 		k = cmp.Kstring
-		s = v
-	case int8:
-		s = strconv.FormatInt(int64(v), 10)
+		s = t.v.String()
+	case proto.ValueFamilyTime:
+		k = cmp.Kdate
+		dt, _ := t.v.Time()
+		s = dt.Format("2006-01-02 15:04:05")
+	case proto.ValueFamilyDecimal, proto.ValueFamilySign, proto.ValueFamilyUnsigned, proto.ValueFamilyFloat, proto.ValueFamilyBool:
 		k = cmp.Kint
-	case int16:
-		s = strconv.FormatInt(int64(v), 10)
-		k = cmp.Kint
-	case int32:
-		s = strconv.FormatInt(int64(v), 10)
-		k = cmp.Kint
-	case int:
-		s = strconv.FormatInt(int64(v), 10)
-		k = cmp.Kint
-	case int64:
-		s = strconv.FormatInt(v, 10)
-		k = cmp.Kint
-	case uint8:
-		s = strconv.FormatUint(uint64(v), 10)
-		k = cmp.Kint
-	case uint16:
-		s = strconv.FormatUint(uint64(v), 10)
-		k = cmp.Kint
-	case uint32:
-		s = strconv.FormatUint(uint64(v), 10)
-		k = cmp.Kint
-	case uint:
-		s = strconv.FormatUint(uint64(v), 10)
-		k = cmp.Kint
-	case uint64:
-		s = strconv.FormatUint(v, 10)
-		k = cmp.Kint
-	case float32:
-		s = strconv.FormatInt(int64(v), 10)
-		k = cmp.Kint
-	case float64:
-		// zero div
-		if math.IsNaN(v) || math.IsInf(v, 0) {
-			s = "0"
-		} else {
-			s = strconv.FormatInt(int64(v), 10)
-		}
-		k = cmp.Kint
-	case ast.Null:
-		return nil
-	default:
-		panic(fmt.Sprintf("invalid compare value type %T!", v))
+		s = t.v.String()
 	}
 
 	if metadata != nil {
@@ -240,21 +190,8 @@ func (t *KeyedEvaluator) String() string {
 func (t *KeyedEvaluator) ToLogical() logical.Logical {
 	// NOTICE: sort the logical operations, eg: a > 1 AND a > 2 AND a < 1 AND a < 2
 	var suffix string
-	switch v := t.v.(type) {
-	case int8, uint8, int16, uint16, int32, uint32, int, int64:
-		suffix = fmt.Sprintf("%016X", v)
-	case uint:
-		var b [8]byte
-		binary.BigEndian.PutUint64(b[:], uint64(v))
-		suffix = fmt.Sprintf("%016X", b)
-	case uint64:
-		var b [8]byte
-		binary.BigEndian.PutUint64(b[:], v)
-		suffix = fmt.Sprintf("%016X", b)
-	case time.Time:
-		suffix = fmt.Sprintf("%016X", v.Unix())
-	default:
-		suffix = fmt.Sprintf("%v", t.v)
+	if t.v != nil {
+		suffix = t.v.String()
 	}
 	return logical.New(t.String(), logical.WithValue(t), logical.WithSortKey(fmt.Sprintf("%s|%d|%s", t.k, t.op, suffix)))
 }
@@ -829,7 +766,7 @@ func and(vtab *rule.VTable, first, second Evaluator) (Evaluator, error) {
 	return (*staticEvaluator)(merged), nil
 }
 
-func NewKeyed(key string, op cmp.Comparison, value interface{}) *KeyedEvaluator {
+func NewKeyed(key string, op cmp.Comparison, value proto.Value) *KeyedEvaluator {
 	return &KeyedEvaluator{
 		k:  key,
 		op: op,

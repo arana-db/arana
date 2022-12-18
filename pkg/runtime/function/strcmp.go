@@ -19,7 +19,6 @@ package function
 
 import (
 	"context"
-	"fmt"
 	"strings"
 )
 
@@ -51,7 +50,13 @@ func (a strcmpFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Va
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	return strings.Compare(fmt.Sprint(val1), fmt.Sprint(val2)), nil
+
+	if val1 == nil || val2 == nil {
+		return nil, nil
+	}
+
+	c := strings.Compare(val1.String(), val2.String())
+	return proto.NewValueInt64(int64(c)), nil
 }
 
 func (a strcmpFunc) NumInput() int {

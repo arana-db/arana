@@ -53,7 +53,7 @@ type (
 		// TransientVariables stores the transient local variables, it will sync with the remote node automatically.
 		//   - SYSTEM: @@xxx
 		//   - USER: @xxx
-		TransientVariables map[string]interface{}
+		TransientVariables map[string]Value
 	}
 
 	Listener interface {
@@ -86,14 +86,14 @@ func (c Context) GetQuery() string {
 	return bytesconv.BytesToString(c.Data[1:])
 }
 
-func (c Context) GetArgs() []interface{} {
+func (c Context) GetArgs() []Value {
 	if c.Stmt == nil || len(c.Stmt.BindVars) < 1 {
 		return nil
 	}
 
 	var (
 		keys = make([]string, 0, len(c.Stmt.BindVars))
-		args = make([]interface{}, 0, len(c.Stmt.BindVars))
+		args = make([]Value, 0, len(c.Stmt.BindVars))
 	)
 
 	for k := range c.Stmt.BindVars {

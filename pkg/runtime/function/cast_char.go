@@ -20,15 +20,12 @@ package function
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io/ioutil"
 	"strings"
 	"unicode/utf8"
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
-
 	"github.com/pkg/errors"
 
 	"golang.org/x/text/encoding/charmap"
@@ -64,37 +61,26 @@ func (a castcharFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.
 		return val1, nil
 	}
 
-	// N
-	var num int64
 	val2, err := inputs[1].Value(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	d2, _ := gxbig.NewDecFromString(fmt.Sprint(val2))
-	if d2.IsNegative() {
-		return "", errors.New("CHAR[(N) Variable N is not allowed to be negative")
-	}
-	if !strings.Contains(fmt.Sprint(val2), ".") {
-		ret, err := d2.ToInt()
-		if err != nil {
-			return "", err
-		}
-		num = ret
-	} else {
-		ret, err := d2.ToFloat64()
-		if err != nil {
-			return "", err
-		}
-		num = int64(ret)
-	}
+	d2, _ := val2.Decimal()
+
+	// N
+	num := d2.IntPart()
 
 	// charset_info
 	val3, err := inputs[2].Value(ctx)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return a.getResult(runes.ConvertToRune(val1), num, fmt.Sprint(val3))
+	s, err := a.getResult(runes.ConvertToRune(val1), num, val3.String())
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	return proto.NewValueString(s), nil
 }
 
 func (a castcharFunc) NumInput() int {
@@ -198,7 +184,7 @@ func (a castcharFunc) getResult(runes []rune, num int64, charEncode string) (str
 	} else if len(charInfo) >= 1 && strings.EqualFold(charInfo[0], "UNICODE") {
 		// UNICODE: CHARACTER SET ucs2
 		srcReader := bytes.NewReader([]byte(srcString))
-		//UTF-16 bigendian, no-bom
+		// UTF-16 bigendian, no-bom
 		trans := transform.NewReader(srcReader,
 			unicode.UTF16(unicode.BigEndian, unicode.IgnoreBOM).NewEncoder())
 		dstString, err := ioutil.ReadAll(trans)

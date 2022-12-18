@@ -19,7 +19,6 @@ package function
 
 import (
 	"context"
-	"fmt"
 )
 
 import (
@@ -42,18 +41,34 @@ func init() {
 type rightFunc struct{}
 
 func (c rightFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
-	val, err := inputs[0].Value(ctx)
+	first, err := inputs[0].Value(ctx)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, errors.Wrapf(err, "cannot eval %s", FuncRight)
 	}
-	length, err := inputs[1].Value(ctx)
+	second, err := inputs[1].Value(ctx)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, errors.Wrapf(err, "cannot eval %s", FuncRight)
 	}
-	t := length.(int)
-	return fmt.Sprint(val)[len(fmt.Sprint(val))-t:], nil
+
+	if first == nil || second == nil {
+		return nil, nil
+	}
+
+	l, _ := second.Int64()
+	if l <= 0 {
+		return proto.NewValueString(""), nil
+	}
+
+	r := []rune(first.String())
+
+	switch {
+	case int(l) >= len(r):
+		return proto.NewValueString(string(r)), nil
+	default:
+		return proto.NewValueString(string(r[len(r)-int(l):])), nil
+	}
 }
 
 func (c rightFunc) NumInput() int {
-	return 1
+	return 2
 }

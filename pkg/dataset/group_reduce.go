@@ -82,7 +82,7 @@ func (gr *AggregateReducer) Reduce(next proto.Row) error {
 	}
 
 	for idx, aggregator := range gr.AggItems {
-		aggregator.Aggregate([]interface{}{values[idx]})
+		aggregator.Aggregate([]proto.Value{values[idx]})
 	}
 
 	for i := 0; i < len(values); i++ {

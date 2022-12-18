@@ -19,7 +19,6 @@ package function
 
 import (
 	"context"
-	"fmt"
 	"strings"
 )
 
@@ -29,7 +28,6 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
 // FuncConcat is https://dev.mysql.com/doc/refman/8.0/en/string-functions.html#function_concat
@@ -49,15 +47,16 @@ func (c concatFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Va
 	for _, it := range inputs {
 		val, err := it.Value(ctx)
 		if err != nil {
-			return nil, errors.WithStack(err)
+			return nil, errors.Wrapf(err, "cannot eval %s", FuncConcat)
 		}
 		// according to the doc, returns NULL if any argument is NULL.
-		if _, ok := val.(ast.Null); ok {
-			return ast.Null{}.String(), nil
+		if val == nil {
+			return nil, nil
 		}
-		_, _ = fmt.Fprint(&sb, val)
+
+		sb.WriteString(val.String())
 	}
-	return sb.String(), nil
+	return proto.NewValueString(sb.String()), nil
 }
 
 // NumInput implements proto.Func.

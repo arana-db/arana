@@ -27,6 +27,8 @@ import (
 
 import (
 	"github.com/pkg/errors"
+
+	libdecimal "github.com/shopspring/decimal"
 )
 
 import (
@@ -123,52 +125,48 @@ func (bi BinaryRow) Scan(dest []proto.Value) error {
 		// Numeric Types
 		case mysql.FieldTypeTiny:
 			if field.flags&mysql.UnsignedFlag != 0 {
-				dest[i] = int64(bi.raw[pos])
+				dest[i] = proto.NewValueInt64(int64(bi.raw[pos]))
 			} else {
-				dest[i] = int64(int8(bi.raw[pos]))
+				dest[i] = proto.NewValueInt64(int64(int8(bi.raw[pos])))
 			}
 			pos++
 			continue
 
 		case mysql.FieldTypeShort, mysql.FieldTypeYear:
 			if field.flags&mysql.UnsignedFlag != 0 {
-				dest[i] = int64(binary.LittleEndian.Uint16(bi.raw[pos : pos+2]))
+				dest[i] = proto.NewValueInt64(int64(binary.LittleEndian.Uint16(bi.raw[pos : pos+2])))
 			} else {
-				dest[i] = int64(int16(binary.LittleEndian.Uint16(bi.raw[pos : pos+2])))
+				dest[i] = proto.NewValueInt64(int64(int16(binary.LittleEndian.Uint16(bi.raw[pos : pos+2]))))
 			}
 			pos += 2
 			continue
 
 		case mysql.FieldTypeInt24, mysql.FieldTypeLong:
 			if field.flags&mysql.UnsignedFlag != 0 {
-				dest[i] = int64(binary.LittleEndian.Uint32(bi.raw[pos : pos+4]))
+				dest[i] = proto.NewValueInt64(int64(binary.LittleEndian.Uint32(bi.raw[pos : pos+4])))
 			} else {
-				dest[i] = int64(int32(binary.LittleEndian.Uint32(bi.raw[pos : pos+4])))
+				dest[i] = proto.NewValueInt64(int64(int32(binary.LittleEndian.Uint32(bi.raw[pos : pos+4]))))
 			}
 			pos += 4
 			continue
 
 		case mysql.FieldTypeLongLong:
+			u := binary.LittleEndian.Uint64(bi.raw[pos : pos+8])
 			if field.flags&mysql.UnsignedFlag != 0 {
-				val := binary.LittleEndian.Uint64(bi.raw[pos : pos+8])
-				if val > math.MaxInt64 {
-					dest[i] = uint64ToString(val)
-				} else {
-					dest[i] = int64(val)
-				}
+				dest[i] = proto.NewValueUint64(u)
 			} else {
-				dest[i] = int64(binary.LittleEndian.Uint64(bi.raw[pos : pos+8]))
+				dest[i] = proto.NewValueInt64(int64(u))
 			}
 			pos += 8
 			continue
 
 		case mysql.FieldTypeFloat:
-			dest[i] = math.Float32frombits(binary.LittleEndian.Uint32(bi.raw[pos : pos+4]))
+			dest[i] = proto.NewValueFloat64(float64(math.Float32frombits(binary.LittleEndian.Uint32(bi.raw[pos : pos+4]))))
 			pos += 4
 			continue
 
 		case mysql.FieldTypeDouble:
-			dest[i] = math.Float64frombits(binary.LittleEndian.Uint64(bi.raw[pos : pos+8]))
+			dest[i] = proto.NewValueFloat64(math.Float64frombits(binary.LittleEndian.Uint64(bi.raw[pos : pos+8])))
 			pos += 8
 			continue
 
@@ -177,22 +175,17 @@ func (bi BinaryRow) Scan(dest []proto.Value) error {
 			mysql.FieldTypeBit, mysql.FieldTypeEnum, mysql.FieldTypeSet, mysql.FieldTypeTinyBLOB,
 			mysql.FieldTypeMediumBLOB, mysql.FieldTypeLongBLOB, mysql.FieldTypeBLOB,
 			mysql.FieldTypeVarString, mysql.FieldTypeString, mysql.FieldTypeGeometry, mysql.FieldTypeJSON:
-			var val interface{}
-			var isNull bool
-			var n int
-			var err error
-			val, isNull, n, err = readLengthEncodedString(bi.raw[pos:])
-			dest[i] = val
-			pos += n
-			if err == nil {
-				if !isNull {
-					continue
-				} else {
-					dest[i] = nil
-					continue
-				}
+			val, isNull, n, err := readLengthEncodedString(bi.raw[pos:])
+			if err != nil {
+				return err
 			}
-			return err
+			pos += n
+			if isNull {
+				dest[i] = nil
+			} else {
+				dest[i] = proto.NewValueString(string(val))
+			}
+			continue
 
 		case
 			mysql.FieldTypeDate, mysql.FieldTypeNewDate, // Date YYYY-MM-DD
@@ -202,7 +195,6 @@ func (bi BinaryRow) Scan(dest []proto.Value) error {
 			num, isNull, n := readLengthEncodedInteger(bi.raw[pos:])
 			pos += n
 
-			var val interface{}
 			var err error
 			switch {
 			case isNull:
@@ -219,12 +211,15 @@ func (bi BinaryRow) Scan(dest []proto.Value) error {
 				default:
 					return errors.Errorf("protocol error, illegal decimals architecture.V %d", field.decimals)
 				}
-				val, err = formatBinaryTime(bi.raw[pos:pos+int(num)], dstlen)
-				dest[i] = val
+				var b []byte
+				if b, err = formatBinaryTime(bi.raw[pos:pos+int(num)], dstlen); err == nil {
+					dest[i] = proto.NewValueString(string(b))
+				}
+
 			default:
-				val, err = parseBinaryDateTime(num, bi.raw[pos:], time.Local)
-				if err == nil {
-					dest[i] = val
+				var t time.Time
+				if t, err = parseBinaryDateTime(num, bi.raw[pos:], time.Local); err == nil {
+					dest[i] = proto.NewValueTime(t)
 					break
 				}
 
@@ -241,11 +236,11 @@ func (bi BinaryRow) Scan(dest []proto.Value) error {
 						return errors.Errorf("protocol error, illegal decimals architecture.V %d", field.decimals)
 					}
 				}
-				val, err = formatBinaryDateTime(bi.raw[pos:pos+int(num)], dstlen)
-				if err != nil {
+				var b []byte
+				if b, err = formatBinaryDateTime(bi.raw[pos:pos+int(num)], dstlen); err != nil {
 					return errors.WithStack(err)
 				}
-				dest[i] = val
+				dest[i] = proto.NewValueString(string(b))
 			}
 
 			if err == nil {
@@ -350,27 +345,44 @@ func (te TextRow) Scan(dest []proto.Value) error {
 
 		switch te.fields[i].(*Field).fieldType {
 		case mysql.FieldTypeString, mysql.FieldTypeVarString, mysql.FieldTypeVarChar:
-			dest[i] = string(b)
+			dest[i] = proto.NewValueString(string(b))
 		case mysql.FieldTypeTiny, mysql.FieldTypeShort, mysql.FieldTypeLong,
 			mysql.FieldTypeInt24, mysql.FieldTypeLongLong, mysql.FieldTypeYear:
 			if te.fields[i].(*Field).flags&mysql.UnsignedFlag > 0 {
-				dest[i], err = strconv.ParseUint(string(b), 10, 64)
+				var num uint64
+				if num, err = strconv.ParseUint(string(b), 10, 64); err == nil {
+					dest[i] = proto.NewValueUint64(num)
+				}
 			} else {
-				dest[i], err = strconv.ParseInt(string(b), 10, 64)
+				var num int64
+				if num, err = strconv.ParseInt(string(b), 10, 64); err == nil {
+					dest[i] = proto.NewValueInt64(num)
+				}
 			}
 			if err != nil {
 				return errors.WithStack(err)
 			}
-		case mysql.FieldTypeFloat, mysql.FieldTypeDouble, mysql.FieldTypeNewDecimal, mysql.FieldTypeDecimal:
-			if dest[i], err = strconv.ParseFloat(string(b), 64); err != nil {
+		case mysql.FieldTypeFloat, mysql.FieldTypeDouble:
+			var f float64
+			if f, err = strconv.ParseFloat(string(b), 64); err != nil {
 				return errors.WithStack(err)
 			}
+			dest[i] = proto.NewValueFloat64(f)
+		case mysql.FieldTypeNewDecimal, mysql.FieldTypeDecimal:
+			var d libdecimal.Decimal
+			if d, err = libdecimal.NewFromString(string(b)); err != nil {
+				return errors.WithStack(err)
+			}
+			dest[i] = proto.NewValueDecimal(d)
 		case mysql.FieldTypeTimestamp, mysql.FieldTypeDateTime, mysql.FieldTypeDate, mysql.FieldTypeNewDate:
-			if dest[i], err = parseDateTime(b, loc); err != nil {
+			var t time.Time
+			if t, err = parseDateTime(b, loc); err != nil {
 				return errors.WithStack(err)
 			}
+			dest[i] = proto.NewValueTime(t)
 		default:
-			dest[i] = b
+			// TODO: check more types
+			dest[i] = proto.NewValueString(string(b))
 		}
 	}
 
