@@ -45,20 +45,20 @@ func TestPriorityQueue(t *testing.T) {
 	}
 
 	r1 := &RowItem{rows.NewTextVirtualRow(fields, []proto.Value{
-		int64(1),
-		int64(80),
+		proto.NewValueInt64(1),
+		proto.NewValueUint64(80),
 	}), 1}
 	r2 := &RowItem{rows.NewTextVirtualRow(fields, []proto.Value{
-		int64(2),
-		int64(75),
+		proto.NewValueInt64(2),
+		proto.NewValueInt64(75),
 	}), 1}
 	r3 := &RowItem{rows.NewTextVirtualRow(fields, []proto.Value{
-		int64(1),
-		int64(90),
+		proto.NewValueInt64(1),
+		proto.NewValueInt64(90),
 	}), 1}
 	r4 := &RowItem{rows.NewTextVirtualRow(fields, []proto.Value{
-		int64(3),
-		int64(85),
+		proto.NewValueInt64(3),
+		proto.NewValueInt64(85),
 	}), 1}
 	pq := NewPriorityQueue([]*RowItem{
 		r1, r2, r3, r4,

@@ -24,7 +24,6 @@ import (
 
 import (
 	"github.com/pkg/errors"
-	"github.com/spf13/cast"
 )
 
 import (
@@ -43,27 +42,29 @@ type randFunc struct{}
 
 // Apply rand func
 func (c randFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
-	if len(inputs) > 1 {
-		return nil, errors.New("Incorrect parameter count in the call to native function rand")
+	if len(inputs) < 1 {
+		return proto.NewValueFloat64(rand.Float64()), nil
 	}
 
+	var seed int64
 	val, err := inputs[0].Value(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
 
-	return c.rand(val), nil
+	if val != nil {
+		seed, _ = val.Int64()
+	}
+
+	return c.rand(seed), nil
 }
 
 // rand Returns a random floating-point value v in the range 0 <= v < 1.0
-func (c randFunc) rand(value proto.Value) proto.Value {
-	if value != nil {
-		rand.Seed(cast.ToInt64(value))
-	}
-
-	return rand.Float64()
+func (c randFunc) rand(value int64) proto.Value {
+	r := rand.New(rand.NewSource(value))
+	return proto.NewValueFloat64(r.Float64())
 }
 
 func (c randFunc) NumInput() int {
-	return 1
+	return 0
 }

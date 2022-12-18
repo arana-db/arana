@@ -22,7 +22,7 @@ import (
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
+	"github.com/shopspring/decimal"
 )
 
 type minReducer struct{}
@@ -41,13 +41,11 @@ func (minReducer) Float64(prev, next float64) (float64, error) {
 	return prev, nil
 }
 
-func (minReducer) Decimal(prev, next *gxbig.Decimal) (*gxbig.Decimal, error) {
-	switch next.Compare(prev) {
-	case -1:
+func (minReducer) Decimal(prev, next decimal.Decimal) (decimal.Decimal, error) {
+	if next.LessThan(prev) {
 		return next, nil
-	default:
-		return prev, nil
 	}
+	return prev, nil
 }
 
 func (minReducer) Time(prev, next time.Time) (time.Time, error) {

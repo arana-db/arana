@@ -33,18 +33,24 @@ import (
 
 func TestRand(t *testing.T) {
 	fn := proto.MustGetFunc(FuncRand)
-	assert.Equal(t, 1, fn.NumInput())
+	assert.Equal(t, 0, fn.NumInput())
 
 	type tt struct {
 		in  proto.Value
 		out string
 	}
 
+	v, err := fn.Apply(context.Background())
+	assert.NoError(t, err)
+	f, err := v.Float64()
+	assert.NoError(t, err)
+	assert.True(t, f < 1)
+
 	for _, it := range []tt{
-		{0, "0.9451961492941164"},
-		{1, "0.6046602879796196"},
-		{100, "0.8165026937796166"},
-		{-1, "0.3951876009960174"},
+		{proto.NewValueInt64(0), "0.9451961492941164"},
+		{proto.NewValueInt64(1), "0.6046602879796196"},
+		{proto.NewValueInt64(100), "0.8165026937796166"},
+		{proto.NewValueInt64(-1), "0.3951876009960174"},
 	} {
 		t.Run(it.out, func(t *testing.T) {
 			out, err := fn.Apply(context.Background(), proto.ToValuer(it.in))

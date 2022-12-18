@@ -130,8 +130,8 @@ func Hints(ctx context.Context) []*hint.Hint {
 	return hints
 }
 
-func TransientVariables(ctx context.Context) map[string]interface{} {
-	if val, ok := ctx.Value(proto.ContextKeyTransientVariables{}).(map[string]interface{}); ok {
+func TransientVariables(ctx context.Context) map[string]proto.Value {
+	if val, ok := ctx.Value(proto.ContextKeyTransientVariables{}).(map[string]proto.Value); ok {
 		return val
 	}
 	return nil

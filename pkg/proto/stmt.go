@@ -32,7 +32,7 @@ type Stmt struct {
 	ParamsCount uint16
 	ParamsType  []int32
 	ColumnNames []string
-	BindVars    map[string]interface{}
+	BindVars    map[string]Value
 	Hints       []*hint.Hint
 	StmtNode    ast.StmtNode
 }

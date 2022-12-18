@@ -117,15 +117,15 @@ func (tx *compositeTx) Version(ctx context.Context) (string, error) {
 	return tx.rt.Version(ctx)
 }
 
-func (tx *compositeTx) Query(ctx context.Context, db string, query string, args ...interface{}) (proto.Result, error) {
+func (tx *compositeTx) Query(ctx context.Context, db string, query string, args ...proto.Value) (proto.Result, error) {
 	return tx.call(ctx, db, query, args...)
 }
 
-func (tx *compositeTx) Exec(ctx context.Context, db string, query string, args ...interface{}) (proto.Result, error) {
+func (tx *compositeTx) Exec(ctx context.Context, db string, query string, args ...proto.Value) (proto.Result, error) {
 	return tx.call(ctx, db, query, args...)
 }
 
-func (tx *compositeTx) call(ctx context.Context, db string, query string, args ...interface{}) (proto.Result, error) {
+func (tx *compositeTx) call(ctx context.Context, db string, query string, args ...proto.Value) (proto.Result, error) {
 	if len(db) < 1 {
 		db = tx.rt.Namespace().DBGroups()[0]
 	}
@@ -337,7 +337,7 @@ func (tx *atomTx) Rollback(ctx context.Context) (res proto.Result, warn uint16, 
 	return
 }
 
-func (tx *atomTx) Call(ctx context.Context, sql string, args ...interface{}) (res proto.Result, warn uint16, err error) {
+func (tx *atomTx) Call(ctx context.Context, sql string, args ...proto.Value) (res proto.Result, warn uint16, err error) {
 	if len(args) > 0 {
 		res, err = tx.bc.PrepareQueryArgs(sql, args)
 	} else {
@@ -508,7 +508,7 @@ func (db *AtomDB) CallFieldList(ctx context.Context, table, wildcard string) ([]
 	return bc.ReadColumnDefinitions()
 }
 
-func (db *AtomDB) Call(ctx context.Context, sql string, args ...interface{}) (res proto.Result, warn uint16, err error) {
+func (db *AtomDB) Call(ctx context.Context, sql string, args ...proto.Value) (res proto.Result, warn uint16, err error) {
 	if db.closed.Load() {
 		err = perrors.Errorf("the db instance '%s' is closed already", db.id)
 		return
@@ -657,12 +657,12 @@ func (pi *defaultRuntime) Namespace() *namespace.Namespace {
 	return (*namespace.Namespace)(pi)
 }
 
-func (pi *defaultRuntime) Query(ctx context.Context, db string, query string, args ...interface{}) (proto.Result, error) {
+func (pi *defaultRuntime) Query(ctx context.Context, db string, query string, args ...proto.Value) (proto.Result, error) {
 	ctx = rcontext.WithRead(ctx)
 	return pi.call(ctx, db, query, args...)
 }
 
-func (pi *defaultRuntime) Exec(ctx context.Context, db string, query string, args ...interface{}) (proto.Result, error) {
+func (pi *defaultRuntime) Exec(ctx context.Context, db string, query string, args ...proto.Value) (proto.Result, error) {
 	ctx = rcontext.WithWrite(ctx)
 	res, err := pi.call(ctx, db, query, args...)
 	if err != nil {
@@ -730,7 +730,7 @@ func (pi *defaultRuntime) Execute(ctx *proto.Context) (res proto.Result, warn ui
 	return
 }
 
-func (pi *defaultRuntime) callDirect(ctx *proto.Context, args []interface{}) (res proto.Result, warn uint16, err error) {
+func (pi *defaultRuntime) callDirect(ctx *proto.Context, args []proto.Value) (res proto.Result, warn uint16, err error) {
 	res, warn, err = pi.Namespace().DB0(ctx.Context).Call(rcontext.WithWrite(ctx.Context), ctx.GetQuery(), args...)
 	if err != nil {
 		err = perrors.WithStack(err)
@@ -739,7 +739,7 @@ func (pi *defaultRuntime) callDirect(ctx *proto.Context, args []interface{}) (re
 	return
 }
 
-func (pi *defaultRuntime) call(ctx context.Context, group, query string, args ...interface{}) (proto.Result, error) {
+func (pi *defaultRuntime) call(ctx context.Context, group, query string, args ...proto.Value) (proto.Result, error) {
 	db := selectDB(ctx, group, pi.Namespace())
 	if db == nil {
 		return nil, perrors.Errorf("cannot get upstream database %s", group)

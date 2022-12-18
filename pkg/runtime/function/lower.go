@@ -19,13 +19,10 @@ package function
 
 import (
 	"context"
-	"fmt"
 	"strings"
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
-
 	"github.com/pkg/errors"
 )
 
@@ -49,12 +46,12 @@ func (c lowerFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Val
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	switch v := val.(type) {
-	case uint8, uint16, uint32, uint64, uint, int64, int32, int16, int8, int, float64, float32, *gxbig.Decimal:
-		return v, nil
-	default:
-		return strings.ToLower(fmt.Sprint(v)), nil
+
+	if val == nil {
+		return nil, nil
 	}
+
+	return proto.NewValueString(strings.ToLower(val.String())), nil
 }
 
 func (c lowerFunc) NumInput() int {

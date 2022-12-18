@@ -22,7 +22,7 @@ import (
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
+	"github.com/shopspring/decimal"
 )
 
 var _ Reducer = (*maxReducer)(nil)
@@ -43,13 +43,11 @@ func (m maxReducer) Float64(prev, next float64) (float64, error) {
 	return prev, nil
 }
 
-func (m maxReducer) Decimal(prev, next *gxbig.Decimal) (*gxbig.Decimal, error) {
-	switch next.Compare(prev) {
-	case 1:
+func (m maxReducer) Decimal(prev, next decimal.Decimal) (decimal.Decimal, error) {
+	if next.GreaterThan(prev) {
 		return next, nil
-	default:
-		return prev, nil
 	}
+	return prev, nil
 }
 
 func (m maxReducer) Time(prev, next time.Time) (time.Time, error) {

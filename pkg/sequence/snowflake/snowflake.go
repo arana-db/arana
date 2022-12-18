@@ -179,7 +179,7 @@ func (seq *snowflakeSequence) initWorkerID(ctx context.Context, rt runtime.Runti
 		return err
 	}
 
-	ret, err := tx.Exec(ctx, "", _setWorkId, workId, _nodeId, conf.Name)
+	ret, err := tx.Exec(ctx, "", _setWorkId, proto.NewValueInt64(workId), proto.NewValueString(_nodeId), proto.NewValueString(conf.Name))
 	if err != nil {
 		return err
 	}
@@ -243,7 +243,7 @@ func (seq *snowflakeSequence) CurrentVal() int64 {
 }
 
 func (seq *snowflakeSequence) findWorkID(ctx context.Context, tx proto.Tx, seqName string) (int64, error) {
-	ret, err := tx.Query(ctx, "", _selectSelfWorkIdWithXLock, seqName, _nodeId)
+	ret, err := tx.Query(ctx, "", _selectSelfWorkIdWithXLock, proto.NewValueString(seqName), proto.NewValueString(_nodeId))
 	if err != nil {
 		return 0, err
 	}
@@ -261,11 +261,11 @@ func (seq *snowflakeSequence) findWorkID(ctx context.Context, tx proto.Tx, seqNa
 		}
 
 		if val[0] != nil {
-			return val[0].(int64), nil
+			return val[0].Int64()
 		}
 	}
 
-	ret, err = tx.Query(ctx, "", _selectMaxWorkIdWithXLock, seqName)
+	ret, err = tx.Query(ctx, "", _selectMaxWorkIdWithXLock, proto.NewValueString(seqName))
 	if err != nil {
 		return 0, err
 	}
@@ -288,9 +288,10 @@ func (seq *snowflakeSequence) findWorkID(ctx context.Context, tx proto.Tx, seqNa
 		return 1, nil
 	}
 
-	curId := val[0].(int64) + 1
+	curId, _ := val[0].Int64()
+	curId++
 	if curId > workIdMax {
-		ret, err := tx.Query(ctx, "", _selectFreeWorkIdWithXLock, seqName)
+		ret, err := tx.Query(ctx, "", _selectFreeWorkIdWithXLock, proto.NewValueString(seqName))
 		if err != nil {
 			return 0, err
 		}
@@ -309,7 +310,8 @@ func (seq *snowflakeSequence) findWorkID(ctx context.Context, tx proto.Tx, seqNa
 			return 0, err
 		}
 
-		curId = val[0].(int64) + 1
+		curId, _ = val[0].Int64()
+		curId++
 	}
 
 	return curId, nil
@@ -334,7 +336,7 @@ func (n *nodeKeepLive) keepalive() {
 
 		defer tx.Rollback(ctx)
 
-		ret, err := tx.Exec(context.Background(), "", _keepaliveNode, _nodeId)
+		ret, err := tx.Exec(context.Background(), "", _keepaliveNode, proto.NewValueString(_nodeId))
 		if err != nil {
 			log.Error("[Sequence][Snowflake] keepalive fail", zap.String("node-id", _nodeId), zap.Error(err))
 			return

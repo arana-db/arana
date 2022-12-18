@@ -129,7 +129,7 @@ func (up *UpdatePlan) SetShards(shards rule.DatabaseTables) {
 	up.shards = shards
 }
 
-func (up *UpdatePlan) execOne(ctx context.Context, conn proto.VConn, db, query string, args []interface{}) (uint64, error) {
+func (up *UpdatePlan) execOne(ctx context.Context, conn proto.VConn, db, query string, args []proto.Value) (uint64, error) {
 	res, err := conn.Exec(ctx, db, query, args...)
 	if err != nil {
 		return 0, errors.WithStack(err)

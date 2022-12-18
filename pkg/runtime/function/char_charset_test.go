@@ -36,8 +36,8 @@ func TestFuncCastCharset(t *testing.T) {
 	assert.Equal(t, 2, fn.NumInput())
 
 	type tt struct {
-		inFirst  proto.Value
-		inSecond proto.Value
+		inFirst  string
+		inSecond string
 		want     string
 	}
 	for _, v := range []tt{
@@ -77,7 +77,9 @@ func TestFuncCastCharset(t *testing.T) {
 		{"다음과 같은 조건을 따라야 합니다: 저작자표시", "euckr", "\xb4\xd9\xc0\xbd\xb0\xfa \xb0\xb0\xc0\xba \xc1\xb6\xb0\xc7\xc0\xbb \xb5\xfb\xb6\xf3\xbe\xdf \xc7մϴ\xd9: \xc0\xfa\xc0\xdb\xc0\xdaǥ\xbd\xc3"},
 	} {
 		t.Run(v.want, func(t *testing.T) {
-			out, err := fn.Apply(context.Background(), proto.ToValuer(v.inSecond), proto.ToValuer(v.inFirst))
+			first := proto.NewValueString(v.inSecond)
+			second := proto.NewValueString(v.inFirst)
+			out, err := fn.Apply(context.Background(), proto.ToValuer(first), proto.ToValuer(second))
 			assert.NoError(t, err)
 			assert.Equal(t, v.want, fmt.Sprint(out))
 		})

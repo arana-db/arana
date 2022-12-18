@@ -40,19 +40,19 @@ func TestFuncCastNchar(t *testing.T) {
 		want     string
 	}
 	for _, v := range []tt{
-		{"Hello世界", 2, "He"},
-		{"Hello世界", 6, "Hello世"},
-		{"Hello世界", 7, "Hello世界"},
-		{"Hello世界", 0, ""},
-		{"Hello世界", 0.0, ""},
-		{"你好世界！", 4, "你好世界"},
-		{1234, 2, "12"},
-		{1234, 3, "123"},
-		{1234, 5, "1234"},
-		{1234, 0, ""},
-		{1234, 2.6, "12"},
-		{1234, 2.4, "12"},
-		{1234, 2., "12"},
+		{proto.NewValueString("Hello世界"), proto.NewValueInt64(2), "He"},
+		{proto.NewValueString("Hello世界"), proto.NewValueInt64(6), "Hello世"},
+		{proto.NewValueString("Hello世界"), proto.NewValueInt64(7), "Hello世界"},
+		{proto.NewValueString("Hello世界"), proto.NewValueInt64(0), ""},
+		{proto.NewValueString("Hello世界"), proto.NewValueFloat64(0.0), ""},
+		{proto.NewValueString("你好世界！"), proto.NewValueInt64(4), "你好世界"},
+		{proto.NewValueInt64(1234), proto.NewValueInt64(2), "12"},
+		{proto.NewValueInt64(1234), proto.NewValueInt64(3), "123"},
+		{proto.NewValueInt64(1234), proto.NewValueInt64(5), "1234"},
+		{proto.NewValueInt64(1234), proto.NewValueInt64(0), ""},
+		{proto.NewValueInt64(1234), proto.NewValueFloat64(2.6), "12"},
+		{proto.NewValueInt64(1234), proto.NewValueFloat64(2.4), "12"},
+		{proto.NewValueInt64(1234), proto.NewValueInt64(2.), "12"},
 	} {
 		t.Run(v.want, func(t *testing.T) {
 			out, err := fn.Apply(context.Background(), proto.ToValuer(v.inFirst), proto.ToValuer(v.inSecond))
@@ -66,10 +66,10 @@ func TestFuncCastNchar(t *testing.T) {
 	}
 
 	for _, v := range []tt2{
-		{"Hello世界", "Hello世界"},
-		{"你好世界!", "你好世界!"},
-		{1234, "1234"},
-		{1.2345, "1.2345"},
+		{proto.NewValueString("Hello世界"), "Hello世界"},
+		{proto.NewValueString("你好世界!"), "你好世界!"},
+		{proto.NewValueInt64(1234), "1234"},
+		{proto.NewValueFloat64(1.2345), "1.2345"},
 	} {
 		t.Run(v.want, func(t *testing.T) {
 			out, err := fn.Apply(context.Background(), proto.ToValuer(v.inFirst))

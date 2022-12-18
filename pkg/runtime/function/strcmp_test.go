@@ -35,19 +35,27 @@ func TestStrcmp(t *testing.T) {
 	fn := proto.MustGetFunc(FuncStrcmp)
 	assert.Equal(t, 2, fn.NumInput())
 	type tt struct {
-		inFirst  proto.Value
-		inSecond proto.Value
-		want     int
+		inFirst  interface{}
+		inSecond interface{}
+		want     string
 	}
 	for _, v := range []tt{
-		{"text", "text2", -1},
-		{"text2", "text", 1},
-		{"text", "text", 0},
+		{"text", "text2", "-1"},
+		{"text2", "text", "1"},
+		{"text", "text", "0"},
 	} {
 		t.Run(fmt.Sprint(v.inFirst), func(t *testing.T) {
-			out, err := fn.Apply(context.Background(), proto.ToValuer(v.inFirst), proto.ToValuer(v.inSecond))
+			first, _ := proto.NewValue(v.inFirst)
+			second, _ := proto.NewValue(v.inSecond)
+			out, err := fn.Apply(context.Background(), proto.ToValuer(first), proto.ToValuer(second))
 			assert.NoError(t, err)
-			assert.Equal(t, v.want, out)
+			var actual string
+			if out == nil {
+				actual = "NULL"
+			} else {
+				actual = out.String()
+			}
+			assert.Equal(t, v.want, actual)
 		})
 	}
 }

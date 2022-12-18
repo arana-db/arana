@@ -23,8 +23,6 @@ import (
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -38,21 +36,24 @@ func TestLength(t *testing.T) {
 
 	type tt struct {
 		in  proto.Value
-		out int
+		out int64
 	}
 
 	for _, it := range []tt{
-		{1111, 4},
-		{&gxbig.Decimal{Value: "arana"}, 5},
-		{"arana", 5},
-		{"db-mesh", 7},
-		{20.22, 5},
-		{"hello世界", 7},
-		{"法外狂徒张三", 6},
-		{"hello&^*(arana,世界", 17},
+		{proto.NewValueInt64(1111), 4},
+		{proto.NewValueString("arana"), 5},
+		{proto.NewValueString("db-mesh"), 7},
+		{proto.NewValueFloat64(20.22), 5},
+		{proto.NewValueString("hello世界"), 11},
+		{proto.NewValueString("法外狂徒张三"), 18},
+		{proto.NewValueString("hello&^*(arana,世界"), 21},
+		{proto.NewValueString("つのだ☆HIRO"), 16},
 	} {
-		out, err := fn.Apply(context.Background(), proto.ToValuer(it.in))
-		assert.NoError(t, err)
-		assert.Equal(t, it.out, out)
+		t.Run(it.in.String(), func(t *testing.T) {
+			out, err := fn.Apply(context.Background(), proto.ToValuer(it.in))
+			assert.NoError(t, err)
+			n, _ := out.Int64()
+			assert.Equal(t, it.out, n)
+		})
 	}
 }

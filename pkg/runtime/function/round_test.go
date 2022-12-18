@@ -24,8 +24,6 @@ import (
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -38,24 +36,46 @@ func TestRound(t *testing.T) {
 	assert.Equal(t, 2, fn.NumInput())
 
 	type tt struct {
-		in  proto.Value
-		in2 proto.Value
-		out string
-	}
-
-	mustDecimal := func(s string) *gxbig.Decimal {
-		d, _ := gxbig.NewDecFromString(s)
-		return d
+		desc string
+		in   proto.Value
+		in2  proto.Value
+		out  string
 	}
 
 	for _, it := range []tt{
-		{int8(12), 0, "12"},
-		{12.34, 1, "12.3"},
-		{float64(-1.999), 2, "-2.00"},
-		{mustDecimal("-5.1256"), 2, "-5.13"},
-		{"foobar", -1, "NaN"},
+		{
+			"ROUND(12,0)",
+			proto.NewValueInt64(12),
+			proto.NewValueInt64(0),
+			"12",
+		},
+
+		{
+			"ROUND(12.34,1)",
+			proto.NewValueFloat64(12.34),
+			proto.NewValueInt64(1),
+			"12.3",
+		},
+		{
+			"ROUND(-1.999,2)",
+			proto.NewValueFloat64(-1.999),
+			proto.NewValueInt64(2),
+			"-2",
+		},
+		{
+			"ROUND(-5.1256,2)",
+			proto.MustNewValueDecimalString("-5.1256"),
+			proto.NewValueInt64(2),
+			"-5.13",
+		},
+		{
+			"ROUND('foobar',-1)",
+			proto.NewValueString("foobar"),
+			proto.NewValueInt64(-1),
+			"0",
+		},
 	} {
-		t.Run(it.out, func(t *testing.T) {
+		t.Run(it.desc, func(t *testing.T) {
 			out, err := fn.Apply(context.Background(), proto.ToValuer(it.in), proto.ToValuer(it.in2))
 			assert.NoError(t, err)
 			assert.Equal(t, it.out, fmt.Sprint(out))

@@ -19,13 +19,9 @@ package function
 
 import (
 	"context"
-	"fmt"
-	"strings"
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
-
 	"github.com/pkg/errors"
 )
 
@@ -57,33 +53,19 @@ func (a castncharFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	d2, _ := gxbig.NewDecFromString(fmt.Sprint(val2))
-	if d2.IsNegative() {
-		return "", errors.New("NCHAR[(N) Variable N is not allowed to be negative")
-	}
-	if !strings.Contains(fmt.Sprint(val2), ".") {
-		num, err := d2.ToInt()
-		if err != nil {
-			return "", err
-		}
-		return a.getResult(runes.ConvertToRune(val1), num)
-	}
-	num, err := d2.ToFloat64()
-	if err != nil {
-		return "", err
-	}
-	return a.getResult(runes.ConvertToRune(val1), int64(num))
+
+	d2, _ := val2.Decimal()
+	s := a.getResult(runes.ConvertToRune(val1), d2.IntPart())
+	return proto.NewValueString(s), nil
 }
 
 func (a castncharFunc) NumInput() int {
 	return 2
 }
 
-func (a castncharFunc) getResult(runes []rune, num int64) (string, error) {
+func (a castncharFunc) getResult(runes []rune, num int64) string {
 	if num > int64(len(runes)) {
-		return string(runes), nil
-	} else if num >= 0 {
-		return string(runes[:num]), nil
+		return string(runes)
 	}
-	return "", errors.New("NCHAR[(N) Variable N is not allowed to be negative")
+	return string(runes[:num])
 }

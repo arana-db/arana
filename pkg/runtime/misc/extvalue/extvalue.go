@@ -18,14 +18,11 @@
 package extvalue
 
 import (
-	"github.com/shopspring/decimal"
-)
-
-import (
+	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
-func Compute(node ast.Node, args []interface{}) (interface{}, error) {
+func Compute(node ast.Node, args ...proto.Value) (proto.Value, error) {
 	var vv valueVisitor
 	vv.args = args
 	ret, err := node.Accept(&vv)
@@ -34,12 +31,9 @@ func Compute(node ast.Node, args []interface{}) (interface{}, error) {
 	}
 
 	switch val := ret.(type) {
-	case decimal.Decimal:
-		if val.IsInteger() {
-			return val.IntPart(), nil
-		}
-		return val.InexactFloat64(), nil
-	default:
+	case proto.Value:
 		return val, nil
+	default:
+		return nil, nil
 	}
 }

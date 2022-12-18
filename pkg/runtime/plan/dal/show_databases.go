@@ -62,7 +62,7 @@ func (s *ShowDatabasesPlan) ExecIn(ctx context.Context, _ proto.VConn) (proto.Re
 	}
 
 	for _, cluster := range security.DefaultTenantManager().GetClusters(tenant) {
-		ds.Rows = append(ds.Rows, rows.NewTextVirtualRow(columns, []proto.Value{cluster}))
+		ds.Rows = append(ds.Rows, rows.NewTextVirtualRow(columns, []proto.Value{proto.NewValueString(cluster)}))
 	}
 
 	return resultx.New(resultx.WithDataset(ds)), nil
