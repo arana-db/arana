@@ -39,16 +39,16 @@ func TestSpace(t *testing.T) {
 		want    string
 	}
 	for _, v := range []tt{
-		{9, "         "},
-		{5, "     "},
-		{-9, ""},
-		{9.2, "NaN"},
-		{"10", "NaN"},
+		{proto.NewValueInt64(9), "         "},
+		{proto.NewValueInt64(5), "     "},
+		{proto.NewValueInt64(-9), ""},
+		{proto.NewValueFloat64(9.2), "NaN"},
+		{proto.NewValueString("10"), "NaN"},
 	} {
 		t.Run(fmt.Sprint(v.inFirst), func(t *testing.T) {
 			out, err := fn.Apply(context.Background(), proto.ToValuer(v.inFirst))
 			assert.NoError(t, err)
-			assert.Equal(t, v.want, out)
+			assert.Equal(t, v.want, fmt.Sprint(out))
 		})
 	}
 

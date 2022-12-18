@@ -46,70 +46,17 @@ func (c spaceFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Val
 		return nil, errors.WithStack(err)
 	}
 
-	var res strings.Builder
-	switch v := val.(type) {
-	case uint8:
+	switch val.Family() {
+	case proto.ValueFamilySign:
+		v, _ := val.Int64()
+		var res strings.Builder
 		for v > 0 {
 			res.WriteString(" ")
 			v--
 		}
-		return res.String(), nil
-	case uint16:
-		for v > 0 {
-			res.WriteString(" ")
-			v--
-		}
-		return res.String(), nil
-	case uint32:
-		for v > 0 {
-			res.WriteString(" ")
-			v--
-		}
-		return res.String(), nil
-	case uint64:
-		for v > 0 {
-			res.WriteString(" ")
-			v--
-		}
-		return res.String(), nil
-	case uint:
-		for v > 0 {
-			res.WriteString(" ")
-			v--
-		}
-		return res.String(), nil
-	case int64:
-		for v > 0 {
-			res.WriteString(" ")
-			v--
-		}
-		return res.String(), nil
-	case int32:
-		for v > 0 {
-			res.WriteString(" ")
-			v--
-		}
-		return res.String(), nil
-	case int16:
-		for v > 0 {
-			res.WriteString(" ")
-			v--
-		}
-		return res.String(), nil
-	case int8:
-		for v > 0 {
-			res.WriteString(" ")
-			v--
-		}
-		return res.String(), nil
-	case int:
-		for v > 0 {
-			res.WriteString(" ")
-			v--
-		}
-		return res.String(), nil
+		return proto.NewValueString(res.String()), nil
 	default:
-		return "NaN", nil
+		return proto.NewValueString("NaN"), nil
 	}
 }
 
