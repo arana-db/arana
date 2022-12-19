@@ -49,7 +49,16 @@ func TestPriorityQueue(t *testing.T) {
 		row := heap.Pop(&queue).(*MergeRows)
 		v1, _ := row.GetCurrentRow().(proto.KeyedRow).Get(score)
 		v2, _ := row.GetCurrentRow().(proto.KeyedRow).Get(age)
-		res = append(res, student{score: v1.(int64), age: v2.(int64)})
+		res = append(res, student{
+			score: func() int64 {
+				x, _ := v1.Int64()
+				return x
+			}(),
+			age: func() int64 {
+				x, _ := v2.Int64()
+				return x
+			}(),
+		})
 		if row.Next() != nil {
 			queue.Push(row)
 		}
@@ -89,7 +98,16 @@ func TestPriorityQueue2(t *testing.T) {
 
 		v1, _ := row.GetCurrentRow().(proto.KeyedRow).Get(score)
 		v2, _ := row.GetCurrentRow().(proto.KeyedRow).Get(age)
-		res = append(res, student{score: v1.(int64), age: v2.(int64)})
+		res = append(res, student{
+			score: func() int64 {
+				x, _ := v1.Int64()
+				return x
+			}(),
+			age: func() int64 {
+				x, _ := v2.Int64()
+				return x
+			}(),
+		})
 		if row.Next() != nil {
 			queue.Push(row)
 		}

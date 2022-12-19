@@ -92,7 +92,7 @@ func (s *ShowIndexPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Res
 			if next.Scan(dest) != nil {
 				return next, nil
 			}
-			dest[0] = toTable
+			dest[0] = proto.NewValueString(toTable)
 
 			if next.IsBinary() {
 				return rows.NewBinaryVirtualRow(fields, dest), nil

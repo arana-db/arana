@@ -19,13 +19,9 @@ package function
 
 import (
 	"context"
-	"fmt"
-	"strings"
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
-
 	"github.com/pkg/errors"
 )
 
@@ -46,19 +42,14 @@ type lengthFunc struct{}
 func (c lengthFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
 	val, err := inputs[0].Value(ctx)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, errors.Wrapf(err, "cannot eval %s", FuncLength)
 	}
 
-	decLength := func(v interface{}) int {
-		return strings.Count(fmt.Sprint(v), "") - 1
+	if val == nil {
+		return nil, nil
 	}
 
-	switch v := val.(type) {
-	case *gxbig.Decimal:
-		return decLength(v.Value), nil
-	default:
-		return decLength(v), nil
-	}
+	return proto.NewValueInt64(int64(len(val.String()))), nil
 }
 
 func (c lengthFunc) NumInput() int {

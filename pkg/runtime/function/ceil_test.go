@@ -24,7 +24,7 @@ import (
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
+	"github.com/shopspring/decimal"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -42,21 +42,16 @@ func TestCeil(t *testing.T) {
 		out string
 	}
 
-	mustDecimal := func(s string) *gxbig.Decimal {
-		d, _ := gxbig.NewDecFromString(s)
-		return d
-	}
-
 	for _, it := range []tt{
-		{0, "0"},
-		{int64(-123), "-123"},
-		{-3.14, "-3"},
-		{float32(2.78), "3"},
-		{mustDecimal("-5.1234"), "-5"},
-		{mustDecimal("5.1234"), "6"},
-		{"-618", "-618"},
-		{"-11.11", "-11"},
-		{"foobar", "0"},
+		{proto.NewValueInt64(0), "0"},
+		{proto.NewValueInt64(-123), "-123"},
+		{proto.NewValueFloat64(-3.14), "-3"},
+		{proto.NewValueFloat64(2.78), "3"},
+		{proto.NewValueDecimal(decimal.NewFromFloat(-5.1234)), "-5"},
+		{proto.NewValueDecimal(decimal.NewFromFloat(5.1234)), "6"},
+		{proto.NewValueString("-618"), "-618"},
+		{proto.NewValueString("-11.11"), "-11"},
+		{proto.NewValueString("foobar"), "0"},
 	} {
 		t.Run(it.out, func(t *testing.T) {
 			out, err := fn.Apply(context.Background(), proto.ToValuer(it.in))

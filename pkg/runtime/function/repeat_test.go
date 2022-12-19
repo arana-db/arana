@@ -19,7 +19,6 @@ package function
 
 import (
 	"context"
-	"fmt"
 	"testing"
 )
 
@@ -29,31 +28,62 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
 func TestRepeatFunc_Apply(t *testing.T) {
 	type tt struct {
-		input  []proto.Value
-		output string
+		description string
+		input       []proto.Value
+		output      string
 	}
 
 	fn := proto.MustGetFunc(FuncRepeat)
 
 	tests := []tt{
-		{[]proto.Value{"arana", 2}, "aranaarana"},
-		{[]proto.Value{ast.Null{}, 2}, "NULL"},
-		{[]proto.Value{"arana", 0}, ""},
+		{
+			"REPEAT('arana',2)",
+			[]proto.Value{
+				proto.NewValueString("arana"),
+				proto.NewValueInt64(2),
+			},
+			"aranaarana",
+		},
+		{
+			"REPEAT(NULL,2)",
+			[]proto.Value{
+				nil,
+				proto.NewValueInt64(2),
+			},
+			"NULL",
+		},
+		{
+			"REPEAT('arana',0)",
+			[]proto.Value{
+				proto.NewValueString("arana"),
+				proto.NewValueInt64(0),
+			},
+			"",
+		},
 	}
 
 	for _, next := range tests {
-		var inputs []proto.Valuer
-		for _, val := range next.input {
-			inputs = append(inputs, proto.ToValuer(val))
-		}
+		t.Run(next.description, func(t *testing.T) {
+			var inputs []proto.Valuer
+			for _, val := range next.input {
+				inputs = append(inputs, proto.ToValuer(val))
+			}
 
-		out, err := fn.Apply(context.Background(), inputs...)
-		assert.NoError(t, err)
-		assert.Equal(t, next.output, fmt.Sprint(out))
+			out, err := fn.Apply(context.Background(), inputs...)
+			assert.NoError(t, err)
+
+			var actual string
+			if out == nil {
+				actual = "NULL"
+			} else {
+				actual = out.String()
+			}
+
+			assert.Equal(t, next.output, actual)
+		})
 	}
 }

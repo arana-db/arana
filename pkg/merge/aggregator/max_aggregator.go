@@ -18,36 +18,46 @@
 package aggregator
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
+	"github.com/shopspring/decimal"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/proto"
 )
 
 type MaxAggregator struct {
 	// max  decimal.Decimal
-	max  *gxbig.Decimal
-	init bool
+	max decimal.NullDecimal
 }
 
-func (s *MaxAggregator) Aggregate(values []interface{}) {
+func (s *MaxAggregator) Aggregate(values []proto.Value) {
 	if len(values) == 0 {
 		return
 	}
 
-	val, err := parseDecimal2(values[0])
-	if err != nil {
-		panic(err)
+	if values[0] == nil {
+		return
 	}
 
-	if !s.init {
-		s.max = val
-		s.init = true
-	} else if s.max.Compare(val) < 0 {
-		s.max = val
+	val, err := values[0].Decimal()
+	if err != nil {
+		panic(err.Error())
+	}
+
+	if !s.max.Valid {
+		s.max.Valid = true
+		s.max.Decimal = val
+		return
+	}
+
+	if s.max.Decimal.LessThan(val) {
+		s.max.Decimal = val
 	}
 }
 
-func (s *MaxAggregator) GetResult() (*gxbig.Decimal, bool) {
-	if s.init {
-		return s.max, true
+func (s *MaxAggregator) GetResult() (proto.Value, bool) {
+	if s.max.Valid {
+		return proto.NewValueDecimal(s.max.Decimal), true
 	}
 	return nil, false
 }

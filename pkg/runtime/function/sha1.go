@@ -24,8 +24,6 @@ import (
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
-
 	"github.com/pkg/errors"
 )
 
@@ -50,19 +48,15 @@ type sha1Func struct{}
 func (c sha1Func) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
 	val, err := inputs[0].Value(ctx)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, errors.Wrapf(err, "cannot eval %s", FuncSHA)
 	}
 
-	decSHA1 := func(v interface{}) string {
-		return fmt.Sprintf("%x", sha1.Sum([]byte(fmt.Sprint(v))))
+	if val == nil {
+		return nil, nil
 	}
 
-	switch v := val.(type) {
-	case *gxbig.Decimal:
-		return decSHA1(v.Value), nil
-	default:
-		return decSHA1(v), nil
-	}
+	h := fmt.Sprintf("%x", sha1.Sum([]byte(val.String())))
+	return proto.NewValueString(h), nil
 }
 
 func (c sha1Func) NumInput() int {

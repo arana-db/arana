@@ -85,7 +85,7 @@ func TestBinaryRow_Get(t *testing.T) {
 			"Get",
 			fields{createTestFields(), createTestData()},
 			args{"name"},
-			[]byte("scott"),
+			proto.NewValueString("scott"),
 			assert.NoError,
 		},
 	}
@@ -314,7 +314,7 @@ func TestTextRow_Get(t *testing.T) {
 			"Get",
 			fields{createTestFields(), []byte{0x01, 0x31, 0x05, 0x73, 0x63, 0x6f, 0x74, 0x74, 0x01, 0x31}},
 			args{"name"},
-			"scott",
+			proto.NewValueString("scott"),
 			assert.NoError,
 		},
 	}

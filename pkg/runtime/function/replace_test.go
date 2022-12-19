@@ -19,7 +19,6 @@ package function
 
 import (
 	"context"
-	"fmt"
 	"testing"
 )
 
@@ -29,49 +28,132 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
 func TestReplace(t *testing.T) {
 	type tt struct {
-		input  []proto.Value
-		output string
+		str, from, to proto.Value
+		output        string
 	}
 
 	fn := proto.MustGetFunc(FuncReplace)
 
 	testGroup := []tt{
 		// normal
-		{[]proto.Value{"arana", "a", "A"}, "ArAnA"},
-		{[]proto.Value{"www.mysql.com", "w", "Ww"}, "WwWwWw.mysql.com"},
+		{
+			proto.NewValueString("arana"),
+			proto.NewValueString("a"),
+			proto.NewValueString("A"),
+			"ArAnA",
+		},
+		{
+			proto.NewValueString("www.mysql.com"),
+			proto.NewValueString("w"),
+			proto.NewValueString("Ww"),
+			"WwWwWw.mysql.com",
+		},
 		// has Int
-		{[]proto.Value{"123abc", 1, "BB"}, "BB23abc"},
-		{[]proto.Value{"123abc", "a", 232}, "123232bc"},
-		{[]proto.Value{12367, "7", "C"}, "1236C"},
+		{
+			proto.NewValueString("123abc"),
+			proto.NewValueInt64(1),
+			proto.NewValueString("BB"),
+			"BB23abc",
+		},
+		{
+			proto.NewValueString("123abc"),
+			proto.NewValueString("a"),
+			proto.NewValueInt64(232),
+			"123232bc",
+		},
+		{
+			proto.NewValueInt64(12367),
+			proto.NewValueString("7"),
+			proto.NewValueString("C"),
+			"1236C",
+		},
 		// has Float
-		{[]proto.Value{"1.23abc", 1.2, "M"}, "M3abc"},
-		{[]proto.Value{"123abc", "a", 2.2}, "1232.2bc"},
-		{[]proto.Value{123.67, "1", "C"}, "C23.67"},
+		{
+			proto.NewValueString("1.23abc"),
+			proto.NewValueFloat64(1.2),
+			proto.NewValueString("M"),
+			"M3abc",
+		},
+		{
+			proto.NewValueString("123abc"),
+			proto.NewValueString("a"),
+			proto.NewValueFloat64(2.2),
+			"1232.2bc",
+		},
+		{
+			proto.NewValueFloat64(123.67),
+			proto.NewValueString("1"),
+			proto.NewValueString("C"),
+			"C23.67",
+		},
 		// has NULL
-		{[]proto.Value{"123abc", ast.Null{}, "BB"}, "NULL"},
-		{[]proto.Value{"123abc", "2", ast.Null{}}, "NULL"},
-		{[]proto.Value{ast.Null{}, "2", "A"}, "NULL"},
+		{
+			proto.NewValueString("123abc"),
+			nil,
+			proto.NewValueString("BB"),
+			"NULL",
+		},
+		{
+			proto.NewValueString("123abc"),
+			proto.NewValueString("2"),
+			nil,
+			"NULL",
+		},
+		{
+			nil,
+			proto.NewValueString("2"),
+			proto.NewValueString("A"),
+			"NULL",
+		},
 		// has Bool
-		{[]proto.Value{"www.mysql.com", "www", true}, "1.mysql.com"},
-		{[]proto.Value{"www.mysql.com", "mysql", false}, "www.0.com"},
-		{[]proto.Value{true, true, false}, "0"},
-		{[]proto.Value{"1polu", true, false}, "0polu"},
-		{[]proto.Value{"8h09", false, "AAA"}, "8hAAA9"},
+		{
+			proto.NewValueString("www.mysql.com"),
+			proto.NewValueString("www"),
+			proto.NewValueBool(true),
+			"1.mysql.com",
+		},
+		{
+			proto.NewValueString("www.mysql.com"),
+			proto.NewValueString("mysql"),
+			proto.NewValueBool(false),
+			"www.0.com",
+		},
+		{
+			proto.NewValueBool(true),
+			proto.NewValueBool(true),
+			proto.NewValueBool(false),
+			"0",
+		},
+
+		{
+			proto.NewValueString("1polu"),
+			proto.NewValueBool(true),
+			proto.NewValueBool(false),
+			"0polu",
+		},
+		{
+			proto.NewValueString("8h09"),
+			proto.NewValueBool(false),
+			proto.NewValueString("AAA"),
+			"8hAAA9",
+		},
 	}
 
 	for _, next := range testGroup {
-		var inputs []proto.Valuer
-		for _, val := range next.input {
-			inputs = append(inputs, proto.ToValuer(val))
-		}
-
-		out, err := fn.Apply(context.Background(), inputs...)
-		assert.NoError(t, err)
-		assert.Equal(t, next.output, fmt.Sprint(out))
+		t.Run(next.output, func(t *testing.T) {
+			out, err := fn.Apply(context.Background(), proto.ToValuer(next.str), proto.ToValuer(next.from), proto.ToValuer(next.to))
+			assert.NoError(t, err)
+			var actual string
+			if out == nil {
+				actual = "NULL"
+			} else {
+				actual = out.String()
+			}
+			assert.Equal(t, next.output, actual)
+		})
 	}
 }

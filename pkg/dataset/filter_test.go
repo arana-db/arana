@@ -45,11 +45,11 @@ func TestFilter(t *testing.T) {
 		Columns: fields,
 	}
 
-	for i := 0; i < 10; i++ {
+	for i := int64(0); i < 10; i++ {
 		root.Rows = append(root.Rows, rows.NewTextVirtualRow(fields, []proto.Value{
-			int64(i),
-			fmt.Sprintf("fake-name-%d", i),
-			int64(i & 1), // 0=female,1=male
+			proto.NewValueInt64(i),
+			proto.NewValueString(fmt.Sprintf("fake-name-%d", i)),
+			proto.NewValueInt64(i & 1), // 0=female,1=male
 		}))
 	}
 

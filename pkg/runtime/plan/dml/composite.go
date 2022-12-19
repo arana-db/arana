@@ -93,7 +93,7 @@ func (u CompositePlan) showOpenTables(ctx context.Context, conn proto.VConn) (pr
 				return nil, errors.WithStack(err)
 			}
 			// Database Table In_use Name_locked
-			key := fmt.Sprintf("%s-%s", values[0].(string), values[1].(string))
+			key := fmt.Sprintf("%s-%s", values[0].String(), values[1].String())
 			if _, ok := filterMap[key]; ok {
 				continue
 			}

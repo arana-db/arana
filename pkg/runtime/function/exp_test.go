@@ -19,13 +19,11 @@ package function
 
 import (
 	"context"
-	"fmt"
+	"math"
 	"testing"
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -38,29 +36,26 @@ func TestExp(t *testing.T) {
 	assert.Equal(t, 1, fn.NumInput())
 
 	type tt struct {
-		in  proto.Value
-		out string
-	}
-
-	mustDecimal := func(s string) *gxbig.Decimal {
-		d, _ := gxbig.NewDecFromString(s)
-		return d
+		desc string
+		in   proto.Value
+		out  float64
 	}
 
 	for _, it := range []tt{
-		{0, "1"},
-		{int64(-123), "3.817497188671175e-54"},
-		{-3.14, "0.043282797901965901"},
-		{float32(2.78), "16.119020948027545629"},
-		{mustDecimal("-5.1234"), "0.005955738919461575"},
-		{"-618", "0"},
-		{"-11.11", "0.000014961953685411"},
-		{"foobar", "1.0"},
+		{"EXP(0)", proto.NewValueInt64(0), 1},
+		{"EXP(-123)", proto.NewValueInt64(-123), math.Exp(-123)},
+		{"EXP(-3.14)", proto.NewValueFloat64(-3.14), math.Exp(-3.14)},
+		{"EXP(2.78)", proto.NewValueFloat64(2.78), math.Exp(2.78)},
+		{"EXP(-5.1234)", proto.MustNewValueDecimalString("-5.1234"), math.Exp(-5.1234)},
+		{"EXP('-618')", proto.NewValueString("-618"), math.Exp(-618)},
+		{"EXP('-11.11')", proto.NewValueString("-11.11"), math.Exp(-11.11)},
+		{"EXP('foobar')", proto.NewValueString("foobar"), math.Exp(0)},
 	} {
-		t.Run(it.out, func(t *testing.T) {
+		t.Run(it.desc, func(t *testing.T) {
 			out, err := fn.Apply(context.Background(), proto.ToValuer(it.in))
 			assert.NoError(t, err)
-			assert.Equal(t, it.out, fmt.Sprint(out))
+			actual, _ := out.Float64()
+			assert.Equal(t, it.out, actual)
 		})
 	}
 }

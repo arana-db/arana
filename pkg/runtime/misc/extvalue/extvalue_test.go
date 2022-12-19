@@ -18,7 +18,6 @@
 package extvalue_test
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -45,16 +44,23 @@ func TestCompute(t *testing.T) {
 		{"3 div 2", "1"},
 		{"3/2", "1.5"},
 		{"case 1 when 1 then 'ok' end", "ok"},
-		{"case 1 when 2 then 'ok' end", "<nil>"},
+		{"case 1 when 2 then 'ok' end", "NULL"},
 		{"case when 2>1 then 'ok' end", "ok"},
 		{"case when 0>-(3-1) then 'ok' end", "ok"},
 	} {
 		t.Run(next.input, func(t *testing.T) {
 			expr, err := getExpr(next.input)
 			assert.NoError(t, err)
-			v, err := extvalue.Compute(expr, nil)
+			v, err := extvalue.Compute(expr)
 			assert.NoError(t, err)
-			assert.Equal(t, next.expect, fmt.Sprint(v))
+
+			var actual string
+			if v == nil {
+				actual = "NULL"
+			} else {
+				actual = v.String()
+			}
+			assert.Equal(t, next.expect, actual)
 		})
 	}
 }

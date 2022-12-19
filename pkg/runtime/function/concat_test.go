@@ -19,7 +19,6 @@ package function
 
 import (
 	"context"
-	"fmt"
 	"testing"
 )
 
@@ -29,7 +28,6 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
 func TestConcat(t *testing.T) {
@@ -37,23 +35,56 @@ func TestConcat(t *testing.T) {
 
 	type tt struct {
 		inputs []proto.Value
-		out    proto.Value
+		out    string
 	}
 
 	for _, next := range []tt{
-		{[]proto.Value{"hello ", "world"}, "hello world"},
-		{[]proto.Value{1, 2, 3}, "123"},
-		{[]proto.Value{"hello ", 42}, "hello 42"},
-		{[]proto.Value{"hello", 1, ast.Null{}}, "NULL"},
+		{
+			[]proto.Value{
+				proto.NewValueString("hello"),
+				proto.NewValueString("world"),
+			},
+			"helloworld",
+		},
+		{
+			[]proto.Value{
+				proto.NewValueInt64(1),
+				proto.NewValueInt64(2),
+				proto.NewValueInt64(3),
+			},
+			"123",
+		},
+		{
+			[]proto.Value{
+				proto.NewValueString("hello"),
+				proto.NewValueInt64(42),
+			},
+			"hello42",
+		},
+		{
+			[]proto.Value{
+				proto.NewValueString("hello"),
+				proto.NewValueInt64(1),
+				nil,
+			},
+			"NULL",
+		},
 	} {
-		t.Run(fmt.Sprint(next.out), func(t *testing.T) {
+		t.Run(next.out, func(t *testing.T) {
 			var inputs []proto.Valuer
 			for i := range next.inputs {
 				inputs = append(inputs, proto.ToValuer(next.inputs[i]))
 			}
 			out, err := f.Apply(context.Background(), inputs...)
 			assert.NoError(t, err)
-			assert.Equal(t, next.out, out)
+
+			var actual string
+			if out == nil {
+				actual = "NULL"
+			} else {
+				actual = out.String()
+			}
+			assert.Equal(t, next.out, actual)
 		})
 	}
 }
