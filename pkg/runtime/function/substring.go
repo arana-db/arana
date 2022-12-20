@@ -19,6 +19,7 @@ package function
 
 import (
 	"context"
+	"math"
 	"strconv"
 )
 
@@ -38,56 +39,71 @@ func init() {
 type substringFunc struct{}
 
 func (a substringFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
+	// Value(posV/lengthV) -> int(pos/length), error:
+	// Value(10) -> 10,nil
+	// Value("10") -> 10,nil
+	// Value(4.2) -> 4,nil    	Value(4.7) -> 5,nil
+	// Value("2.1") -> 2,nil    Value("2.6") -> 3,nil
+	// Value(true) -> 1,nil		Value(false) -> 0,nil
+	// Value("xxq") -> 0,error	Value("1w") -> 0,error
+	tryParse := func(argV proto.Value) (int, error) {
+		arg, err := strconv.Atoi(argV.String())
+		if err != nil {
+			arg2, err := strconv.ParseFloat(argV.String(), 64)
+			if err != nil {
+				return 0, err
+			}
+			arg = int(math.Floor(arg2 + 0.5))
+		}
+		return arg, nil
+	}
+
+	// str
 	strV, err := inputs[0].Value(ctx)
 	if err != nil {
 		return nil, err
 	}
+	// pos
 	posV, err := inputs[1].Value(ctx)
 	if err != nil {
 		return nil, err
 	}
-	// if any arg is NULL, return NULL
 	if strV == nil || posV == nil {
 		return nil, nil
 	}
 	str := strV.String()
-	pos, err := strconv.Atoi(posV.String())
-	if err != nil {
+	pos, err := tryParse(posV)
+	// Thanks to Mulavar, the last 2 case is checking the abs(pos) is greater than len(str)
+	// In that case, return empty string
+	if err != nil || pos == 0 || pos > len(str) || -1*pos > len(str) {
 		return proto.NewValueString(""), nil
 	}
 
 	// SUBSTRING(str, pos)
 	if len(inputs) == 2 {
-		// cut string
 		if pos > 0 {
 			return proto.NewValueString(str[pos-1:]), nil
-		} else if pos < 0 {
-			return proto.NewValueString(str[len(str)+pos:]), nil
 		} else {
-			return proto.NewValueString(""), nil
+			return proto.NewValueString(str[len(str)+pos:]), nil
 		}
 	}
 
 	// SUBSTRING(str, pos, length)
-	lenV, err := inputs[2].Value(ctx)
+	lengthV, err := inputs[2].Value(ctx)
 	if err != nil {
 		return nil, err
 	}
-	// if any arg is NULL, return NULL
-	if lenV == nil {
+	if lengthV == nil {
 		return nil, nil
 	}
-	length, err := strconv.Atoi(lenV.String())
-	if err != nil || length < 1 {
+	length, err := tryParse(lengthV)
+	if err != nil {
 		return proto.NewValueString(""), nil
 	}
-	// cut string
 	if pos > 0 {
 		return proto.NewValueString(str[pos-1 : pos-1+length]), nil
-	} else if pos < 0 {
-		return proto.NewValueString(str[len(str)+pos : len(str)+pos+length]), nil
 	} else {
-		return proto.NewValueString(""), nil
+		return proto.NewValueString(str[len(str)+pos : len(str)+pos+length]), nil
 	}
 }
 

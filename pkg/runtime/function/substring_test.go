@@ -43,6 +43,7 @@ func TestSubstring(t *testing.T) {
 		{[]proto.Value{proto.NewValueString("Quadratically"), proto.NewValueInt64(5)}, "ratically"},
 		{[]proto.Value{proto.NewValueString("Sakila"), proto.NewValueInt64(-3)}, "ila"},
 		{[]proto.Value{proto.NewValueString("Quadratically"), proto.NewValueInt64(5), proto.NewValueInt64(6)}, "ratica"},
+		{[]proto.Value{proto.NewValueString("Quadratically"), proto.NewValueInt64(5), proto.NewValueInt64(0)}, ""},
 		{[]proto.Value{proto.NewValueString("Sakila"), proto.NewValueInt64(-5), proto.NewValueInt64(3)}, "aki"},
 		// `pos` or `len` is number/not number string
 		{[]proto.Value{proto.NewValueString("Quadratically"), proto.NewValueString("5")}, "ratically"},
@@ -77,6 +78,18 @@ func TestSubstring(t *testing.T) {
 		{[]proto.Value{proto.NewValueBool(true), proto.NewValueBool(true), proto.NewValueBool(true)}, "1"},
 		{[]proto.Value{proto.NewValueBool(false), proto.NewValueBool(true), proto.NewValueBool(true)}, "0"},
 		{[]proto.Value{proto.NewValueBool(false), proto.NewValueBool(false), proto.NewValueBool(false)}, ""},
+		// has float
+		{[]proto.Value{proto.NewValueString("Sakila"), proto.NewValueFloat64(4.2)}, "ila"},
+		{[]proto.Value{proto.NewValueString("Sakila"), proto.NewValueFloat64(4.7)}, "la"},
+		{[]proto.Value{proto.NewValueString("Sakila"), proto.NewValueInt64(1), proto.NewValueFloat64(2.1)}, "Sa"},
+		{[]proto.Value{proto.NewValueString("Sakila"), proto.NewValueInt64(1), proto.NewValueFloat64(2.7)}, "Sak"},
+		// pos > len(str)
+		{[]proto.Value{proto.NewValueString("Sakila"), proto.NewValueInt64(6)}, "a"},
+		{[]proto.Value{proto.NewValueString("Sakila"), proto.NewValueInt64(7)}, ""},
+		{[]proto.Value{proto.NewValueString("Sakila"), proto.NewValueInt64(99999)}, ""},
+		{[]proto.Value{proto.NewValueString("Sakila"), proto.NewValueInt64(-6)}, "Sakila"},
+		{[]proto.Value{proto.NewValueString("Sakila"), proto.NewValueInt64(-7)}, ""},
+		{[]proto.Value{proto.NewValueString("Sakila"), proto.NewValueInt64(-99999)}, ""},
 	}
 
 	for _, next := range testGroup {
