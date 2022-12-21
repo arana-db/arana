@@ -68,7 +68,7 @@ func (d *DropTriggerPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 	return resultx.New(), nil
 }
 
-func (d *DropTriggerPlan) execOne(ctx context.Context, conn proto.VConn, db, query string, args []interface{}) error {
+func (d *DropTriggerPlan) execOne(ctx context.Context, conn proto.VConn, db, query string, args []proto.Value) error {
 	res, err := conn.Exec(ctx, db, query, args...)
 	if err != nil {
 		return err

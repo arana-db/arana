@@ -19,13 +19,15 @@ package function
 
 import (
 	"context"
-	"fmt"
 	"strings"
 )
 
 import (
+	"github.com/pkg/errors"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
 const FuncRepeat = "REPEAT"
@@ -39,33 +41,28 @@ func init() {
 type repeatFunc struct{}
 
 func (a repeatFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
-	var sb strings.Builder
-
 	str, err := inputs[0].Value(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "cannot eval %s", FuncRepeat)
 	}
 
 	val, err := inputs[1].Value(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "cannot eval %s", FuncRepeat)
 	}
 
-	isNull := func(val any) bool {
-		_, ok := val.(ast.Null)
-		return ok
+	if str == nil || val == nil {
+		return nil, nil
 	}
 
-	if isNull(str) || isNull(val) {
-		return ast.Null{}, nil
+	n, err := val.Int64()
+	if err != nil {
+		return nil, errors.Wrapf(err, "cannot eval %s", FuncRepeat)
 	}
 
-	cnt := val.(int)
-	for i := 0; i < cnt; i++ {
-		_, _ = fmt.Fprint(&sb, str)
-	}
+	result := strings.Repeat(str.String(), int(n))
 
-	return sb.String(), nil
+	return proto.NewValueString(result), nil
 }
 
 func (a repeatFunc) NumInput() int {

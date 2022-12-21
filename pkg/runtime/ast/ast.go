@@ -119,6 +119,8 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		return cc.convAnalyzeTable(stmt), nil
 	case *ast.OptimizeTableStmt:
 		return cc.convOptimizeTable(stmt), nil
+	case *ast.KillStmt:
+		return cc.convKill(stmt), nil
 	default:
 		return nil, errors.Errorf("unimplement: stmt type %T!", stmt)
 	}
@@ -1625,4 +1627,11 @@ func (cc *convCtx) convOptimizeTable(stmt *ast.OptimizeTableStmt) Statement {
 	}
 
 	return &OptimizeTableStatement{Tables: tables}
+}
+
+func (cc *convCtx) convKill(stmt *ast.KillStmt) Statement {
+	return &KillStmt{
+		Query:        stmt.Query,
+		ConnectionID: stmt.ConnectionID,
+	}
 }

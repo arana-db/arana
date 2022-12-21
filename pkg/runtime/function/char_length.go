@@ -48,8 +48,13 @@ func (a charlengthFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (prot
 		return nil, errors.WithStack(err)
 	}
 
+	if val == nil {
+		return nil, nil
+	}
+
 	result := utf8.RuneCountInString(fmt.Sprint(val))
-	return int64(result), nil
+
+	return proto.NewValueInt64(int64(result)), nil
 }
 
 func (a charlengthFunc) NumInput() int {

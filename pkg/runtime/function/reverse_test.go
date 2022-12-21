@@ -19,13 +19,10 @@ package function
 
 import (
 	"context"
-	"fmt"
 	"testing"
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -43,16 +40,16 @@ func TestReverse(t *testing.T) {
 	}
 
 	for _, it := range []tt{
-		{1111, "1111"},
-		{&gxbig.Decimal{Value: "12.23"}, "32.21"},
-		{"arana", "anara"},
-		{"db-mesh", "hsem-bd"},
-		{20.22, "22.02"},
+		{proto.NewValueInt64(1111), "1111"},
+		{proto.MustNewValueDecimalString("12.23"), "32.21"},
+		{proto.NewValueString("arana"), "anara"},
+		{proto.NewValueString("db-mesh"), "hsem-bd"},
+		{proto.NewValueFloat64(20.22), "22.02"},
 	} {
 		t.Run(it.out, func(t *testing.T) {
 			out, err := fn.Apply(context.Background(), proto.ToValuer(it.in))
 			assert.NoError(t, err)
-			assert.Equal(t, it.out, fmt.Sprint(out))
+			assert.Equal(t, it.out, out.String())
 		})
 	}
 }

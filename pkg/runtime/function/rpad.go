@@ -19,18 +19,14 @@ package function
 
 import (
 	"context"
-	"fmt"
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
-
 	"github.com/pkg/errors"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/util/runes"
 )
 
 // FuncRpad is  https://dev.mysql.com/doc/refman/5.6/en/string-functions.html#function_rpad
@@ -53,20 +49,21 @@ func (r rpadFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Valu
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	d2, _ := gxbig.NewDecFromString(fmt.Sprint(val2))
-	if d2.IsNegative() {
-		return nil, nil
-	}
 	val3, err := inputs[2].Value(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	num, err := d2.ToInt()
+
+	if val1 == nil || val2 == nil || val3 == nil {
+		return nil, nil
+	}
+
+	num, _ := val2.Int64()
+	result, err := r.getResult([]rune(val1.String()), num, []rune(val3.String()))
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	result, err := r.getResult(runes.ConvertToRune(val1), num, runes.ConvertToRune(val3))
-	return result, err
+	return proto.NewValueString(result), nil
 }
 
 func (r rpadFunc) NumInput() int {

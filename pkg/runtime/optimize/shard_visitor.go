@@ -18,8 +18,6 @@
 package optimize
 
 import (
-	"fmt"
-	"reflect"
 	"strings"
 )
 
@@ -30,6 +28,7 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
@@ -44,11 +43,11 @@ var _ ast.Visitor = (*ShardVisitor)(nil)
 type ShardVisitor struct {
 	ast.BaseVisitor
 	ru      *rule.Rule
-	args    []interface{}
+	args    []proto.Value
 	results []misc.Pair[ast.TableName, *rule.Shards]
 }
 
-func NewXSharder(ru *rule.Rule, args []interface{}) *ShardVisitor {
+func NewXSharder(ru *rule.Rule, args []proto.Value) *ShardVisitor {
 	return &ShardVisitor{
 		ru:   ru,
 		args: args,
@@ -183,12 +182,12 @@ func (sd *ShardVisitor) VisitPredicateAtom(node *ast.AtomPredicateNode) (interfa
 func (sd *ShardVisitor) VisitPredicateBetween(node *ast.BetweenPredicateNode) (interface{}, error) {
 	key := node.Key.(*ast.AtomPredicateNode).A.(ast.ColumnNameExpressionAtom)
 
-	l, err := extvalue.Compute(node.Left, sd.args)
+	l, err := extvalue.Compute(node.Left, sd.args...)
 	if err != nil {
 		return nil, err
 	}
 
-	r, err := extvalue.Compute(node.Right, sd.args)
+	r, err := extvalue.Compute(node.Right, sd.args...)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +208,7 @@ func (sd *ShardVisitor) VisitPredicateBetween(node *ast.BetweenPredicateNode) (i
 func (sd *ShardVisitor) VisitPredicateBinaryComparison(node *ast.BinaryComparisonPredicateNode) (interface{}, error) {
 	switch k := node.Left.(*ast.AtomPredicateNode).A.(type) {
 	case ast.ColumnNameExpressionAtom:
-		v, err := extvalue.Compute(node.Right, sd.args)
+		v, err := extvalue.Compute(node.Right, sd.args...)
 		if err != nil {
 			if extvalue.IsErrNotSupportedValue(err) {
 				return rrule.AlwaysTrueLogical, nil
@@ -221,7 +220,7 @@ func (sd *ShardVisitor) VisitPredicateBinaryComparison(node *ast.BinaryCompariso
 
 	switch k := node.Right.(*ast.AtomPredicateNode).A.(type) {
 	case ast.ColumnNameExpressionAtom:
-		v, err := extvalue.Compute(node.Left, sd.args)
+		v, err := extvalue.Compute(node.Left, sd.args...)
 		if err != nil {
 			if extvalue.IsErrNotSupportedValue(err) {
 				return rrule.AlwaysTrueLogical, nil
@@ -231,14 +230,44 @@ func (sd *ShardVisitor) VisitPredicateBinaryComparison(node *ast.BinaryCompariso
 		return rrule.NewKeyed(k.Suffix(), node.Op, v).ToLogical(), nil
 	}
 
-	l, _ := extvalue.Compute(node.Left, sd.args)
-	r, _ := extvalue.Compute(node.Right, sd.args)
+	l, _ := extvalue.Compute(node.Left, sd.args...)
+	r, _ := extvalue.Compute(node.Right, sd.args...)
 	if l == nil || r == nil {
 		return rrule.AlwaysTrueLogical, nil
 	}
 
-	bingo := true
-	c := misc.Compare(l, r)
+	var (
+		isStr bool
+		c     int
+	)
+
+	switch l.Family() {
+	case proto.ValueFamilyString:
+		switch r.Family() {
+		case proto.ValueFamilyString:
+			isStr = true
+		}
+	}
+
+	if isStr {
+		c = strings.Compare(l.String(), r.String())
+	} else {
+		x, err := l.Decimal()
+		if err == nil {
+			x = decimal.Zero
+		}
+		y, err := r.Decimal()
+		if err == nil {
+			y = decimal.Zero
+		}
+		switch {
+		case x.GreaterThan(y):
+			c = 1
+		case x.LessThan(y):
+			c = -1
+		}
+	}
+	var bingo bool
 	switch node.Op {
 	case cmp.Ceq:
 		bingo = c == 0
@@ -265,7 +294,7 @@ func (sd *ShardVisitor) VisitPredicateIn(node *ast.InPredicateNode) (interface{}
 
 	var ret logical.Logical
 	for i := range node.E {
-		actualValue, err := extvalue.Compute(node.E[i], sd.args)
+		actualValue, err := extvalue.Compute(node.E[i], sd.args...)
 		if err != nil {
 			if extvalue.IsErrNotSupportedValue(err) {
 				return rrule.AlwaysTrueLogical, nil
@@ -297,7 +326,7 @@ func (sd *ShardVisitor) VisitPredicateIn(node *ast.InPredicateNode) (interface{}
 func (sd *ShardVisitor) VisitPredicateLike(node *ast.LikePredicateNode) (interface{}, error) {
 	key := node.Left.(*ast.AtomPredicateNode).A.(ast.ColumnNameExpressionAtom)
 
-	val, err := extvalue.Compute(node.Right, sd.args)
+	like, err := extvalue.Compute(node.Right, sd.args...)
 	if err != nil {
 		if extvalue.IsErrNotSupportedValue(err) {
 			return rrule.AlwaysTrueLogical, nil
@@ -305,8 +334,11 @@ func (sd *ShardVisitor) VisitPredicateLike(node *ast.LikePredicateNode) (interfa
 		return nil, errors.WithStack(err)
 	}
 
-	like := fmt.Sprint(val)
-	if !strings.ContainsAny(like, "%_") {
+	if like == nil {
+		return rrule.AlwaysTrueLogical, nil
+	}
+
+	if !strings.ContainsAny(like.String(), "%_") {
 		return rrule.NewKeyed(key.Suffix(), cmp.Ceq, like).ToLogical(), nil
 	}
 
@@ -322,11 +354,19 @@ func (sd *ShardVisitor) VisitAtomColumn(node ast.ColumnNameExpressionAtom) (inte
 }
 
 func (sd *ShardVisitor) VisitAtomConstant(node *ast.ConstantExpressionAtom) (interface{}, error) {
-	return sd.fromConstant(node.Value())
+	v, err := proto.NewValue(node.Value())
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	l, err := sd.fromConstant(v)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	return l, nil
 }
 
 func (sd *ShardVisitor) VisitAtomFunction(node *ast.FunctionCallExpressionAtom) (interface{}, error) {
-	val, err := extvalue.Compute(node, sd.args)
+	val, err := extvalue.Compute(node, sd.args...)
 	if err != nil {
 		if extvalue.IsErrNotSupportedValue(err) {
 			return rrule.AlwaysTrueLogical, nil
@@ -360,31 +400,20 @@ func (sd *ShardVisitor) VisitAtomInterval(node *ast.IntervalExpressionAtom) (int
 	return rrule.AlwaysTrueLogical, nil
 }
 
-func (sd *ShardVisitor) fromConstant(val interface{}) (logical.Logical, error) {
-	switch it := val.(type) {
-	case ast.Null:
+func (sd *ShardVisitor) fromConstant(val proto.Value) (logical.Logical, error) {
+	if val == nil {
 		return rrule.AlwaysFalseLogical, nil
-	case string:
-		it = strings.TrimSpace(it)
-		if len(it) < 1 {
-			return rrule.AlwaysFalseLogical, nil
-		}
-		if d, err := decimal.NewFromString(it); err == nil {
-			if d.IsZero() {
-				return rrule.AlwaysFalseLogical, nil
-			}
-		}
-	default:
-		if reflect.ValueOf(it).IsZero() {
-			return rrule.AlwaysFalseLogical, nil
-		}
+	}
+
+	if b, err := val.Bool(); err == nil && !b {
+		return rrule.AlwaysFalseLogical, nil
 	}
 
 	return rrule.AlwaysTrueLogical, nil
 }
 
 func (sd *ShardVisitor) fromValueNode(node ast.Node) (interface{}, error) {
-	val, err := extvalue.Compute(node, sd.args)
+	val, err := extvalue.Compute(node, sd.args...)
 	if err != nil {
 		if extvalue.IsErrNotSupportedValue(err) {
 			return rrule.AlwaysTrueLogical, nil

@@ -19,16 +19,10 @@ package function
 
 import (
 	"context"
-	"fmt"
-)
-
-import (
-	gxbig "github.com/dubbogo/gost/math/big"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
 const FuncReverse = "REVERSE"
@@ -55,21 +49,11 @@ func (a reverseFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.V
 		return nil, err
 	}
 
-	isNull := func(val any) bool {
-		_, ok := val.(ast.Null)
-		return ok
+	if str == nil {
+		return nil, nil
 	}
 
-	if isNull(str) {
-		return ast.Null{}, nil
-	}
-
-	switch v := str.(type) {
-	case *gxbig.Decimal:
-		return reverseString(v.Value), nil
-	default:
-		return reverseString(fmt.Sprint(str)), nil
-	}
+	return proto.NewValueString(reverseString(str.String())), nil
 }
 
 func (a reverseFunc) NumInput() int {

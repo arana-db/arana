@@ -19,7 +19,6 @@ package function
 
 import (
 	"context"
-	"fmt"
 	"testing"
 )
 
@@ -35,9 +34,9 @@ func TestFuncRpad(t *testing.T) {
 	fn := proto.MustGetFunc(FuncRpad)
 	assert.Equal(t, 3, fn.NumInput())
 	type tt struct {
-		inFirst  proto.Value
-		inSecond proto.Value
-		inThird  proto.Value
+		inFirst  interface{}
+		inSecond interface{}
+		inThird  interface{}
 		want     string
 	}
 	for _, v := range []tt{
@@ -69,9 +68,20 @@ func TestFuncRpad(t *testing.T) {
 		{"你好 世界", 8, "!", "你好 世界!!!"},
 	} {
 		t.Run(v.want, func(t *testing.T) {
-			out, err := fn.Apply(context.Background(), proto.ToValuer(v.inFirst), proto.ToValuer(v.inSecond), proto.ToValuer(v.inThird))
+			first, _ := proto.NewValue(v.inFirst)
+			second, _ := proto.NewValue(v.inSecond)
+			third, _ := proto.NewValue(v.inThird)
+			out, err := fn.Apply(context.Background(), proto.ToValuer(first), proto.ToValuer(second), proto.ToValuer(third))
 			assert.NoError(t, err)
-			assert.Equal(t, v.want, fmt.Sprint(out))
+
+			var actual string
+			if out == nil {
+				actual = "NULL"
+			} else {
+				actual = out.String()
+			}
+
+			assert.Equal(t, v.want, actual)
 		})
 	}
 }
