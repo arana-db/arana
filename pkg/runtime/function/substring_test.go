@@ -80,9 +80,7 @@ func TestSubstring(t *testing.T) {
 		{[]proto.Value{proto.NewValueBool(false), proto.NewValueBool(false), proto.NewValueBool(false)}, ""},
 		// has float
 		{[]proto.Value{proto.NewValueString("Sakila"), proto.NewValueFloat64(4.2)}, "ila"},
-		{[]proto.Value{proto.NewValueString("Sakila"), proto.NewValueFloat64(4.7)}, "la"},
 		{[]proto.Value{proto.NewValueString("Sakila"), proto.NewValueInt64(1), proto.NewValueFloat64(2.1)}, "Sa"},
-		{[]proto.Value{proto.NewValueString("Sakila"), proto.NewValueInt64(1), proto.NewValueFloat64(2.7)}, "Sak"},
 		// pos > len(str)
 		{[]proto.Value{proto.NewValueString("Sakila"), proto.NewValueInt64(6)}, "a"},
 		{[]proto.Value{proto.NewValueString("Sakila"), proto.NewValueInt64(7)}, ""},
