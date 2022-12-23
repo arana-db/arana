@@ -15,40 +15,8 @@
  * limitations under the License.
  */
 
-package identity
+package transaction
 
-import (
-	"os"
-)
-
-import (
-	"github.com/google/uuid"
-)
-
-import (
-	"github.com/arana-db/arana/pkg/util/net"
-)
-
-const (
-	AranaNodeId = "ARANA_NODE_ID"
-	PodName     = "POD_NAME"
-)
-
-func GetNodeIdentity() string {
-	nodeId := os.Getenv(AranaNodeId)
-	if len(nodeId) != 0 {
-		return nodeId
-	}
-
-	podName := os.Getenv(PodName)
-	if len(podName) != 0 {
-		return podName
-	}
-
-	ip, err := net.FindSelfIP()
-	if err == nil {
-		return ip
-	}
-
-	return uuid.NewString()
+// TxLogCleaner
+type TxLogCleaner struct {
 }
