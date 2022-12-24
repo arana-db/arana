@@ -211,7 +211,7 @@ func (db *AtomDB) begin(ctx context.Context) (*branchTx, error) {
 		return nil, perrors.WithStack(err)
 	}
 
-	return &branchTx{parent: db, bc: bc}, nil
+	return newBranchTx(db, bc), nil
 }
 
 func (db *AtomDB) CallFieldList(ctx context.Context, table, wildcard string) ([]proto.Field, error) {

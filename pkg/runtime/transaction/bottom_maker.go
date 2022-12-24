@@ -17,6 +17,11 @@
 
 package transaction
 
-// TxLogCleaner
-type TxLogCleaner struct {
+// TxBottomMaker Decisions of transaction pocket
+type TxBottomMaker struct {
+}
+
+// Run Core logic of the decision -making decision -making at the bottom of the affairs
+func (bm *TxBottomMaker) Run() {
+
 }

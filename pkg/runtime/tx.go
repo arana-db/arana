@@ -57,25 +57,26 @@ var (
 	_ proto.VersionSupport = (*compositeTx)(nil)
 )
 
+// TxState Transaction status
 type TxState int32
 
 const (
-	_         TxState = iota
-	Active            // CompositeTx 默认状态
-	Preparing         // 开始执行第一条 SQL 语句
-	Prepared          // 所有SQL语句均执行完，并且在 Commit 语句执行之前
-	Commiting         // Prepared 完成之后，准备开始执行 Commit
-	Commited          // 正式完成 Commit 动作
-	Aborting          // 分支事务执行过程中出现异常，复合事务禁止继续执行
+	_          TxState = iota
+	Active             // CompositeTx Default state
+	Preparing          // Start executing the first SQL statement
+	Prepared           // All SQL statements are executed, and before the Commit statement executes
+	Committing         // After preparing is completed, ready to start execution
+	Committed          // Officially complete the Commit action
+	Aborting           // There are abnormalities during the execution of the branch, and the composite transaction is prohibited to continue to execute
 	RollbackOnly
 )
 
-// CompositeTxReadOnly 不能改边事务状态，仅仅能查询事务当前的状态信息
+// CompositeTxReadOnly Can't change the status of transactions, just query the current status information of the transaction
 type CompositeTxReadOnly interface {
 	GetTxState() TxState
 }
 
-// CompositeTxWriteOnly 可以推进事务状态变化以及数据变化
+// CompositeTxWriteOnly Can promote changes in transaction status and data changes
 type CompositeTxWriteOnly interface {
 }
 
@@ -91,10 +92,10 @@ type TxHook interface {
 
 func newCompositeTx(pi *defaultRuntime, hooks ...TxHook) *compositeTx {
 	tx := &compositeTx{
-		id:      gtid.NewID(),
-		rt:      pi,
-		txs:     make(map[string]*branchTx),
-		hooks:   hooks,
+		id:    gtid.NewID(),
+		rt:    pi,
+		txs:   make(map[string]*branchTx),
+		hooks: hooks,
 	}
 
 	tx.setTxState(Active)
@@ -261,6 +262,7 @@ func (tx *compositeTx) doPrepareCommit(ctx context.Context) error {
 	var g errgroup.Group
 	for k, v := range tx.txs {
 		k, v := k, v
+		// TODO Update the prepare execution method of Branchtx
 		g.Go(func() error {
 			if err := v.Prepare(ctx); err != nil {
 				log.Errorf("prepare %s for group %s failed: %v", tx, k, err)
@@ -280,7 +282,7 @@ func (tx *compositeTx) doPrepareCommit(ctx context.Context) error {
 }
 
 func (tx *compositeTx) doCommit(ctx context.Context) error {
-	tx.setTxState(Commiting)
+	tx.setTxState(Committing)
 
 	var g errgroup.Group
 	for k, v := range tx.txs {
@@ -299,7 +301,7 @@ func (tx *compositeTx) doCommit(ctx context.Context) error {
 		return err
 	}
 
-	tx.setTxState(Commited)
+	tx.setTxState(Committed)
 	return nil
 }
 
@@ -392,11 +394,11 @@ func (tx *compositeTx) setTxState(state TxState) {
 		for i := range tx.hooks {
 			tx.hooks[i].OnPreparing(tx)
 		}
-	case Commiting:
+	case Committing:
 		for i := range tx.hooks {
 			tx.hooks[i].OnCommitting(tx)
 		}
-	case Commited:
+	case Committed:
 		for i := range tx.hooks {
 			tx.hooks[i].OnCommitted(tx)
 		}
@@ -411,14 +413,32 @@ func (tx *compositeTx) setTxState(state TxState) {
 	}
 }
 
-type prepareFunc func(ctx context.Context, bc *mysql.BackendConnection) error
+type dbFunc func(ctx context.Context, bc *mysql.BackendConnection) (proto.Result, error)
 
 type branchTx struct {
 	closed atomic.Bool
 	parent *AtomDB
 
-	prepare prepareFunc
-	bc      *mysql.BackendConnection
+	prepare  dbFunc
+	commit   dbFunc
+	rollback dbFunc
+	bc       *mysql.BackendConnection
+}
+
+func newBranchTx(parent *AtomDB, bc *mysql.BackendConnection) *branchTx {
+	return &branchTx{
+		parent: parent,
+		bc:     bc,
+		prepare: func(ctx context.Context, bc *mysql.BackendConnection) (proto.Result, error) {
+			return nil, nil
+		},
+		commit: func(ctx context.Context, bc *mysql.BackendConnection) (proto.Result, error) {
+			return bc.ExecuteWithWarningCount("commit", true)
+		},
+		rollback: func(ctx context.Context, bc *mysql.BackendConnection) (proto.Result, error) {
+			return bc.ExecuteWithWarningCount("rollback", true)
+		},
+	}
 }
 
 func (tx *branchTx) Commit(ctx context.Context) (res proto.Result, warn uint16, err error) {
@@ -428,7 +448,7 @@ func (tx *branchTx) Commit(ctx context.Context) (res proto.Result, warn uint16, 
 		return
 	}
 	defer tx.dispose()
-	if res, err = tx.bc.ExecuteWithWarningCount("commit", true); err != nil {
+	if res, err = tx.commit(ctx, tx.bc); err != nil {
 		return
 	}
 
@@ -446,7 +466,8 @@ func (tx *branchTx) Commit(ctx context.Context) (res proto.Result, warn uint16, 
 }
 
 func (tx *branchTx) Prepare(ctx context.Context) error {
-	return tx.prepare(ctx, tx.bc)
+	_, err := tx.prepare(ctx, tx.bc)
+	return err
 }
 
 func (tx *branchTx) Rollback(ctx context.Context) (res proto.Result, warn uint16, err error) {
@@ -455,7 +476,7 @@ func (tx *branchTx) Rollback(ctx context.Context) (res proto.Result, warn uint16
 		return
 	}
 	defer tx.dispose()
-	res, err = tx.bc.ExecuteWithWarningCount("rollback", true)
+	res, err = tx.rollback(ctx, tx.bc)
 	return
 }
 

@@ -24,7 +24,6 @@ CREATE TABLE IF NOT EXISTS __arana_tx_log (
 	gtid varchar(255) NOT NULL,
 	server_id int(10) UNSIGNED NOT NULL,
 	state int(10) NOT NULL, // enum('prepare', 'commit', 'abort'), 0=prepare,1=commit,2=abort
-	commited_gts bigint(20) unsigned default 0,
 	participant varchar(500), //
 	start_time timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 	update_time timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -35,6 +34,7 @@ CREATE TABLE IF NOT EXISTS __arana_tx_log (
 `
 )
 
+// TxLog Transaction log
 type TxLog struct {
 	Gtid        string
 	ServerID    int32
@@ -42,11 +42,21 @@ type TxLog struct {
 	Participant string
 }
 
-// GtidLogManager
+// TxLogManager Transaction log management
 type TxLogManager struct {
-	cleaner *TxLogCleaner
 }
 
+// AddOrUpdateTxLog Add or update transaction log
 func (gm *TxLogManager) AddOrUpdateTxLog(l TxLog) error {
 	return nil
+}
+
+// DeleteTxLog Delete transaction log
+func (gm *TxLogManager) DeleteTxLog(l TxLog) error {
+	return nil
+}
+
+// ScanTxLog Scanning transaction
+func (gm *TxLogManager) ScanTxLog(pageNo, pageSize uint32) (uint32, []TxLog, error) {
+	return 0, nil, nil
 }
