@@ -62,6 +62,9 @@ func (a castTimeFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.
 		nega = true
 		timeArgs = string(timeArgs[1:])
 	}
+	if strings.Compare(string(timeArgs[0]), "+") == 0 {
+		timeArgs = string(timeArgs[1:])
+	}
 
 	// fractional seconds
 	frac := false
@@ -77,7 +80,7 @@ func (a castTimeFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.
 	}
 
 	if strings.Contains(timeArgs, " ") {
-		// format - D hhh:mm:ss，D hhh:mm，D hhh
+		// format - D hhh:mm:ss.ms，D hhh:mm.ms，D hhh.ms
 		pat := "^\\d{1,2} \\d{1,3}(:\\d{1,2}){0,2}$"
 		match, err := regexp.MatchString(pat, timeArgs)
 		if !match || err != nil {
@@ -86,20 +89,8 @@ func (a castTimeFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.
 
 		timeArrLeft := strings.Split(timeArgs, " ")
 		timeDay, _ := strconv.Atoi(timeArrLeft[0])
-		timeArrRight := strings.Split(timeArrLeft[1], ":")
-		timeHour := 0
-		if len(timeArrRight) >= 1 {
-			timeHour, _ = strconv.Atoi(timeArrRight[0])
-		}
+		timeHour, timeMinutes, timeSecond := a.splitTimeWithSep(timeArrLeft[1])
 		timeHour += timeDay * 24
-		timeMinutes := 0
-		if len(timeArrRight) >= 2 {
-			timeMinutes, _ = strconv.Atoi(timeArrRight[1])
-		}
-		timeSecond := 0
-		if len(timeArrRight) >= 3 {
-			timeSecond, _ = strconv.Atoi(timeArrRight[2])
-		}
 
 		if !a.IsHourValid(timeHour) {
 			return a.MaxTimeValue(), nil
@@ -109,26 +100,14 @@ func (a castTimeFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.
 			return timeStr, nil
 		}
 	} else if strings.Contains(timeArgs, ":") {
-		// format - hhh:mm:ss，hhh:mm
+		// format - hhh:mm:ss.ms，hhh:mm.ms
 		pat := "^\\d{1,3}(:\\d{1,2}){1,2}$"
 		match, err := regexp.MatchString(pat, timeArgs)
 		if !match || err != nil {
 			return a.DefaultTimeValue(), nil
 		}
 
-		timeArr := strings.Split(timeArgs, ":")
-		timeHour := 0
-		if len(timeArr) >= 1 {
-			timeHour, _ = strconv.Atoi(timeArr[0])
-		}
-		timeMinutes := 0
-		if len(timeArr) >= 2 {
-			timeMinutes, _ = strconv.Atoi(timeArr[1])
-		}
-		timeSecond := 0
-		if len(timeArr) >= 3 {
-			timeSecond, _ = strconv.Atoi(timeArr[2])
-		}
+		timeHour, timeMinutes, timeSecond := a.splitTimeWithSep(timeArgs)
 
 		if !a.IsHourValid(timeHour) {
 			return a.MaxTimeValue(), nil
@@ -138,18 +117,14 @@ func (a castTimeFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.
 			return timeStr, nil
 		}
 	} else {
-		// format - hhhmmss，mmss，ss
+		// format - hhhmmss.ms，mmss.ms，ss.ms
 		pat := "^\\d{1,7}$"
 		match, err := regexp.MatchString(pat, timeArgs)
 		if !match || err != nil {
 			return a.DefaultTimeValue(), nil
 		}
 
-		timeInt, _ := strconv.Atoi(timeArgs)
-		timeSecond := timeInt % 100
-		timeLeft := timeInt / 100
-		timeMinutes := timeLeft % 100
-		timeHour := timeLeft / 100
+		timeHour, timeMinutes, timeSecond := a.splitTimeWithoutSep(timeArgs)
 
 		if !a.IsHourValid(timeHour) {
 			return a.MaxTimeValue(), nil
@@ -206,6 +181,34 @@ func (a castTimeFunc) TimeOutput(hour, minutes, second int, nega, frac bool) pro
 		timeStr = "-" + timeStr
 	}
 	return proto.NewValueString(timeStr)
+}
+
+func (a castTimeFunc) splitTimeWithSep(timeArgs string) (hour, minutes, second int) {
+	timeArr := strings.Split(timeArgs, ":")
+	timeHour := 0
+	if len(timeArr) >= 1 {
+		timeHour, _ = strconv.Atoi(timeArr[0])
+	}
+	timeMinutes := 0
+	if len(timeArr) >= 2 {
+		timeMinutes, _ = strconv.Atoi(timeArr[1])
+	}
+	timeSecond := 0
+	if len(timeArr) >= 3 {
+		timeSecond, _ = strconv.Atoi(timeArr[2])
+	}
+
+	return timeHour, timeMinutes, timeSecond
+}
+
+func (a castTimeFunc) splitTimeWithoutSep(timeArgs string) (hour, minutes, second int) {
+	timeInt, _ := strconv.Atoi(timeArgs)
+	timeSecond := timeInt % 100
+	timeLeft := timeInt / 100
+	timeMinutes := timeLeft % 100
+	timeHour := timeLeft / 100
+
+	return timeHour, timeMinutes, timeSecond
 }
 
 func (a castTimeFunc) IsDayValid(day int) bool {

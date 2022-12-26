@@ -60,28 +60,7 @@ func (a castDateFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.
 	pat := "^\\d{1,4}[~!@#$%^&*_+\\-=:;,.|?/]{1}\\d{1,2}[~!@#$%^&*_+\\-=:;,.|?/]{1}\\d{1,2}$"
 	match, err := regexp.MatchString(pat, dateArgs)
 	if match && err == nil {
-		dateLen := len(dateArgs)
-		dateDayStr := string(dateArgs[dateLen-1 : dateLen])
-		dateLeft := string(dateArgs[0 : dateLen-2])
-		if a.IsDigitalValid(string(dateArgs[dateLen-2])) {
-			dateDayStr = string(dateArgs[dateLen-2 : dateLen])
-			dateLeft = string(dateArgs[0 : dateLen-3])
-		}
-		dateArgs = dateLeft
-
-		dateLen = len(dateArgs)
-		dateMonthStr := string(dateArgs[dateLen-1 : dateLen])
-		dateLeft = string(dateArgs[0 : dateLen-2])
-		if a.IsDigitalValid(string(dateArgs[dateLen-2])) {
-			dateMonthStr = string(dateArgs[dateLen-2 : dateLen])
-			dateLeft = string(dateArgs[0 : dateLen-3])
-		}
-		dateYearStr := dateLeft
-
-		dateYear, _ := strconv.Atoi(dateYearStr)
-		dateYear = a.amend4DigtalYear(dateYear)
-		dateMonth, _ := strconv.Atoi(dateMonthStr)
-		dateDay, _ := strconv.Atoi(dateDayStr)
+		dateYear, dateMonth, dateDay := a.splitDateWithSep(dateArgs)
 
 		if a.IsYearValid(dateYear) && a.IsMonthValid(dateMonth) && a.IsDayValid(dateYear, dateMonth, dateDay) {
 			dateStr := a.DateOutput(dateYear, dateMonth, dateDay)
@@ -94,20 +73,7 @@ func (a castDateFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.
 	pat = "^\\d{5,8}$"
 	match, err = regexp.MatchString(pat, dateArgs)
 	if match && err == nil {
-		dateLen := len(dateArgs)
-		dateDayStr := string(dateArgs[dateLen-2 : dateLen])
-		dateLeft := string(dateArgs[0 : dateLen-2])
-		dateArgs = dateLeft
-
-		dateLen = len(dateArgs)
-		dateMonthStr := string(dateArgs[dateLen-2 : dateLen])
-		dateLeft = string(dateArgs[0 : dateLen-2])
-		dateYearStr := dateLeft
-
-		dateYear, _ := strconv.Atoi(dateYearStr)
-		dateYear = a.amend4DigtalYear(dateYear)
-		dateMonth, _ := strconv.Atoi(dateMonthStr)
-		dateDay, _ := strconv.Atoi(dateDayStr)
+		dateYear, dateMonth, dateDay := a.splitDateWithoutSep(dateArgs)
 
 		if a.IsYearValid(dateYear) && a.IsMonthValid(dateMonth) && a.IsDayValid(dateYear, dateMonth, dateDay) {
 			dateStr := a.DateOutput(dateYear, dateMonth, dateDay)
@@ -140,6 +106,52 @@ func (a castDateFunc) DateOutput(year, month, day int) proto.Value {
 
 	dateStr := yearStr + "-" + monthStr + "-" + dayStr
 	return proto.NewValueString(dateStr)
+}
+
+func (a castDateFunc) splitDateWithSep(dateArgs string) (year, month, day int) {
+	dateLen := len(dateArgs)
+	dateDayStr := string(dateArgs[dateLen-1 : dateLen])
+	dateLeft := string(dateArgs[0 : dateLen-2])
+	if a.IsDigitalValid(string(dateArgs[dateLen-2])) {
+		dateDayStr = string(dateArgs[dateLen-2 : dateLen])
+		dateLeft = string(dateArgs[0 : dateLen-3])
+	}
+	dateArgs = dateLeft
+
+	dateLen = len(dateArgs)
+	dateMonthStr := string(dateArgs[dateLen-1 : dateLen])
+	dateLeft = string(dateArgs[0 : dateLen-2])
+	if a.IsDigitalValid(string(dateArgs[dateLen-2])) {
+		dateMonthStr = string(dateArgs[dateLen-2 : dateLen])
+		dateLeft = string(dateArgs[0 : dateLen-3])
+	}
+	dateYearStr := dateLeft
+
+	dateYear, _ := strconv.Atoi(dateYearStr)
+	dateYear = a.amend4DigtalYear(dateYear)
+	dateMonth, _ := strconv.Atoi(dateMonthStr)
+	dateDay, _ := strconv.Atoi(dateDayStr)
+
+	return dateYear, dateMonth, dateDay
+}
+
+func (a castDateFunc) splitDateWithoutSep(dateArgs string) (year, month, day int) {
+	dateLen := len(dateArgs)
+	dateDayStr := string(dateArgs[dateLen-2 : dateLen])
+	dateLeft := string(dateArgs[0 : dateLen-2])
+	dateArgs = dateLeft
+
+	dateLen = len(dateArgs)
+	dateMonthStr := string(dateArgs[dateLen-2 : dateLen])
+	dateLeft = string(dateArgs[0 : dateLen-2])
+	dateYearStr := dateLeft
+
+	dateYear, _ := strconv.Atoi(dateYearStr)
+	dateYear = a.amend4DigtalYear(dateYear)
+	dateMonth, _ := strconv.Atoi(dateMonthStr)
+	dateDay, _ := strconv.Atoi(dateDayStr)
+
+	return dateYear, dateMonth, dateDay
 }
 
 func (a castDateFunc) amend4DigtalYear(year int) int {
