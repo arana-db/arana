@@ -39,17 +39,17 @@ func TestLtrim(t *testing.T) {
 		want    string
 	}
 	for _, v := range []tt{
-		{" barbar  ", "barbar  "},
-		{" 你好  世界!  ", "你好  世界!  "},
-		{"  你好  世界! ", "你好  世界! "},
-		{"  Hello   World!  ", "Hello   World!  "},
-		{"  Hola  Mundo ", "Hola  Mundo "},
-		{"  Hallo Welt ", "Hallo Welt "},
+		{proto.NewValueString(" barbar  "), "barbar  "},
+		{proto.NewValueString(" 你好  世界!  "), "你好  世界!  "},
+		{proto.NewValueString("  你好  世界! "), "你好  世界! "},
+		{proto.NewValueString("  Hello   World!  "), "Hello   World!  "},
+		{proto.NewValueString("  Hola  Mundo "), "Hola  Mundo "},
+		{proto.NewValueString("  Hallo Welt "), "Hallo Welt "},
 	} {
 		t.Run(fmt.Sprint(v.inFirst), func(t *testing.T) {
 			out, err := fn.Apply(context.Background(), proto.ToValuer(v.inFirst))
 			assert.NoError(t, err)
-			assert.Equal(t, v.want, out)
+			assert.Equal(t, v.want, fmt.Sprint(out))
 		})
 	}
 }

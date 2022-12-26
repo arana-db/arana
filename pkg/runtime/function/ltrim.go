@@ -48,7 +48,8 @@ func (a ltrimFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Val
 		return nil, errors.WithStack(err)
 	}
 	noleftSpaceString := strings.TrimLeft(fmt.Sprint(val), " ")
-	return noleftSpaceString, nil
+
+	return proto.NewValueString(noleftSpaceString), nil
 }
 
 func (a ltrimFunc) NumInput() int {

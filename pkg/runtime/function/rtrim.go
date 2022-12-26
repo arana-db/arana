@@ -48,7 +48,8 @@ func (a rtrimFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Val
 		return nil, errors.WithStack(err)
 	}
 	norightSpaceString := strings.TrimRight(fmt.Sprint(val), " ")
-	return norightSpaceString, nil
+
+	return proto.NewValueString(norightSpaceString), nil
 }
 
 func (a rtrimFunc) NumInput() int {
