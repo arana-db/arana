@@ -19,16 +19,11 @@ package function
 
 import (
 	"context"
-	"fmt"
 	"math"
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
-
 	"github.com/pkg/errors"
-
-	"github.com/shopspring/decimal"
 )
 
 import (
@@ -49,46 +44,15 @@ type expFunc struct{}
 func (a expFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
 	val, err := inputs[0].Value(ctx)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, errors.Wrapf(err, "cannot eval '%s'", FuncExp)
 	}
 
-	decExp := func(d *gxbig.Decimal) *gxbig.Decimal {
-		temp, _ := decimal.NewFromString(d.String())
-		s, _ := temp.ExpTaylor(18)
-		d, _ = gxbig.NewDecFromString(s.String())
-		return d
+	if val == nil {
+		return nil, nil
 	}
 
-	switch v := val.(type) {
-	case *gxbig.Decimal:
-		return decExp(v), nil
-	case uint8:
-		return math.Exp(float64(v)), nil
-	case uint16:
-		return math.Exp(float64(v)), nil
-	case uint32:
-		return math.Exp(float64(v)), nil
-	case uint64:
-		return math.Exp(float64(v)), nil
-	case uint:
-		return math.Exp(float64(v)), nil
-	case int64:
-		return math.Exp(float64(v)), nil
-	case int32:
-		return math.Exp(float64(v)), nil
-	case int16:
-		return math.Exp(float64(v)), nil
-	case int8:
-		return math.Exp(float64(v)), nil
-	case int:
-		return math.Exp(float64(v)), nil
-	default:
-		var d *gxbig.Decimal
-		if d, err = gxbig.NewDecFromString(fmt.Sprint(v)); err != nil {
-			return _oneDecimal, nil
-		}
-		return decExp(d), nil
-	}
+	f, _ := val.Float64()
+	return proto.NewValueFloat64(math.Exp(f)), nil
 }
 
 func (a expFunc) NumInput() int {

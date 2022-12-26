@@ -15,47 +15,47 @@
  * limitations under the License.
  */
 
-package group
+package function
 
 import (
-	"fmt"
+	"context"
+	"math"
+)
+
+import (
+	"github.com/pkg/errors"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
-type GroupByValue struct {
-	groupByColumns []string
-	groupByValues  []interface{}
+// FuncSin https://dev.mysql.com/doc/refman/5.6/en/mathematical-functions.html#function_sign
+const FuncSin = "SIN"
+
+var _ proto.Func = (*sinFunc)(nil)
+
+func init() {
+	proto.RegisterFunc(FuncSin, sinFunc{})
 }
 
-func NewGroupByValue(groupByColumns []string, row proto.Row) *GroupByValue {
-	return &GroupByValue{
-		groupByColumns: groupByColumns,
-		groupByValues:  buildGroupValues(groupByColumns, row),
+type sinFunc struct{}
+
+// Apply call the current function.
+func (s sinFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
+	param, err := inputs[0].Value(ctx)
+	if err != nil {
+		return nil, errors.WithStack(err)
 	}
+
+	if param == nil {
+		return nil, nil
+	}
+	f, _ := param.Float64()
+	return proto.NewValueFloat64(math.Sin(f)), nil
 }
 
-func buildGroupValues(groupByColumns []string, row proto.Row) []interface{} {
-	values := make([]interface{}, 0)
-
-	for _, column := range groupByColumns {
-		value, err := row.(proto.KeyedRow).Get(column)
-		if err != nil {
-			panic("get column value error:" + err.Error())
-		}
-		values = append(values, value)
-	}
-	return values
-}
-
-func (g *GroupByValue) equals(row proto.Row) bool {
-	values := buildGroupValues(g.groupByColumns, row)
-	for k := range values {
-		if fmt.Sprintf("%v", values[k]) != fmt.Sprintf("%v", g.groupByValues[k]) {
-			return false
-		}
-	}
-	return true
+// NumInput returns the minimum number of inputs.
+func (s sinFunc) NumInput() int {
+	return 1
 }

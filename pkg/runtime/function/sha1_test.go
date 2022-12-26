@@ -24,8 +24,6 @@ import (
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -43,11 +41,10 @@ func TestSHA1(t *testing.T) {
 	}
 
 	for _, it := range []tt{
-		{1111, "011c945f30ce2cbafc452f39840f025693339c42"},
-		{&gxbig.Decimal{Value: "arana"}, "89d3a51a45e32f45306619da2d6cd61843f3cdb7"},
-		{"arana", "89d3a51a45e32f45306619da2d6cd61843f3cdb7"},
-		{"db-mesh", "cf13a5efa2393ac3ca537d4c257df5140773e752"},
-		{20.22, "2a77c9db640d42dc5175f2a5bec3fa9253ae574b"},
+		{proto.NewValueInt64(1111), "011c945f30ce2cbafc452f39840f025693339c42"},
+		{proto.NewValueString("arana"), "89d3a51a45e32f45306619da2d6cd61843f3cdb7"},
+		{proto.NewValueString("db-mesh"), "cf13a5efa2393ac3ca537d4c257df5140773e752"},
+		{proto.NewValueFloat64(20.22), "2a77c9db640d42dc5175f2a5bec3fa9253ae574b"},
 	} {
 		t.Run(it.out, func(t *testing.T) {
 			out, err := fn.Apply(context.Background(), proto.ToValuer(it.in))

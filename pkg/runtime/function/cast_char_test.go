@@ -35,9 +35,9 @@ func TestFuncCastChar(t *testing.T) {
 	fn := proto.MustGetFunc(FuncCastChar)
 	assert.Equal(t, 3, fn.NumInput())
 	type tt struct {
-		inFirst  proto.Value
-		inSecond proto.Value
-		intThird proto.Value
+		inFirst  string
+		inSecond int
+		intThird string
 		want     string
 	}
 	for _, v := range []tt{
@@ -49,7 +49,12 @@ func TestFuncCastChar(t *testing.T) {
 		{"Hello世界", 5, "CHARACTER SET latin2", "Hello"},
 	} {
 		t.Run(v.want, func(t *testing.T) {
-			out, err := fn.Apply(context.Background(), proto.ToValuer(v.inFirst), proto.ToValuer(v.inSecond), proto.ToValuer(v.intThird))
+			out, err := fn.Apply(
+				context.Background(),
+				proto.ToValuer(proto.NewValueString(v.inFirst)),
+				proto.ToValuer(proto.NewValueInt64(int64(v.inSecond))),
+				proto.ToValuer(proto.NewValueString(v.intThird)),
+			)
 			assert.NoError(t, err)
 			assert.Equal(t, v.want, fmt.Sprint(out))
 		})

@@ -22,9 +22,9 @@ import (
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
-
 	"github.com/pkg/errors"
+
+	"github.com/shopspring/decimal"
 )
 
 var _ Reducer = (*sumReducer)(nil)
@@ -39,12 +39,8 @@ func (s sumReducer) Float64(prev, next float64) (float64, error) {
 	return prev + next, nil
 }
 
-func (s sumReducer) Decimal(prev, next *gxbig.Decimal) (*gxbig.Decimal, error) {
-	var d gxbig.Decimal
-	if err := gxbig.DecimalAdd(prev, next, &d); err != nil {
-		return nil, errors.WithStack(err)
-	}
-	return &d, nil
+func (s sumReducer) Decimal(prev, next decimal.Decimal) (decimal.Decimal, error) {
+	return prev.Add(next), nil
 }
 
 func (s sumReducer) Time(_, _ time.Time) (ret time.Time, err error) {

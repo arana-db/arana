@@ -23,21 +23,31 @@ import (
 
 import (
 	"github.com/pkg/errors"
+
+	"github.com/shopspring/decimal"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
-const FuncCast = "CAST"
+const (
+	FuncCastSign     = "CAST_SIGNED"
+	FuncCastUnsigned = "CAST_UNSIGNED"
+)
 
 var _ proto.Func = (*castFunc)(nil)
 
 func init() {
-	proto.RegisterFunc(FuncCast, castFunc{})
+	proto.RegisterFunc(FuncCastSign, castFunc(func(d decimal.Decimal) proto.Value {
+		return proto.NewValueInt64(d.IntPart())
+	}))
+	proto.RegisterFunc(FuncCastUnsigned, castFunc(func(d decimal.Decimal) proto.Value {
+		return proto.NewValueUint64(uint64(d.IntPart()))
+	}))
 }
 
-type castFunc struct{}
+type castFunc func(decimal.Decimal) proto.Value
 
 func (c castFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
 	val, err := inputs[0].Value(ctx)
@@ -45,53 +55,15 @@ func (c castFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Valu
 		return nil, errors.WithStack(err)
 	}
 
-	signCast := func(i uint) *int {
-		var sign int
-		return &sign
+	if val == nil {
+		return nil, nil
 	}
 
-	unSignCast := func(i any) any {
-		switch v := i.(type) {
-		case int:
-			if v > 0 {
-				return uint(v)
-			}
-			return 0
-		case int8:
-			if v > 0 {
-				return uint8(v)
-			}
-			return 0
-		case int16:
-			if v > 0 {
-				return uint16(v)
-			}
-			return 0
-		case int32:
-			if v > 0 {
-				return uint32(v)
-			}
-			return 0
-		case int64:
-			if v > 0 {
-				return uint64(v)
-			}
-			return 0
-		default:
-			return 0
-		}
+	in, err := val.Decimal()
+	if err != nil {
+		return nil, errors.WithStack(err)
 	}
-
-	switch v := val.(type) {
-	case uint8, uint16, uint32, uint64:
-		return v, nil
-	case uint:
-		return signCast(v), nil
-	case int, int8, int16, int32, int64:
-		return unSignCast(v), nil
-	default:
-		return v, nil
-	}
+	return c(in), nil
 }
 
 func (c castFunc) NumInput() int {

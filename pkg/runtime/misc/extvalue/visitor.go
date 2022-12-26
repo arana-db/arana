@@ -20,15 +20,11 @@ package extvalue
 import (
 	"context"
 	"errors"
-	"fmt"
-	"reflect"
 	"strings"
 )
 
 import (
 	"github.com/arana-db/parser/opcode"
-
-	gxbig "github.com/dubbogo/gost/math/big"
 
 	perrors "github.com/pkg/errors"
 
@@ -49,7 +45,7 @@ func IsErrNotSupportedValue(err error) bool {
 
 type valueVisitor struct {
 	ast.BaseVisitor
-	args []interface{}
+	args []proto.Value
 }
 
 func (vv *valueVisitor) VisitPredicateExpression(node *ast.PredicateExpressionNode) (interface{}, error) {
@@ -66,25 +62,71 @@ func (vv *valueVisitor) VisitPredicateBinaryComparison(node *ast.BinaryCompariso
 		return nil, perrors.WithStack(err)
 	}
 
-	// TODO: should check number
-	c := strings.Compare(fmt.Sprint(l), fmt.Sprint(r))
+	var lv, rv proto.Value
+	switch v := l.(type) {
+	case proto.Value:
+		lv = v
+	}
+	switch v := r.(type) {
+	case proto.Value:
+		rv = v
+	}
 
+	if lv == nil || rv == nil {
+		return nil, nil
+	}
+
+	var (
+		c     int
+		isStr bool
+	)
+	switch lv.Family() {
+	case proto.ValueFamilyString:
+		switch rv.Family() {
+		case proto.ValueFamilyString:
+			isStr = true
+		}
+	}
+
+	if isStr {
+		c = strings.Compare(lv.String(), rv.String())
+	} else {
+		x, err := lv.Decimal()
+		if err != nil {
+			x = decimal.Zero
+		}
+		y, err := rv.Decimal()
+		if err != nil {
+			y = decimal.Zero
+		}
+
+		switch {
+		case x.GreaterThan(y):
+			c = 1
+		case x.LessThan(y):
+			c = -1
+		}
+	}
+
+	var b bool
 	switch node.Op {
 	case cmp.Ceq:
-		return c == 0, nil
+		b = c == 0
 	case cmp.Clt:
-		return c < 0, nil
+		b = c < 0
 	case cmp.Clte:
-		return c <= 0, nil
+		b = c <= 0
 	case cmp.Cgt:
-		return c > 0, nil
+		b = c > 0
 	case cmp.Cgte:
-		return c >= 0, nil
+		b = c >= 0
 	case cmp.Cne:
-		return c != 0, nil
+		b = c != 0
 	default:
 		panic("unreachable")
 	}
+
+	return proto.NewValueBool(b), nil
 }
 
 func (vv *valueVisitor) VisitPredicateAtom(node *ast.AtomPredicateNode) (interface{}, error) {
@@ -96,7 +138,14 @@ func (vv *valueVisitor) VisitAtomColumn(node ast.ColumnNameExpressionAtom) (inte
 }
 
 func (vv *valueVisitor) VisitAtomConstant(node *ast.ConstantExpressionAtom) (interface{}, error) {
-	return node.Value(), nil
+	v, err := proto.NewValue(node.Value())
+	if err != nil {
+		return nil, perrors.WithStack(err)
+	}
+	if v == nil {
+		return nil, nil
+	}
+	return v, nil
 }
 
 func (vv *valueVisitor) VisitAtomFunction(node *ast.FunctionCallExpressionAtom) (interface{}, error) {
@@ -108,29 +157,29 @@ func (vv *valueVisitor) VisitAtomNested(node *ast.NestedExpressionAtom) (interfa
 }
 
 func (vv *valueVisitor) VisitAtomUnary(node *ast.UnaryExpressionAtom) (interface{}, error) {
-	v, err := node.Inner.Accept(vv)
+	prev, err := node.Inner.Accept(vv)
 	if err != nil {
 		return nil, perrors.WithStack(err)
 	}
 
+	var v proto.Value
+
+	switch t := prev.(type) {
+	case proto.Value:
+		v = t
+	}
+	if v == nil {
+		return nil, nil
+	}
+
 	switch node.Operator {
 	case "-":
-		switch it := v.(type) {
-		case int8:
-			return -1 * it, nil
-		case int16:
-			return -1 * it, nil
-		case int32:
-			return -1 * it, nil
-		case int64:
-			return -1 * it, nil
-		case float32:
-			return -1 * it, nil
-		case float64:
-			return -1 * it, nil
-		case decimal.Decimal:
-			return it.Mul(decimal.NewFromInt(int64(-1))), nil
+		d, err := v.Decimal()
+		if err != nil {
+			d = decimal.Zero
 		}
+		d = d.Mul(decimal.NewFromInt(-1))
+		return proto.NewValueDecimal(d), nil
 	}
 
 	// TODO: support all unary operators
@@ -146,35 +195,56 @@ func (vv *valueVisitor) VisitAtomMath(node *ast.MathExpressionAtom) (interface{}
 	if err != nil {
 		return nil, perrors.WithStack(err)
 	}
+
+	var (
+		x, y decimal.NullDecimal
+		z    decimal.Decimal
+	)
+	switch v := l.(type) {
+	case proto.Value:
+		d, err := v.Decimal()
+		if err != nil {
+			d = decimal.Zero
+		}
+		x.Valid = true
+		x.Decimal = d
+	}
+	switch v := r.(type) {
+	case proto.Value:
+		d, err := v.Decimal()
+		if err != nil {
+			d = decimal.Zero
+		}
+		y.Valid = true
+		y.Decimal = d
+	}
+
+	if !x.Valid || !y.Valid {
+		return nil, nil
+	}
+
 	switch node.Operator {
 	case opcode.Plus.Literal():
-		return computeMath(l, r, func(x, y decimal.Decimal) (decimal.Decimal, error) {
-			return x.Add(y), nil
-		})
+		z = x.Decimal.Add(y.Decimal)
 	case opcode.Minus.Literal():
-		return computeMath(l, r, func(x, y decimal.Decimal) (decimal.Decimal, error) {
-			return x.Sub(y), nil
-		})
+		z = x.Decimal.Sub(y.Decimal)
 	case opcode.Mul.Literal():
-		return computeMath(l, r, func(x, y decimal.Decimal) (decimal.Decimal, error) {
-			return x.Mul(y), nil
-		})
+		z = x.Decimal.Mul(y.Decimal)
 	case opcode.Div.Literal():
-		return computeMath(l, r, func(x, y decimal.Decimal) (decimal.Decimal, error) {
-			return x.Div(y), nil
-		})
-	case opcode.IntDiv.Literal():
-		ret, err := computeMath(l, r, func(x, y decimal.Decimal) (decimal.Decimal, error) {
-			return x.Div(y), nil
-		})
-		if err != nil {
-			return nil, err
+		if y.Decimal.IsZero() {
+			return nil, nil
 		}
-		return ret.IntPart(), nil
+		z = x.Decimal.Div(y.Decimal)
+	case opcode.IntDiv.Literal():
+		if y.Decimal.IsZero() {
+			return nil, nil
+		}
+		z = x.Decimal.Div(y.Decimal).Floor()
 	default:
 		// TODO: need implementation
 		return nil, perrors.Errorf("unsupported math opcode '%s'", node.Operator)
 	}
+	return proto.NewValueDecimal(z), nil
 }
 
 func (vv *valueVisitor) VisitAtomSystemVariable(node *ast.SystemVariableExpressionAtom) (interface{}, error) {
@@ -182,22 +252,12 @@ func (vv *valueVisitor) VisitAtomSystemVariable(node *ast.SystemVariableExpressi
 }
 
 func (vv *valueVisitor) VisitAtomVariable(node ast.VariableExpressionAtom) (interface{}, error) {
-	return vv.tidyValue(vv.args[node.N()])
+	return vv.args[node.N()], nil
 }
 
 func (vv *valueVisitor) VisitAtomInterval(node *ast.IntervalExpressionAtom) (interface{}, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
-}
-
-func (vv *valueVisitor) tidyValue(in interface{}) (interface{}, error) {
-	switch val := in.(type) {
-	case *gxbig.Decimal:
-		d, _ := decimal.NewFromString(val.String())
-		return d, nil
-	default:
-		return val, nil
-	}
 }
 
 func (vv *valueVisitor) VisitFunction(node *ast.Function) (interface{}, error) {
@@ -214,7 +274,16 @@ func (vv *valueVisitor) VisitFunction(node *ast.Function) (interface{}, error) {
 	for i := range node.Args() {
 		next := node.Args()[i]
 		args = append(args, proto.FuncValuer(func(_ context.Context) (proto.Value, error) {
-			return next.Accept(vv)
+			ret, err := next.Accept(vv)
+			if err != nil {
+				return nil, perrors.WithStack(err)
+			}
+			switch t := ret.(type) {
+			case proto.Value:
+				return t, nil
+			default:
+				return nil, nil
+			}
 		}))
 	}
 
@@ -222,35 +291,135 @@ func (vv *valueVisitor) VisitFunction(node *ast.Function) (interface{}, error) {
 	if err != nil {
 		return nil, perrors.Wrapf(err, "failed to call function '%s'", node.Name())
 	}
-	return vv.tidyValue(res)
+
+	return res, nil
 }
 
 func (vv *valueVisitor) VisitFunctionCast(node *ast.CastFunction) (interface{}, error) {
-	//TODO implement me
-	panic("implement me")
+	var (
+		castFuncName string
+		ok           bool
+		cast         *ast.ConvertDataType
+	)
+
+	var args []proto.Valuer
+	args = append(args, proto.FuncValuer(func(ctx context.Context) (proto.Value, error) {
+		ret, err := node.Source().Accept(vv)
+		if err != nil {
+			return nil, perrors.WithStack(err)
+		}
+		switch t := ret.(type) {
+		case proto.Value:
+			return t, nil
+		default:
+			return nil, nil
+		}
+	}))
+
+	if cast, ok = node.GetCast(); ok {
+		var charset string
+		if charset, ok = cast.Charset(); ok {
+			castFuncName = "CAST_CHARSET"
+		} else {
+			switch cast.Type() {
+			case ast.CastToSigned, ast.CastToSignedInteger:
+				castFuncName = "CAST_SIGNED"
+			case ast.CastToUnsigned, ast.CastToUnsignedInteger:
+				castFuncName = "CAST_UNSIGNED"
+			case ast.CastToDecimal:
+				castFuncName = "CAST_DECIMAL"
+			case ast.CastToChar:
+				castFuncName = "CAST_CHAR"
+			case ast.CastToNChar:
+				castFuncName = "CAST_NCHAR"
+			case ast.CastToBinary:
+				castFuncName = "CAST_BINARY"
+			case ast.CastToDate:
+				castFuncName = "CAST_DATE"
+			case ast.CastToDateTime:
+				castFuncName = "CAST_DATETIME"
+			case ast.CastToTime:
+				castFuncName = "CAST_TIME"
+			case ast.CastToJson:
+				castFuncName = "CAST_JSON"
+			default:
+				return nil, perrors.Errorf("unknown CAST type %v!", cast.Type())
+			}
+		}
+
+		if len(charset) > 0 {
+			args = append(args, proto.ToValuer(proto.NewValueString(charset)))
+		} else {
+			first, second := cast.Dimensions()
+			args = append(
+				args,
+				proto.ToValuer(proto.NewValueInt64(first)),
+				proto.ToValuer(proto.NewValueInt64(second)),
+			)
+		}
+	}
+
+	castFunc, ok := proto.GetFunc(castFuncName)
+	if !ok {
+		return nil, perrors.Errorf("no such built-in mysql function '%s'", castFuncName)
+	}
+
+	if minimum := castFunc.NumInput(); len(args) < minimum {
+		return nil, perrors.Errorf("not enough function args length: minimum=%d, actual=%d", minimum, len(args))
+	}
+
+	ret, err := castFunc.Apply(context.Background(), args...)
+	if err != nil {
+		return nil, perrors.WithStack(err)
+	}
+
+	switch t := ret.(type) {
+	case proto.Value:
+		return t, nil
+	default:
+		return nil, nil
+	}
 }
 
 func (vv *valueVisitor) VisitFunctionCaseWhenElse(node *ast.CaseWhenElseFunction) (interface{}, error) {
 	var (
-		caseValue interface{}
-		whenValue interface{}
-		err       error
+		caseValue proto.Value
+		whenValue proto.Value
 	)
 	if c := node.CaseBlock; c != nil {
-		if caseValue, err = c.Accept(vv); err != nil {
+		v, err := c.Accept(vv)
+		if err != nil {
 			return nil, perrors.Wrap(err, "cannot eval value of CASE")
+		}
+		switch t := v.(type) {
+		case proto.Value:
+			caseValue = t
 		}
 	}
 
 	for _, b := range node.BranchBlocks {
-		if whenValue, err = b.When.Accept(vv); err != nil {
+		v, err := b.When.Accept(vv)
+		if err != nil {
 			return nil, perrors.WithStack(err)
+		}
+		switch t := v.(type) {
+		case proto.Value:
+			whenValue = t
 		}
 
 		// 1. CASE WHEN x>=60 then 'PASS' ...
 		// 2. CASE x WHEN 2 then 'OK' ...
-		if (caseValue == nil && whenValue != nil && reflect.ValueOf(whenValue).IsValid()) ||
-			(caseValue != nil && whenValue != nil && proto.PrintValue(caseValue) == proto.PrintValue(whenValue)) {
+		if caseValue == nil && whenValue != nil {
+			matched, err := whenValue.Bool()
+			if err != nil {
+				return nil, perrors.WithStack(err)
+			}
+			if matched {
+				return b.Then.Accept(vv)
+			}
+		}
+
+		if caseValue != nil && whenValue != nil && caseValue.String() == whenValue.String() {
 			return b.Then.Accept(vv)
 		}
 	}
@@ -271,7 +440,14 @@ func (vv *valueVisitor) VisitFunctionArg(node *ast.FunctionArg) (interface{}, er
 	case ast.FunctionArgExpression:
 		return node.Value.(ast.ExpressionNode).Accept(vv)
 	case ast.FunctionArgConstant:
-		return node.Value, nil
+		v, err := proto.NewValue(node.Value)
+		if err != nil {
+			return nil, perrors.WithStack(err)
+		}
+		if v == nil {
+			return nil, nil
+		}
+		return v, nil
 	case ast.FunctionArgFunction:
 		return node.Value.(*ast.Function).Accept(vv)
 	case ast.FunctionArgAggrFunction:
@@ -283,16 +459,4 @@ func (vv *valueVisitor) VisitFunctionArg(node *ast.FunctionArg) (interface{}, er
 	default:
 		panic("unreachable")
 	}
-}
-
-func computeMath(a, b interface{}, c func(x, y decimal.Decimal) (decimal.Decimal, error)) (ret decimal.Decimal, err error) {
-	var x, y decimal.Decimal
-	if x, err = decimal.NewFromString(fmt.Sprint(a)); err != nil {
-		return
-	}
-	if y, err = decimal.NewFromString(fmt.Sprint(b)); err != nil {
-		return
-	}
-	ret, err = c(x, y)
-	return
 }

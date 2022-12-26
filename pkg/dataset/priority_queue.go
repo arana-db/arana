@@ -19,13 +19,6 @@ package dataset
 
 import (
 	"container/heap"
-	"fmt"
-	"strconv"
-	"time"
-)
-
-import (
-	"golang.org/x/exp/constraints"
 )
 
 import (
@@ -33,7 +26,7 @@ import (
 )
 
 type OrderByValue struct {
-	OrderValues map[string]interface{}
+	OrderValues map[string]proto.Value
 }
 
 type RowItem struct {
@@ -66,10 +59,10 @@ func (pq *PriorityQueue) Len() int {
 
 func (pq *PriorityQueue) Less(i, j int) bool {
 	orderValues1 := &OrderByValue{
-		OrderValues: make(map[string]interface{}),
+		OrderValues: make(map[string]proto.Value),
 	}
 	orderValues2 := &OrderByValue{
-		OrderValues: make(map[string]interface{}),
+		OrderValues: make(map[string]proto.Value),
 	}
 	if i >= len(pq.rows) || j >= len(pq.rows) {
 		return false
@@ -112,16 +105,16 @@ func (pq *PriorityQueue) update() {
 
 func compare(a *OrderByValue, b *OrderByValue, orderByItems []OrderByItem) int {
 	for _, item := range orderByItems {
-		compare := compareTo(a.OrderValues[item.Column], b.OrderValues[item.Column], item.Desc)
-		if compare == 0 {
+		c := compareTo(a.OrderValues[item.Column], b.OrderValues[item.Column], item.Desc)
+		if c == 0 {
 			continue
 		}
-		return compare
+		return c
 	}
 	return 0
 }
 
-func compareTo(a, b interface{}, desc bool) int {
+func compareTo(a, b proto.Value, desc bool) int {
 	if a == nil && b == nil {
 		return 0
 	}
@@ -131,52 +124,10 @@ func compareTo(a, b interface{}, desc bool) int {
 	if b == nil {
 		return 1
 	}
-	// TODO Deal with case sensitive.
 
-	result := 0
-
-	switch a.(type) {
-	case string:
-		result = compareValue(fmt.Sprintf("%v", a), fmt.Sprintf("%v", b))
-	case int8, int16, int32, int64:
-		a, _ := strconv.ParseInt(fmt.Sprintf("%v", a), 10, 64)
-		b, _ := strconv.ParseInt(fmt.Sprintf("%v", b), 10, 64)
-		result = compareValue(a, b)
-	case uint8, uint16, uint32, uint64:
-		a, _ := strconv.ParseUint(fmt.Sprintf("%v", a), 10, 64)
-		b, _ := strconv.ParseUint(fmt.Sprintf("%v", b), 10, 64)
-		result = compareValue(a, b)
-	case float32, float64:
-		a, _ := strconv.ParseFloat(fmt.Sprintf("%v", a), 64)
-		b, _ := strconv.ParseFloat(fmt.Sprintf("%v", b), 64)
-		result = compareValue(a, b)
-	case time.Time:
-		result = compareTime(a.(time.Time), b.(time.Time))
-	}
+	result := proto.CompareValue(a, b)
 	if desc {
-		return -1 * result
+		return -result
 	}
 	return result
-}
-
-func compareValue[T constraints.Ordered](a, b T) int {
-	switch {
-	case a > b:
-		return 1
-	case a < b:
-		return -1
-	default:
-		return 0
-	}
-}
-
-func compareTime(a, b time.Time) int {
-	switch {
-	case a.After(b):
-		return 1
-	case a.Before(b):
-		return -1
-	default:
-		return 0
-	}
 }

@@ -102,7 +102,7 @@ func (s *SimpleDeletePlan) SetShards(shards rule.DatabaseTables) {
 	s.shards = shards
 }
 
-func (s *SimpleDeletePlan) execOne(ctx context.Context, conn proto.VConn, db, query string, args []interface{}) (uint64, error) {
+func (s *SimpleDeletePlan) execOne(ctx context.Context, conn proto.VConn, db, query string, args []proto.Value) (uint64, error) {
 	res, err := conn.Exec(ctx, db, query, args...)
 	if err != nil {
 		return 0, errors.WithStack(err)

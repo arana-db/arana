@@ -19,13 +19,10 @@ package function
 
 import (
 	"context"
-	"fmt"
 	"testing"
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -39,31 +36,34 @@ func TestMod(t *testing.T) {
 
 	type tt struct {
 		infirst  proto.Value
-		insecond proto.Value
+		insecond int64
 		out      string
 	}
 
-	mustDecimal := func(s string) *gxbig.Decimal {
-		d, _ := gxbig.NewDecFromString(s)
-		return d
-	}
-
 	for _, it := range []tt{
-		{0, 1, "0"},
-		{int64(-123), 3, "0"},
-		{-3.14, 3, "-0.14"},
-		{2.78, 2, "0.78"},
+		{proto.NewValueInt64(0), 1, "0"},
+		{proto.NewValueInt64(-123), 3, "0"},
+		{proto.NewValueFloat64(-3.14), 3, "-0.14"},
+		{proto.NewValueFloat64(2.78), 2, "0.78"},
 		{mustDecimal("-5.1234"), 2, "-1.1234"},
-		{-618, 3, "0"},
-		{-11.11, 3, "-2.11"},
-		{"-11.11", 2, "-1.11"},
-		{"foobar", 2, "0"},
-		{1, 0, "NULL"},
+		{proto.NewValueInt64(-618), 3, "0"},
+		{proto.NewValueFloat64(-11.11), 3, "-2.11"},
+		{proto.NewValueString("-11.11"), 2, "-1.11"},
+		{proto.NewValueString("foobar"), 2, "0"},
+		{proto.NewValueInt64(1), 0, "NULL"},
 	} {
 		t.Run(it.out, func(t *testing.T) {
-			out, err := fn.Apply(context.Background(), proto.ToValuer(it.infirst), proto.ToValuer(it.insecond))
+			out, err := fn.Apply(context.Background(), proto.ToValuer(it.infirst), proto.ToValuer(proto.NewValueInt64(it.insecond)))
 			assert.NoError(t, err)
-			assert.Equal(t, it.out, fmt.Sprint(out))
+
+			var actual string
+			if out == nil {
+				actual = "NULL"
+			} else {
+				actual = out.String()
+			}
+
+			assert.Equal(t, it.out, actual)
 		})
 	}
 }

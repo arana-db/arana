@@ -22,34 +22,41 @@ import (
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
-
 	"github.com/stretchr/testify/assert"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/proto"
 )
 
 func TestAvgAggregator(t *testing.T) {
 	params := []struct {
-		nums   [][]interface{}
-		result *gxbig.Decimal
+		nums   [][]proto.Value
+		result proto.Value
 		valid  bool
 	}{
 		{
-			nums: [][]interface{}{
-				{1, 1}, {2, 2}, {7, 3}, {1.6, 2}, {10, 5}, {12.12, 3.86},
+			nums: [][]proto.Value{
+				{proto.NewValueInt64(1), proto.NewValueInt64(1)},
+				{proto.NewValueInt64(2), proto.NewValueInt64(2)},
+				{proto.NewValueInt64(7), proto.NewValueInt64(3)},
+				{proto.NewValueFloat64(1.6), proto.NewValueInt64(2)},
+				{proto.NewValueInt64(10), proto.NewValueInt64(5)},
+				{proto.NewValueFloat64(12.12), proto.NewValueFloat64(3.86)},
 			},
-			result: newDecFromFloat(2),
+			result: proto.NewValueFloat64(2),
 			valid:  true,
 		},
 		{
-			nums: [][]interface{}{
-				{10, 2},
+			nums: [][]proto.Value{
+				{proto.NewValueInt64(10), proto.NewValueInt64(2)},
 			},
-			result: newDecFromFloat(5),
+			result: proto.NewValueFloat64(5),
 			valid:  true,
 		},
 		{
-			nums: [][]interface{}{
-				{}, {123},
+			nums: [][]proto.Value{
+				{}, {proto.NewValueInt64(123)},
 			},
 			result: nil,
 			valid:  false,
@@ -65,8 +72,8 @@ func TestAvgAggregator(t *testing.T) {
 		if param.result == nil {
 			assert.Nil(t, resp)
 		} else {
-			f1, err1 := param.result.ToFloat64()
-			f2, err2 := resp.ToFloat64()
+			f1, err1 := param.result.Float64()
+			f2, err2 := resp.Float64()
 			assert.Nil(t, err1)
 			assert.Nil(t, err2)
 			assert.EqualValues(t, f1, f2)

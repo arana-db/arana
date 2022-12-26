@@ -95,8 +95,8 @@ func (s *ShowTableStatusPlan) ExecIn(ctx context.Context, conn proto.VConn) (pro
 		if next.Scan(dest) != nil {
 			return next, nil
 		}
-		if strings.HasPrefix(dest[0].(string), toTable) {
-			dest[0] = toTable
+		if strings.HasPrefix(dest[0].String(), toTable) {
+			dest[0] = proto.NewValueString(toTable)
 		}
 		if next.IsBinary() {
 			return rows.NewBinaryVirtualRow(fields, dest), nil

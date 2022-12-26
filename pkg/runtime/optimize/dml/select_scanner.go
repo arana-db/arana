@@ -29,6 +29,7 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/optimize/dml/ext"
 	"github.com/arana-db/arana/third_party/base58"
@@ -47,14 +48,14 @@ type selectResult struct {
 
 type selectScanner struct {
 	stmt *ast.SelectStatement
-	args []interface{}
+	args []proto.Value
 	sb   strings.Builder
 
 	selectIndex      map[string]ast.SelectElement // normal selectIndex: `foo` => foo as bar
 	selectAliasIndex map[string]ast.SelectElement // alias selectIndex: `bar` => foo as bar
 }
 
-func newSelectScanner(stmt *ast.SelectStatement, args []interface{}) *selectScanner {
+func newSelectScanner(stmt *ast.SelectStatement, args []proto.Value) *selectScanner {
 	return &selectScanner{
 		stmt: stmt,
 		args: args,

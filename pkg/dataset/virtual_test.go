@@ -104,9 +104,9 @@ func TestVirtualDataset_Next(t *testing.T) {
 				break
 			}
 			assert.Equalf(t, rows.NewTextVirtualRow(createFields(), []proto.Value{
-				int64(i),
-				fmt.Sprintf("fake-name-%d", i),
-				int64(i),
+				proto.NewValueInt64(int64(i)),
+				proto.NewValueString(fmt.Sprintf("fake-name-%d", i)),
+				proto.NewValueInt64(int64(i)),
 			}), got, "Next()")
 			i++
 		}
@@ -123,11 +123,11 @@ func createFields() []proto.Field {
 
 func createRows() []proto.Row {
 	var result []proto.Row
-	for i := 0; i < 10; i++ {
+	for i := int64(0); i < 10; i++ {
 		result = append(result, rows.NewTextVirtualRow(createFields(), []proto.Value{
-			int64(i),
-			fmt.Sprintf("fake-name-%d", i),
-			int64(i),
+			proto.NewValueInt64(i),
+			proto.NewValueString(fmt.Sprintf("fake-name-%d", i)),
+			proto.NewValueInt64(i),
 		}))
 	}
 	return result

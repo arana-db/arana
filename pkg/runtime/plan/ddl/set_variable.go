@@ -19,14 +19,10 @@ package ddl
 
 import (
 	"context"
-	"fmt"
-	"strconv"
 	"strings"
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
-
 	"github.com/pkg/errors"
 )
 
@@ -69,7 +65,7 @@ func (d *SetVariablePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 	}
 
 	// 1. generate snapshot, will recovery if update failed
-	snapshot := make(map[string]interface{})
+	snapshot := make(map[string]proto.Value)
 	for k, v := range tVars {
 		k, v := k, v
 		snapshot[k] = v
@@ -116,51 +112,22 @@ func (d *SetVariablePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 	return resultx.New(), nil
 }
 
-func (d *SetVariablePlan) nextVars() (map[string]interface{}, error) {
-	ret := make(map[string]interface{})
+func (d *SetVariablePlan) nextVars() (map[string]proto.Value, error) {
+	ret := make(map[string]proto.Value)
 	var key strings.Builder
 	for _, next := range d.Stmt.Variables {
-		v, err := extvalue.Compute(next.Value, d.Args)
+		v, err := extvalue.Compute(next.Value, d.Args...)
 		if err != nil {
 			return nil, errors.WithStack(err)
+		}
+
+		if v == nil {
+			continue
 		}
 
 		if next.Global {
 			// TODO: implement global sync
 			return nil, errors.New("setting of global variable is not unsupported yet")
-		}
-
-		var val interface{}
-		switch it := v.(type) {
-		case int8, uint8, int16, uint16, int32, uint32, uint64, int, uint:
-			var n int64
-			if n, err = strconv.ParseInt(fmt.Sprintf("%d", it), 10, 64); err != nil {
-				return nil, errors.WithStack(err)
-			}
-			val = n
-		case bool:
-			if it {
-				val = int64(1)
-			} else {
-				val = int64(0)
-			}
-		case float32:
-			val = float64(it)
-		case int64, float64, string:
-			val = it
-		case *gxbig.Decimal:
-			s := it.String()
-			if n, err := strconv.ParseInt(s, 10, 64); err == nil {
-				val = n
-				break
-			}
-			if f, err := strconv.ParseFloat(s, 64); err == nil {
-				val = f
-				break
-			}
-			return nil, errors.Errorf("cannot process decimal variable: %s", s)
-		default:
-			return nil, errors.Errorf("unsupported variable type %T", it)
 		}
 
 		key.WriteByte('@')
@@ -169,7 +136,7 @@ func (d *SetVariablePlan) nextVars() (map[string]interface{}, error) {
 		}
 		key.WriteString(next.Name)
 
-		ret[key.String()] = val
+		ret[key.String()] = v
 		key.Reset()
 	}
 	return ret, nil

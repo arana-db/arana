@@ -19,7 +19,6 @@ package function
 
 import (
 	"context"
-	"fmt"
 	"testing"
 )
 
@@ -39,16 +38,16 @@ func TestCharLength(t *testing.T) {
 		want    int64
 	}
 	for _, v := range []tt{
-		{"Hello世界", 7},
-		{"Hello", 5},
-		{"世界", 2},
-		{"你好世界！", 5},
+		{proto.NewValueString("Hello世界"), 7},
+		{proto.NewValueString("Hello"), 5},
+		{proto.NewValueString("世界"), 2},
+		{proto.NewValueString("你好世界！"), 5},
 	} {
-		t.Run(fmt.Sprint(v.inFirst), func(t *testing.T) {
+		t.Run(v.inFirst.String(), func(t *testing.T) {
 			out, err := fn.Apply(context.Background(), proto.ToValuer(v.inFirst))
 			assert.NoError(t, err)
-			assert.Equal(t, v.want, out)
+			actual, _ := out.Int64()
+			assert.Equal(t, v.want, actual)
 		})
 	}
-
 }

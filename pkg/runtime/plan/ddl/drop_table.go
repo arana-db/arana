@@ -86,7 +86,7 @@ func (d *DropTablePlan) SetShards(shardsMap []rule.DatabaseTables) {
 	d.shardsMap = shardsMap
 }
 
-func (d *DropTablePlan) execOne(ctx context.Context, conn proto.VConn, db, query string, args []interface{}) error {
+func (d *DropTablePlan) execOne(ctx context.Context, conn proto.VConn, db, query string, args []proto.Value) error {
 	res, err := conn.Exec(ctx, db, query, args...)
 	if err != nil {
 		return err

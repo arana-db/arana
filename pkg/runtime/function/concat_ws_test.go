@@ -29,7 +29,6 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
 func TestConcatWSFunc_Apply(t *testing.T) {
@@ -39,11 +38,47 @@ func TestConcatWSFunc_Apply(t *testing.T) {
 		inputs []proto.Value
 		out    string
 	}{
-		{[]proto.Value{1, 2}, "2"},
-		{[]proto.Value{",", "open", "source"}, "open,source"},
-		{[]proto.Value{",", "open", ast.Null{}, "source"}, "open,source"},
-		{[]proto.Value{",", "open", "source", ast.Null{}}, "open,source"},
-		{[]proto.Value{ast.Null{}, "open", "source"}, "NULL"},
+		{
+			[]proto.Value{
+				proto.NewValueInt64(1),
+				proto.NewValueInt64(2),
+			},
+			"2",
+		},
+		{
+			[]proto.Value{
+				proto.NewValueString(","),
+				proto.NewValueString("open"),
+				proto.NewValueString("source"),
+			},
+			"open,source",
+		},
+		{
+			[]proto.Value{
+				proto.NewValueString(","),
+				proto.NewValueString("open"),
+				nil,
+				proto.NewValueString("source"),
+			},
+			"open,source",
+		},
+		{
+			[]proto.Value{
+				proto.NewValueString(","),
+				proto.NewValueString("open"),
+				proto.NewValueString("source"),
+				nil,
+			},
+			"open,source",
+		},
+		{
+			[]proto.Value{
+				nil,
+				proto.NewValueString("open"),
+				proto.NewValueString("source"),
+			},
+			"NULL",
+		},
 	}
 
 	for _, next := range tests {
@@ -54,7 +89,15 @@ func TestConcatWSFunc_Apply(t *testing.T) {
 			}
 			out, err := f.Apply(context.Background(), inputs...)
 			assert.NoError(t, err)
-			assert.Equal(t, next.out, out)
+
+			var actual string
+			if out == nil {
+				actual = "NULL"
+			} else {
+				actual = out.String()
+			}
+
+			assert.Equal(t, next.out, actual)
 		})
 	}
 }

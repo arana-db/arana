@@ -58,7 +58,8 @@ type fakeReducer struct {
 func (fa *fakeReducer) Reduce(next proto.Row) error {
 	if !fa.gender.Valid {
 		gender, _ := next.(proto.KeyedRow).Get("gender")
-		fa.gender.Int64, fa.gender.Valid = gender.(int64), true
+		fa.gender.Int64, _ = gender.Int64()
+		fa.gender.Valid = true
 	}
 	fa.cnt++
 	return nil
@@ -66,8 +67,8 @@ func (fa *fakeReducer) Reduce(next proto.Row) error {
 
 func (fa *fakeReducer) Row() proto.Row {
 	return vrows.NewTextVirtualRow(fa.fields, []proto.Value{
-		fa.gender,
-		fa.cnt,
+		proto.NewValueInt64(fa.gender.Int64),
+		proto.NewValueInt64(fa.cnt),
 	})
 }
 
@@ -84,16 +85,18 @@ func TestGroupReduce(t *testing.T) {
 	var rows [][]proto.Value
 	for i := 0; i < 1000; i++ {
 		rows = append(rows, []proto.Value{
-			int64(i),
-			fmt.Sprintf("Fake %d", i),
-			rand2.Int63n(2),
+			proto.NewValueInt64(int64(i)),
+			proto.NewValueString(fmt.Sprintf("Fake %d", i)),
+			proto.NewValueInt64(rand2.Int63n(2)),
 		})
 	}
 
 	s := sortBy{
 		rows: rows,
 		less: func(a, b []proto.Value) bool {
-			return a[2].(int64) < b[2].(int64)
+			x, _ := a[2].Int64()
+			y, _ := b[2].Int64()
+			return x < y
 		},
 	}
 	sort.Sort(s)
