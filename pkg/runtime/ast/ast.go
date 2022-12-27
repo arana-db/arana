@@ -154,11 +154,37 @@ func (cc *convCtx) convCreateIndexStmt(stmt *ast.CreateIndexStmt) *CreateIndexSt
 		}
 	}
 
+	convIndexOption := func(opt *ast.IndexOption) *IndexOption {
+		if opt == nil {
+			return nil
+		}
+
+		return &IndexOption{
+			KeyBlockSize: opt.KeyBlockSize,
+			Tp:           IndexType(opt.Tp),
+			Comment:      opt.Comment,
+			ParserName:   opt.ParserName.String(),
+		}
+	}
+
+	convLockAlg := func(lockAlg *ast.IndexLockAndAlgorithm) *IndexLockAndAlgorithm {
+		if lockAlg == nil {
+			return nil
+		}
+
+		return &IndexLockAndAlgorithm{
+			LockTp:      LockType(lockAlg.LockTp),
+			AlgorithmTp: AlgorithmType(lockAlg.AlgorithmTp),
+		}
+	}
+
 	return &CreateIndexStatement{
-		Table:     tableName,
-		IndexName: stmt.IndexName,
-		Keys:      keys,
-		KeyType:   IndexKeyType(stmt.KeyType),
+		Table:       tableName,
+		IndexName:   stmt.IndexName,
+		Keys:        keys,
+		KeyType:     IndexKeyType(stmt.KeyType),
+		IndexOption: convIndexOption(stmt.IndexOption),
+		LockAlg:     convLockAlg(stmt.LockAlg),
 	}
 }
 

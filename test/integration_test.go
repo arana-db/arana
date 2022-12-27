@@ -544,11 +544,33 @@ func (s *IntegrationSuite) TestCreateIndex() {
 		t  = s.T()
 	)
 
-	result, err := db.Exec("create index `name` on student (name)")
-	assert.NoErrorf(t, err, "create index error: %v", err)
-	affected, err := result.RowsAffected()
-	assert.NoErrorf(t, err, "create index error: %v", err)
-	assert.Equal(t, int64(0), affected)
+	tests := []struct {
+		name string
+		sql  string
+	}{
+		{
+			name: "create index normally",
+			sql:  "create index `name` on student (name)",
+		},
+		{
+			name: "create index with index option",
+			sql:  "create index `name` on student (name) USING BTREE COMMENT 'TEST COMMENT' ALGORITHM DEFAULT LOCK DEFAULT",
+		},
+	}
+
+	for _, it := range tests {
+		t.Run(it.name, func(t *testing.T) {
+			result, err := db.Exec(it.sql)
+			assert.NoError(t, err)
+			affected, err := result.RowsAffected()
+			assert.NoError(t, err)
+			assert.Equal(t, int64(0), affected)
+
+			_, err = db.Exec("drop index name on student")
+			assert.NoError(t, err)
+		})
+
+	}
 }
 
 func (s *IntegrationSuite) TestDropIndex() {
