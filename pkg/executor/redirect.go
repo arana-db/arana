@@ -286,11 +286,25 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context, h func(re
 
 	charset, collation := getCharsetCollation(ctx.CharacterSet)
 
-	if stmt, err := p.ParseOneStmt(query, charset, collation); err == nil {
+	switch strings.IndexByte(query, ';') {
+	case -1: // no ';' exists
+		stmt, err := p.ParseOneStmt(query, charset, collation)
+		if err != nil {
+			return err
+		}
+		result, warns, failure := executor.doExecutorComQuery(ctx, stmt)
+		return h(result, warns, failure)
+	case len(query) - 1: // suffix is ';'
+		ctx.Data = ctx.Data[:len(ctx.Data)-1]
+		stmt, err := p.ParseOneStmt(query[:len(query)-1], charset, collation)
+		if err != nil {
+			return err
+		}
 		result, warns, failure := executor.doExecutorComQuery(ctx, stmt)
 		return h(result, warns, failure)
 	}
 
+	// slow path
 	p = parser.New()
 	stmts, _, err := p.Parse(query, charset, collation)
 	if err != nil {
