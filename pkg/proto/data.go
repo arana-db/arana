@@ -58,9 +58,6 @@ type (
 		DatabaseTypeName() string
 	}
 
-	// Value represents the cell value of Row.
-	Value interface{}
-
 	// Row represents a row data from a result set.
 	Row interface {
 		io.WriterTo

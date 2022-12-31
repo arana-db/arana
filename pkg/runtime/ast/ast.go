@@ -114,9 +114,13 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 	case *ast.CreateIndexStmt:
 		return cc.convCreateIndexStmt(stmt), nil
 	case *ast.SetStmt:
-		return &SetVariable{Stmt: stmt}, nil
+		return cc.convSetVariablesStmt(stmt), nil
 	case *ast.AnalyzeTableStmt:
 		return cc.convAnalyzeTable(stmt), nil
+	case *ast.OptimizeTableStmt:
+		return cc.convOptimizeTable(stmt), nil
+	case *ast.KillStmt:
+		return cc.convKill(stmt), nil
 	default:
 		return nil, errors.Errorf("unimplement: stmt type %T!", stmt)
 	}
@@ -335,6 +339,23 @@ func (cc *convCtx) convDropTableStmt(stmt *ast.DropTableStmt) *DropTableStatemen
 	}
 	return &DropTableStatement{
 		Tables: tables,
+	}
+}
+
+func (cc *convCtx) convSetVariablesStmt(stmt *ast.SetStmt) *SetStatement {
+	vars := make([]*VariablePair, 0, len(stmt.Variables))
+	for i := range stmt.Variables {
+		next := stmt.Variables[i]
+		vars = append(vars, &VariablePair{
+			Name:   next.Name,
+			Value:  cc.convExpr(next.Value).(*AtomPredicateNode).A,
+			Global: next.IsGlobal,
+			System: next.IsSystem,
+		})
+	}
+
+	return &SetStatement{
+		Variables: vars,
 	}
 }
 
@@ -634,6 +655,8 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 		return &ShowOpenTables{baseShow: toBaseShow()}
 	case ast.ShowTables:
 		return &ShowTables{baseShow: toBaseShow()}
+	case ast.ShowReplicas:
+		return &ShowReplicas{baseShow: toBaseShow()}
 	case ast.ShowDatabases:
 		return &ShowDatabases{baseShow: toBaseShow()}
 	case ast.ShowCollation:
@@ -701,6 +724,8 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 		return &ShowWarnings{baseShow: toBaseShow()}
 	case ast.ShowCharset:
 		return &ShowCharset{baseShow: toBaseShow()}
+	case ast.ShowProcessList:
+		return &ShowProcessList{baseShow: toBaseShow()}
 	default:
 		panic(fmt.Sprintf("unimplement: show type %v!", node.Tp))
 	}
@@ -1029,7 +1054,9 @@ func (cc *convCtx) convExpr(expr ast.ExprNode) interface{} {
 func (cc *convCtx) convVariableExpr(node *ast.VariableExpr) PredicateNode {
 	return &AtomPredicateNode{
 		A: &SystemVariableExpressionAtom{
-			Name: node.Name,
+			Name:   node.Name,
+			System: node.IsSystem,
+			Global: node.IsGlobal,
 		},
 	}
 }
@@ -1075,25 +1102,25 @@ func (cc *convCtx) convCastExpr(node *ast.FuncCastExpr) PredicateNode {
 func (cc *convCtx) convCaseExpr(node *ast.CaseExpr) PredicateNode {
 	caseBlock := cc.convExpr(node.Value)
 
-	branches := make([][2]*FunctionArg, 0, len(node.WhenClauses))
+	branches := make([]*CaseWhenBranch, 0, len(node.WhenClauses))
 	for _, it := range node.WhenClauses {
-		var branch [2]*FunctionArg
-		branch[0] = cc.toArg(it.Expr)
-		branch[1] = cc.toArg(it.Result)
-		branches = append(branches, branch)
+		branches = append(branches, &CaseWhenBranch{
+			cc.toArg(it.Expr),
+			cc.toArg(it.Result),
+		})
 	}
 
 	elseBlock := cc.toArg(node.ElseClause)
 
 	f := &CaseWhenElseFunction{
-		branches:  branches,
-		elseBlock: elseBlock,
+		BranchBlocks: branches,
+		ElseBlock:    elseBlock,
 	}
 
 	if caseBlock != nil {
 		switch it := caseBlock.(type) {
 		case PredicateNode:
-			f.caseBlock = &PredicateExpressionNode{P: it}
+			f.CaseBlock = &PredicateExpressionNode{P: it}
 		default:
 			panic(fmt.Sprintf("unimplement: case when block type %T!", it))
 		}
@@ -1589,4 +1616,22 @@ func (cc *convCtx) convAnalyzeTable(stmt *ast.AnalyzeTableStmt) Statement {
 	}
 
 	return &AnalyzeTableStatement{Tables: tables}
+}
+
+func (cc *convCtx) convOptimizeTable(stmt *ast.OptimizeTableStmt) Statement {
+	tables := make([]*TableName, len(stmt.Tables))
+	for i, table := range stmt.Tables {
+		tables[i] = &TableName{
+			table.Name.String(),
+		}
+	}
+
+	return &OptimizeTableStatement{Tables: tables}
+}
+
+func (cc *convCtx) convKill(stmt *ast.KillStmt) Statement {
+	return &KillStmt{
+		Query:        stmt.Query,
+		ConnectionID: stmt.ConnectionID,
+	}
 }

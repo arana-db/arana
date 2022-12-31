@@ -44,6 +44,8 @@ func TestAggregateVisitor(t *testing.T) {
 		{"select sum(age)/count(age) from t", 2},
 		{"select id,avg(age)+1,count(*),min(age),max(age) from t", 5},
 		{"select CONCAT('total:',count(*)) from t", 1},
+		{"select case count(*) when 0 then 'bad' else 'good' end from t", 1},
+		{"select case count(*) when not 0 then 'bad' else 'good' end from t", 1},
 	} {
 		t.Run(it.sql, func(t *testing.T) {
 			var av aggregateVisitor

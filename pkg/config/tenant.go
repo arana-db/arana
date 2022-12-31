@@ -35,9 +35,7 @@ import (
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
-var (
-	_ TenantOperator = (*tenantOperate)(nil)
-)
+var _ TenantOperator = (*tenantOperate)(nil)
 
 // NewTenantOperator create a tenant data operator
 func NewTenantOperator(op StoreOperator) (TenantOperator, error) {
@@ -172,7 +170,7 @@ func (tp *tenantOperate) CreateTenant(name string) error {
 		return errors.Wrap(err, "create tenant name")
 	}
 
-	//need to insert the relevant configuration data under the relevant tenant
+	// need to insert the relevant configuration data under the relevant tenant
 	tenantPathInfo := NewPathInfo(name)
 	for i := range tenantPathInfo.ConfigKeyMapping {
 		if err := tp.op.Save(i, []byte("")); err != nil {
@@ -180,6 +178,46 @@ func (tp *tenantOperate) CreateTenant(name string) error {
 		}
 	}
 
+	return nil
+}
+
+func (tp *tenantOperate) RemoveTenantUser(tenant, username string) error {
+	p := NewPathInfo(tenant)
+
+	prev, err := tp.op.Get(p.DefaultConfigDataUsersPath)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	var users Users
+	if err := yaml.Unmarshal(prev, &users); err != nil {
+		return errors.WithStack(err)
+	}
+	i := -1
+	for j := 0; j < len(users); j++ {
+		if users[j].Username == username {
+			i = j
+			break
+		}
+	}
+
+	if i == -1 {
+		return errors.Errorf("no such user '%s' in tenant '%s'", username, tenant)
+	}
+
+	// remove target user
+	copy(users[i:], users[i+1:])
+	users[len(users)-1] = nil
+	users = users[:len(users)-1]
+
+	b, err := yaml.Marshal(users)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	if err := tp.op.Save(p.DefaultConfigDataUsersPath, b); err != nil {
+		return errors.WithStack(err)
+	}
 	return nil
 }
 
@@ -239,6 +277,66 @@ func (tp *tenantOperate) RemoveTenant(name string) error {
 	}
 
 	return tp.op.Save(DefaultTenantsPath, data)
+}
+
+func (tp *tenantOperate) UpsertNode(tenant, node, name, host string, port int, username, password, database, weight string) error {
+	p := NewPathInfo(tenant)
+
+	prev, err := tp.op.Get(p.DefaultConfigDataNodesPath)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	var nodes Nodes
+	if err := yaml.Unmarshal(prev, &nodes); err != nil {
+		return errors.WithStack(err)
+	}
+
+	nodes[node] = &Node{
+		Name:     name,
+		Host:     host,
+		Port:     port,
+		Username: username,
+		Password: password,
+		Database: database,
+		Weight:   weight,
+	}
+
+	b, err := yaml.Marshal(nodes)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	if err := tp.op.Save(p.DefaultConfigDataNodesPath, b); err != nil {
+		return errors.WithStack(err)
+	}
+	return nil
+}
+
+func (tp *tenantOperate) RemoveNode(tenant, name string) error {
+	p := NewPathInfo(tenant)
+
+	prev, err := tp.op.Get(p.DefaultConfigDataNodesPath)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	var nodes Nodes
+	if err := yaml.Unmarshal(prev, &nodes); err != nil {
+		return errors.WithStack(err)
+	}
+
+	delete(nodes, name)
+
+	b, err := yaml.Marshal(nodes)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	if err := tp.op.Save(p.DefaultConfigDataNodesPath, b); err != nil {
+		return errors.WithStack(err)
+	}
+	return nil
 }
 
 func (tp *tenantOperate) Close() error {

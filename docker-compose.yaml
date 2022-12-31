@@ -17,6 +17,16 @@
 
 version: "3"
 services:
+  jaeger:
+    image: jaegertracing/all-in-one:1.38.1
+    container_name: arana-jaeger
+    ports:
+      - "6831:6831/udp"
+      - "14268:14268"
+      - "16686:16686" # WEB UI
+    networks:
+      - local
+
   etcd:
     image: docker.io/bitnami/etcd:3.5
     container_name: arana-etcd
@@ -31,6 +41,7 @@ services:
       - "2380:2380"
 
   mysql:
+    platform: linux/amd64
     image: mysql:5.7
     container_name: arana-mysql
     networks:
@@ -46,17 +57,7 @@ services:
       - mysql_data:/var/lib/mysql
     command: [ "mysqld", "--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci" ]
     healthcheck:
-      test:
-        [
-          "CMD",
-          "mysqladmin",
-          "ping",
-          "-h",
-          "127.0.0.1",
-          "-u",
-          "root",
-          "-p$MYSQL_ROOT_PASSWORD"
-        ]
+      test: [ "CMD", "mysqladmin", "ping", "-h127.0.0.1", "-uroot", "-p123456" ]
       interval: 2s
       timeout: 1s
       retries: 5
@@ -64,7 +65,7 @@ services:
   arana:
     container_name: arana
     image: aranadb/arana:master
-    entrypoint: [ "arana", "start", "-c", "/etc/arana/bootstrap.yaml", "--import", "/etc/arana/config.yaml" ]
+    entrypoint: [ "sh", "-c", "arana import -c /etc/arana/bootstrap.yaml -s /etc/arana/config.yaml; arana start -c /etc/arana/bootstrap.yaml" ]
     networks:
       - local
     ports:

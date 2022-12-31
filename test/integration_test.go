@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -28,6 +31,8 @@ import (
 )
 
 import (
+	"github.com/arana-db/parser"
+
 	_ "github.com/go-sql-driver/mysql"
 
 	"github.com/stretchr/testify/assert"
@@ -845,8 +850,6 @@ func (s *IntegrationSuite) TestInsertAutoIncrement() {
 		assert.NoErrorf(t, err, "insert row error: %+v", err)
 		assert.True(t, lastId != 0, fmt.Sprintf("LastInsertId : %d", lastId))
 
-		t.Log("LastInsertId", lastId)
-
 		if lastId%2 == 0 {
 			even++
 		} else {
@@ -993,6 +996,31 @@ func (s *IntegrationSuite) TestAnalyzeTable() {
 	}
 }
 
+// TestOptimizeTable
+func (s *IntegrationSuite) TestOptimizeTable() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql string
+	}
+
+	for _, it := range [...]tt{
+		{"Optimize table employees"},
+		{"Optimize table student, departments"},
+		{"Optimize LOCAL table student, departments"},
+		{"Optimize NO_WRITE_TO_BINLOG table student, departments"},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			rows, err := db.Query(it.sql)
+			assert.NoError(t, err)
+			defer rows.Close()
+		})
+	}
+}
+
 func (s *IntegrationSuite) TestCompat80() {
 	var (
 		db = s.DB()
@@ -1012,4 +1040,53 @@ func (s *IntegrationSuite) TestCompat80() {
 			defer rows.Close()
 		})
 	}
+}
+
+func (s *IntegrationSuite) TestShowProcessList() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql string
+	}
+
+	for _, it := range [...]tt{
+		{"show processlist"},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			rows, err := db.Query(it.sql)
+			assert.NoError(t, err)
+			defer rows.Close()
+		})
+	}
+}
+
+func (s *IntegrationSuite) TestShowReplicaStatus() {
+	sql_ := "SHOW REPLICA STATUS"
+	t := s.T()
+	p := parser.New()
+
+	stmtNodes, _, err := p.Parse(sql_, "", "")
+	assert.Nil(t, err)
+	assert.NotNil(t, stmtNodes)
+}
+
+func (s *IntegrationSuite) TestKill() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	// 1. get a process id
+	rows, err := db.Query("SHOW PROCESSLIST")
+	assert.NoError(t, err)
+	defer rows.Close()
+	data, _ := utils.PrintTable(rows)
+	row := len(data)
+
+	// 2. kill the last process
+	_, err = db.Query(fmt.Sprintf("KILL %s", data[row-1][0]))
+	assert.NoError(t, err)
 }

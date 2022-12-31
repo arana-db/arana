@@ -34,13 +34,8 @@ const (
 
 type (
 	keyFlag           struct{}
-	keySequence       struct{}
-	keySql            struct{}
 	keyNodeLabel      struct{}
-	keySchema         struct{}
 	keyDefaultDBGroup struct{}
-	keyTenant         struct{}
-	keyVersion        struct{}
 	keyHints          struct{}
 )
 
@@ -55,29 +50,6 @@ func WithNodeLabel(ctx context.Context, label string) context.Context {
 // WithDirect execute sql directly.
 func WithDirect(ctx context.Context) context.Context {
 	return context.WithValue(ctx, keyFlag{}, _flagDirect|getFlag(ctx))
-}
-
-// WithSQL binds the original sql.
-func WithSQL(ctx context.Context, sql string) context.Context {
-	return context.WithValue(ctx, keySql{}, sql)
-}
-
-// WithTenant binds the tenant.
-func WithTenant(ctx context.Context, tenant string) context.Context {
-	return context.WithValue(ctx, keyTenant{}, tenant)
-}
-
-func WithSchema(ctx context.Context, data string) context.Context {
-	return context.WithValue(ctx, keySchema{}, data)
-}
-
-func WithVersion(ctx context.Context, data string) context.Context {
-	return context.WithValue(ctx, keyVersion{}, data)
-}
-
-// WithSequenceManager binds a sequencer.
-func WithSequenceManager(ctx context.Context, sequencer proto.SequenceManager) context.Context {
-	return context.WithValue(ctx, keySequence{}, sequencer)
 }
 
 // WithWrite marked as write operation
@@ -95,22 +67,13 @@ func WithHints(ctx context.Context, hints []*hint.Hint) context.Context {
 	return context.WithValue(ctx, keyHints{}, hints)
 }
 
-// Sequencer extracts the sequencer.
-func Sequencer(ctx context.Context) proto.SequenceManager {
-	s, ok := ctx.Value(keySequence{}).(proto.SequenceManager)
-	if !ok {
-		return nil
-	}
-	return s
-}
-
 // Tenant extracts the tenant.
 func Tenant(ctx context.Context) string {
-	db, ok := ctx.Value(keyTenant{}).(string)
+	tenant, ok := ctx.Value(proto.ContextKeyTenant{}).(string)
 	if !ok {
 		return ""
 	}
-	return db
+	return tenant
 }
 
 // IsRead returns true if this is a read operation
@@ -130,21 +93,21 @@ func IsDirect(ctx context.Context) bool {
 
 // SQL returns the original sql string.
 func SQL(ctx context.Context) string {
-	if sql, ok := ctx.Value(keySql{}).(string); ok {
+	if sql, ok := ctx.Value(proto.ContextKeySQL{}).(string); ok {
 		return sql
 	}
 	return ""
 }
 
 func Schema(ctx context.Context) string {
-	if schema, ok := ctx.Value(keySchema{}).(string); ok {
+	if schema, ok := ctx.Value(proto.ContextKeySchema{}).(string); ok {
 		return schema
 	}
 	return ""
 }
 
 func Version(ctx context.Context) string {
-	if schema, ok := ctx.Value(keyVersion{}).(string); ok {
+	if schema, ok := ctx.Value(proto.ContextKeyServerVersion{}).(string); ok {
 		return schema
 	}
 	return ""
@@ -167,17 +130,11 @@ func Hints(ctx context.Context) []*hint.Hint {
 	return hints
 }
 
-// RouteHints returns the route hints.
-func RouteHints(ctx context.Context) []*hint.Hint {
-	var routehints []*hint.Hint
-	hints := Hints(ctx)
-	for _, h := range hints {
-		if h.Type != hint.TypeRoute {
-			continue
-		}
-		routehints = append(routehints, h)
+func TransientVariables(ctx context.Context) map[string]proto.Value {
+	if val, ok := ctx.Value(proto.ContextKeyTransientVariables{}).(map[string]proto.Value); ok {
+		return val
 	}
-	return routehints
+	return nil
 }
 
 func hasFlag(ctx context.Context, flag cFlag) bool {

@@ -275,7 +275,6 @@ func Test_configReader_LoadAll(t *testing.T) {
 	})
 
 	t.Run("loadOne-cacheable", func(t *testing.T) {
-
 		callCnt := int32(0)
 
 		mockStoreOperator := mock.NewMockStoreOperator(ctrl)

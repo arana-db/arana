@@ -78,10 +78,10 @@ type Optimizer struct {
 	Rule  *rule.Rule
 	Hints []*hint.Hint
 	Stmt  rast.Statement
-	Args  []interface{}
+	Args  []proto.Value
 }
 
-func NewOptimizer(rule *rule.Rule, hints []*hint.Hint, stmt ast.StmtNode, args []interface{}) (proto.Optimizer, error) {
+func NewOptimizer(rule *rule.Rule, hints []*hint.Hint, stmt ast.StmtNode, args []proto.Value) (proto.Optimizer, error) {
 	var (
 		rstmt rast.Statement
 		err   error
@@ -117,7 +117,7 @@ func (o *Optimizer) Optimize(ctx context.Context) (plan proto.Plan, err error) {
 	return h(ctx, o)
 }
 
-func (o *Optimizer) ComputeShards(table rast.TableName, where rast.ExpressionNode, args []interface{}) (rule.DatabaseTables, error) {
+func (o *Optimizer) ComputeShards(table rast.TableName, where rast.ExpressionNode, args []proto.Value) (rule.DatabaseTables, error) {
 	ru := o.Rule
 	vt, ok := ru.VTable(table.Suffix())
 	if !ok {
@@ -136,12 +136,32 @@ func (o *Optimizer) ComputeShards(table rast.TableName, where rast.ExpressionNod
 	}
 
 	if shards == nil {
-		if shards, fullScan, err = (*Sharder)(ru).Shard(table, where, args...); err != nil {
+		xsd := NewXSharder(ru, args)
+		if err := xsd.ForSingleSelect(table, "", where); err != nil {
 			return nil, perrors.Wrapf(err, "optimize: cannot calculate shards of table '%s'", table.Suffix())
+		}
+		for i := range xsd.results {
+			if xsd.results[i].L.Suffix() == table.Suffix() {
+				if r := xsd.results[i].R; r != nil {
+					shards = make(rule.DatabaseTables)
+					r.Each(func(db, tb uint32) bool {
+						dbs, tbs, ok := vt.Topology().Render(int(db), int(tb))
+						if !ok {
+							err = perrors.Errorf("cannot render table '%s'", vt.Name())
+							return false
+						}
+						shards[dbs] = append(shards[dbs], tbs)
+						return true
+					})
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
 		}
 	}
 
-	// log.Debugf("compute shards: result=%s, isFullScan=%v", shards, fullScan)
+	fullScan = shards.IsFullScan()
 
 	// return error if full-scan is disabled
 	if fullScan && !vt.AllowFullScan() {

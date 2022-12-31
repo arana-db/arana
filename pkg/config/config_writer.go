@@ -29,9 +29,7 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-var (
-	_ ConfigWriter = (*configWriter)(nil)
-)
+var _ ConfigWriter = (*configWriter)(nil)
 
 type configWriter struct {
 	tenant string
@@ -48,9 +46,9 @@ func (c *configWriter) Write(ctx context.Context, item ConfigItem, cfg *Tenant) 
 	allKeyMap := c.pathInfo.ConfigKeyMapping
 	ret := make(map[PathKey]string)
 
-	for i := range allKeyMap {
-		if allKeyMap[i] == string(item) {
-			ret[i] = allKeyMap[i]
+	for pathKey := range allKeyMap {
+		if allKeyMap[pathKey] == string(item) {
+			ret[pathKey] = allKeyMap[pathKey]
 		}
 	}
 
@@ -62,7 +60,6 @@ func (c *configWriter) Import(ctx context.Context, cfg *Tenant) error {
 }
 
 func (c *configWriter) doPersist(ctx context.Context, conf *Tenant, keyMap map[PathKey]string) error {
-
 	configJson, err := json.Marshal(conf)
 	if err != nil {
 		return errors.Wrap(err, "config json.marshal failed")

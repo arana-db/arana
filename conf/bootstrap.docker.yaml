@@ -21,7 +21,12 @@ listeners:
     socket_address:
       address: 0.0.0.0
       port: 13306
+
 config:
   name: etcd
   options:
     endpoints: "http://etcd:2379"
+
+trace:
+  type: jaeger
+  address: 'http://jaeger:14268/api/traces'

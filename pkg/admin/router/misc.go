@@ -18,6 +18,7 @@
 package router
 
 import (
+	"fmt"
 	"regexp"
 	"sync"
 )
@@ -26,17 +27,36 @@ import (
 	"github.com/pkg/errors"
 )
 
+const _minPasswordLength = 6
+
 var (
-	_tenantNameRegexp     *regexp.Regexp
-	_tenantNameRegexpOnce sync.Once
+	_normalNameRegexp     *regexp.Regexp
+	_normalNameRegexpOnce sync.Once
 )
 
-func validateTenantName(name string) error {
-	_tenantNameRegexpOnce.Do(func() {
-		_tenantNameRegexp = regexp.MustCompile("[a-zA-Z][a-zA-Z0-9-_]+")
+var (
+	_passwordRegexp     *regexp.Regexp
+	_passwordRegexpOnce sync.Once
+)
+
+func validateNormalName(name string) bool {
+	_normalNameRegexpOnce.Do(func() {
+		_normalNameRegexp = regexp.MustCompile("^[_a-zA-Z][0-9a-zA-Z_-]*$")
 	})
-	if _tenantNameRegexp.MatchString(name) {
-		return nil
+	return _normalNameRegexp.MatchString(name)
+}
+
+func validateTenantName(name string) error {
+	if !validateNormalName(name) {
+		return errors.Errorf("invalid tenant name '%s'", name)
 	}
-	return errors.Errorf("invalid tenant name '%s'", name)
+	return nil
+}
+
+func validatePassword(password string) bool {
+	_passwordRegexpOnce.Do(func() {
+		// FIXME: consider whether to allow '@'?
+		_passwordRegexp = regexp.MustCompile(fmt.Sprintf("^[a-zA-Z0-9$#!%%*&^_-]{%d,}", _minPasswordLength))
+	})
+	return _passwordRegexp.MatchString(password)
 }

@@ -27,9 +27,14 @@ package mock
 import (
 	context "context"
 	reflect "reflect"
+)
 
-	config "github.com/arana-db/arana/pkg/config"
+import (
 	gomock "github.com/golang/mock/gomock"
+)
+
+import (
+	config "github.com/arana-db/arana/pkg/config"
 )
 
 // MockTenantOperator is a mock of TenantOperator interface.

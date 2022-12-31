@@ -56,6 +56,8 @@ header: # `header` section is configurations for source codes license header.
   paths-ignore: # `paths-ignore` are the path list that will be ignored by license-eye.
     - 'dist'
     - 'licenses'
+    - '**/*.log'
+    - '**/admin.api.yaml' # Goland has a bug if OSA file contains LICENCE header
     - '**/*.md'
     - '**/testdata/**'
     - '**/go.mod'

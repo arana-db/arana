@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -20,6 +23,7 @@ package test
 import (
 	"context"
 	"path"
+	"time"
 )
 
 import (
@@ -49,7 +53,7 @@ type MySQLContainerTester struct {
 func (tester MySQLContainerTester) SetupMySQLContainer(ctx context.Context) (*MySQLContainer, error) {
 	log.Info("Setup MySQL Container")
 	req := testcontainers.ContainerRequest{
-		Image:        "mysql:8.0",
+		Image:        "mysql:5.7",
 		ExposedPorts: []string{"3306/tcp", "33060/tcp"},
 		Env: map[string]string{
 			"MYSQL_ROOT_PASSWORD": tester.Password,
@@ -60,7 +64,7 @@ func (tester MySQLContainerTester) SetupMySQLContainer(ctx context.Context) (*My
 			"/docker-entrypoint-initdb.d/1.sql": testdata.Path(path.Join(tester.ScriptPath, "sharding.sql")),
 			"/docker-entrypoint-initdb.d/2.sql": testdata.Path(path.Join(tester.ScriptPath, "sequence.sql")),
 		},
-		WaitingFor: wait.ForLog("port: 3306  MySQL Community Server - GPL"),
+		WaitingFor: wait.ForListeningPort("3306/tcp").WithStartupTimeout(5 * time.Minute),
 	}
 
 	c, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{

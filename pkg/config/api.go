@@ -117,17 +117,26 @@ type (
 	TenantOperator interface {
 		io.Closer
 
-		// ListTenants lists all tenants
+		// ListTenants lists all tenants.
 		ListTenants() []string
 
-		// CreateTenant creates tenant
+		// CreateTenant creates tenant.
 		CreateTenant(string) error
 
-		// RemoveTenant removes tenant
+		// RemoveTenant removes tenant.
 		RemoveTenant(string) error
+
+		// RemoveTenantUser removes a tenant user.
+		RemoveTenantUser(tenant, username string) error
 
 		// CreateTenantUser creates a user.
 		CreateTenantUser(tenant, username, password string) error
+
+		// UpsertNode creates a node, or updates a node.
+		UpsertNode(tenant, node, name, host string, port int, username, password, database, weight string) error
+
+		// RemoveNode removes a node.
+		RemoveNode(tenant, name string) error
 
 		// Subscribe subscribes tenants change
 		Subscribe(ctx context.Context, c EventCallback) context.CancelFunc

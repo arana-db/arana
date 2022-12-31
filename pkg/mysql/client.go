@@ -21,13 +21,13 @@ import (
 	"context"
 	"crypto/rsa"
 	"crypto/tls"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"math/big"
 	"net"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -36,9 +36,9 @@ import (
 	"github.com/arana-db/arana/pkg/constants/mysql"
 	err2 "github.com/arana-db/arana/pkg/mysql/errors"
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/util/bytefmt"
 	"github.com/arana-db/arana/pkg/util/log"
-	"github.com/arana-db/arana/third_party/pools"
 )
 
 const (
@@ -448,27 +448,12 @@ type Connector struct {
 	conf *Config
 }
 
-func NewConnector(config json.RawMessage) (*Connector, error) {
-	v := &struct {
-		DSN string `json:"dsn"`
-	}{}
-	if err := json.Unmarshal(config, v); err != nil {
-		log.Errorf("unmarshal mysql Listener config failed, %s", err)
-		return nil, err
-	}
-	cfg, err := ParseDSN(v.DSN)
+func NewConnector(dsn string) (*Connector, error) {
+	cfg, err := ParseDSN(dsn)
 	if err != nil {
 		return nil, err
 	}
 	return &Connector{cfg}, nil
-}
-
-func (c *Connector) NewBackendConnection(ctx context.Context) (pools.Resource, error) {
-	conn := &BackendConnection{conf: c.conf}
-	if err := conn.Connect(ctx); err != nil {
-		return conn, err
-	}
-	return conn, conn.Ping()
 }
 
 type BackendConnection struct {
@@ -488,6 +473,181 @@ type BackendConnection struct {
 	serverVersion string
 
 	characterSet uint8
+
+	remoteVariables map[string]proto.Value
+}
+
+func (c *Connector) NewBackendConnection(ctx context.Context) (*BackendConnection, error) {
+	conn := &BackendConnection{conf: c.conf}
+	if err := conn.Connect(ctx); err != nil {
+		defer conn.Close()
+		return nil, err
+	}
+	if err := conn.Ping(); err != nil {
+		defer conn.Close()
+		return nil, err
+	}
+	return conn, nil
+}
+
+// SyncVariables sync local transient variables with upstream mysql.
+//
+// The sync logic:
+//
+// CLIENT  ----ConnA---->  ARANA  ----ConnB----> MySQL
+//               |                      |
+//         transient-vars          persist-vars
+//                \                     /
+//                 \                   /
+//                      >>> SYNC <<<
+func (conn *BackendConnection) SyncVariables(vars map[string]proto.Value) error {
+	transient := conn.c.TransientVariables
+
+	if len(vars) < 1 && len(transient) < 1 {
+		return nil
+	}
+
+	persists, err := conn.PersistVariables()
+	if err != nil {
+		return err
+	}
+
+	var (
+		update  map[string]proto.Value
+		cleanup map[string]proto.Value
+	)
+
+	// compute update
+	for k, v := range vars {
+		k, v := k, v
+		if old, ok := transient[k]; ok && v == old {
+			continue
+		}
+		if old, ok := persists[k]; ok && v == old {
+			continue
+		}
+		if update == nil {
+			update = make(map[string]proto.Value)
+		}
+		update[k] = v
+	}
+
+	// compute cleanup
+	for k := range transient {
+		if _, ok := vars[k]; ok {
+			continue
+		}
+
+		if cleanup == nil {
+			cleanup = make(map[string]proto.Value)
+		}
+
+		if origin, ok := persists[k]; ok {
+			// revert from original variables
+			cleanup[k] = origin
+		} else {
+			// mark as NULL
+			cleanup[k] = nil
+		}
+	}
+
+	// return if nothing changed
+	if len(update) < 1 && len(cleanup) < 1 {
+		return nil
+	}
+
+	var sb strings.Builder
+
+	sb.Grow(len(update)*48 + len(cleanup)*32)
+
+	for k, v := range update {
+		if sb.Len() < 1 {
+			sb.WriteString("SET ")
+		} else {
+			sb.WriteByte(',')
+		}
+
+		sb.WriteString(k)
+		sb.WriteByte('=')
+
+		switch v.Family() {
+		case proto.ValueFamilySign:
+			i, _ := v.Int64()
+			_, _ = fmt.Fprintf(&sb, "%d", i)
+		case proto.ValueFamilyUnsigned:
+			i, _ := v.Uint64()
+			_, _ = fmt.Fprintf(&sb, "%d", i)
+		case proto.ValueFamilyFloat, proto.ValueFamilyDecimal:
+			i, _ := v.Float64()
+			_, _ = fmt.Fprintf(&sb, "%f", i)
+		default:
+			ast.WriteString(&sb, v.String())
+		}
+	}
+
+	for k, v := range cleanup {
+		if sb.Len() < 1 {
+			sb.WriteString("SET ")
+		} else {
+			sb.WriteByte(',')
+		}
+
+		sb.WriteString(k)
+		sb.WriteByte('=')
+		if v == nil {
+			sb.WriteString("NULL")
+			continue
+		}
+
+		switch v.Family() {
+		case proto.ValueFamilySign:
+			i, _ := v.Int64()
+			_, _ = fmt.Fprintf(&sb, "%d", i)
+		case proto.ValueFamilyUnsigned:
+			i, _ := v.Uint64()
+			_, _ = fmt.Fprintf(&sb, "%d", i)
+		case proto.ValueFamilyFloat, proto.ValueFamilyDecimal:
+			i, _ := v.Float64()
+			_, _ = fmt.Fprintf(&sb, "%f", i)
+		default:
+			ast.WriteString(&sb, v.String())
+		}
+	}
+
+	q := sb.String()
+
+	res, err := conn.ExecuteWithWarningCount(q, true)
+	if err != nil {
+		log.Errorf("failed to sync variables: conn=%p, sql=%s, err=%v", conn, q, err)
+		return err
+	}
+	if _, err = res.RowsAffected(); err != nil {
+		log.Errorf("failed to sync variables: conn=%p, sql=%s, err=%v", conn, q, err)
+		return err
+	}
+
+	log.Debugf("sync variables successfully: conn=%p, sql=%s", conn, q)
+
+	for k, v := range update {
+		k, v := k, v
+		transient[k] = v
+	}
+	for k := range cleanup {
+		delete(transient, k)
+	}
+
+	return nil
+}
+
+// ResetVariables resets transient variables.
+func (conn *BackendConnection) ResetVariables() error {
+	// TODO: is it necessary to reset all variables???
+	return conn.SyncVariables(nil)
+}
+
+// PersistVariables returns the persisted variables from remote mysql.
+func (conn *BackendConnection) PersistVariables() (map[string]proto.Value, error) {
+	return conn.remoteVariables, nil
 }
 
 func (conn *BackendConnection) DBName() string {
@@ -507,7 +667,9 @@ func (conn *BackendConnection) Connect(ctx context.Context) error {
 	} else {
 		typ = conn.conf.Net
 	}
-	netConn, err := net.Dial(typ, conn.conf.Addr)
+
+	var d net.Dialer
+	netConn, err := d.DialContext(ctx, typ, conn.conf.Addr)
 	if err != nil {
 		return err
 	}
@@ -525,7 +687,18 @@ func (conn *BackendConnection) Connect(ctx context.Context) error {
 
 	conn.c = newConn(tcpConn)
 
-	return conn.clientHandshake()
+	if err := conn.clientHandshake(); err != nil {
+		return err
+	}
+
+	variables, err := conn.readVariables()
+	if err != nil {
+		return err
+	}
+
+	conn.remoteVariables = variables
+
+	return nil
 }
 
 func (conn *BackendConnection) clientHandshake() error {
@@ -1215,7 +1388,7 @@ func (conn *BackendConnection) ExecuteWithWarningCount(query string, wantFields 
 	return
 }
 
-func (conn *BackendConnection) PrepareExecuteArgs(query string, args []interface{}) (proto.Result, error) {
+func (conn *BackendConnection) PrepareExecuteArgs(query string, args []proto.Value) (proto.Result, error) {
 	stmt, err := conn.prepare(query)
 	if err != nil {
 		return nil, err
@@ -1223,7 +1396,7 @@ func (conn *BackendConnection) PrepareExecuteArgs(query string, args []interface
 	return stmt.execArgs(args)
 }
 
-func (conn *BackendConnection) PrepareQueryArgs(query string, data []interface{}) (proto.Result, error) {
+func (conn *BackendConnection) PrepareQueryArgs(query string, data []proto.Value) (proto.Result, error) {
 	stmt, err := conn.prepare(query)
 	if err != nil {
 		return nil, err
@@ -1281,7 +1454,9 @@ func (conn *BackendConnection) prepare(query string) (*BackendStatement, error) 
 }
 
 func (conn *BackendConnection) Close() {
-	conn.c.Close()
+	if conn.c != nil {
+		conn.c.Close()
+	}
 }
 
 func (conn *BackendConnection) GetDatabaseConn() *Conn {
@@ -1318,4 +1493,54 @@ func (conn *BackendConnection) Ping() error {
 		return ParseErrorPacket(data)
 	}
 	return fmt.Errorf("unexpected packet type: %d", data[0])
+}
+
+func (conn *BackendConnection) readVariables() (map[string]proto.Value, error) {
+	res, err := conn.ExecuteWithWarningCountIterRow("SHOW VARIABLES")
+	if err != nil {
+		return nil, err
+	}
+
+	ds, err := res.Dataset()
+	if err != nil {
+		return nil, err
+	}
+
+	defer ds.Close()
+
+	var (
+		variables = make(map[string]proto.Value)
+		dest      = make([]proto.Value, 2)
+		row       proto.Row
+	)
+
+	for {
+		row, err = ds.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		if err = row.Scan(dest); err != nil {
+			return nil, err
+		}
+
+		key := fmt.Sprintf("@@%v", dest[0])
+		valStr := fmt.Sprint(dest[1])
+
+		if val, err := strconv.ParseInt(valStr, 10, 64); err == nil {
+			variables[key] = proto.NewValueInt64(val)
+			continue
+		}
+
+		if val, err := strconv.ParseFloat(valStr, 64); err == nil {
+			variables[key] = proto.NewValueFloat64(val)
+			continue
+		}
+
+		variables[key] = proto.NewValueString(valStr)
+	}
+
+	return variables, nil
 }

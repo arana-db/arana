@@ -24,14 +24,21 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/util/bytesconv"
-	"github.com/arana-db/arana/third_party/pools"
 )
 
 type (
+	ContextKeyTenant             struct{}
+	ContextKeySchema             struct{}
+	ContextKeySQL                struct{}
+	ContextKeyTransientVariables struct{}
+	ContextKeyServerVersion      struct{}
+)
+
+type (
+
 	// Context is used to carry context objects
 	Context struct {
 		context.Context
-
 		Tenant        string
 		Schema        string
 		ServerVersion string
@@ -42,6 +49,11 @@ type (
 		Data []byte
 
 		Stmt *Stmt
+
+		// TransientVariables stores the transient local variables, it will sync with the remote node automatically.
+		//   - SYSTEM: @@xxx
+		//   - USER: @xxx
+		TransientVariables map[string]Value
 	}
 
 	Listener interface {
@@ -50,7 +62,6 @@ type (
 		Close()
 	}
 
-	// Executor
 	Executor interface {
 		ProcessDistributedTransaction() bool
 		InLocalTransaction(ctx *Context) bool
@@ -60,12 +71,6 @@ type (
 		ExecutorComQuery(ctx *Context) (Result, uint16, error)
 		ExecutorComStmtExecute(ctx *Context) (Result, uint16, error)
 		ConnectionClose(ctx *Context)
-	}
-
-	ResourceManager interface {
-		GetMasterResourcePool(name string) *pools.ResourcePool
-		GetSlaveResourcePool(name string) *pools.ResourcePool
-		GetMetaResourcePool(name string) *pools.ResourcePool
 	}
 )
 
@@ -81,14 +86,14 @@ func (c Context) GetQuery() string {
 	return bytesconv.BytesToString(c.Data[1:])
 }
 
-func (c Context) GetArgs() []interface{} {
+func (c Context) GetArgs() []Value {
 	if c.Stmt == nil || len(c.Stmt.BindVars) < 1 {
 		return nil
 	}
 
 	var (
 		keys = make([]string, 0, len(c.Stmt.BindVars))
-		args = make([]interface{}, 0, len(c.Stmt.BindVars))
+		args = make([]Value, 0, len(c.Stmt.BindVars))
 	)
 
 	for k := range c.Stmt.BindVars {
@@ -99,4 +104,20 @@ func (c Context) GetArgs() []interface{} {
 		args = append(args, c.Stmt.BindVars[k])
 	}
 	return args
+}
+
+func (c Context) Value(key interface{}) interface{} {
+	switch key.(type) {
+	case ContextKeyTenant:
+		return c.Tenant
+	case ContextKeySchema:
+		return c.Schema
+	case ContextKeyTransientVariables:
+		return c.TransientVariables
+	case ContextKeySQL:
+		return c.GetQuery()
+	case ContextKeyServerVersion:
+		return c.ServerVersion
+	}
+	return c.Context.Value(key)
 }

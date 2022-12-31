@@ -35,6 +35,8 @@ func TestRule_Route(t *testing.T) {
 
 	const key = "uid"
 
+	vtab, _ := ru.VTable(fakeTable)
+
 	tb := []struct {
 		C *cmp.Comparative
 		E []int
@@ -47,7 +49,7 @@ func TestRule_Route(t *testing.T) {
 		{cmp.NewInt64(key, cmp.Clte, 3), nil},
 	}
 	for _, it := range tb {
-		mat, err := Route(ru, fakeTable, it.C)
+		mat, err := Route(vtab, it.C)
 		assert.NoError(t, err)
 		ret, err := mat.Eval()
 		assert.NoError(t, err, "eval failed")

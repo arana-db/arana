@@ -49,6 +49,7 @@ type (
 	Spec struct {
 		Kind        string                 `yaml:"kind" json:"kind,omitempty"`
 		APIVersion  string                 `yaml:"apiVersion" json:"apiVersion,omitempty"`
+		LogPath     string                 `yaml:"log_path" json:"log_path,omitempty"`
 		SlowLogPath string                 `yaml:"slow_log_path" json:"slow_log_path,omitempty"`
 		Metadata    map[string]interface{} `yaml:"metadata" json:"metadata"`
 	}
@@ -65,6 +66,21 @@ type (
 		ProtocolType  string         `yaml:"protocol_type" json:"protocol_type"`
 		SocketAddress *SocketAddress `yaml:"socket_address" json:"socket_address"`
 		ServerVersion string         `yaml:"server_version" json:"server_version"`
+	}
+
+	Registry struct {
+		Enable   bool                   `yaml:"enable" json:"enable"`
+		Name     string                 `yaml:"name" json:"name"`
+		RootPath string                 `yaml:"root_path" json:"root_path"`
+		Options  map[string]interface{} `yaml:"options" json:"options"`
+	}
+
+	BootOptions struct {
+		Spec      `yaml:",inline"`
+		Config    *Options    `yaml:"config" json:"config"`
+		Listeners []*Listener `validate:"required,dive" yaml:"listeners" json:"listeners"`
+		Registry  *Registry   `yaml:"registry" json:"registry"`
+		Trace     *Trace      `yaml:"trace" json:"trace"`
 	}
 
 	// Configuration represents an Arana configuration.
@@ -167,8 +183,8 @@ type (
 	}
 
 	Sequence struct {
-		Type   string            `yaml:"type" json:"type"`
-		Option map[string]string `yaml:"option" json:"option"`
+		Type   string            `yaml:"type" json:"type,omitempty"`
+		Option map[string]string `yaml:"option" json:"option,omitempty"`
 	}
 
 	Rule struct {
@@ -265,7 +281,9 @@ func Load(path string) (*Configuration, error) {
 func (t *Tenant) Empty() bool {
 	return len(t.Users) == 0 &&
 		len(t.Nodes) == 0 &&
-		len(t.DataSourceClusters) == 0
+		len(t.DataSourceClusters) == 0 &&
+		(t.ShardingRule == nil || len(t.ShardingRule.Tables) == 0) &&
+		(t.ShadowRule == nil || len(t.ShadowRule.ShadowTables) == 0)
 }
 
 var _weightRegexp = regexp.MustCompile(`^[rR]([0-9]+)[wW]([0-9]+)$`)
@@ -400,4 +418,9 @@ func NewEmptyTenant() *Tenant {
 		ShadowRule:         new(ShadowRule),
 		Nodes:              map[string]*Node{},
 	}
+}
+
+func (l *Listener) String() string {
+	socketAddr := fmt.Sprintf("%s:%d", l.SocketAddress.Address, l.SocketAddress.Port)
+	return fmt.Sprintf("Listener protocol_type:%s, socket_address:%s, server_version:%s", l.ProtocolType, socketAddr, l.ServerVersion)
 }

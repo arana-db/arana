@@ -21,6 +21,7 @@ import (
 	"context"
 	"io"
 	"net"
+	"net/http"
 	"os"
 	"strings"
 )
@@ -35,8 +36,13 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/admin/exception"
-	"github.com/arana-db/arana/pkg/boot"
+	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/constants"
+)
+
+const (
+	_envUIPath     = "ARANA_UI"
+	_defaultUIPath = "/var/www/arana"
 )
 
 const K = "ARANA_ADMIN_SERVICE"
@@ -68,21 +74,20 @@ func init() {
 	}
 }
 
-type Service interface {
-	boot.ConfigUpdater
-	boot.ConfigProvider
-}
-
 type Server struct {
 	l       net.Listener
 	engine  *gin.Engine
-	service Service
+	service ConfigService
 	started uatomic.Bool
 }
 
-func New(service Service) *Server {
+func New(tenantOp config.TenantOperator) *Server {
+	srv := &myConfigService{
+		tenantOp: tenantOp,
+	}
+
 	return &Server{
-		service: service,
+		service: srv,
 		engine:  gin.New(),
 	}
 }
@@ -112,9 +117,18 @@ func (srv *Server) Listen(addr string) error {
 	srv.engine.Use(gin.Recovery())
 	srv.engine.Use(CORSMiddleware())
 
+	// Mount APIs
+	rg := srv.engine.Group("/api/v1")
 	for _, hook := range _hooks {
-		hook((*myRouter)(srv.engine))
+		hook((*myRouter)(rg))
 	}
+
+	// Mount static resources
+	uiPath := _defaultUIPath
+	if e, ok := os.LookupEnv(_envUIPath); ok {
+		uiPath = e
+	}
+	srv.engine.NoRoute(gin.WrapH(http.FileServer(http.Dir(uiPath))))
 
 	if srv.l, err = c.Listen(context.Background(), "tcp", addr); err != nil {
 		return perrors.WithStack(err)
@@ -122,32 +136,32 @@ func (srv *Server) Listen(addr string) error {
 	return srv.engine.RunListener(srv.l)
 }
 
-// GetService returns Service from gin context.
-func GetService(c *gin.Context) Service {
+// GetService returns ConfigService from gin context.
+func GetService(c *gin.Context) ConfigService {
 	v, _ := c.Get(K)
-	return v.(Service)
+	return v.(ConfigService)
 }
 
-type myRouter gin.Engine
+type myRouter gin.RouterGroup
 
 func (w *myRouter) GET(s string, handler Handler) {
-	(*gin.Engine)(w).GET(s, w.wrapper(handler))
+	(*gin.RouterGroup)(w).GET(s, w.wrapper(handler))
 }
 
 func (w *myRouter) POST(s string, handler Handler) {
-	(*gin.Engine)(w).POST(s, w.wrapper(handler))
+	(*gin.RouterGroup)(w).POST(s, w.wrapper(handler))
 }
 
 func (w *myRouter) DELETE(s string, handler Handler) {
-	(*gin.Engine)(w).DELETE(s, w.wrapper(handler))
+	(*gin.RouterGroup)(w).DELETE(s, w.wrapper(handler))
 }
 
 func (w *myRouter) PATCH(s string, handler Handler) {
-	(*gin.Engine)(w).PATCH(s, w.wrapper(handler))
+	(*gin.RouterGroup)(w).PATCH(s, w.wrapper(handler))
 }
 
 func (w *myRouter) PUT(s string, handler Handler) {
-	(*gin.Engine)(w).PUT(s, w.wrapper(handler))
+	(*gin.RouterGroup)(w).PUT(s, w.wrapper(handler))
 }
 
 func (w *myRouter) wrapper(handler Handler) gin.HandlerFunc {

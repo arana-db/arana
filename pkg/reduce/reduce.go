@@ -22,13 +22,13 @@ import (
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
+	"github.com/shopspring/decimal"
 )
 
 type Reducer interface {
 	Int64(prev, next int64) (int64, error)
 	Float64(prev, next float64) (float64, error)
-	Decimal(prev, next *gxbig.Decimal) (*gxbig.Decimal, error)
+	Decimal(prev, next decimal.Decimal) (decimal.Decimal, error)
 	Time(prev, next time.Time) (time.Time, error)
 }
 

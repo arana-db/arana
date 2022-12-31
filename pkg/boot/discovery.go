@@ -20,8 +20,6 @@ package boot
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -34,8 +32,6 @@ import (
 	"github.com/pkg/errors"
 
 	uatomic "go.uber.org/atomic"
-
-	"gopkg.in/yaml.v3"
 )
 
 import (
@@ -43,16 +39,11 @@ import (
 	"github.com/arana-db/arana/pkg/proto/rule"
 	rrule "github.com/arana-db/arana/pkg/runtime/rule"
 	"github.com/arana-db/arana/pkg/trace"
-	"github.com/arana-db/arana/pkg/util/file"
 	"github.com/arana-db/arana/pkg/util/log"
+	"github.com/arana-db/arana/pkg/util/misc"
 )
 
 var _ Discovery = (*discovery)(nil)
-
-var (
-	_regexpTable     *regexp.Regexp
-	_regexpTableOnce sync.Once
-)
 
 var (
 	_regexpRuleExpr     *regexp.Regexp
@@ -62,14 +53,8 @@ var (
 var (
 	ErrorNoTenant            = errors.New("no tenant")
 	ErrorNoDataSourceCluster = errors.New("no datasourceCluster")
+	ErrorNoGroup             = errors.New("no group")
 )
-
-func getTableRegexp() *regexp.Regexp {
-	_regexpTableOnce.Do(func() {
-		_regexpTable = regexp.MustCompile(`([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_-]+)`)
-	})
-	return _regexpTable
-}
 
 func getRuleExprRegexp() *regexp.Regexp {
 	_regexpRuleExprSync.Do(func() {
@@ -81,79 +66,10 @@ func getRuleExprRegexp() *regexp.Regexp {
 type discovery struct {
 	inited  uatomic.Bool
 	path    string
-	options *BootOptions
+	options *config.BootOptions
 
 	tenantOp config.TenantOperator
 	centers  map[string]config.Center
-}
-
-func (fp *discovery) UpsertTenant(ctx context.Context, tenant string, body *TenantBody) error {
-	if err := fp.tenantOp.CreateTenant(tenant); err != nil {
-		return errors.Wrapf(err, "failed to create tenant '%s'", tenant)
-	}
-
-	for _, next := range body.Users {
-		if err := fp.tenantOp.CreateTenantUser(tenant, next.Username, next.Password); err != nil {
-			return errors.WithStack(err)
-		}
-	}
-
-	return nil
-}
-
-func (fp *discovery) RemoveTenant(ctx context.Context, tenant string) error {
-	// TODO implement me
-	panic("implement me")
-}
-
-func (fp *discovery) UpsertCluster(ctx context.Context, tenant, cluster string, body *ClusterBody) error {
-	// TODO implement me
-	panic("implement me")
-}
-
-func (fp *discovery) RemoveCluster(ctx context.Context, tenant, cluster string) error {
-	// TODO implement me
-	panic("implement me")
-}
-
-func (fp *discovery) UpsertNode(ctx context.Context, tenant, node string, body *NodeBody) error {
-	// TODO implement me
-	panic("implement me")
-}
-
-func (fp *discovery) RemoveNode(ctx context.Context, tenant, node string) error {
-	// TODO implement me
-	panic("implement me")
-}
-
-func (fp *discovery) UpsertGroup(ctx context.Context, tenant, cluster, group string, body *GroupBody) error {
-	// TODO implement me
-	panic("implement me")
-}
-
-func (fp *discovery) RemoveGroup(ctx context.Context, tenant, cluster, group string) error {
-	// TODO implement me
-	panic("implement me")
-}
-
-func (fp *discovery) BindNode(ctx context.Context, tenant, cluster, group, node string) error {
-	// TODO implement me
-	panic("implement me")
-}
-
-func (fp *discovery) UnbindNode(ctx context.Context, tenant, cluster, group, node string) error {
-	// TODO implement me
-	panic("implement me")
-}
-
-func (fp *discovery) UpsertTable(ctx context.Context, tenant, cluster, table string, body *TableBody) error {
-	// TODO implement me
-	panic("implement me")
-}
-
-func (fp *discovery) RemoveTable(ctx context.Context, tenant, cluster, table string) error {
-	// TODO implement me
-	panic("implement me")
 }
 
 func (fp *discovery) Import(ctx context.Context, info *config.Tenant) error {
@@ -170,7 +86,7 @@ func (fp *discovery) Init(ctx context.Context) error {
 		return nil
 	}
 
-	cfg, err := LoadBootOptions(fp.path)
+	cfg, err := config.LoadBootOptions(fp.path)
 	if err != nil {
 		return err
 	}
@@ -190,27 +106,6 @@ func (fp *discovery) Init(ctx context.Context) error {
 	return nil
 }
 
-func LoadBootOptions(path string) (*BootOptions, error) {
-	content, err := ioutil.ReadFile(path)
-	if err != nil {
-		err = errors.Wrap(err, "failed to load config")
-		return nil, err
-	}
-
-	if !file.IsYaml(path) {
-		err = errors.Errorf("invalid config file format: %s", filepath.Ext(path))
-		return nil, err
-	}
-
-	var cfg BootOptions
-	if err = yaml.Unmarshal(content, &cfg); err != nil {
-		err = errors.Wrapf(err, "failed to unmarshal config")
-		return nil, err
-	}
-
-	return &cfg, nil
-}
-
 func (fp *discovery) InitTenant(tenant string) error {
 	options := *fp.options.Config
 	if len(options.Options) == 0 {
@@ -224,6 +119,7 @@ func (fp *discovery) InitTenant(tenant string) error {
 		config.WithCacheable(true),
 		config.WithReader(true),
 		config.WithWatcher(true),
+		config.WithWriter(true),
 	)
 	return err
 }
@@ -318,6 +214,10 @@ func (fp *discovery) ListListeners(ctx context.Context) []*config.Listener {
 	return fp.options.Listeners
 }
 
+func (fp *discovery) GetServiceRegistry(ctx context.Context) *config.Registry {
+	return fp.options.Registry
+}
+
 func (fp *discovery) ListClusters(ctx context.Context, tenant string) ([]string, error) {
 	op, ok := fp.centers[tenant]
 	if !ok {
@@ -382,7 +282,7 @@ func (fp *discovery) ListTables(ctx context.Context, tenant, cluster string) ([]
 	tables := make([]string, 0, 4)
 
 	for i := range rule.Tables {
-		db, tb, err := parseTable(rule.Tables[i].Name)
+		db, tb, err := misc.ParseTable(rule.Tables[i].Name)
 		if err != nil {
 			return nil, err
 		}
@@ -491,7 +391,7 @@ func (fp *discovery) loadTables(cluster string, op config.Center) map[string]*co
 
 	var tables map[string]*config.Table
 	for _, it := range cfg.ShardingRule.Tables {
-		db, tb, err := parseTable(it.Name)
+		db, tb, err := misc.ParseTable(it.Name)
 		if err != nil {
 			log.Warnf("skip parsing table rule: %v", err)
 			continue
@@ -507,7 +407,7 @@ func (fp *discovery) loadTables(cluster string, op config.Center) map[string]*co
 	return tables
 }
 
-func (fp *discovery) GetOptions() *BootOptions {
+func (fp *discovery) GetOptions() *config.BootOptions {
 	return fp.options
 }
 
@@ -579,8 +479,6 @@ func toSharder(input *config.Rule) (rule.ShardComputer, error) {
 		computer = rrule.NewHashBKDRShard(mod)
 	case rrule.HashCrc32Shard:
 		computer = rrule.NewHashCrc32Shard(mod)
-	case rrule.FunctionExpr:
-		computer, err = rrule.NewExprShardComputer(input.Expr, input.Column)
 	case rrule.ScriptExpr:
 		computer, err = rrule.NewJavascriptShardComputer(input.Expr)
 	default:
@@ -598,17 +496,6 @@ func getRender(format string) func(int) string {
 	return func(i int) string {
 		return format
 	}
-}
-
-func parseTable(input string) (db, tbl string, err error) {
-	mat := getTableRegexp().FindStringSubmatch(input)
-	if len(mat) < 1 {
-		err = errors.Errorf("invalid table name: %s", input)
-		return
-	}
-	db = mat[1]
-	tbl = mat[2]
-	return
 }
 
 func NewDiscovery(path string) Discovery {

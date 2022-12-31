@@ -18,12 +18,8 @@
 package rule
 
 import (
-	"encoding/binary"
 	stdErrors "errors"
 	"fmt"
-	"math"
-	"strconv"
-	"time"
 )
 
 import (
@@ -31,8 +27,8 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
-	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
 	"github.com/arana-db/arana/pkg/runtime/logical"
 	"github.com/arana-db/arana/pkg/runtime/misc"
@@ -49,8 +45,10 @@ var (
 var (
 	_ Evaluator = (*KeyedEvaluator)(nil)
 	_ Evaluator = noopEvaluator{}
-	_ Evaluator = (staticEvaluator)(nil)
+	_ Evaluator = (*staticEvaluator)(nil)
 )
+
+var ErrNoRuleMetadata = stdErrors.New("no rule metadata found")
 
 var emptyDatabaseTables rule.DatabaseTables
 
@@ -93,13 +91,11 @@ func toRangeIterator(begin, end rule.Range) rule.Range {
 	return Multiple(merged...)
 }
 
-var ErrNoRuleMetadata = stdErrors.New("no rule metadata found")
-
 // Evaluator evaluates the sharding result.
 type Evaluator interface {
 	Not() Evaluator
 	// Eval evaluates the sharding result.
-	Eval(tableName string, rule *rule.Rule) (rule.DatabaseTables, error)
+	Eval(vtab *rule.VTable) (*rule.Shards, error)
 }
 
 type emptyEvaluator struct{}
@@ -112,22 +108,22 @@ func (e emptyEvaluator) String() string {
 	return "NONE"
 }
 
-func (e emptyEvaluator) Eval(_ string, _ *rule.Rule) (rule.DatabaseTables, error) {
-	return emptyDatabaseTables, nil
+func (e emptyEvaluator) Eval(_ *rule.VTable) (*rule.Shards, error) {
+	return rule.NewShards(), nil
 }
 
-type staticEvaluator map[string][]string
+type staticEvaluator rule.Shards
 
-func (s staticEvaluator) Not() Evaluator {
+func (s *staticEvaluator) Not() Evaluator {
 	return _noopEvaluator
 }
 
-func (s staticEvaluator) String() string {
-	return (rule.DatabaseTables)(s).String()
+func (s *staticEvaluator) String() string {
+	return (*rule.Shards)(s).String()
 }
 
-func (s staticEvaluator) Eval(_ string, _ *rule.Rule) (rule.DatabaseTables, error) {
-	return (rule.DatabaseTables)(s), nil
+func (s *staticEvaluator) Eval(_ *rule.VTable) (*rule.Shards, error) {
+	return (*rule.Shards)(s), nil
 }
 
 type noopEvaluator struct{}
@@ -140,83 +136,37 @@ func (n noopEvaluator) String() string {
 	return "FULL" // Infinity
 }
 
-func (n noopEvaluator) Eval(_ string, _ *rule.Rule) (rule.DatabaseTables, error) {
+func (n noopEvaluator) Eval(_ *rule.VTable) (*rule.Shards, error) {
 	return nil, nil
 }
 
 type KeyedEvaluator struct {
 	k  string
 	op cmp.Comparison
-	v  interface{}
+	v  proto.Value
 }
 
 func (t *KeyedEvaluator) toComparative(metadata *rule.ShardMetadata) *cmp.Comparative {
 	var (
-		s   string
-		k   cmp.Kind
-		val = t.v
+		s string
+		k cmp.Kind
 	)
 
-	// convert nil
-	if val == nil {
-		val = ast.Null{}
+	if t.v == nil {
+		return nil
 	}
 
-	switch v := val.(type) {
-	case time.Time:
-		s = v.Format("2006-01-02 15:04:05")
-		k = cmp.Kdate
-	case *time.Time:
-		s = v.Format("2006-01-02 15:04:05")
-		k = cmp.Kdate
-	case string:
+	switch t.v.Family() {
+	case proto.ValueFamilyString:
 		k = cmp.Kstring
-		s = v
-	case int8:
-		s = strconv.FormatInt(int64(v), 10)
+		s = t.v.String()
+	case proto.ValueFamilyTime:
+		k = cmp.Kdate
+		dt, _ := t.v.Time()
+		s = dt.Format("2006-01-02 15:04:05")
+	case proto.ValueFamilyDecimal, proto.ValueFamilySign, proto.ValueFamilyUnsigned, proto.ValueFamilyFloat, proto.ValueFamilyBool:
 		k = cmp.Kint
-	case int16:
-		s = strconv.FormatInt(int64(v), 10)
-		k = cmp.Kint
-	case int32:
-		s = strconv.FormatInt(int64(v), 10)
-		k = cmp.Kint
-	case int:
-		s = strconv.FormatInt(int64(v), 10)
-		k = cmp.Kint
-	case int64:
-		s = strconv.FormatInt(v, 10)
-		k = cmp.Kint
-	case uint8:
-		s = strconv.FormatUint(uint64(v), 10)
-		k = cmp.Kint
-	case uint16:
-		s = strconv.FormatUint(uint64(v), 10)
-		k = cmp.Kint
-	case uint32:
-		s = strconv.FormatUint(uint64(v), 10)
-		k = cmp.Kint
-	case uint:
-		s = strconv.FormatUint(uint64(v), 10)
-		k = cmp.Kint
-	case uint64:
-		s = strconv.FormatUint(v, 10)
-		k = cmp.Kint
-	case float32:
-		s = strconv.FormatInt(int64(v), 10)
-		k = cmp.Kint
-	case float64:
-		// zero div
-		if math.IsNaN(v) || math.IsInf(v, 0) {
-			s = "0"
-		} else {
-			s = strconv.FormatInt(int64(v), 10)
-		}
-		k = cmp.Kint
-	case ast.Null:
-		return nil
-	default:
-		panic(fmt.Sprintf("invalid compare value type %T!", v))
+		s = t.v.String()
 	}
 
 	if metadata != nil {
@@ -240,36 +190,18 @@ func (t *KeyedEvaluator) String() string {
 func (t *KeyedEvaluator) ToLogical() logical.Logical {
 	// NOTICE: sort the logical operations, eg: a > 1 AND a > 2 AND a < 1 AND a < 2
 	var suffix string
-	switch v := t.v.(type) {
-	case int8, uint8, int16, uint16, int32, uint32, int, int64:
-		suffix = fmt.Sprintf("%016X", v)
-	case uint:
-		var b [8]byte
-		binary.BigEndian.PutUint64(b[:], uint64(v))
-		suffix = fmt.Sprintf("%016X", b)
-	case uint64:
-		var b [8]byte
-		binary.BigEndian.PutUint64(b[:], v)
-		suffix = fmt.Sprintf("%016X", b)
-	case time.Time:
-		suffix = fmt.Sprintf("%016X", v.Unix())
-	default:
-		suffix = fmt.Sprintf("%v", t.v)
+	if t.v != nil {
+		suffix = t.v.String()
 	}
 	return logical.New(t.String(), logical.WithValue(t), logical.WithSortKey(fmt.Sprintf("%s|%d|%s", t.k, t.op, suffix)))
 }
 
-func (t *KeyedEvaluator) Eval(tableName string, ru *rule.Rule) (rule.DatabaseTables, error) {
-	vt, ok := ru.VTable(tableName)
-	if !ok {
-		return nil, errors.Errorf("no vtable '%s' found", tableName)
-	}
-
+func (t *KeyedEvaluator) Eval(vt *rule.VTable) (*rule.Shards, error) {
 	var actualMetadata *rule.ShardMetadata
 
 	dbMetadata, tbMetadata, ok := vt.GetShardMetadata(t.k)
 	if !ok || (dbMetadata == nil && tbMetadata == nil) {
-		return nil, errors.Wrapf(ErrNoRuleMetadata, "cannot get rule metadata %s.%s", tableName, t.k)
+		return nil, errors.Wrapf(ErrNoRuleMetadata, "cannot get rule metadata %s.%s", vt.Name(), t.k)
 	}
 
 	if dbMetadata == tbMetadata || tbMetadata != nil {
@@ -278,7 +210,7 @@ func (t *KeyedEvaluator) Eval(tableName string, ru *rule.Rule) (rule.DatabaseTab
 		actualMetadata = dbMetadata
 	}
 
-	mat, err := Route(ru, tableName, t.toComparative(actualMetadata))
+	mat, err := Route(vt, t.toComparative(actualMetadata))
 	if err != nil {
 		return nil, err
 	}
@@ -289,7 +221,7 @@ func (t *KeyedEvaluator) Eval(tableName string, ru *rule.Rule) (rule.DatabaseTab
 	if it == nil {
 		return nil, nil
 	}
-	return MatchTables(ru, tableName, t.k, it)
+	return MatchTables(vt, t.k, it)
 }
 
 func (t *KeyedEvaluator) Not() Evaluator {
@@ -318,15 +250,30 @@ func (t *KeyedEvaluator) Not() Evaluator {
 	return ret
 }
 
-func Eval(l logical.Logical, tableName string, rule *rule.Rule) (Evaluator, error) {
+func EvalWithVTable(l logical.Logical, vtab *rule.VTable) (Evaluator, error) {
 	ret, err := logical.Eval(l, func(a, b interface{}) (interface{}, error) {
 		x := a.(Evaluator)
 		y := b.(Evaluator)
-		return and(tableName, rule, x, y)
+		z, err := and(vtab, x, y)
+		if err == nil {
+			return z, nil
+		}
+		if errors.Is(err, ErrNoRuleMetadata) {
+			return _noopEvaluator, nil
+		}
+		return nil, errors.WithStack(err)
 	}, func(a, b interface{}) (interface{}, error) {
 		x := a.(Evaluator)
 		y := b.(Evaluator)
-		return or(tableName, rule, x, y)
+		z, err := or(vtab, x, y)
+
+		if err == nil {
+			return z, nil
+		}
+		if errors.Is(err, ErrNoRuleMetadata) {
+			return _noopEvaluator, nil
+		}
+		return nil, errors.WithStack(err)
 	}, func(i interface{}) interface{} {
 		x := i.(Evaluator)
 		return x.Not()
@@ -337,7 +284,41 @@ func Eval(l logical.Logical, tableName string, rule *rule.Rule) (Evaluator, erro
 	return ret.(Evaluator), nil
 }
 
-func or(tableName string, rule *rule.Rule, first, second Evaluator) (Evaluator, error) {
+func Eval(l logical.Logical, vtab *rule.VTable) (Evaluator, error) {
+	ret, err := logical.Eval(l, func(a, b interface{}) (interface{}, error) {
+		x := a.(Evaluator)
+		y := b.(Evaluator)
+		z, err := and(vtab, x, y)
+		if err == nil {
+			return z, nil
+		}
+		if errors.Is(err, ErrNoRuleMetadata) {
+			return _noopEvaluator, nil
+		}
+		return nil, errors.WithStack(err)
+	}, func(a, b interface{}) (interface{}, error) {
+		x := a.(Evaluator)
+		y := b.(Evaluator)
+		z, err := or(vtab, x, y)
+
+		if err == nil {
+			return z, nil
+		}
+		if errors.Is(err, ErrNoRuleMetadata) {
+			return _noopEvaluator, nil
+		}
+		return nil, errors.WithStack(err)
+	}, func(i interface{}) interface{} {
+		x := i.(Evaluator)
+		return x.Not()
+	})
+	if err != nil {
+		return nil, err
+	}
+	return ret.(Evaluator), nil
+}
+
+func or(vt *rule.VTable, first, second Evaluator) (Evaluator, error) {
 	if first == _noopEvaluator || second == _noopEvaluator {
 		return _noopEvaluator, nil
 	}
@@ -350,52 +331,48 @@ func or(tableName string, rule *rule.Rule, first, second Evaluator) (Evaluator, 
 
 	switch a := first.(type) {
 	case *KeyedEvaluator:
-		if !rule.HasColumn(tableName, a.k) {
+		if !vt.HasColumn(a.k) {
 			return _noopEvaluator, nil
 		}
 	}
 
 	switch b := second.(type) {
 	case *KeyedEvaluator:
-		if !rule.HasColumn(tableName, b.k) {
+		if !vt.HasColumn(b.k) {
 			return _noopEvaluator, nil
 		}
 	}
 
-	v1, err := first.Eval(tableName, rule)
+	v1, err := first.Eval(vt)
 	if err != nil {
 		return nil, err
 	}
-	v2, err := second.Eval(tableName, rule)
+	v2, err := second.Eval(vt)
 	if err != nil {
 		return nil, err
 	}
 
-	union := v1.Or(v2)
-	if union.IsFullScan() {
+	if v1 == nil && v2 == nil {
 		return _noopEvaluator, nil
 	}
-	if union.IsEmpty() {
+
+	union := rule.UnionShards(v1, v2)
+	if union.Len() < 1 {
 		return _emptyEvaluator, nil
 	}
 
-	return staticEvaluator(union), nil
+	return (*staticEvaluator)(union), nil
 }
 
-func processRange(tableName string, ru *rule.Rule, begin, end *KeyedEvaluator) (Evaluator, error) {
-	vt, ok := ru.VTable(tableName)
-	if !ok {
-		return nil, errors.Errorf("no vtable '%s' found", tableName)
-	}
-
+func processRange(vt *rule.VTable, begin, end *KeyedEvaluator) (Evaluator, error) {
 	dbm1, tbm1, ok := vt.GetShardMetadata(begin.k)
 	if !ok {
-		return nil, errors.Errorf("no rule metadata found: field=%s", begin.k)
+		return nil, ErrNoRuleMetadata
 	}
 
 	dbm2, tbm2, ok := vt.GetShardMetadata(end.k)
 	if !ok {
-		return nil, errors.Errorf("no rule metadata found: field=%s", end.k)
+		return nil, ErrNoRuleMetadata
 	}
 
 	var m1, m2 *rule.ShardMetadata
@@ -413,7 +390,7 @@ func processRange(tableName string, ru *rule.Rule, begin, end *KeyedEvaluator) (
 		return _noopEvaluator, nil
 	}
 
-	mat, err := Route(ru, tableName, begin.toComparative(m1))
+	mat, err := Route(vt, begin.toComparative(m1))
 	if err != nil {
 		return nil, err
 	}
@@ -422,7 +399,7 @@ func processRange(tableName string, ru *rule.Rule, begin, end *KeyedEvaluator) (
 		return nil, err
 	}
 
-	mat, err = Route(ru, tableName, end.toComparative(m2))
+	mat, err = Route(vt, end.toComparative(m2))
 	if err != nil {
 		return nil, err
 	}
@@ -436,7 +413,7 @@ func processRange(tableName string, ru *rule.Rule, begin, end *KeyedEvaluator) (
 	}
 
 	it := toRangeIterator(beginIt, endIt)
-	dt, err := MatchTables(ru, tableName, begin.k, it)
+	dt, err := MatchTables(vt, begin.k, it)
 	if err != nil {
 		return nil, err
 	}
@@ -445,14 +422,14 @@ func processRange(tableName string, ru *rule.Rule, begin, end *KeyedEvaluator) (
 		return _noopEvaluator, nil
 	}
 
-	if dt.IsEmpty() {
+	if dt.Len() < 1 {
 		return _emptyEvaluator, nil
 	}
 
-	return staticEvaluator(dt), nil
+	return (*staticEvaluator)(dt), nil
 }
 
-func and(tableName string, rule *rule.Rule, first, second Evaluator) (Evaluator, error) {
+func and(vtab *rule.VTable, first, second Evaluator) (Evaluator, error) {
 	if first == _emptyEvaluator || second == _emptyEvaluator {
 		return _emptyEvaluator, nil
 	}
@@ -751,15 +728,15 @@ func and(tableName string, rule *rule.Rule, first, second Evaluator) (Evaluator,
 
 			switch rangeMode {
 			case 1:
-				return processRange(tableName, rule, k1, k2)
+				return processRange(vtab, k1, k2)
 			case -1:
-				return processRange(tableName, rule, k2, k1)
+				return processRange(vtab, k2, k1)
 			}
-		} else if rule.HasColumn(tableName, k1.k) && rule.HasColumn(tableName, k2.k) {
+		} else if vtab.HasColumn(k1.k) && vtab.HasColumn(k2.k) {
 			// SKIP: multiple sharding keys, goto slow path
-		} else if rule.HasColumn(tableName, k1.k) {
+		} else if vtab.HasColumn(k1.k) {
 			return k1, nil
-		} else if rule.HasColumn(tableName, k2.k) {
+		} else if vtab.HasColumn(k2.k) {
 			return k2, nil
 		} else {
 			return _noopEvaluator, nil
@@ -767,29 +744,29 @@ func and(tableName string, rule *rule.Rule, first, second Evaluator) (Evaluator,
 	}
 
 	// slow path
-	v1, err := first.Eval(tableName, rule)
+	v1, err := first.Eval(vtab)
 	if err != nil {
 		return nil, err
 	}
-	v2, err := second.Eval(tableName, rule)
+	v2, err := second.Eval(vtab)
 	if err != nil {
 		return nil, err
 	}
 
-	merged := v1.And(v2)
-
-	if merged == nil {
+	if v1 == nil && v2 == nil {
 		return _noopEvaluator, nil
 	}
 
-	if merged.IsEmpty() {
+	merged := rule.IntersectionShards(v1, v2)
+
+	if merged.Len() < 1 {
 		return _emptyEvaluator, nil
 	}
 
-	return staticEvaluator(merged), nil
+	return (*staticEvaluator)(merged), nil
 }
 
-func NewKeyed(key string, op cmp.Comparison, value interface{}) *KeyedEvaluator {
+func NewKeyed(key string, op cmp.Comparison, value proto.Value) *KeyedEvaluator {
 	return &KeyedEvaluator{
 		k:  key,
 		op: op,

@@ -18,10 +18,10 @@
 package merge
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
+	"github.com/arana-db/arana/pkg/proto"
 )
 
 type Aggregator interface {
-	Aggregate(values []interface{})
-	GetResult() (*gxbig.Decimal, bool)
+	Aggregate(values []proto.Value)
+	GetResult() (proto.Value, bool)
 }

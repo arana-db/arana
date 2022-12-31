@@ -28,6 +28,7 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
 )
@@ -85,27 +86,30 @@ func TestEvaluator_Eval(t *testing.T) {
 		ru4 = makeTestRule(4)
 		ru8 = makeTestRule(8)
 	)
-
 	t.Run("Basic", func(t *testing.T) {
-		a := NewKeyed("uid", cmp.Cgte, 10).ToLogical()
-		b := NewKeyed("uid", cmp.Clte, 13).ToLogical()
+		vtab, _ := ru8.VTable(fakeTable)
+
+		a := NewKeyed("uid", cmp.Cgte, proto.NewValueInt64(10)).ToLogical()
+		b := NewKeyed("uid", cmp.Clte, proto.NewValueInt64(13)).ToLogical()
 		c := a.And(b)
 
-		v, err := Eval(c, fakeTable, ru8)
+		v, err := Eval(c, vtab)
 		assert.NoError(t, err)
-		res, err := v.Eval(fakeTable, ru8)
+		res, err := v.Eval(vtab)
 		assert.NoError(t, err)
 		// 2,3,4,5
 		t.Log("result:", res)
 	})
 
 	t.Run("LogicTuning", func(t *testing.T) {
+		vtab, _ := ru4.VTable(fakeTable)
+
 		// "select * from `tb_user` where (id > 1 or uid = 10003 ) and (id > 1 or uid = 10004 or uid = 10005)";
-		k1 := NewKeyed("id", cmp.Cgt, 1).ToLogical()
-		k2 := NewKeyed("uid", cmp.Ceq, 10003).ToLogical()
-		k3 := NewKeyed("id", cmp.Cgt, 1).ToLogical()
-		k4 := NewKeyed("uid", cmp.Ceq, 10004).ToLogical()
-		k5 := NewKeyed("uid", cmp.Ceq, 10005).ToLogical()
+		k1 := NewKeyed("id", cmp.Cgt, proto.NewValueInt64(1)).ToLogical()
+		k2 := NewKeyed("uid", cmp.Ceq, proto.NewValueInt64(10003)).ToLogical()
+		k3 := NewKeyed("id", cmp.Cgt, proto.NewValueInt64(1)).ToLogical()
+		k4 := NewKeyed("uid", cmp.Ceq, proto.NewValueInt64(10004)).ToLogical()
+		k5 := NewKeyed("uid", cmp.Ceq, proto.NewValueInt64(10005)).ToLogical()
 
 		l := k1.Or(k2).And(k3.Or(k4).Or(k5))
 
@@ -113,19 +117,21 @@ func TestEvaluator_Eval(t *testing.T) {
 		// (id > 1 or uid = 10003 ) and (id > 1 or uid = 10004 or uid = 10005)
 		// ( id > 1 OR ( uid = 10003 AND uid = 10005 ) OR ( uid = 10003 AND uid = 10004 ) )
 		// id > 1
-		v, err := Eval(l, fakeTable, ru4)
+		v, err := Eval(l, vtab)
 		assert.NoError(t, err)
 		assert.Equal(t, "id > 1", v.(fmt.Stringer).String())
 	})
 
 	t.Run("AlwayFalse", func(t *testing.T) {
-		l1 := NewKeyed("uid", cmp.Cgte, 4).ToLogical()
-		l2 := NewKeyed("uid", cmp.Cgte, 7).ToLogical()
-		l3 := NewKeyed("uid", cmp.Clt, 8).ToLogical()
+		vtab, _ := ru4.VTable(fakeTable)
+
+		l1 := NewKeyed("uid", cmp.Cgte, proto.NewValueInt64(4)).ToLogical()
+		l2 := NewKeyed("uid", cmp.Cgte, proto.NewValueInt64(7)).ToLogical()
+		l3 := NewKeyed("uid", cmp.Clt, proto.NewValueInt64(8)).ToLogical()
 
 		l := l1.And(l2).And(l3) // always false: uid >= 4 AND uid >= 7 AND uid < 8
 
-		v, err := Eval(l, "fake_table", ru4)
+		v, err := Eval(l, vtab)
 		assert.NoError(t, err)
 		t.Logf("%s => %s", l.ToString("AND", "OR"), v)
 	})

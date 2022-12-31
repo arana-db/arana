@@ -39,10 +39,10 @@ type (
 	// VConn represents a virtual connection which can be used to query/exec from a db.
 	VConn interface {
 		// Query requests a query command.
-		Query(ctx context.Context, db string, query string, args ...interface{}) (Result, error)
+		Query(ctx context.Context, db string, query string, args ...Value) (Result, error)
 
 		// Exec requests a exec command
-		Exec(ctx context.Context, db string, query string, args ...interface{}) (Result, error)
+		Exec(ctx context.Context, db string, query string, args ...Value) (Result, error)
 	}
 
 	// PlanType represents the type of Plan.
@@ -71,7 +71,7 @@ type (
 	// Callable represents sql caller.
 	Callable interface {
 		// Call executes a sql.
-		Call(ctx context.Context, sql string, args ...interface{}) (res Result, warn uint16, err error)
+		Call(ctx context.Context, sql string, args ...Value) (res Result, warn uint16, err error)
 		// CallFieldList lists fields.
 		CallFieldList(ctx context.Context, table, wildcard string) ([]Field, error)
 	}
@@ -109,7 +109,7 @@ type (
 		SetWeight(weight Weight) error
 
 		// Variable returns the variable value.
-		Variable(ctx context.Context, name string) (string, error)
+		Variable(ctx context.Context, name string) (interface{}, error)
 	}
 
 	// Executable represents an executor which can send sql request.

@@ -100,9 +100,10 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 	}
 
 	if shards == nil {
-		if shards, fullScan, err = (*optimize.Sharder)(o.Rule).Shard(tableName, stmt.Where, o.Args...); err != nil && !fullScan {
-			return nil, errors.Wrap(err, "calculate shards failed")
+		if shards, err = optimize.NewXSharder(o.Rule, o.Args).SimpleShard(tableName, stmt.Where); err != nil {
+			return nil, errors.WithStack(err)
 		}
+		fullScan = shards == nil
 	}
 
 	log.Debugf("compute shards: result=%s, isFullScan=%v", shards, fullScan)
@@ -452,7 +453,7 @@ func getSelectFlag(ru *rule.Rule, stmt *ast.SelectStatement) (flag uint32) {
 	return
 }
 
-func overwriteLimit(stmt *ast.SelectStatement, args *[]interface{}) (originOffset, overwriteLimit int64) {
+func overwriteLimit(stmt *ast.SelectStatement, args *[]proto.Value) (originOffset, overwriteLimit int64) {
 	if stmt == nil || stmt.Limit == nil {
 		return 0, 0
 	}
@@ -466,11 +467,11 @@ func overwriteLimit(stmt *ast.SelectStatement, args *[]interface{}) (originOffse
 
 	if stmt.Limit.IsOffsetVar() {
 		offsetIndex = offset
-		offset = (*args)[offsetIndex].(int64)
+		offset, _ = (*args)[offsetIndex].Int64()
 
 		if !stmt.Limit.IsLimitVar() {
 			limit = stmt.Limit.Limit()
-			*args = append(*args, limit)
+			*args = append(*args, proto.NewValueInt64(limit))
 			limitIndex = int64(len(*args) - 1)
 		}
 	}
@@ -478,10 +479,10 @@ func overwriteLimit(stmt *ast.SelectStatement, args *[]interface{}) (originOffse
 
 	if stmt.Limit.IsLimitVar() {
 		limitIndex = limit
-		limit = (*args)[limitIndex].(int64)
+		limit, _ = (*args)[limitIndex].Int64()
 
 		if !stmt.Limit.IsOffsetVar() {
-			*args = append(*args, int64(0))
+			*args = append(*args, proto.NewValueInt64(0))
 			offsetIndex = int64(len(*args) - 1)
 		}
 	}
@@ -498,8 +499,8 @@ func overwriteLimit(stmt *ast.SelectStatement, args *[]interface{}) (originOffse
 
 		newLimitVar := limit + offset
 		overwriteLimit = newLimitVar
-		(*args)[limitIndex] = newLimitVar
-		(*args)[offsetIndex] = int64(0)
+		(*args)[limitIndex] = proto.NewValueInt64(newLimitVar)
+		(*args)[offsetIndex] = proto.NewValueInt64(0)
 		return
 	}
 

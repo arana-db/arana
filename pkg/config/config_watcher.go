@@ -32,9 +32,7 @@ import (
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
-var (
-	_ ConfigWatcher = (*configWatcher)(nil)
-)
+var _ ConfigWatcher = (*configWatcher)(nil)
 
 type (
 	consumer          func(key PathKey, ret []byte)
@@ -42,7 +40,6 @@ type (
 )
 
 func NewConfigWatcher(tenant string, storeOperate StoreOperator, pathInfo *PathInfo) (*configWatcher, error) {
-
 	holders := map[PathKey]*atomic.Value{}
 	for k := range pathInfo.ConfigKeyMapping {
 		holders[k] = &atomic.Value{}

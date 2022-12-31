@@ -19,7 +19,6 @@ package merge
 
 import (
 	"container/heap"
-	"fmt"
 )
 
 import (
@@ -56,14 +55,32 @@ func (pq *PriorityQueue) Less(i, j int) bool {
 
 		val1, _ := rowi.Get(item.Column)
 		val2, _ := rowj.Get(item.Column)
-		if val1 != val2 {
-			if item.Desc {
-				return fmt.Sprintf("%v", val1) > fmt.Sprintf("%v", val2)
-			}
-			return fmt.Sprintf("%v", val1) < fmt.Sprintf("%v", val2)
+
+		var c int
+		switch {
+		case val1 == nil && val2 == nil:
+		case val1 == nil && val2 != nil:
+			// NULL is less than anything
+			c = -1
+		case val1 != nil && val2 == nil:
+			// NULL is less than anything
+			c = 1
+		case val1 != nil && val2 != nil:
+			c = proto.CompareValue(val1, val2)
 		}
+
+		if c == 0 {
+			continue
+		}
+
+		if item.Desc {
+			c *= -1
+		}
+
+		return c < 0
 	}
-	return true
+
+	return false
 }
 
 func (pq *PriorityQueue) Swap(i, j int) {
