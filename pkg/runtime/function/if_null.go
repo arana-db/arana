@@ -19,11 +19,12 @@ package function
 
 import (
 	"context"
+
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/pkg/errors"
 )
 
-// FuncIf is  https://dev.mysql.com/doc/refman/5.6/en/flow-control-functions.html#function_ifnull
+// FuncIfNull is https://dev.mysql.com/doc/refman/5.6/en/flow-control-functions.html#function_ifnull
 const FuncIfNull = "IFNULL"
 
 var _ proto.Func = (*ifNullFunc)(nil)
@@ -35,20 +36,19 @@ func init() {
 type ifNullFunc struct{}
 
 func (i ifNullFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
-	val0, err := inputs[0].Value(ctx)
+	val1, err := inputs[0].Value(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-
-	val1, err := inputs[1].Value(ctx)
+	val2, err := inputs[1].Value(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-
-	if val0 != nil {
-		return val0, nil
+	if val1 != nil {
+		return val1, nil
+	} else {
+		return val2, nil
 	}
-	return val1, nil
 }
 
 func (i ifNullFunc) NumInput() int {

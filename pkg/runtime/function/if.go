@@ -19,11 +19,8 @@ package function
 
 import (
 	"context"
-	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/pkg/errors"
 )
 
 // FuncIf is  https://dev.mysql.com/doc/refman/5.6/en/flow-control-functions.html#function_if
@@ -38,26 +35,25 @@ func init() {
 type ifFunc struct{}
 
 func (i ifFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
-	val0, err := inputs[0].Value(ctx)
+	val1, err := inputs[0].Value(ctx)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	val2, err := inputs[1].Value(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
 
-	val1, err := inputs[1].Value(ctx)
+	val3, err := inputs[2].Value(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
 
-	val2, err := inputs[2].Value(ctx)
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-
-	isTrue, err := val0.Bool()
-	if isTrue && val1 != nil {
-		return val1, nil
-	} else {
+	isTrue, err := val1.Int64()
+	if isTrue != 0 && val2 != nil {
 		return val2, nil
+	} else {
+		return val3, nil
 	}
 }
 
