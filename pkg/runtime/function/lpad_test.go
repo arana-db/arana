@@ -42,17 +42,17 @@ func TestLpad(t *testing.T) {
 	}
 
 	for _, it := range []tt{
-		{"hello", 10, "hahaha", "hahahhello"},
-		{"hello", 10, "world", "worldhello"},
-		{"hello", 3, "hahaha", "hel"},
-		{"hello", 10, "ha", "hahahhello"},
-		{"hello", 3.4, "h", "hel"},
-		{"hello", 0, "h", ""},
-		{"hello", -3, "h", "NULL"},
-		{"", 3, "ha", "hah"},
-		{"hello", 5, "world", "hello"},
-		{12345, 30, "world", "worldworldworldworldworld12345"},
-		{12345, 7, 9, "9912345"},
+		{proto.NewValueString("hello"), proto.NewValueInt64(10), proto.NewValueString("hahaha"), "hahahhello"},
+		{proto.NewValueString("hello"), proto.NewValueInt64(10), proto.NewValueString("world"), "worldhello"},
+		{proto.NewValueString("hello"), proto.NewValueInt64(3), proto.NewValueString("hahaha"), "hel"},
+		{proto.NewValueString("hello"), proto.NewValueInt64(10), proto.NewValueString("ha"), "hahahhello"},
+		{proto.NewValueString("hello"), proto.NewValueFloat64(3.4), proto.NewValueString("h"), "hel"},
+		{proto.NewValueString("hello"), proto.NewValueInt64(0), proto.NewValueString("h"), ""},
+		{proto.NewValueString("hello"), proto.NewValueInt64(-3), proto.NewValueString("h"), "NULL"},
+		{proto.NewValueString(""), proto.NewValueInt64(3), proto.NewValueString("ha"), "hah"},
+		{proto.NewValueString("hello"), proto.NewValueInt64(5), proto.NewValueString("world"), "hello"},
+		{proto.NewValueInt64(12345), proto.NewValueInt64(30), proto.NewValueString("world"), "worldworldworldworldworld12345"},
+		{proto.NewValueInt64(12345), proto.NewValueInt64(7), proto.NewValueInt64(9), "9912345"},
 	} {
 		t.Run(it.want, func(t *testing.T) {
 			out, err := fn.Apply(context.Background(), proto.ToValuer(it.inFirst), proto.ToValuer(it.inSecond), proto.ToValuer(it.inThird))

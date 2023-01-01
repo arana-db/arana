@@ -19,13 +19,9 @@ package function
 
 import (
 	"context"
-	"fmt"
-	"strings"
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
-
 	"github.com/pkg/errors"
 )
 
@@ -47,7 +43,7 @@ type lpadFunc struct{}
 
 func (a lpadFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
 	if len(inputs) != 3 {
-		return "", errors.New("The Lpad function must accept three parameters\n")
+		return nil, errors.New("The Lpad function must accept three parameters\n")
 	}
 
 	strInput, err := inputs[0].Value(ctx)
@@ -63,38 +59,28 @@ func (a lpadFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Valu
 		return nil, errors.WithStack(err)
 	}
 
-	lenNum, err := gxbig.NewDecFromString(fmt.Sprint(lenInput))
+	lenNum, err := lenInput.Decimal()
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
 
 	if lenNum.IsNegative() {
-		return "NULL", nil
+		return proto.NewValueString("NULL"), nil
 	} else if lenNum.IsZero() {
-		return "", nil
+		return proto.NewValueString(""), nil
 	}
 
-	if !strings.Contains(fmt.Sprint(lenInput), ".") {
-		num, err := lenNum.ToInt()
-		if err != nil {
-			return "", err
-		}
-		return a.getLpadStr(runes.ConvertToRune(strInput), num, runes.ConvertToRune(padstrInput))
-	}
-	num, err := lenNum.ToFloat64()
-	if err != nil {
-		return "", err
-	}
-	return a.getLpadStr(runes.ConvertToRune(strInput), int64(num), runes.ConvertToRune(padstrInput))
+	return a.getLpadStr(runes.ConvertToRune(strInput.String()), lenNum.IntPart(), runes.ConvertToRune(padstrInput.String()))
 }
 
 func (a lpadFunc) NumInput() int {
 	return 3
 }
 
-func (a lpadFunc) getLpadStr(StrRunes []rune, num int64, PadstrRunes []rune) (string, error) {
+func (a lpadFunc) getLpadStr(StrRunes []rune, num int64, PadstrRunes []rune) (proto.Value, error) {
 	if num <= int64(len(StrRunes)) {
-		return string(StrRunes[:num]), nil
+		result := string(StrRunes[:num])
+		return proto.NewValueString(result), nil
 	} else {
 		lenStrRunes := int64(len(StrRunes))
 		lenAppend := num - int64(len(StrRunes))
@@ -104,6 +90,6 @@ func (a lpadFunc) getLpadStr(StrRunes []rune, num int64, PadstrRunes []rune) (st
 			lenAppend -= int64(len(PadstrRunes))
 		}
 		result = result + string(PadstrRunes[:lenAppend]) + string(StrRunes[:lenStrRunes])
-		return result, nil
+		return proto.NewValueString(result), nil
 	}
 }
