@@ -36,6 +36,7 @@ import (
 	_ "github.com/arana-db/arana/pkg/config/file"
 	_ "github.com/arana-db/arana/pkg/config/nacos"
 	"github.com/arana-db/arana/pkg/constants"
+	"github.com/arana-db/arana/pkg/security"
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
@@ -62,7 +63,13 @@ func init() {
 }
 
 func Run(bootstrapPath string, addr string) error {
-	op, err := config.LoadTenantOperator(bootstrapPath)
+	bootOptions, err := config.LoadBootOptions(bootstrapPath)
+	if err != nil {
+		return err
+	}
+	security.DefaultTenantManager().SetSupervisor(bootOptions.Supervisor)
+
+	op, err := config.LoadTenantOperator(bootOptions)
 	if err != nil {
 		log.Fatalf("start admin api server failed: %v", err)
 		return err

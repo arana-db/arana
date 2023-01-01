@@ -30,3 +30,7 @@ config:
 trace:
   type: jaeger
   address: 'http://jaeger:14268/api/traces'
+
+supervisor:
+  username: root
+  password: root

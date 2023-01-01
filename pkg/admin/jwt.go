@@ -26,12 +26,9 @@ import (
 	jwt "github.com/appleboy/gin-jwt/v2"
 
 	"github.com/gin-gonic/gin"
-
-	"gopkg.in/yaml.v3"
 )
 
 import (
-	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/security"
 )
 
@@ -131,9 +128,10 @@ func NewAuthMiddleware(server *Server, realm, secretKey string) (*jwt.GinJWTMidd
 }
 
 func validateUser(tenant, username, password string) bool {
+	tm := security.DefaultTenantManager()
 	// validate normal user
 	if tenant != "" {
-		user, exist := security.DefaultTenantManager().GetUser(tenant, username)
+		user, exist := tm.GetUser(tenant, username)
 		if exist && user.Password == password {
 			return true
 		}
@@ -141,14 +139,8 @@ func validateUser(tenant, username, password string) bool {
 	}
 
 	// validate supervisor
-	v, err := config.GetStoreOperate().Get(config.DefaultSupervisorPath)
-	if err != nil || len(v) == 0 {
-		return false
-	}
-
-	var supervisor config.User
-	err = yaml.Unmarshal(v, &supervisor)
-	if err != nil {
+	supervisor := tm.GetSupervisor()
+	if supervisor == nil {
 		return false
 	}
 

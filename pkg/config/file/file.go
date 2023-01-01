@@ -166,11 +166,6 @@ func (s *storeOperate) updateContents(cfg config.Configuration, notify bool) {
 	ret, _ := yaml.Marshal(tenants)
 	s.contents[config.DefaultTenantsPath] = string(ret)
 
-	if cfg.Data.Supervisor != nil {
-		ret, _ := yaml.Marshal(cfg.Data.Supervisor)
-		s.contents[config.DefaultSupervisorPath] = string(ret)
-	}
-
 	if env.IsDevelopEnvironment() {
 		log.Debugf("[ConfigCenter][File] load config content : %#v", s.contents)
 	}

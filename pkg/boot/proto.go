@@ -120,6 +120,9 @@ type Discovery interface {
 	// InitTenant initializes tenant (just a workaround, TBD)
 	InitTenant(tenant string) error
 
+	// InitSupervisor initializes supervisor
+	InitSupervisor(ctx context.Context) error
+
 	// GetOptions get options
 	GetOptions() *config.BootOptions
 }

@@ -76,11 +76,12 @@ type (
 	}
 
 	BootOptions struct {
-		Spec      `yaml:",inline"`
-		Config    *Options    `yaml:"config" json:"config"`
-		Listeners []*Listener `validate:"required,dive" yaml:"listeners" json:"listeners"`
-		Registry  *Registry   `yaml:"registry" json:"registry"`
-		Trace     *Trace      `yaml:"trace" json:"trace"`
+		Spec       `yaml:",inline"`
+		Config     *Options    `yaml:"config" json:"config"`
+		Listeners  []*Listener `validate:"required,dive" yaml:"listeners" json:"listeners"`
+		Registry   *Registry   `yaml:"registry" json:"registry"`
+		Trace      *Trace      `yaml:"trace" json:"trace"`
+		Supervisor *User       `validate:"required,dive" yaml:"supervisor" json:"supervisor"`
 	}
 
 	// Configuration represents an Arana configuration.
@@ -93,8 +94,7 @@ type (
 	DataSourceType string
 
 	Data struct {
-		Supervisor *User     `validate:"required,dive" yaml:"supervisor" json:"supervisor"`
-		Tenants    []*Tenant `validate:"required,dive" yaml:"tenants" json:"tenants"`
+		Tenants []*Tenant `validate:"required,dive" yaml:"tenants" json:"tenants"`
 	}
 
 	Tenant struct {

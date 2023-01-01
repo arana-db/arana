@@ -20,9 +20,6 @@ apiVersion: "1.0"
 metadata:
   name: arana-config
 data:
-  supervisor:
-    username: root
-    password: root
   tenants:
     - name: arana
       users:

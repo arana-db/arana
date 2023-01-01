@@ -41,9 +41,8 @@ const (
 )
 
 var (
-	DefaultRootPath       PathKey
-	DefaultTenantsPath    PathKey
-	DefaultSupervisorPath PathKey
+	DefaultRootPath    PathKey
+	DefaultTenantsPath PathKey
 )
 
 func initPath(root, version string) {
@@ -55,7 +54,6 @@ func initPath(root, version string) {
 	}
 	DefaultRootPath = PathKey(fmt.Sprintf(_rootPathTemp, root, version))
 	DefaultTenantsPath = PathKey(filepath.Join(string(DefaultRootPath), "tenants"))
-	DefaultSupervisorPath = PathKey(filepath.Join(string(DefaultRootPath), "supervisor"))
 }
 
 const (

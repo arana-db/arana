@@ -112,6 +112,10 @@ func Run(bootstrapConfigPath string) {
 		log.Warnf("init trace provider failed: %v", err)
 	}
 
+	if err := discovery.InitSupervisor(context.Background()); err != nil {
+		log.Warnf("init supervisor failed: %v", err)
+	}
+
 	propeller.Start()
 
 	ctx, cancel := context.WithCancel(context.Background())
