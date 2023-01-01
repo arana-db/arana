@@ -19,9 +19,14 @@ package function
 
 import (
 	"context"
+)
 
-	"github.com/arana-db/arana/pkg/proto"
+import (
 	"github.com/pkg/errors"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/proto"
 )
 
 // FuncIfNull is https://dev.mysql.com/doc/refman/5.6/en/flow-control-functions.html#function_ifnull
