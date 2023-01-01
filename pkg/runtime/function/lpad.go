@@ -78,18 +78,19 @@ func (a lpadFunc) NumInput() int {
 }
 
 func (a lpadFunc) getLpadStr(StrRunes []rune, num int64, PadstrRunes []rune) (proto.Value, error) {
-	if num <= int64(len(StrRunes)) {
+	StrRunesLen := int64(len(StrRunes))
+	PadstrRunesLen := int64(len(PadstrRunes))
+	if num <= StrRunesLen {
 		result := string(StrRunes[:num])
 		return proto.NewValueString(result), nil
 	} else {
-		lenStrRunes := int64(len(StrRunes))
-		lenAppend := num - int64(len(StrRunes))
+		lenAppend := num - StrRunesLen
 		result := ""
-		for lenAppend > int64(len(PadstrRunes)) {
-			result = result + string(PadstrRunes[:int64(len(PadstrRunes))])
-			lenAppend -= int64(len(PadstrRunes))
+		for lenAppend > PadstrRunesLen {
+			result = result + string(PadstrRunes[:PadstrRunesLen])
+			lenAppend -= PadstrRunesLen
 		}
-		result = result + string(PadstrRunes[:lenAppend]) + string(StrRunes[:lenStrRunes])
+		result = result + string(PadstrRunes[:lenAppend]) + string(StrRunes[:StrRunesLen])
 		return proto.NewValueString(result), nil
 	}
 }
