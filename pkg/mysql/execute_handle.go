@@ -69,77 +69,114 @@ func (l *Listener) handleInitDB(c *Conn, ctx *proto.Context) error {
 }
 
 func (l *Listener) handleQuery(c *Conn, ctx *proto.Context) error {
-	c.startWriterBuffering()
-	defer func() {
-		if err := c.endWriterBuffering(); err != nil {
-			log.Errorf("conn %v: flush() failed: %v", ctx.ConnectionID, err)
-		}
-	}()
-
 	c.recycleReadPacket()
 
-	var (
-		result proto.Result
-		err    error
-		warn   uint16
-	)
+	handleOnce := func(result proto.Result, failure error, warn uint16, hasMore bool) error {
+		c.startWriterBuffering()
+		defer func() {
+			if err := c.endWriterBuffering(); err != nil {
+				log.Errorf("conn %v: flush() failed: %v", ctx.ConnectionID, err)
+			}
+		}()
 
-	if result, warn, err = l.executor.ExecutorComQuery(ctx); err != nil {
-		log.Errorf("executor com_query error %v: %+v", ctx.ConnectionID, err)
-		if wErr := c.writeErrorPacketFromError(err); wErr != nil {
-			log.Errorf("Error writing query error to client %v: %v", ctx.ConnectionID, wErr)
-			return wErr
+		if failure != nil {
+			log.Errorf("executor com_query error %v: %+v", ctx.ConnectionID, failure)
+			if err := c.writeErrorPacketFromError(failure); err != nil {
+				log.Errorf("Error writing query error to client %v: %v", ctx.ConnectionID, err)
+				return err
+			}
+			return nil
+		}
+
+		if result == nil {
+			log.Errorf("executor com_query error %v: %+v", ctx.ConnectionID, "un dataset")
+			if err := c.writeErrorPacketFromError(errors.NewSQLError(mysql.ERBadNullError, mysql.SSUnknownSQLState, "un dataset")); err != nil {
+				log.Errorf("Error writing query error to client %v: %v", ctx.ConnectionID, failure)
+				return err
+			}
+			return nil
+		}
+
+		var ds proto.Dataset
+		if ds, failure = result.Dataset(); failure != nil {
+			log.Errorf("get dataset error %v: %v", ctx.ConnectionID, failure)
+			if err := c.writeErrorPacketFromError(failure); err != nil {
+				log.Errorf("Error writing query error to client %v: %v", ctx.ConnectionID, err)
+				return err
+			}
+			return nil
+		}
+
+		if ds == nil {
+			// A successful callback with no fields means that this was a
+			// DML or other write-only operation.
+			//
+			// We should not send any more packets after this, but make sure
+			// to extract the affected rows and last insert id from the result
+			// struct here since clients expect it.
+			var (
+				affected, _ = result.RowsAffected()
+				insertId, _ = result.LastInsertId()
+			)
+
+			statusFlag := c.StatusFlags
+			if hasMore {
+				statusFlag |= mysql.ServerMoreResultsExists
+			}
+
+			if err := c.writeOKPacket(affected, insertId, statusFlag, warn); err != nil {
+				log.Errorf("failed to write OK packet into client %v: %v", ctx.ConnectionID, err)
+				return err
+			}
+			return nil
+		}
+
+		fields, _ := ds.Fields()
+
+		if err := c.writeFields(fields); err != nil {
+			log.Errorf("write fields error %v: %v", ctx.ConnectionID, err)
+			return err
+		}
+		if err := c.writeDataset(ds); err != nil {
+			log.Errorf("write dataset error %v: %v", ctx.ConnectionID, err)
+			return err
+		}
+		if err := c.writeEndResult(hasMore, 0, 0, warn); err != nil {
+			log.Errorf("Error writing result to %s: %v", c, err)
+			return err
 		}
 		return nil
 	}
+	type compositeResult struct {
+		r proto.Result
+		w uint16
+		e error
+	}
 
-	if result == nil {
-		log.Errorf("executor com_query error %v: %+v", ctx.ConnectionID, "un dataset")
-		if wErr := c.writeErrorPacketFromError(errors.NewSQLError(mysql.ERBadNullError, mysql.SSUnknownSQLState, "un dataset")); wErr != nil {
-			log.Errorf("Error writing query error to client %v: %v", ctx.ConnectionID, err)
-			return wErr
+	var prev *compositeResult
+	err := l.executor.ExecutorComQuery(ctx, func(result proto.Result, warns uint16, failure error) error {
+		if prev != nil {
+			if err := handleOnce(prev.r, prev.e, prev.w, true); err != nil {
+				return err
+			}
+		}
+		prev = &compositeResult{
+			r: result,
+			w: warns,
+			e: failure,
 		}
 		return nil
+	})
+	if err != nil {
+		return err
 	}
 
-	var ds proto.Dataset
-	if ds, err = result.Dataset(); err != nil {
-		log.Errorf("get dataset error %v: %v", ctx.ConnectionID, err)
-		if wErr := c.writeErrorPacketFromError(err); wErr != nil {
-			log.Errorf("Error writing query error to client %v: %v", ctx.ConnectionID, wErr)
-			return wErr
+	if prev != nil {
+		if err := handleOnce(prev.r, prev.e, prev.w, false); err != nil {
+			return err
 		}
-		return nil
 	}
 
-	if ds == nil {
-		// A successful callback with no fields means that this was a
-		// DML or other write-only operation.
-		//
-		// We should not send any more packets after this, but make sure
-		// to extract the affected rows and last insert id from the result
-		// struct here since clients expect it.
-		var (
-			affected, _ = result.RowsAffected()
-			insertId, _ = result.LastInsertId()
-		)
-		return c.writeOKPacket(affected, insertId, c.StatusFlags, warn)
-	}
-
-	fields, _ := ds.Fields()
-
-	if err = c.writeFields(fields); err != nil {
-		log.Errorf("write fields error %v: %v", ctx.ConnectionID, err)
-		return err
-	}
-	if err = c.writeDataset(ds); err != nil {
-		log.Errorf("write dataset error %v: %v", ctx.ConnectionID, err)
-		return err
-	}
-	if err = c.writeEndResult(false, 0, 0, warn); err != nil {
-		log.Errorf("Error writing result to %s: %v", c, err)
-		return err
-	}
 	return nil
 }
 

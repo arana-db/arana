@@ -50,6 +50,8 @@ type (
 
 		Stmt *Stmt
 
+		CharacterSet uint8
+
 		// TransientVariables stores the transient local variables, it will sync with the remote node automatically.
 		//   - SYSTEM: @@xxx
 		//   - USER: @xxx
@@ -68,7 +70,7 @@ type (
 		InGlobalTransaction(ctx *Context) bool
 		ExecuteUseDB(ctx *Context) error
 		ExecuteFieldList(ctx *Context) ([]Field, error)
-		ExecutorComQuery(ctx *Context) (Result, uint16, error)
+		ExecutorComQuery(ctx *Context, callback func(Result, uint16, error) error) error
 		ExecutorComStmtExecute(ctx *Context) (Result, uint16, error)
 		ConnectionClose(ctx *Context)
 	}

@@ -51,5 +51,4 @@ func TestSpace(t *testing.T) {
 			assert.Equal(t, v.want, fmt.Sprint(out))
 		})
 	}
-
 }
