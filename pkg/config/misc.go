@@ -56,12 +56,21 @@ func LoadBootOptions(path string) (*BootOptions, error) {
 	return &cfg, nil
 }
 
-// LoadTenantOperator loads tenant operator from specified file path.
-func LoadTenantOperator(path string) (TenantOperator, error) {
+// LoadTenantOperatorFromPath loads tenant operator from specified file path.
+func LoadTenantOperatorFromPath(path string) (TenantOperator, error) {
 	cfg, err := LoadBootOptions(path)
 	if err != nil {
 		return nil, err
 	}
+	if err := Init(*cfg.Config, cfg.Spec.APIVersion); err != nil {
+		return nil, err
+	}
+
+	return NewTenantOperator(GetStoreOperate())
+}
+
+// LoadTenantOperator loads tenant operator from boot option.
+func LoadTenantOperator(cfg *BootOptions) (TenantOperator, error) {
 	if err := Init(*cfg.Config, cfg.Spec.APIVersion); err != nil {
 		return nil, err
 	}
