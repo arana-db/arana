@@ -38,6 +38,7 @@ import (
 	"github.com/arana-db/arana/pkg/admin/exception"
 	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/constants"
+	"github.com/arana-db/arana/pkg/util/log"
 )
 
 const (
@@ -116,6 +117,18 @@ func (srv *Server) Listen(addr string) error {
 	srv.engine.Use(gin.Logger())
 	srv.engine.Use(gin.Recovery())
 	srv.engine.Use(CORSMiddleware())
+
+	// Jwt middle ware
+	authMiddleware, err := NewAuthMiddleware(srv, "test", "arana-auth")
+	if err != nil {
+		log.Fatal("JWT Error:" + err.Error())
+	}
+
+	srv.engine.POST("/login", authMiddleware.LoginHandler)
+	auth := srv.engine.Group("/auth")
+	auth.POST("/logout", authMiddleware.LogoutHandler)
+	auth.POST("/refresh_token", authMiddleware.RefreshHandler)
+	srv.engine.Use(authMiddleware.MiddlewareFunc())
 
 	// Mount APIs
 	rg := srv.engine.Group("/api/v1")

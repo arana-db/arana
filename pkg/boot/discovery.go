@@ -38,6 +38,7 @@ import (
 	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	rrule "github.com/arana-db/arana/pkg/runtime/rule"
+	"github.com/arana-db/arana/pkg/security"
 	"github.com/arana-db/arana/pkg/trace"
 	"github.com/arana-db/arana/pkg/util/log"
 	"github.com/arana-db/arana/pkg/util/misc"
@@ -208,6 +209,14 @@ func (fp *discovery) InitTrace(ctx context.Context) error {
 		return err
 	}
 	return trace.Initialize(ctx, fp.options.Trace)
+}
+
+func (fp *discovery) InitSupervisor(ctx context.Context) error {
+	if fp.options.Supervisor == nil {
+		return nil
+	}
+	security.DefaultTenantManager().SetSupervisor(fp.options.Supervisor)
+	return nil
 }
 
 func (fp *discovery) ListListeners(ctx context.Context) []*config.Listener {
