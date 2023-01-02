@@ -521,7 +521,9 @@ func (i *IndexOption) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int
 	hasPrevOption := false
 
 	if i.KeyBlockSize > 0 {
-		sb.WriteString(fmt.Sprintf("KEY_BLOCK_SIZE=%d", i.KeyBlockSize))
+		if _, err := fmt.Fprintf(sb, "KEY_BLOCK_SIZE=%d", i.KeyBlockSize); err != nil {
+			return err
+		}
 		hasPrevOption = true
 	}
 
