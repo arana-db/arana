@@ -168,7 +168,7 @@ L:
 		case item := <-chShadowRules:
 			// TODO: need implementation
 			_ = item
-			panic("implement me")
+			// panic("implement me")
 		case item := <-chClusters:
 			for i := range item.DeleteClusters {
 				if err := d.onClusterDel(ctx, item.DeleteClusters[i].Name); err != nil {

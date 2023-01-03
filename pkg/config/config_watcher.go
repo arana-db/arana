@@ -115,9 +115,9 @@ func (c *configWatcher) Subscribe(ctx context.Context, et EventType, f EventCall
 }
 
 func (c *configWatcher) watchFromStore(consumer consumer) error {
-	cancels := make([]context.CancelFunc, 0, len(c.pathInfo.ConfigKeyMapping))
+	cancels := make([]context.CancelFunc, 0, len(c.pathInfo.ConfigEventMapping))
 
-	for key := range c.pathInfo.ConfigKeyMapping {
+	for key := range c.pathInfo.ConfigEventMapping {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancels = append(cancels, cancel)
 		ch, err := c.storeOperate.Watch(key)
