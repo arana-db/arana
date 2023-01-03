@@ -21,10 +21,15 @@ import (
 	"context"
 	"fmt"
 	"testing"
+)
 
-	"github.com/arana-db/arana/pkg/proto"
+import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/proto"
 )
 
 // FuncIf is  https://dev.mysql.com/doc/refman/5.6/en/flow-control-functions.html#function_if

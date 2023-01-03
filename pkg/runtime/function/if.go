@@ -45,6 +45,9 @@ func (i ifFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value,
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
+	if val1 == nil {
+		return nil, errors.WithStack(errors.New("IF(expr1,expr2,expr3) expr1 can not be empty"))
+	}
 	val2, err := inputs[1].Value(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -55,12 +58,12 @@ func (i ifFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value,
 		return nil, errors.WithStack(err)
 	}
 
-	isTrue, err := val1.Int64()
-	if isTrue != 0 && val2 != nil {
-		return val2, nil
-	} else {
-		return val3, nil
+	if v, _ := val1.Int64(); v != 0 {
+		if val2 != nil {
+			return val2, nil
+		}
 	}
+	return val3, nil
 }
 
 func (i ifFunc) NumInput() int {
