@@ -51,9 +51,9 @@ func (i ifNullFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Va
 	}
 	if val1 != nil {
 		return val1, nil
-	} else {
-		return val2, nil
 	}
+	return val2, nil
+
 }
 
 func (i ifNullFunc) NumInput() int {
