@@ -21,15 +21,10 @@ import (
 	"context"
 	"fmt"
 	"testing"
-)
 
-import (
+	"github.com/arana-db/arana/pkg/proto"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
-)
-
-import (
-	"github.com/arana-db/arana/pkg/proto"
 )
 
 // FuncIf is  https://dev.mysql.com/doc/refman/5.6/en/flow-control-functions.html#function_if
@@ -59,6 +54,8 @@ func TestIf(t *testing.T) {
 		{proto.NewValueBool(false), proto.NewValueString("yes"), proto.NewValueFloat64(0.00000000001), proto.NewValueFloat64(0.00000000001)},
 		{proto.NewValueBool(false), proto.NewValueFloat64(0.00000000001), proto.NewValueDecimal(decimal.NewFromInt(200)), proto.NewValueDecimal(decimal.NewFromInt(200))},
 		{proto.NewValueBool(false), proto.NewValueDecimal(decimal.NewFromInt(1)), proto.NewValueInt64(2), proto.NewValueInt64(2)},
+		{nil, proto.NewValueDecimal(decimal.NewFromInt(1)), proto.NewValueInt64(2), proto.NewValueInt64(2)},
+		{nil, proto.NewValueDecimal(decimal.NewFromInt(1)), nil, nil},
 	} {
 		t.Run(fmt.Sprint(v.inFirst), func(t *testing.T) {
 			out, err := fn.Apply(context.Background(), proto.ToValuer(v.inFirst), proto.ToValuer(v.inSecond), proto.ToValuer(v.inThird))
