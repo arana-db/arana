@@ -31,19 +31,20 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
-func TestSpace(t *testing.T) {
-	fn := proto.MustGetFunc(FuncSpace)
+func TestLtrim(t *testing.T) {
+	fn := proto.MustGetFunc(FuncLtrim)
 	assert.Equal(t, 1, fn.NumInput())
 	type tt struct {
 		inFirst proto.Value
 		want    string
 	}
 	for _, v := range []tt{
-		{proto.NewValueInt64(9), "         "},
-		{proto.NewValueInt64(5), "     "},
-		{proto.NewValueInt64(-9), ""},
-		{proto.NewValueFloat64(9.2), "NaN"},
-		{proto.NewValueString("10"), "NaN"},
+		{proto.NewValueString(" barbar  "), "barbar  "},
+		{proto.NewValueString(" 你好  世界!  "), "你好  世界!  "},
+		{proto.NewValueString("  你好  世界! "), "你好  世界! "},
+		{proto.NewValueString("  Hello   World!  "), "Hello   World!  "},
+		{proto.NewValueString("  Hola  Mundo "), "Hola  Mundo "},
+		{proto.NewValueString("  Hallo Welt "), "Hallo Welt "},
 	} {
 		t.Run(fmt.Sprint(v.inFirst), func(t *testing.T) {
 			out, err := fn.Apply(context.Background(), proto.ToValuer(v.inFirst))

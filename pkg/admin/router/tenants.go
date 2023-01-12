@@ -106,7 +106,7 @@ func UpdateTenant(c *gin.Context) error {
 	tenant := c.Param("tenant")
 
 	var upsert admin.TenantDTO
-	if err := c.ShouldBindJSON(&upsert); err == nil {
+	if err := c.ShouldBindJSON(&upsert); err != nil {
 		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
 
