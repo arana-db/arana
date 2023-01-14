@@ -20,13 +20,16 @@ package executor
 import (
 	"bytes"
 	stdErrors "errors"
+	"strings"
 	"sync"
 	"time"
+	"unicode"
 )
 
 import (
 	"github.com/arana-db/parser"
 	"github.com/arana-db/parser/ast"
+	pMysql "github.com/arana-db/parser/mysql"
 
 	"github.com/pkg/errors"
 )
@@ -49,6 +52,24 @@ var (
 	errMissingTx          = stdErrors.New("no transaction found")
 	errNoDatabaseSelected = mysqlErrors.NewSQLError(mConstants.ERNoDb, mConstants.SSNoDatabaseSelected, "No database selected")
 )
+
+var (
+	_charsetIndex     map[uint8]string
+	_charsetIndexSync sync.Once
+)
+
+func getCharsetCollation(c uint8) (string, string) {
+	_charsetIndexSync.Do(func() {
+		_charsetIndex = make(map[uint8]string)
+		for k, v := range pMysql.CharsetIDs {
+			k, v := k, v
+			_charsetIndex[v] = k
+		}
+	})
+	charset := _charsetIndex[c]
+	collation := pMysql.Charsets[charset]
+	return charset, collation
+}
 
 // IsErrMissingTx returns true if target error was caused by missing-tx.
 func IsErrMissingTx(err error) bool {
@@ -119,20 +140,12 @@ func (executor *RedirectExecutor) ExecuteFieldList(ctx *proto.Context) ([]proto.
 	return db.CallFieldList(ctx.Context, table, wildcard)
 }
 
-func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Result, uint16, error) {
+func (executor *RedirectExecutor) doExecutorComQuery(ctx *proto.Context, act ast.StmtNode) (proto.Result, uint16, error) {
 	var (
+		start      = time.Now()
 		schemaless bool // true if schema is not specified
 		err        error
 	)
-
-	p := parser.New()
-	query := ctx.GetQuery()
-	start := time.Now()
-	act, err := p.ParseOneStmt(query, "", "")
-	if err != nil {
-		return nil, 0, errors.WithStack(err)
-	}
-
 	var hints []*hint.Hint
 	for _, next := range act.Hints() {
 		var h *hint.Hint
@@ -144,7 +157,6 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 
 	trace.Extract(ctx, hints)
 	metrics.ParserDuration.Observe(time.Since(start).Seconds())
-	log.Debugf("ComQuery: %s", query)
 
 	if len(ctx.Schema) < 1 {
 		// TODO: handle multiple clusters
@@ -265,6 +277,61 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context) (proto.Re
 	}
 
 	return res, warn, err
+}
+
+func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context, h func(result proto.Result, warns uint16, failure error) error) error {
+	p := parser.New()
+	query := ctx.GetQuery()
+	log.Debugf("ComQuery: %s", query)
+
+	charset, collation := getCharsetCollation(ctx.CharacterSet)
+
+	switch strings.IndexByte(query, ';') {
+	case -1: // no ';' exists
+		stmt, err := p.ParseOneStmt(query, charset, collation)
+		if err != nil {
+			return err
+		}
+		result, warns, failure := executor.doExecutorComQuery(ctx, stmt)
+		return h(result, warns, failure)
+	case len(query) - 1: // suffix is ';'
+		ctx.Data = ctx.Data[:len(ctx.Data)-1]
+		stmt, err := p.ParseOneStmt(query[:len(query)-1], charset, collation)
+		if err != nil {
+			return err
+		}
+		result, warns, failure := executor.doExecutorComQuery(ctx, stmt)
+		return h(result, warns, failure)
+	}
+
+	// slow path
+	p = parser.New()
+	stmts, _, err := p.Parse(query, charset, collation)
+	if err != nil {
+		return h(nil, 0, err)
+	}
+
+	for i := range stmts {
+		stmt := stmts[i]
+		q := strings.TrimFunc(stmt.OriginalText(), func(r rune) bool {
+			return unicode.IsSpace(r) || r == ';'
+		})
+
+		ctx2 := *ctx
+		ctx2.Data = []byte(q)
+
+		result, warns, failure := executor.doExecutorComQuery(&ctx2, stmt)
+
+		if err := h(result, warns, failure); err != nil {
+			return err
+		}
+
+		if failure != nil {
+			break
+		}
+	}
+
+	return nil
 }
 
 func executeStmt(ctx *proto.Context, schemaless bool, rt runtime.Runtime) (proto.Result, uint16, error) {
