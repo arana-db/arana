@@ -123,6 +123,9 @@ type (
 		// CreateTenant creates tenant.
 		CreateTenant(string) error
 
+		// UpdateTenant update tenant.
+		UpdateTenant(tenant string, newTenant string) error
+
 		// RemoveTenant removes tenant.
 		RemoveTenant(string) error
 
