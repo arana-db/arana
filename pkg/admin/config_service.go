@@ -265,13 +265,16 @@ func (cs *myConfigService) ListTables(ctx context.Context, tenant, cluster strin
 }
 
 func (cs *myConfigService) UpsertTenant(ctx context.Context, tenant string, body *TenantDTO) error {
+	if tenant != body.Name {
+		cs.tenantOp.UpdateTenant(tenant, body.Name)
+		return nil
+	}
 	if err := cs.tenantOp.CreateTenant(tenant); err != nil {
 		return perrors.Wrapf(err, "failed to create tenant '%s'", tenant)
 	}
 
 	for _, next := range body.Users {
 		if err := cs.tenantOp.CreateTenantUser(tenant, next.Username, next.Password); err != nil {
-			println("22222222222")
 			return perrors.WithStack(err)
 		}
 	}

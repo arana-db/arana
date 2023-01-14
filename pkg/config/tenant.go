@@ -182,6 +182,44 @@ func (tp *tenantOperate) CreateTenant(name string) error {
 	return nil
 }
 
+func (tp *tenantOperate) UpdateTenant(name string, newName string) error {
+	tp.lock.Lock()
+	defer tp.lock.Unlock()
+
+	if _, ok := tp.tenants[name]; ok {
+		return nil
+	}
+
+	tp.tenants[newName] = tp.tenants[name]
+	delete(tp.tenants, name)
+
+
+	ret := make([]string, 0, len(tp.tenants))
+
+	for i := range tp.tenants {
+		ret = append(ret, i)
+	}
+
+	data, err := yaml.Marshal(ret)
+	if err != nil {
+		return err
+	}
+
+	if err := tp.op.Save(DefaultTenantsPath, data); err != nil {
+		return errors.Wrap(err, "create tenant name")
+	}
+
+	// need to insert the relevant configuration data under the relevant tenant
+	tenantPathInfo := NewPathInfo(name)
+	for i := range tenantPathInfo.ConfigKeyMapping {
+		if err := tp.op.Save(i, []byte("")); err != nil {
+			return errors.Wrapf(err, "create tenant resource : %s", i)
+		}
+	}
+
+	return nil
+}
+
 func (tp *tenantOperate) RemoveTenantUser(tenant, username string) error {
 	p := NewPathInfo(tenant)
 
