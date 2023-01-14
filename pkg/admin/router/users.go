@@ -18,6 +18,7 @@
 package router
 
 import (
+	"fmt"
 	"net/http"
 )
 
@@ -79,13 +80,14 @@ func UpdateUser(c *gin.Context) error {
 	if err := c.ShouldBindJSON(&user); err != nil {
 		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
-	user.Username = username
+
+	fmt.Printf("user.Username: %s, username: %s", user.Username, username)
 
 	if !validatePassword(user.Password) {
 		return exception.New(exception.CodeInvalidParams, "bad password format")
 	}
 
-	if err := admin.GetService(c).UpsertUser(c, tenant, &user); err != nil {
+	if err := admin.GetService(c).UpsertUser(c, tenant, &user, username); err != nil {
 		return err
 	}
 
@@ -126,7 +128,7 @@ func CreateUser(c *gin.Context) error {
 		}
 	}
 
-	if err := admin.GetService(c).UpsertUser(c, tenant, &user); err != nil {
+	if err := admin.GetService(c).UpsertUser(c, tenant, &user, user.Username); err != nil {
 		return err
 	}
 
