@@ -32,6 +32,7 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/admin/exception"
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
@@ -181,6 +182,43 @@ func (tp *tenantOperate) CreateTenant(name string) error {
 	return nil
 }
 
+func (tp *tenantOperate) UpdateTenant(name string, newName string) error {
+	tp.lock.Lock()
+	defer tp.lock.Unlock()
+
+	if _, ok := tp.tenants[name]; ok {
+		return nil
+	}
+
+	tp.tenants[newName] = tp.tenants[name]
+	delete(tp.tenants, name)
+
+	ret := make([]string, 0, len(tp.tenants))
+
+	for i := range tp.tenants {
+		ret = append(ret, i)
+	}
+
+	data, err := yaml.Marshal(ret)
+	if err != nil {
+		return err
+	}
+
+	if err := tp.op.Save(DefaultTenantsPath, data); err != nil {
+		return errors.Wrap(err, "create tenant name")
+	}
+
+	// need to insert the relevant configuration data under the relevant tenant
+	tenantPathInfo := NewPathInfo(name)
+	for i := range tenantPathInfo.ConfigKeyMapping {
+		if err := tp.op.Save(i, []byte("")); err != nil {
+			return errors.Wrapf(err, "create tenant resource : %s", i)
+		}
+	}
+
+	return nil
+}
+
 func (tp *tenantOperate) RemoveTenantUser(tenant, username string) error {
 	p := NewPathInfo(tenant)
 
@@ -247,6 +285,45 @@ func (tp *tenantOperate) CreateTenantUser(tenant, username, password string) err
 			Username: username,
 			Password: password,
 		})
+	}
+
+	b, err := yaml.Marshal(users)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	if err := tp.op.Save(p.DefaultConfigDataUsersPath, b); err != nil {
+		return errors.WithStack(err)
+	}
+	return nil
+}
+
+func (tp *tenantOperate) UpdateTenantUser(tenant, username, password, oldUsername string) error {
+	p := NewPathInfo(tenant)
+
+	println(username, password, oldUsername)
+
+	prev, err := tp.op.Get(p.DefaultConfigDataUsersPath)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	var users Users
+	if err := yaml.Unmarshal(prev, &users); err != nil {
+		return errors.WithStack(err)
+	}
+	var found = false
+	for i := 0; i < len(users); i++ {
+		if users[i].Username == oldUsername {
+			users[i].Password = password
+			users[i].Username = username
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return exception.New(exception.CodeNotFound, "user not found")
 	}
 
 	b, err := yaml.Marshal(users)
