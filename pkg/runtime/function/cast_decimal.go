@@ -93,7 +93,6 @@ func (a castDecimalFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (pro
 	}
 
 	return proto.NewValueString(d.StringFixed(int32(s))), nil
-
 }
 
 func (a castDecimalFunc) NumInput() int {

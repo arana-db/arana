@@ -569,7 +569,6 @@ func (s *IntegrationSuite) TestCreateIndex() {
 			_, err = db.Exec("drop index name on student")
 			assert.NoError(t, err)
 		})
-
 	}
 }
 

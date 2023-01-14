@@ -5,9 +5,11 @@ go 1.18
 require (
 	github.com/appleboy/gin-jwt/v2 v2.9.1
 	github.com/arana-db/parser v0.2.9
+	github.com/blang/semver v3.5.1+incompatible
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/cespare/xxhash/v2 v2.1.2
 	github.com/creasty/defaults v1.6.0
+	github.com/docker/go-units v0.4.0
 	github.com/dop251/goja v0.0.0-20220422102209-3faab1d8f20e
 	github.com/dubbogo/gost v1.12.3
 	github.com/gin-gonic/gin v1.8.1
@@ -61,7 +63,6 @@ require (
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v20.10.11+incompatible // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
-	github.com/docker/go-units v0.4.0 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/form3tech-oss/jwt-go v3.2.2+incompatible // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
