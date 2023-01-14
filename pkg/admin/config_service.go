@@ -58,7 +58,10 @@ func (cs *myConfigService) RemoveUser(ctx context.Context, tenant string, userna
 	return cs.tenantOp.RemoveTenantUser(tenant, username)
 }
 
-func (cs *myConfigService) UpsertUser(ctx context.Context, tenant string, user *config.User) error {
+func (cs *myConfigService) UpsertUser(ctx context.Context, tenant string, user *config.User, username string) error {
+	if username != "" && username != user.Username {
+		return cs.tenantOp.UpdateTenantUser(tenant, user.Username, user.Password, username)
+	}
 	return cs.tenantOp.CreateTenantUser(tenant, user.Username, user.Password)
 }
 
@@ -268,6 +271,7 @@ func (cs *myConfigService) UpsertTenant(ctx context.Context, tenant string, body
 
 	for _, next := range body.Users {
 		if err := cs.tenantOp.CreateTenantUser(tenant, next.Username, next.Password); err != nil {
+			println("22222222222")
 			return perrors.WithStack(err)
 		}
 	}
@@ -366,6 +370,9 @@ func (cs *myConfigService) UpsertNode(ctx context.Context, tenant, node string, 
 	}
 
 	if old, ok := c.Nodes[node]; ok {
+		delete(c.Nodes, node)
+		c.Nodes[body.Name] = old
+		old.Name = body.Name
 		old.Host = body.Host
 		old.Port = body.Port
 		old.Username = body.Username

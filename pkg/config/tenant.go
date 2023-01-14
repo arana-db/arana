@@ -22,6 +22,7 @@ package config
 
 import (
 	"context"
+	"github.com/arana-db/arana/pkg/admin/exception"
 	"sync"
 )
 
@@ -247,6 +248,45 @@ func (tp *tenantOperate) CreateTenantUser(tenant, username, password string) err
 			Username: username,
 			Password: password,
 		})
+	}
+
+	b, err := yaml.Marshal(users)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	if err := tp.op.Save(p.DefaultConfigDataUsersPath, b); err != nil {
+		return errors.WithStack(err)
+	}
+	return nil
+}
+
+func (tp *tenantOperate) UpdateTenantUser(tenant, username, password, oldUsername string) error {
+	p := NewPathInfo(tenant)
+
+	println(username, password, oldUsername)
+
+	prev, err := tp.op.Get(p.DefaultConfigDataUsersPath)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	var users Users
+	if err := yaml.Unmarshal(prev, &users); err != nil {
+		return errors.WithStack(err)
+	}
+	var found = false
+	for i := 0; i < len(users); i++ {
+		if users[i].Username == oldUsername {
+			users[i].Password = password
+			users[i].Username = username
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return exception.New(exception.CodeNotFound, "user not found")
 	}
 
 	b, err := yaml.Marshal(users)

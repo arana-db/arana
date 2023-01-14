@@ -132,7 +132,7 @@ type configWriter interface {
 	RemoveTable(ctx context.Context, tenant, cluster, table string) error
 
 	// UpsertUser upserts a user.
-	UpsertUser(ctx context.Context, tenant string, user *config.User) error
+	UpsertUser(ctx context.Context, tenant string, user *config.User, username string) error
 
 	// RemoveUser removes a user.
 	RemoveUser(ctx context.Context, tenant string, username string) error
