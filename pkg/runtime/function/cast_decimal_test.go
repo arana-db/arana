@@ -43,12 +43,18 @@ func TestCastDecimal(t *testing.T) {
 	}
 
 	for _, it := range []tt{
-		{15, 4, 2, "15.00"},
-		{15, 4, 0, ("15")},
-		{15, 4, nil, ("15")},
-		{15, nil, nil, ("15")},
-		{(8 / 5.0), 11, 4, "1.6000"},
-		{".885", 11, 3, "0.885"},
+		{proto.NewValueInt64(15), proto.NewValueInt64(4), proto.NewValueInt64(2), "15.00"},
+		{proto.NewValueInt64(15), proto.NewValueInt64(4), proto.NewValueInt64(0), "15"},
+		{proto.NewValueInt64(15), proto.NewValueInt64(4), (nil), ("15")},
+		{proto.NewValueInt64(15), nil, nil, ("15")},
+		{proto.NewValueInt64(15), proto.NewValueInt64(0), nil, ("15")},
+		{proto.NewValueFloat64(8 / 5.0), proto.NewValueInt64(11), proto.NewValueInt64(4), "1.6000"},
+		{proto.NewValueString(".885"), proto.NewValueInt64(11), proto.NewValueInt64(3), "0.885"},
+		{proto.NewValueString(".885"), proto.NewValueInt64(11), proto.NewValueInt64(4), "0.8850"},
+		{proto.NewValueString(".885"), proto.NewValueInt64(2), proto.NewValueInt64(1), "0.9"},
+		{proto.NewValueString(".885"), proto.NewValueInt64(2), nil, "1"},
+		{proto.NewValueString(".885"), proto.NewValueInt64(2), proto.NewValueInt64(0), "1"},
+		{proto.NewValueString(".885"), proto.NewValueInt64(20), proto.NewValueInt64(0), "1"},
 	} {
 		t.Run(it.out, func(t *testing.T) {
 			out, err := fn.Apply(context.Background(), proto.ToValuer(it.inFirst), proto.ToValuer(it.inSecond), proto.ToValuer(it.intThird))

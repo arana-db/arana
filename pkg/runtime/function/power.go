@@ -24,8 +24,6 @@ import (
 
 import (
 	"github.com/pkg/errors"
-
-	"github.com/shopspring/decimal"
 )
 
 import (

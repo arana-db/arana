@@ -20,22 +20,23 @@ package function
 import (
 	"context"
 	"fmt"
-	"strconv"
 )
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
-
 	"github.com/pkg/errors"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/util/math"
 )
 
 // FuncCastDecimal is https://dev.mysql.com/doc/refman/5.6/en/cast-functions.html#function_cast
 const FuncCastDecimal = "CAST_DECIMAL"
+
+var (
+	_defaultDecimalPrecision proto.Value = proto.NewValueInt64(10)
+	_defaultDecimalScale     proto.Value = proto.NewValueInt64(0)
+)
 
 var _ proto.Func = (*castDecimalFunc)(nil)
 
@@ -47,52 +48,51 @@ type castDecimalFunc struct{}
 
 func (a castDecimalFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
 	if len(inputs) != 3 {
-		return "", errors.New("The Decimal function must accept three parameters\n")
+		return nil, errors.New("The Decimal function must accept three parameters\n")
 	}
 
 	val, err := inputs[0].Value(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	v := math.ToDecimal(val)
-
-	maxNum, err := inputs[1].Value(ctx)
+	d, err := val.Decimal()
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return proto.NewValueFloat64(0), nil
 	}
-	if maxNum == nil {
-		maxNum = 0
-	}
-	m, err := strconv.Atoi(fmt.Sprint(maxNum))
+
+	precision, err := inputs[1].Value(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
 
-	precision, err := inputs[2].Value(ctx)
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
 	if precision == nil {
-		precision = 0
+		precision = _defaultDecimalPrecision
 	}
-	d, err := strconv.Atoi(fmt.Sprint(precision))
+
+	p, err := precision.Int64()
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
 
-	if m > 0 || d > 0 {
-		buf, err := v.ToBin(m, d)
-		if err != nil {
-			return nil, errors.WithStack(err)
-		}
-		var dec2 gxbig.Decimal
-		_, err = dec2.FromBin(buf, m, d)
-		if err != nil {
-			return nil, errors.WithStack(err)
-		}
-		return &dec2, nil
+	scale, err := inputs[2].Value(ctx)
+	if err != nil {
+		return nil, errors.WithStack(err)
 	}
-	return v, nil
+
+	if scale == nil {
+		scale = _defaultDecimalScale
+	}
+	s, err := scale.Int64()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	// M must be >= D
+	if p < s {
+		return nil, errors.WithStack(fmt.Errorf("for float(M,D), double(M,D) or decimal(M,D), M must be >= D"))
+	}
+
+	return proto.NewValueString(d.StringFixed(int32(s))), nil
 
 }
 
