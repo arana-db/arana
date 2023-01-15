@@ -19,39 +19,66 @@ package transaction
 
 import (
 	"context"
+	"errors"
+	"fmt"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
+	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 )
 
-// StartXA
+var (
+	ErrorInvalidTxId = errors.New("invalid transaction id")
+)
+
+// StartXA do start xa transaction action
 func StartXA(ctx context.Context, bc *mysql.BackendConnection) (proto.Result, error) {
-	return nil, nil
+	txId := rcontext.TransactionID(ctx)
+	if len(txId) == 0 {
+		return nil, ErrorInvalidTxId
+	}
+
+	return bc.ExecuteWithWarningCount(fmt.Sprintf("XA START '%s'", txId), false)
 }
 
-// EndXA
+// EndXA do end xa transaction action
 func EndXA(ctx context.Context, bc *mysql.BackendConnection) (proto.Result, error) {
-	return nil, nil
+	txId := rcontext.TransactionID(ctx)
+	if len(txId) == 0 {
+		return nil, ErrorInvalidTxId
+	}
+
+	return bc.ExecuteWithWarningCount(fmt.Sprintf("XA END '%s'", txId), false)
 }
 
-// PrepareXA
+// PrepareXA do prepare xa transaction action
 func PrepareXA(ctx context.Context, bc *mysql.BackendConnection) (proto.Result, error) {
-	return nil, nil
+	txId := rcontext.TransactionID(ctx)
+	if len(txId) == 0 {
+		return nil, ErrorInvalidTxId
+	}
+
+	return bc.ExecuteWithWarningCount(fmt.Sprintf("XA PREPARE '%s'", txId), false)
 }
 
-// CommitXA
+// CommitXA do commit xa transaction action
 func CommitXA(ctx context.Context, bc *mysql.BackendConnection) (proto.Result, error) {
-	return nil, nil
+	txId := rcontext.TransactionID(ctx)
+	if len(txId) == 0 {
+		return nil, ErrorInvalidTxId
+	}
+
+	return bc.ExecuteWithWarningCount(fmt.Sprintf("XA COMMIT '%s'", txId), false)
 }
 
-// RollbackXA
+// RollbackXA do rollback xa transaction action
 func RollbackXA(ctx context.Context, bc *mysql.BackendConnection) (proto.Result, error) {
-	return nil, nil
-}
+	txId := rcontext.TransactionID(ctx)
+	if len(txId) == 0 {
+		return nil, ErrorInvalidTxId
+	}
 
-// RecoverXA
-func RecoverXA(ctx context.Context, bc *mysql.BackendConnection) (proto.Result, error) {
-	return nil, nil
+	return bc.ExecuteWithWarningCount(fmt.Sprintf("XA ROLLBACK '%s'", txId), false)
 }

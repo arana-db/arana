@@ -17,11 +17,57 @@
 
 package transaction
 
+import (
+	"errors"
+)
+
+var (
+	ErrorTxBottomMakerNotInitialize = errors.New("txBottomMaker not initialize")
+)
+
+var (
+	txBottomMaker *TxBottomMaker
+)
+
+// InitTxBottomMaker inits TxBottomMaker
+func InitTxBottomMaker() error {
+	return nil
+}
+
+// GetTxBottomMaker returns *TxBottomMaker
+func GetTxBottomMaker() (*TxBottomMaker, error) {
+	if txBottomMaker == nil {
+		return nil, ErrorTxBottomMakerNotInitialize
+	}
+	return txBottomMaker, nil
+}
+
 // TxBottomMaker Decisions of transaction pocket
+// regularly scan the `__arana_tx_log` table to query the list of unfinished transactions
+// case 1: If it is in the prepare state, if it exceeds a certain period of time, the transaction will be rolled back directly
+// case 2: If it is in the Committing state, commit the transaction again and end the current transaction
+// case 3: If it is in Aborting state, roll back the transaction again and end the current transaction
+// important!!! the execution of this task requires distributed task preemption based on the metadata DB
 type TxBottomMaker struct {
 }
 
 // Run Core logic of the decision -making decision -making at the bottom of the affairs
 func (bm *TxBottomMaker) Run() {
+
+}
+
+func (bm *TxBottomMaker) scanUnFinishTxLog() ([]TxLog, error) {
+	return nil, nil
+}
+
+func (bm *TxBottomMaker) handlePreparing(tx TxLog) {
+
+}
+
+func (bm *TxBottomMaker) handleCommitting(tx TxLog) {
+
+}
+
+func (bm *TxBottomMaker) handleAborting(tx TxLog) {
 
 }

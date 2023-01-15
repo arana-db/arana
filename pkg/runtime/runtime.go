@@ -174,7 +174,7 @@ func (db *AtomDB) Variable(ctx context.Context, name string) (interface{}, error
 	return nil, nil
 }
 
-func (db *AtomDB) begin(ctx context.Context) (*branchTx, error) {
+func (db *AtomDB) begin(ctx context.Context, f dbFunc) (*branchTx, error) {
 	if db.closed.Load() {
 		return nil, perrors.Errorf("the db instance '%s' is closed already", db.id)
 	}
@@ -200,7 +200,7 @@ func (db *AtomDB) begin(ctx context.Context) (*branchTx, error) {
 	}
 
 	var res proto.Result
-	if res, err = bc.ExecuteWithWarningCount("begin", true); err != nil {
+	if res, err = f(ctx, bc); err != nil {
 		defer dispose()
 		return nil, perrors.WithStack(err)
 	}

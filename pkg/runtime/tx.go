@@ -71,23 +71,33 @@ const (
 	RollbackOnly
 )
 
-// CompositeTxReadOnly Can't change the status of transactions, just query the current status information of the transaction
-type CompositeTxReadOnly interface {
+// CompositeTx distribute transaction
+type CompositeTx interface {
+	// GetTxState get cur tx state
 	GetTxState() TxState
+	// SetBeginFunc sets begin func
+	SetBeginFunc(f dbFunc)
+	// Range range branchTx map
+	Range(func(tx BranchTx))
 }
 
-// CompositeTxWriteOnly Can promote changes in transaction status and data changes
-type CompositeTxWriteOnly interface {
+type BranchTx interface {
+	// SetPrepareFunc set prepare dbFunc
+	SetPrepareFunc(f dbFunc)
+	// SetCommitFunc set commit dbFunc
+	SetCommitFunc(f dbFunc)
+	// SetRollbackFunc set rollback dbFunc
+	SetRollbackFunc(f dbFunc)
 }
 
 type TxHook interface {
-	OnActive(tx CompositeTxReadOnly)
-	OnPreparing(tx CompositeTxReadOnly)
-	OnPrepared(tx CompositeTxReadOnly)
-	OnCommitting(tx CompositeTxReadOnly)
-	OnCommitted(tx CompositeTxReadOnly)
-	OnAborting(tx CompositeTxReadOnly)
-	OnRollbackOnly(tx CompositeTxReadOnly)
+	OnActive(tx CompositeTx)
+	OnPreparing(tx CompositeTx)
+	OnPrepared(tx CompositeTx)
+	OnCommitting(tx CompositeTx)
+	OnCommitted(tx CompositeTx)
+	OnAborting(tx CompositeTx)
+	OnRollbackOnly(tx CompositeTx)
 }
 
 func newCompositeTx(pi *defaultRuntime, hooks ...TxHook) *compositeTx {
@@ -96,6 +106,9 @@ func newCompositeTx(pi *defaultRuntime, hooks ...TxHook) *compositeTx {
 		rt:    pi,
 		txs:   make(map[string]*branchTx),
 		hooks: hooks,
+		beginFunc: func(ctx context.Context, bc *mysql.BackendConnection) (proto.Result, error) {
+			return bc.ExecuteWithWarningCount("begin", true)
+		},
 	}
 
 	tx.setTxState(Active)
@@ -112,6 +125,8 @@ type compositeTx struct {
 	isoLevel sql.IsolationLevel
 	txState  TxState
 
+	beginFunc dbFunc
+
 	rt  *defaultRuntime
 	txs map[string]*branchTx
 
@@ -120,6 +135,10 @@ type compositeTx struct {
 
 func (tx *compositeTx) Version(ctx context.Context) (string, error) {
 	return tx.rt.Version(ctx)
+}
+
+func (tx *compositeTx) SetBeginFunc(f dbFunc) {
+	tx.beginFunc = f
 }
 
 func (tx *compositeTx) Query(ctx context.Context, db string, query string, args ...proto.Value) (proto.Result, error) {
@@ -162,7 +181,7 @@ func (tx *compositeTx) begin(ctx context.Context, group string) (*branchTx, erro
 	}
 
 	// begin atom tx
-	newborn, err := db.(*AtomDB).begin(ctx)
+	newborn, err := db.(*AtomDB).begin(ctx, tx.beginFunc)
 	if err != nil {
 		return nil, err
 	}
@@ -262,7 +281,7 @@ func (tx *compositeTx) doPrepareCommit(ctx context.Context) error {
 	var g errgroup.Group
 	for k, v := range tx.txs {
 		k, v := k, v
-		// TODO Update the prepare execution method of Branchtx
+		// TODO Update the prepare execution method of BranchTx
 		g.Go(func() error {
 			if err := v.Prepare(ctx); err != nil {
 				log.Errorf("prepare %s for group %s failed: %v", tx, k, err)
@@ -276,7 +295,7 @@ func (tx *compositeTx) doPrepareCommit(ctx context.Context) error {
 		return err
 	}
 
-	// save in gtid_log
+	// save in __arana_tx_log
 	tx.setTxState(Prepared)
 	return nil
 }
@@ -288,8 +307,7 @@ func (tx *compositeTx) doCommit(ctx context.Context) error {
 	for k, v := range tx.txs {
 		k, v := k, v
 		g.Go(func() error {
-			_, _, err := v.Commit(ctx)
-			if err != nil {
+			if _, _, err := v.Commit(ctx); err != nil {
 				log.Errorf("commit %s for group %s failed: %v", tx, k, err)
 				return err
 			}
@@ -372,6 +390,13 @@ func (tx *compositeTx) doRollback(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+func (tx *compositeTx) Range(f func(tx BranchTx)) {
+	for k, v := range tx.txs {
+		_, v := k, v
+		f(v)
+	}
 }
 
 func (tx *compositeTx) GetTxState() TxState {
@@ -509,4 +534,19 @@ func (tx *branchTx) dispose() {
 	if cnt == 0 && tx.parent.closed.Load() {
 		tx.parent.pool.Close()
 	}
+}
+
+// SetPrepareFunc set prepare dbFunc
+func (tx *branchTx) SetPrepareFunc(f dbFunc) {
+	tx.prepare = f
+}
+
+// SetCommitFunc set commit dbFunc
+func (tx *branchTx) SetCommitFunc(f dbFunc) {
+	tx.commit = f
+}
+
+// SetRollbackFunc set rollback dbFunc
+func (tx *branchTx) SetRollbackFunc(f dbFunc) {
+	tx.rollback = f
 }

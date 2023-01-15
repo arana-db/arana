@@ -17,8 +17,13 @@
 
 package transaction
 
+import (
+	"errors"
+)
+
 const (
-	_initGtidLog = `
+	// 启用 mysql 的二级分区功能，解决清理 tx log 的问题
+	_initTxLog = `
 CREATE TABLE IF NOT EXISTS __arana_tx_log (
 	log_id bigint(20) auto_increment,
 	gtid varchar(255) NOT NULL,
@@ -30,11 +35,31 @@ CREATE TABLE IF NOT EXISTS __arana_tx_log (
 	PRIMARY KEY (log_id),
 	UNIQUE KEY (gtid)
   ) ENGINE = InnoDB CHARSET = utf8
-  // PARTITION // 是否启用 mysql 的二级分区功能，解决清理 gtid log 的问题
 `
 )
 
-// TxLog Transaction log
+var (
+	ErrorTxLogManagerNotInitialize = errors.New("txLogManager not initialize")
+)
+
+var (
+	txLogManager *TxLogManager
+)
+
+// InitTxLogManager inits TxLogManager
+func InitTxLogManager() error {
+	return nil
+}
+
+// GetTxLogManager returns *TxLogManager
+func GetTxLogManager() (*TxLogManager, error) {
+	if txLogManager == nil {
+		return nil, ErrorTxLogManagerNotInitialize
+	}
+	return txLogManager, nil
+}
+
+// TxLog arana tx log
 type TxLog struct {
 	Gtid        string
 	ServerID    int32
@@ -59,4 +84,11 @@ func (gm *TxLogManager) DeleteTxLog(l TxLog) error {
 // ScanTxLog Scanning transaction
 func (gm *TxLogManager) ScanTxLog(pageNo, pageSize uint32) (uint32, []TxLog, error) {
 	return 0, nil, nil
+}
+
+// runCleanTxLogTask execute the transaction log cleanup action, and clean up the __arana_tx_log secondary
+// partition table according to the day level or hour level.
+// the execution of this task requires distributed task preemption based on the metadata DB
+func (gm *TxLogManager) runCleanTxLogTask() {
+
 }
