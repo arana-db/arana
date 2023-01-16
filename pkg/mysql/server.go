@@ -208,6 +208,7 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32) {
 			ConnectionID:       c.ConnectionID,
 			Data:               content,
 			TransientVariables: c.TransientVariables,
+			CharacterSet:       c.CharacterSet,
 		}
 
 		if err = l.ExecuteCommand(c, ctx); err != nil {
