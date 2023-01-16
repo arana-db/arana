@@ -30,7 +30,7 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
-// FuncAcos https://dev.mysql.com/doc/refman/5.6/en/mathematical-functions.html#function_asin
+// FuncAcos https://dev.mysql.com/doc/refman/5.6/en/mathematical-functions.html#function_acos
 const FuncAcos = "ACOS"
 
 var _ proto.Func = (*acosFunc)(nil)
