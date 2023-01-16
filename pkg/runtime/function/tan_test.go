@@ -20,38 +20,39 @@ package function
 import (
 	"context"
 	"math"
+	"strconv"
+	"testing"
 )
 
 import (
-	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
-// FuncSin https://dev.mysql.com/doc/refman/5.6/en/mathematical-functions.html#function_sin
-const FuncSin = "SIN"
+func TestTan(t *testing.T) {
+	fn := proto.MustGetFunc(FuncTan)
+	assert.Equal(t, 1, fn.NumInput())
 
-var _ proto.Func = (*sinFunc)(nil)
-
-func init() {
-	proto.RegisterFunc(FuncSin, sinFunc{})
-}
-
-type sinFunc struct{}
-
-// Apply call the current function.
-func (s sinFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
-	param, err := inputs[0].Value(ctx)
-	if param == nil || err != nil {
-		return nil, errors.WithStack(err)
+	type tt struct {
+		in  interface{}
+		out float64
 	}
-	f, _ := param.Float64()
-	return proto.NewValueFloat64(math.Sin(f)), nil
-}
 
-// NumInput returns the minimum number of inputs.
-func (s sinFunc) NumInput() int {
-	return 1
+	for i, it := range []tt{
+		{0, 0},
+		{math.Pi, math.Tan(math.Pi)}, // math.Tan(math.Pi) near to zero, but not equal
+		{-math.Pi, math.Tan(-math.Pi)},
+	} {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			first, _ := proto.NewValue(it.in)
+			out, err := fn.Apply(context.Background(), proto.ToValuer(first))
+			assert.NoError(t, err)
+			actual, err := out.Float64()
+			assert.NoError(t, err)
+			assert.Equal(t, it.out, actual)
+		})
+	}
 }

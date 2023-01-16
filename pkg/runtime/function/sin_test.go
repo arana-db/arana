@@ -20,6 +20,7 @@ package function
 import (
 	"context"
 	"math"
+	"strconv"
 	"testing"
 )
 
@@ -37,26 +38,22 @@ func TestSin(t *testing.T) {
 
 	type tt struct {
 		in  interface{}
-		out string
+		out float64
 	}
 
-	for _, it := range []tt{
-		{math.Pi / 2, "1"},
-		{(3 * math.Pi) / 2, "-1"},
-		{1, "0.8414709848078965"},
-		{0, "0"},
-		{100, "-0.5063656411097588"},
+	for i, it := range []tt{
+		{0, 0},
+		{math.Pi, math.Sin(math.Pi)}, // math.Sin(math.Pi) near to zero, but not equal
+		{-math.Pi, math.Sin(-math.Pi)},
+		{math.Pi / 2, 1},
+		{-math.Pi / 2, -1},
 	} {
-		t.Run(it.out, func(t *testing.T) {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			first, _ := proto.NewValue(it.in)
 			out, err := fn.Apply(context.Background(), proto.ToValuer(first))
 			assert.NoError(t, err)
-			var actual string
-			if out == nil {
-				actual = "NULL"
-			} else {
-				actual = out.String()
-			}
+			actual, err := out.Float64()
+			assert.NoError(t, err)
 			assert.Equal(t, it.out, actual)
 		})
 	}
