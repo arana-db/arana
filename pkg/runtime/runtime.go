@@ -53,7 +53,6 @@ import (
 	_ "github.com/arana-db/arana/pkg/runtime/optimize/ddl"
 	_ "github.com/arana-db/arana/pkg/runtime/optimize/dml"
 	_ "github.com/arana-db/arana/pkg/runtime/optimize/utility"
-	"github.com/arana-db/arana/pkg/runtime/transaction"
 	"github.com/arana-db/arana/pkg/util/log"
 	"github.com/arana-db/arana/pkg/util/rand2"
 	"github.com/arana-db/arana/third_party/pools"
@@ -75,7 +74,7 @@ type Runtime interface {
 	// Namespace returns the namespace.
 	Namespace() *namespace.Namespace
 	// Begin begins a new transaction.
-	Begin(ctx context.Context) (proto.Tx, error)
+	Begin(ctx context.Context, hooks ...TxHook) (proto.Tx, error)
 }
 
 // Load loads a Runtime, here schema means logical database name.
@@ -372,16 +371,11 @@ func (pi *defaultRuntime) Version(ctx context.Context) (string, error) {
 	return "", perrors.New("no version found")
 }
 
-func (pi *defaultRuntime) Begin(ctx context.Context) (proto.Tx, error) {
+func (pi *defaultRuntime) Begin(ctx context.Context, hooks ...TxHook) (proto.Tx, error) {
 	_, span := Tracer.Start(ctx, "defaultRuntime.Begin")
 	defer span.End()
 
-	xaHook, err := transaction.NewXAHook()
-	if err != nil {
-		return nil, err
-	}
-
-	tx := newCompositeTx(pi, xaHook)
+	tx := newCompositeTx(pi, hooks...)
 	log.Debugf("begin transaction: %s", tx)
 	return tx, nil
 }

@@ -46,6 +46,7 @@ import (
 	"github.com/arana-db/arana/pkg/resultx"
 	"github.com/arana-db/arana/pkg/runtime"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
+	"github.com/arana-db/arana/pkg/runtime/transaction"
 	"github.com/arana-db/arana/pkg/security"
 	"github.com/arana-db/arana/pkg/trace"
 	"github.com/arana-db/arana/pkg/util/log"
@@ -207,8 +208,12 @@ func (executor *RedirectExecutor) doExecutorComQuery(ctx *proto.Context, act ast
 			err = errNoDatabaseSelected
 		} else {
 			// begin a new tx
+			xaHook, err := transaction.NewXAHook()
+			if err != nil {
+				return nil, 0, err
+			}
 			var tx proto.Tx
-			if tx, err = rt.Begin(ctx); err == nil {
+			if tx, err = rt.Begin(ctx, xaHook); err == nil {
 				executor.putTx(ctx, tx)
 				res = resultx.New()
 			}
