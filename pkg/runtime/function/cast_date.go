@@ -36,6 +36,7 @@ import (
 // FuncCastDate is  https://dev.mysql.com/doc/refman/5.6/en/cast-functions.html#function_cast
 const FuncCastDate = "CAST_DATE"
 
+var DateSep = "~!@#$%^&*_+=:;,.|/?\\(\\)\\[\\]\\{\\}\\-\\\\"
 var _ proto.Func = (*castDateFunc)(nil)
 
 func init() {
@@ -57,10 +58,12 @@ func (a castDateFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.
 	}
 
 	// format - YY-MM-DD, YYYY-MM-DD
-	pat := "^\\d{1,4}[~!@#$%^&*_+\\-=:;,.|?/]{1}\\d{1,2}[~!@#$%^&*_+\\-=:;,.|?/]{1}\\d{1,2}$"
+	pat := "^\\d{1,4}[" + DateSep + "]+\\d{1,2}[" + DateSep + "]+\\d{1,2}$"
 	match, err := regexp.MatchString(pat, dateArgs)
 	if match && err == nil {
-		dateYear, dateMonth, dateDay := a.splitDateWithSep(dateArgs)
+		rep := regexp.MustCompile(`[` + DateSep + `]+`)
+		dateArgsReplace := rep.ReplaceAllStringFunc(dateArgs, func(s string) string { return "-" })
+		dateYear, dateMonth, dateDay := a.splitDateWithSep(dateArgsReplace)
 
 		if a.IsYearValid(dateYear) && a.IsMonthValid(dateMonth) && a.IsDayValid(dateYear, dateMonth, dateDay) {
 			dateStr := a.DateOutput(dateYear, dateMonth, dateDay)

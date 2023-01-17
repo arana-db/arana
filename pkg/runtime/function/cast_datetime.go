@@ -23,6 +23,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 import (
@@ -36,6 +37,7 @@ import (
 // FuncCastDatetime is  https://dev.mysql.com/doc/refman/5.6/en/cast-functions.html#function_cast
 const FuncCastDatetime = "CAST_DATETIME"
 
+var DatetimeSep = "~!@#$%^&*_+=:;,|/?\\(\\)\\[\\]\\{\\}\\-\\\\"
 var _ proto.Func = (*castDatetimeFunc)(nil)
 
 func init() {
@@ -83,20 +85,23 @@ func (a castDatetimeFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (pr
 			return a.DefaultDatetimeValue(), nil
 		}
 
-		pat := "^\\d{1,4}[~!@#$%^&*_+\\-=:;,|?/]{1}\\d{1,2}[~!@#$%^&*_+\\-=:;,|?/]{1}\\d{1,2}$"
+		pat := "^\\d{1,4}[" + DatetimeSep + "]+\\d{1,2}[" + DatetimeSep + "]+\\d{1,2}$"
 		match, err := regexp.MatchString(pat, datetimeArr[0])
 		if !match || err != nil {
 			return a.DefaultDatetimeValue(), nil
 		}
-		year, month, day := castDate.splitDateWithSep(datetimeArr[0])
+		rep := regexp.MustCompile(`[` + DateSep + `]+`)
+		datetimeArrReplace := rep.ReplaceAllStringFunc(datetimeArr[0], func(s string) string { return "-" })
+		year, month, day := castDate.splitDateWithSep(datetimeArrReplace)
 		year = castDate.amend4DigtalYear(year)
 
-		pat = "^\\d{1,2}[~!@#$%^&*_+\\-=:;,|?/]{1}\\d{1,2}[~!@#$%^&*_+\\-=:;,|?/]{1}\\d{1,2}$"
+		pat = "^\\d{1,2}[" + DatetimeSep + "]+\\d{1,2}[" + DatetimeSep + "]+\\d{1,2}$"
 		match, err = regexp.MatchString(pat, datetimeArr[1])
 		if !match || err != nil {
 			return a.DefaultDatetimeValue(), nil
 		}
-		hour, minutes, second := a.splitDatetimeWithSep(datetimeArr[1])
+		datetimeArrReplace = rep.ReplaceAllStringFunc(datetimeArr[1], func(s string) string { return "-" })
+		hour, minutes, second := a.splitDatetimeWithSep(datetimeArrReplace)
 
 		if castDate.IsYearValid(year) && castDate.IsMonthValid(month) && castDate.IsDayValid(year, month, day) &&
 			a.IsHourValid(hour) && castTime.IsMinutesValid(minutes) && castTime.IsSecondValid(second) {
@@ -134,57 +139,6 @@ func (a castDatetimeFunc) NumInput() int {
 }
 
 func (a castDatetimeFunc) DatetimeOutput(year, month, day, hour, minutes, second int, frac bool) proto.Value {
-	if frac {
-		second += 1
-		if second >= 60 {
-			minutes += 1
-			second = 0
-		}
-		if minutes >= 60 {
-			hour += 1
-			minutes = 0
-		}
-		if hour >= 24 {
-			day += 1
-			hour = 0
-		}
-
-		if month == 1 || month == 3 || month == 5 || month == 7 ||
-			month == 8 || month == 10 || month == 12 {
-			if day >= 32 {
-				month += 1
-				day = 1
-			}
-		}
-		if month == 4 || month == 6 || month == 9 || month == 11 {
-			if day >= 31 {
-				month += 1
-				day = 1
-			}
-		}
-		if month == 2 {
-			if (year%100 == 0 && year%400 == 0) ||
-				(year%100 > 0 && year%4 == 0) {
-				if day >= 30 {
-					month += 1
-					day = 1
-				}
-			} else {
-				if day >= 29 {
-					month += 1
-					day = 1
-				}
-			}
-		}
-		if month >= 13 {
-			year += 1
-			month = 1
-		}
-		if year >= 10000 {
-			return a.DefaultDatetimeValue()
-		}
-	}
-
 	secondStr := fmt.Sprint(second)
 	if second < 10 {
 		secondStr = "0" + secondStr
@@ -213,7 +167,13 @@ func (a castDatetimeFunc) DatetimeOutput(year, month, day, hour, minutes, second
 	}
 	dateStr := yearStr + "-" + monthStr + "-" + dayStr
 
-	return proto.NewValueString(dateStr + " " + timeStr)
+	datetimeRet, _ := time.Parse("2006-01-02 15:04:05", dateStr+" "+timeStr)
+
+	if frac {
+		datetimeRet = datetimeRet.Add(1 * time.Second)
+	}
+
+	return proto.NewValueString(datetimeRet.Format("2006-01-02 15:04:05"))
 }
 
 func (a castDatetimeFunc) splitDatetimeWithSep(timeArgs string) (hour, minutes, second int) {
