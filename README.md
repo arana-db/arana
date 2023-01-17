@@ -90,6 +90,14 @@ Arana Chinese Community Meeting Time: **Every Saturday At 9:00PM GMT+8**
 Thanks for your help improving the project! We are so happy to have you! We have a contributing guide to help you get
 involved in the Arana project.
 
+## Developer
+
+Thanks to [all developers](https://github.com/arana-db/arana/graphs/contributors)!
+
+<a href="https://github.com/arana-db/arana/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=arana-db/arana" />
+</a>
+
 ## License
 
 Arana software is licenced under the Apache License Version 2.0. See

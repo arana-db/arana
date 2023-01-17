@@ -19,36 +19,52 @@ package function
 
 import (
 	"context"
-	"fmt"
-	"testing"
 )
 
 import (
-	"github.com/stretchr/testify/assert"
+	"github.com/pkg/errors"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
-func TestSpace(t *testing.T) {
-	fn := proto.MustGetFunc(FuncSpace)
-	assert.Equal(t, 1, fn.NumInput())
-	type tt struct {
-		inFirst proto.Value
-		want    string
+// FuncIf is  https://dev.mysql.com/doc/refman/5.6/en/flow-control-functions.html#function_if
+const FuncIf = "IF"
+
+var _ proto.Func = (*ifFunc)(nil)
+
+func init() {
+	proto.RegisterFunc(FuncIf, ifFunc{})
+}
+
+type ifFunc struct{}
+
+func (i ifFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
+	val1, err := inputs[0].Value(ctx)
+	if err != nil {
+		return nil, errors.WithStack(err)
 	}
-	for _, v := range []tt{
-		{proto.NewValueInt64(9), "         "},
-		{proto.NewValueInt64(5), "     "},
-		{proto.NewValueInt64(-9), ""},
-		{proto.NewValueFloat64(9.2), "NaN"},
-		{proto.NewValueString("10"), "NaN"},
-	} {
-		t.Run(fmt.Sprint(v.inFirst), func(t *testing.T) {
-			out, err := fn.Apply(context.Background(), proto.ToValuer(v.inFirst))
-			assert.NoError(t, err)
-			assert.Equal(t, v.want, fmt.Sprint(out))
-		})
+	val2, err := inputs[1].Value(ctx)
+	if err != nil {
+		return nil, errors.WithStack(err)
 	}
+
+	val3, err := inputs[2].Value(ctx)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	if val1 == nil {
+		return val3, nil
+	}
+	if v, _ := val1.Int64(); v != 0 {
+		if val2 != nil {
+			return val2, nil
+		}
+	}
+	return val3, nil
+}
+
+func (i ifFunc) NumInput() int {
+	return 3
 }
