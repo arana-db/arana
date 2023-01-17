@@ -22,46 +22,79 @@ import (
 )
 
 // NewXAHook creates new XAHook
-func NewXAHook() (*TxLogManager, error) {
-	return nil, nil
+func NewXAHook() (*xaHook, error) {
+	tm, err := GetTxLogManager()
+	if err != nil {
+		return nil, err
+	}
+
+	xh := &xaHook{}
+
+	trxStateChangeFunc := map[runtime.TxState]func(tx runtime.CompositeTx){
+		runtime.Active:       xh.onActive,
+		runtime.Preparing:    xh.onPreparing,
+		runtime.Prepared:     xh.onPrepared,
+		runtime.Committing:   xh.onCommitting,
+		runtime.Committed:    xh.onCommitted,
+		runtime.Aborting:     xh.onAborting,
+		runtime.RollbackOnly: xh.onRollbackOnly,
+	}
+
+	xh.tm = tm
+	xh.trxStateChangeFunc = trxStateChangeFunc
+
+	return xh, nil
 }
 
 // xaHook XA transaction-related hook implementation
 // case 1: Modify the execution action of branchTx
 type xaHook struct {
-	tm *TxLogManager
+	tm                 *TxLogManager
+	trxStateChangeFunc map[runtime.TxState]func(tx runtime.CompositeTx)
 }
 
-func (xh *xaHook) OnActive(tx runtime.CompositeTx) {
+func (xh *xaHook) OnTxStateChange(state runtime.TxState, tx runtime.CompositeTx) {
+	handle, ok := xh.trxStateChangeFunc[state]
+	if ok {
+		handle(tx)
+	}
+}
+
+// OnCreateBranchTx Fired when BranchTx create
+func (xh *xaHook) OnCreateBranchTx(tx runtime.BranchTx) {
+
+}
+
+func (xh *xaHook) onActive(tx runtime.CompositeTx) {
 	tx.SetBeginFunc(StartXA)
 }
 
-func (xh *xaHook) OnPreparing(tx runtime.CompositeTx) {
+func (xh *xaHook) onPreparing(tx runtime.CompositeTx) {
 	tx.Range(func(tx runtime.BranchTx) {
 		tx.SetPrepareFunc(PrepareXA)
 	})
 }
 
-func (xh *xaHook) OnPrepared(tx runtime.CompositeTx) {
+func (xh *xaHook) onPrepared(tx runtime.CompositeTx) {
 
 }
 
-func (xh *xaHook) OnCommitting(tx runtime.CompositeTx) {
+func (xh *xaHook) onCommitting(tx runtime.CompositeTx) {
 	tx.Range(func(tx runtime.BranchTx) {
 		tx.SetCommitFunc(CommitXA)
 	})
 }
 
-func (xh *xaHook) OnCommitted(tx runtime.CompositeTx) {
+func (xh *xaHook) onCommitted(tx runtime.CompositeTx) {
 
 }
 
-func (xh *xaHook) OnAborting(tx runtime.CompositeTx) {
+func (xh *xaHook) onAborting(tx runtime.CompositeTx) {
 	tx.Range(func(tx runtime.BranchTx) {
 		tx.SetCommitFunc(RollbackXA)
 	})
 }
 
-func (xh *xaHook) OnRollbackOnly(tx runtime.CompositeTx) {
+func (xh *xaHook) onRollbackOnly(tx runtime.CompositeTx) {
 
 }

@@ -136,6 +136,10 @@ func (bt *Booter) bootTenant(ctx context.Context, tenant string) {
 		}
 	}
 
+	if err := buildTransaction(ctx); err != nil {
+		errs = append(errs, err)
+	}
+
 	cost := time.Since(begin).Milliseconds()
 	if err := multierr.Combine(errs...); err != nil {
 		log.Errorf("[%s] boot failed after %dms: %v", tenant, err, cost)
@@ -246,4 +250,10 @@ func buildNamespace(ctx context.Context, tenant string, provider Discovery, clus
 	initCmds = append(initCmds, namespace.UpdateRule(&ru))
 
 	return namespace.New(clusterName, initCmds...)
+}
+
+// TODO build xa transaction
+func buildTransaction(ctx context.Context) error {
+
+	return nil
 }

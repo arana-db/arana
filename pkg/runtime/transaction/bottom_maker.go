@@ -21,6 +21,10 @@ import (
 	"errors"
 )
 
+import (
+	"github.com/arana-db/arana/pkg/runtime"
+)
+
 var (
 	ErrorTxBottomMakerNotInitialize = errors.New("txBottomMaker not initialize")
 )
@@ -30,7 +34,7 @@ var (
 )
 
 // InitTxBottomMaker inits TxBottomMaker
-func InitTxBottomMaker() error {
+func InitTxBottomMaker(rt runtime.Runtime) error {
 	return nil
 }
 
@@ -49,6 +53,7 @@ func GetTxBottomMaker() (*TxBottomMaker, error) {
 // case 3: If it is in Aborting state, roll back the transaction again and end the current transaction
 // important!!! the execution of this task requires distributed task preemption based on the metadata DB
 type TxBottomMaker struct {
+	tm *TxLogManager
 }
 
 // Run Core logic of the decision -making decision -making at the bottom of the affairs

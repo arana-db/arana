@@ -18,22 +18,30 @@
 package transaction
 
 import (
+	"context"
 	"errors"
+	"sync"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/runtime"
+	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 )
 
 const (
-	// 启用 mysql 的二级分区功能，解决清理 tx log 的问题
+	// TODO 启用 mysql 的二级分区功能，解决清理 tx log 的问题
 	_initTxLog = `
 CREATE TABLE IF NOT EXISTS __arana_tx_log (
 	log_id bigint(20) auto_increment,
-	gtid varchar(255) NOT NULL,
+	txr_id varchar(255) NOT NULL,
+    tenant varchar(255) NOT NULL,
 	server_id int(10) UNSIGNED NOT NULL,
-	state int(10) NOT NULL, // enum('prepare', 'commit', 'abort'), 0=prepare,1=commit,2=abort
-	participant varchar(500), //
+	state int(10) NOT NULL,
+	participant varchar(500),
 	start_time timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 	update_time timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 	PRIMARY KEY (log_id),
-	UNIQUE KEY (gtid)
+	UNIQUE KEY (txr_id)
   ) ENGINE = InnoDB CHARSET = utf8
 `
 )
@@ -43,12 +51,24 @@ var (
 )
 
 var (
+	initTmOnce   sync.Once
 	txLogManager *TxLogManager
 )
 
 // InitTxLogManager inits TxLogManager
-func InitTxLogManager() error {
-	return nil
+func InitTxLogManager(rt runtime.Runtime) error {
+	if txLogManager != nil {
+		return nil
+	}
+	var rerr error
+	initTmOnce.Do(func() {
+		txLogManager = &TxLogManager{
+			rt: rt,
+		}
+
+		rerr = txLogManager.init()
+	})
+	return rerr
 }
 
 // GetTxLogManager returns *TxLogManager
@@ -61,14 +81,27 @@ func GetTxLogManager() (*TxLogManager, error) {
 
 // TxLog arana tx log
 type TxLog struct {
-	Gtid        string
+	TrxID       string
 	ServerID    int32
-	State       int32
+	State       runtime.TxState
 	Participant string
+	Tenant      string
 }
 
 // TxLogManager Transaction log management
 type TxLogManager struct {
+	rt runtime.Runtime
+}
+
+// init executes create __arana_tx_log table action
+func (gm *TxLogManager) init() error {
+	ctx := rcontext.WithRead(rcontext.WithDirect(context.Background()))
+	res, err := gm.rt.Exec(ctx, "", _initTxLog)
+	if err != nil {
+		return err
+	}
+	_, _ = res.RowsAffected()
+	return nil
 }
 
 // AddOrUpdateTxLog Add or update transaction log
@@ -82,7 +115,7 @@ func (gm *TxLogManager) DeleteTxLog(l TxLog) error {
 }
 
 // ScanTxLog Scanning transaction
-func (gm *TxLogManager) ScanTxLog(pageNo, pageSize uint32) (uint32, []TxLog, error) {
+func (gm *TxLogManager) ScanTxLog(pageNo, pageSize uint32, filter map[string]string) (uint32, []TxLog, error) {
 	return 0, nil, nil
 }
 

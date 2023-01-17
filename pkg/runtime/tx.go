@@ -72,33 +72,47 @@ const (
 )
 
 // CompositeTx distribute transaction
-type CompositeTx interface {
-	// GetTxState get cur tx state
-	GetTxState() TxState
-	// SetBeginFunc sets begin func
-	SetBeginFunc(f dbFunc)
-	// Range range branchTx map
-	Range(func(tx BranchTx))
-}
+type (
+	// CompositeTx distribute transaction
+	CompositeTx interface {
+		// GetTxState get cur tx state
+		GetTxState() TxState
+		// SetBeginFunc sets begin func
+		SetBeginFunc(f dbFunc)
+		// Range range branchTx map
+		Range(func(tx BranchTx))
+	}
 
-type BranchTx interface {
-	// SetPrepareFunc set prepare dbFunc
-	SetPrepareFunc(f dbFunc)
-	// SetCommitFunc set commit dbFunc
-	SetCommitFunc(f dbFunc)
-	// SetRollbackFunc set rollback dbFunc
-	SetRollbackFunc(f dbFunc)
-}
+	// BranchTx each atomDB transaction
+	BranchTx interface {
+		// SetPrepareFunc sets prepare dbFunc
+		SetPrepareFunc(f dbFunc)
+		// SetCommitFunc sets commit dbFunc
+		SetCommitFunc(f dbFunc)
+		// SetRollbackFunc sets rollback dbFunc
+		SetRollbackFunc(f dbFunc)
+		// GetConn gets mysql connection
+		GetConn() *mysql.BackendConnection
+	}
 
-type TxHook interface {
-	OnActive(tx CompositeTx)
-	OnPreparing(tx CompositeTx)
-	OnPrepared(tx CompositeTx)
-	OnCommitting(tx CompositeTx)
-	OnCommitted(tx CompositeTx)
-	OnAborting(tx CompositeTx)
-	OnRollbackOnly(tx CompositeTx)
-}
+	// TxHook transaction hook
+	TxHook interface {
+		// OnTxStateChange Fired when CompositeTx TrxState change
+		OnTxStateChange(state TxState, tx CompositeTx)
+		// OnCreateBranchTx Fired when BranchTx create
+		OnCreateBranchTx(tx BranchTx)
+	}
+
+	// DeadLockDog check target CompositeTx has deadlock
+	DeadLockDog interface {
+		// Start run deadlock detection dog, can set how long the delay starts to execute
+		Start(ctx context.Context, delay time.Duration, tx CompositeTx)
+		// HasDeadLock tx deadlock is occur
+		HasDeadLock() bool
+		// Cancel stop run deadlock detection dog
+		Cancel()
+	}
+)
 
 func newCompositeTx(pi *defaultRuntime, hooks ...TxHook) *compositeTx {
 	tx := &compositeTx{
@@ -405,36 +419,8 @@ func (tx *compositeTx) GetTxState() TxState {
 
 func (tx *compositeTx) setTxState(state TxState) {
 	tx.txState = state
-
-	switch state {
-	case Active:
-		for i := range tx.hooks {
-			tx.hooks[i].OnActive(tx)
-		}
-	case Preparing:
-		for i := range tx.hooks {
-			tx.hooks[i].OnPreparing(tx)
-		}
-	case Prepared:
-		for i := range tx.hooks {
-			tx.hooks[i].OnPreparing(tx)
-		}
-	case Committing:
-		for i := range tx.hooks {
-			tx.hooks[i].OnCommitting(tx)
-		}
-	case Committed:
-		for i := range tx.hooks {
-			tx.hooks[i].OnCommitted(tx)
-		}
-	case Aborting:
-		for i := range tx.hooks {
-			tx.hooks[i].OnAborting(tx)
-		}
-	case RollbackOnly:
-		for i := range tx.hooks {
-			tx.hooks[i].OnRollbackOnly(tx)
-		}
+	for i := range tx.hooks {
+		tx.hooks[i].OnTxStateChange(state, tx)
 	}
 }
 
@@ -549,4 +535,8 @@ func (tx *branchTx) SetCommitFunc(f dbFunc) {
 // SetRollbackFunc set rollback dbFunc
 func (tx *branchTx) SetRollbackFunc(f dbFunc) {
 	tx.rollback = f
+}
+
+func (tx *branchTx) GetConn() *mysql.BackendConnection {
+	return tx.bc
 }

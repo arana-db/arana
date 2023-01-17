@@ -53,6 +53,7 @@ import (
 	_ "github.com/arana-db/arana/pkg/runtime/optimize/ddl"
 	_ "github.com/arana-db/arana/pkg/runtime/optimize/dml"
 	_ "github.com/arana-db/arana/pkg/runtime/optimize/utility"
+	"github.com/arana-db/arana/pkg/runtime/transaction"
 	"github.com/arana-db/arana/pkg/util/log"
 	"github.com/arana-db/arana/pkg/util/rand2"
 	"github.com/arana-db/arana/third_party/pools"
@@ -374,7 +375,13 @@ func (pi *defaultRuntime) Version(ctx context.Context) (string, error) {
 func (pi *defaultRuntime) Begin(ctx context.Context) (proto.Tx, error) {
 	_, span := Tracer.Start(ctx, "defaultRuntime.Begin")
 	defer span.End()
-	tx := newCompositeTx(pi)
+
+	xaHook, err := transaction.NewXAHook()
+	if err != nil {
+		return nil, err
+	}
+
+	tx := newCompositeTx(pi, xaHook)
 	log.Debugf("begin transaction: %s", tx)
 	return tx, nil
 }
