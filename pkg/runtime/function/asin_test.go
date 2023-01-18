@@ -38,18 +38,26 @@ func TestAsin(t *testing.T) {
 
 	type tt struct {
 		in  interface{}
-		out float64
+		out interface{}
 	}
 
 	for i, it := range []tt{
-		{0, 0},
+		{nil, nil},
+		{0, float64(0)},
 		{1, math.Pi / 2},
 		{-1, -math.Pi / 2},
+		{2, nil},
+		{-2, nil},
+		{"arana", float64(0)},
 	} {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			first, _ := proto.NewValue(it.in)
 			out, err := fn.Apply(context.Background(), proto.ToValuer(first))
 			assert.NoError(t, err)
+			if it.out == nil {
+				assert.Nil(t, out)
+				return
+			}
 			actual, err := out.Float64()
 			assert.NoError(t, err)
 			assert.Equal(t, it.out, actual)

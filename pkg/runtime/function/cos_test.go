@@ -38,20 +38,26 @@ func TestCos(t *testing.T) {
 
 	type tt struct {
 		in  interface{}
-		out float64
+		out interface{}
 	}
 
 	for i, it := range []tt{
-		{0, 1},
-		{math.Pi, -1},
-		{-math.Pi, -1},
+		{nil, nil},
+		{0, float64(1)},
+		{math.Pi, float64(-1)},
+		{-math.Pi, float64(-1)},
 		{math.Pi / 2, math.Cos(math.Pi / 2)}, // math.Cos(math.Pi / 2) near to zero, but not equal
 		{-math.Pi / 2, math.Cos(-math.Pi / 2)},
+		{"arana", float64(1)},
 	} {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			first, _ := proto.NewValue(it.in)
 			out, err := fn.Apply(context.Background(), proto.ToValuer(first))
 			assert.NoError(t, err)
+			if it.out == nil {
+				assert.Nil(t, out)
+				return
+			}
 			actual, err := out.Float64()
 			assert.NoError(t, err)
 			assert.Equal(t, it.out, actual)
