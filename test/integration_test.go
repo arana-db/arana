@@ -1018,6 +1018,30 @@ func (s *IntegrationSuite) TestAnalyzeTable() {
 	}
 }
 
+// TestCheckTable
+func (s *IntegrationSuite) TestCheckTable() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql string
+	}
+
+	for _, it := range [...]tt{
+		{"CHECK TABLE student"},
+		{"CHECK TABLE student,departments"},
+		{"CHECK TABLE student QUICK"},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			rows, err := db.Query(it.sql)
+			assert.NoError(t, err)
+			defer rows.Close()
+		})
+	}
+}
+
 // TestOptimizeTable
 func (s *IntegrationSuite) TestOptimizeTable() {
 	var (
