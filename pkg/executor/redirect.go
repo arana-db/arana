@@ -208,7 +208,7 @@ func (executor *RedirectExecutor) doExecutorComQuery(ctx *proto.Context, act ast
 			err = errNoDatabaseSelected
 		} else {
 			// begin a new tx
-			xaHook, err := transaction.NewXAHook()
+			xaHook, err := transaction.NewXAHook(rcontext.Tenant(ctx))
 			if err != nil {
 				return nil, 0, err
 			}

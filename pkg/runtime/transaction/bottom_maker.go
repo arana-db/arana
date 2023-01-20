@@ -17,35 +17,6 @@
 
 package transaction
 
-import (
-	"errors"
-)
-
-import (
-	"github.com/arana-db/arana/pkg/runtime"
-)
-
-var (
-	ErrorTxBottomMakerNotInitialize = errors.New("txBottomMaker not initialize")
-)
-
-var (
-	txBottomMaker *TxBottomMaker
-)
-
-// InitTxBottomMaker inits TxBottomMaker
-func InitTxBottomMaker(rt runtime.Runtime) error {
-	return nil
-}
-
-// GetTxBottomMaker returns *TxBottomMaker
-func GetTxBottomMaker() (*TxBottomMaker, error) {
-	if txBottomMaker == nil {
-		return nil, ErrorTxBottomMakerNotInitialize
-	}
-	return txBottomMaker, nil
-}
-
 // TxBottomMaker Decisions of transaction pocket
 // regularly scan the `__arana_tx_log` table to query the list of unfinished transactions
 // case 1: If it is in the prepare state, if it exceeds a certain period of time, the transaction will be rolled back directly

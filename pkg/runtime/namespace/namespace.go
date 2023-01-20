@@ -84,6 +84,8 @@ type (
 		// datasource map, eg: employee_0001 -> [mysql-a,mysql-b,mysql-c], ... employee_0007 -> [mysql-x,mysql-y,mysql-z]
 		dss atomic.Value // map[string][]proto.DB
 
+		sysDb proto.DB
+
 		parameters    config.ParametersMap
 		slowThreshold time.Duration
 
@@ -233,6 +235,11 @@ func (ns *Namespace) DBSlave(_ context.Context, group string) proto.DB {
 		target = selector.NewWeightRandomSelector(wrList).GetDataSourceNo()
 	}
 	return readDBList[target]
+}
+
+// SysDB returns SysDB
+func (ns *Namespace) SysDB() proto.DB {
+	return ns.sysDb
 }
 
 // Rule returns the sharding rule.

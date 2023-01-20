@@ -19,13 +19,10 @@ package transaction
 
 import (
 	"context"
-	"errors"
-	"sync"
 )
 
 import (
-	"github.com/arana-db/arana/pkg/runtime"
-	rcontext "github.com/arana-db/arana/pkg/runtime/context"
+	"github.com/arana-db/arana/pkg/proto"
 )
 
 const (
@@ -46,57 +43,15 @@ CREATE TABLE IF NOT EXISTS __arana_tx_log (
 `
 )
 
-var (
-	ErrorTxLogManagerNotInitialize = errors.New("txLogManager not initialize")
-)
-
-var (
-	initTmOnce   sync.Once
-	txLogManager *TxLogManager
-)
-
-// InitTxLogManager inits TxLogManager
-func InitTxLogManager(rt runtime.Runtime) error {
-	if txLogManager != nil {
-		return nil
-	}
-	var rerr error
-	initTmOnce.Do(func() {
-		txLogManager = &TxLogManager{
-			rt: rt,
-		}
-
-		rerr = txLogManager.init()
-	})
-	return rerr
-}
-
-// GetTxLogManager returns *TxLogManager
-func GetTxLogManager() (*TxLogManager, error) {
-	if txLogManager == nil {
-		return nil, ErrorTxLogManagerNotInitialize
-	}
-	return txLogManager, nil
-}
-
-// TxLog arana tx log
-type TxLog struct {
-	TrxID       string
-	ServerID    int32
-	State       runtime.TxState
-	Participant string
-	Tenant      string
-}
-
 // TxLogManager Transaction log management
 type TxLogManager struct {
-	rt runtime.Runtime
+	sysDB proto.DB
 }
 
 // init executes create __arana_tx_log table action
 func (gm *TxLogManager) init() error {
-	ctx := rcontext.WithRead(rcontext.WithDirect(context.Background()))
-	res, err := gm.rt.Exec(ctx, "", _initTxLog)
+	ctx := context.Background()
+	res, _, err := gm.sysDB.Call(ctx, _initTxLog)
 	if err != nil {
 		return err
 	}

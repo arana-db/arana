@@ -109,6 +109,8 @@ type AtomDB struct {
 	closed atomic.Bool
 
 	pendingRequests atomic.Int64
+
+	node *config.Node
 }
 
 func NewAtomDB(node *config.Node) *AtomDB {
@@ -122,6 +124,7 @@ func NewAtomDB(node *config.Node) *AtomDB {
 	db := &AtomDB{
 		id:     node.Name,
 		weight: proto.Weight{R: int32(r), W: int32(w)},
+		node:   node,
 	}
 
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?%s", node.Username, node.Password, node.Host, node.Port, node.Database, node.Parameters.String())
@@ -354,6 +357,10 @@ func (db *AtomDB) borrowConnection(ctx context.Context) (*mysql.BackendConnectio
 func (db *AtomDB) returnConnection(bc *mysql.BackendConnection) {
 	db.pool.Put(bc)
 	// log.Infof("^^^^^ return conn: active=%d, available=%d", db.pool.Active(), db.pool.Available())
+}
+
+func (db *AtomDB) Copy() proto.DB {
+	return NewAtomDB(db.node)
 }
 
 type defaultRuntime namespace.Namespace

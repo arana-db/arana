@@ -18,6 +18,7 @@
 package namespace
 
 import (
+	"context"
 	"time"
 )
 
@@ -214,6 +215,15 @@ func UpsertDB(group string, ds proto.DB) Command {
 
 		log.Infof("[%s] upsert db %s.%s successfully", ns.name, group, id)
 
+		return nil
+	}
+}
+
+func CreateSysDB() Command {
+	return func(ns *Namespace) error {
+		group := ns.DBGroups()[0]
+		db := ns.DBMaster(context.Background(), group)
+		ns.sysDb = db.Copy()
 		return nil
 	}
 }

@@ -34,6 +34,7 @@ import (
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime"
 	"github.com/arana-db/arana/pkg/runtime/namespace"
+	"github.com/arana-db/arana/pkg/runtime/transaction"
 	_ "github.com/arana-db/arana/pkg/schema"
 	"github.com/arana-db/arana/pkg/security"
 	"github.com/arana-db/arana/pkg/util/log"
@@ -136,7 +137,7 @@ func (bt *Booter) bootTenant(ctx context.Context, tenant string) {
 		}
 	}
 
-	if err := buildTransaction(ctx); err != nil {
+	if err := transaction.InitTrxManager(tenant); err != nil {
 		errs = append(errs, err)
 	}
 
@@ -248,12 +249,7 @@ func buildNamespace(ctx context.Context, tenant string, provider Discovery, clus
 		ru.SetVTable(table, vt)
 	}
 	initCmds = append(initCmds, namespace.UpdateRule(&ru))
+	initCmds = append(initCmds, namespace.CreateSysDB())
 
 	return namespace.New(clusterName, initCmds...)
-}
-
-// TODO build xa transaction
-func buildTransaction(ctx context.Context) error {
-
-	return nil
 }

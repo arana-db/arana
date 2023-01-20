@@ -22,8 +22,8 @@ import (
 )
 
 // NewXAHook creates new XAHook
-func NewXAHook() (*xaHook, error) {
-	tm, err := GetTxLogManager()
+func NewXAHook(tenant string) (*xaHook, error) {
+	trxMgr, err := GetTrxManager(tenant)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +40,7 @@ func NewXAHook() (*xaHook, error) {
 		runtime.RollbackOnly: xh.onRollbackOnly,
 	}
 
-	xh.tm = tm
+	xh.trxMgr = trxMgr
 	xh.trxStateChangeFunc = trxStateChangeFunc
 
 	return xh, nil
@@ -49,7 +49,7 @@ func NewXAHook() (*xaHook, error) {
 // xaHook XA transaction-related hook implementation
 // case 1: Modify the execution action of branchTx
 type xaHook struct {
-	tm                 *TxLogManager
+	trxMgr             *TrxManager
 	trxStateChangeFunc map[runtime.TxState]func(tx runtime.CompositeTx)
 }
 

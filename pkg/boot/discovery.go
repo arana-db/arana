@@ -122,6 +122,7 @@ func (fp *discovery) InitTenant(tenant string) error {
 		config.WithWatcher(true),
 		config.WithWriter(true),
 	)
+
 	return err
 }
 
