@@ -21,7 +21,9 @@ import (
 	"context"
 	"fmt"
 	"testing"
+)
 
+import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 )
