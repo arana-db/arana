@@ -25,13 +25,13 @@ import (
 
 import (
 	"github.com/shopspring/decimal"
-	
+
 	"github.com/stretchr/testify/assert"
 )
 
 func TestDodiv(t *testing.T) {
 	type tt struct {
-		p        int32 // 精度
+		p        int32 // precision
 		inFirst  decimal.Decimal
 		inSecond decimal.Decimal
 		want     decimal.Decimal
