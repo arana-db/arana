@@ -38,7 +38,7 @@ func init() {
 	optimize.Register(ast.SQLTypeUpdate, optimizeUpdate)
 }
 
-func optimizeUpdate(_ context.Context, o *optimize.Optimizer) (proto.Plan, error) {
+func optimizeUpdate(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error) {
 	var (
 		stmt  = o.Stmt.(*ast.UpdateStatement)
 		table = stmt.Table
@@ -75,7 +75,7 @@ func optimizeUpdate(_ context.Context, o *optimize.Optimizer) (proto.Plan, error
 		}
 
 		if shards == nil {
-			if shards, err = optimize.NewXSharder(o.Rule, o.Args).SimpleShard(table, where); err != nil {
+			if shards, err = optimize.NewXSharder(ctx, o.Rule, o.Args).SimpleShard(table, where); err != nil {
 				return nil, errors.Wrap(err, "failed to update")
 			}
 			fullScan = shards == nil
