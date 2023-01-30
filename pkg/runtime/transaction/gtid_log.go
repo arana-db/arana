@@ -60,17 +60,17 @@ func (gm *TxLogManager) init() error {
 }
 
 // AddOrUpdateTxLog Add or update transaction log
-func (gm *TxLogManager) AddOrUpdateTxLog(l TxLog) error {
+func (gm *TxLogManager) AddOrUpdateTxLog(l TrxLog) error {
 	return nil
 }
 
 // DeleteTxLog Delete transaction log
-func (gm *TxLogManager) DeleteTxLog(l TxLog) error {
+func (gm *TxLogManager) DeleteTxLog(l TrxLog) error {
 	return nil
 }
 
 // ScanTxLog Scanning transaction
-func (gm *TxLogManager) ScanTxLog(pageNo, pageSize uint32, filter map[string]string) (uint32, []TxLog, error) {
+func (gm *TxLogManager) ScanTxLog(pageNo, pageSize uint32, filter map[string]string) (uint32, []TrxLog, error) {
 	return 0, nil, nil
 }
 

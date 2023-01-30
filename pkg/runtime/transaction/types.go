@@ -21,11 +21,17 @@ import (
 	"github.com/arana-db/arana/pkg/runtime"
 )
 
-// TxLog arana tx log
-type TxLog struct {
-	TrxID       string
-	ServerID    int32
-	State       runtime.TxState
-	Participant string
-	Tenant      string
+// TrxLog arana tx log
+type TrxLog struct {
+	TrxID        string
+	ServerID     int32
+	State        runtime.TxState
+	Participants []TrxParticipant
+	Tenant       string
+}
+
+type TrxParticipant struct {
+	NodeID     string
+	RemoteAddr string
+	Schema     string
 }

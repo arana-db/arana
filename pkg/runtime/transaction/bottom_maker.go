@@ -32,18 +32,18 @@ func (bm *TxBottomMaker) Run() {
 
 }
 
-func (bm *TxBottomMaker) scanUnFinishTxLog() ([]TxLog, error) {
+func (bm *TxBottomMaker) scanUnFinishTxLog() ([]TrxLog, error) {
 	return nil, nil
 }
 
-func (bm *TxBottomMaker) handlePreparing(tx TxLog) {
+func (bm *TxBottomMaker) handlePreparing(tx TrxLog) {
 
 }
 
-func (bm *TxBottomMaker) handleCommitting(tx TxLog) {
+func (bm *TxBottomMaker) handleCommitting(tx TrxLog) {
 
 }
 
-func (bm *TxBottomMaker) handleAborting(tx TxLog) {
+func (bm *TxBottomMaker) handleAborting(tx TrxLog) {
 
 }
