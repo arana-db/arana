@@ -35,14 +35,14 @@ func init() {
 	optimize.Register(ast.SQLTypeDropTable, optimizeDropTable)
 }
 
-func optimizeDropTable(_ context.Context, o *optimize.Optimizer) (proto.Plan, error) {
+func optimizeDropTable(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error) {
 	stmt := o.Stmt.(*ast.DropTableStatement)
 	// table shard
 	var shards []rule.DatabaseTables
 	// tables not shard
 	noShardStmt := ast.NewDropTableStatement()
 	for _, table := range stmt.Tables {
-		shard, err := o.ComputeShards(*table, nil, o.Args)
+		shard, err := o.ComputeShards(ctx, *table, nil, o.Args)
 		if err != nil {
 			return nil, err
 		}

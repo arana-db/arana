@@ -23,6 +23,10 @@ import (
 )
 
 import (
+	"github.com/blang/semver"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
@@ -84,4 +88,33 @@ type Func interface {
 
 	// NumInput returns the minimum number of inputs.
 	NumInput() int
+}
+
+// VersionedFunc represents a MySQL function with versions.
+// See this doc: https://dev.mysql.com/doc/refman/8.0/en/built-in-function-reference.html
+type VersionedFunc interface {
+	Func
+
+	// Versions returns the version range of current function.
+	Versions() semver.Range
+}
+
+// ValidateFunction checks the function compatibility from server version.
+func ValidateFunction(ctx context.Context, f Func, strict bool) bool {
+	vf, ok := f.(VersionedFunc)
+	if !ok { // omit if not versioned function
+		return true
+	}
+
+	serverVersion, ok := ctx.Value(ContextKeyServerVersion{}).(string)
+	if !ok {
+		return !strict
+	}
+
+	ver, err := semver.Parse(serverVersion)
+	if err != nil {
+		return !strict
+	}
+
+	return vf.Versions()(ver)
 }

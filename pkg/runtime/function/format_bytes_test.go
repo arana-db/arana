@@ -15,38 +15,48 @@
  * limitations under the License.
  */
 
-package ddl
+package function
 
 import (
 	"context"
+	"fmt"
+	"testing"
+)
+
+import (
+	"github.com/stretchr/testify/assert"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/runtime/ast"
-	"github.com/arana-db/arana/pkg/runtime/optimize"
-	"github.com/arana-db/arana/pkg/runtime/plan"
-	"github.com/arana-db/arana/pkg/runtime/plan/ddl"
 )
 
-func init() {
-	optimize.Register(ast.SQLTypeDropIndex, optimizeDropIndex)
-}
+func TestFormatBytes(t *testing.T) {
+	fn := proto.MustGetFunc(FuncFormatBytes)
+	assert.Equal(t, 1, fn.NumInput())
 
-func optimizeDropIndex(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error) {
-	stmt := o.Stmt.(*ast.DropIndexStatement)
-	// table shard
+	out, err := fn.Apply(context.TODO(), proto.ToValuer(nil))
+	assert.NoError(t, err)
+	assert.Nil(t, out)
 
-	shard, err := o.ComputeShards(ctx, stmt.Table, nil, o.Args)
-	if err != nil {
-		return nil, err
-	}
-	if len(shard) == 0 {
-		return plan.Transparent(stmt, o.Args), nil
+	type tt struct {
+		input  interface{}
+		output string
 	}
 
-	shardPlan := ddl.NewDropIndexPlan(stmt)
-	shardPlan.SetShard(shard)
-	shardPlan.BindArgs(o.Args)
-	return shardPlan, nil
+	for _, next := range []tt{
+		{int64(512), "512 bytes"},
+		{int64(1025), "1.00 KiB"},
+		{3.14, "3 bytes"},
+		{-5.55, "-5 bytes"},
+		{uint64(18446644073709551615), "16.00 EiB"},
+	} {
+		t.Run(fmt.Sprint(next.input), func(t *testing.T) {
+			val, err := proto.NewValue(next.input)
+			assert.NoError(t, err)
+			actual, err := fn.Apply(context.TODO(), proto.ToValuer(val))
+			assert.NoError(t, err)
+			assert.Equal(t, next.output, actual.String())
+		})
+	}
 }

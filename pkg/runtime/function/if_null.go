@@ -53,7 +53,6 @@ func (i ifNullFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Va
 		return val1, nil
 	}
 	return val2, nil
-
 }
 
 func (i ifNullFunc) NumInput() int {

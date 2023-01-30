@@ -32,6 +32,8 @@ import (
 )
 
 import (
+	mConstants "github.com/arana-db/arana/pkg/constants/mysql"
+	mysqlErrors "github.com/arana-db/arana/pkg/mysql/errors"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
@@ -45,6 +47,7 @@ func IsErrNotSupportedValue(err error) bool {
 
 type valueVisitor struct {
 	ast.BaseVisitor
+	context.Context
 	args []proto.Value
 }
 
@@ -261,9 +264,33 @@ func (vv *valueVisitor) VisitAtomInterval(node *ast.IntervalExpressionAtom) (int
 }
 
 func (vv *valueVisitor) VisitFunction(node *ast.Function) (interface{}, error) {
+	newNoSuchFuncErr := func() error {
+		schema, _ := vv.Context.Value(proto.ContextKeySchema{}).(string)
+		var sb strings.Builder
+		sb.Grow(32 + len(schema) + len(node.Name()))
+
+		sb.WriteString("FUNCTION ")
+		if len(schema) > 0 {
+			sb.WriteString(schema)
+			sb.WriteByte('.')
+		}
+		sb.WriteString(node.Name())
+		sb.WriteString(" doesn't exist")
+
+		return mysqlErrors.NewSQLError(
+			mConstants.ERSPDoseNotExist,
+			mConstants.SSSPNotExist,
+			sb.String(),
+		)
+	}
+
 	fn, ok := proto.GetFunc(node.Name())
 	if !ok {
-		return nil, perrors.Errorf("no such function '%s'", node.Name())
+		return nil, newNoSuchFuncErr()
+	}
+
+	if !proto.ValidateFunction(vv, fn, false) {
+		return nil, newNoSuchFuncErr()
 	}
 
 	if len(node.Args()) < fn.NumInput() {
