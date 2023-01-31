@@ -117,7 +117,7 @@ func (o *Optimizer) Optimize(ctx context.Context) (plan proto.Plan, err error) {
 	return h(ctx, o)
 }
 
-func (o *Optimizer) ComputeShards(table rast.TableName, where rast.ExpressionNode, args []proto.Value) (rule.DatabaseTables, error) {
+func (o *Optimizer) ComputeShards(ctx context.Context, table rast.TableName, where rast.ExpressionNode, args []proto.Value) (rule.DatabaseTables, error) {
 	ru := o.Rule
 	vt, ok := ru.VTable(table.Suffix())
 	if !ok {
@@ -136,7 +136,7 @@ func (o *Optimizer) ComputeShards(table rast.TableName, where rast.ExpressionNod
 	}
 
 	if shards == nil {
-		xsd := NewXSharder(ru, args)
+		xsd := NewXSharder(ctx, ru, args)
 		if err := xsd.ForSingleSelect(table, "", where); err != nil {
 			return nil, perrors.Wrapf(err, "optimize: cannot calculate shards of table '%s'", table.Suffix())
 		}
