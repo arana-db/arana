@@ -121,6 +121,10 @@ func (c *CheckTablePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Re
 			dest[0] = proto.NewValueString(dbName + "." + tbName)
 		}
 
+		if next.IsBinary() {
+			return rows.NewBinaryVirtualRow(fields, dest), nil
+		}
+
 		return rows.NewTextVirtualRow(fields, dest), nil
 	}))
 
