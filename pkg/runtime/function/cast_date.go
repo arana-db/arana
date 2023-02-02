@@ -36,7 +36,11 @@ import (
 // FuncCastDate is  https://dev.mysql.com/doc/refman/5.6/en/cast-functions.html#function_cast
 const FuncCastDate = "CAST_DATE"
 
-var DateSep = "~!@#$%^&*_+=:;,.|/?\\(\\)\\[\\]\\{\\}\\-\\\\"
+var DateSep = `[~!@#$%^&*_+=:;,.|/?\(\)\[\]\{\}\-\\]+`
+var _dateReplace = regexp.MustCompile(DateSep)
+var _dateMatchString = regexp.MustCompile(fmt.Sprintf(`^\d{1,4}%s\d{1,2}%s\d{1,2}$`, DateSep, DateSep))
+var _dateMatchInt = regexp.MustCompile(`^\d{5,8}$`)
+
 var _ proto.Func = (*castDateFunc)(nil)
 
 func init() {
@@ -58,31 +62,24 @@ func (a castDateFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.
 	}
 
 	// format - YY-MM-DD, YYYY-MM-DD
-	pat := "^\\d{1,4}[" + DateSep + "]+\\d{1,2}[" + DateSep + "]+\\d{1,2}$"
-	match, err := regexp.MatchString(pat, dateArgs)
-	if match && err == nil {
-		rep := regexp.MustCompile(`[` + DateSep + `]+`)
-		dateArgsReplace := rep.ReplaceAllStringFunc(dateArgs, func(s string) string { return "-" })
+	match := _dateMatchString.MatchString(dateArgs)
+	if match {
+		dateArgsReplace := _dateReplace.ReplaceAllStringFunc(dateArgs, func(s string) string { return "-" })
 		dateYear, dateMonth, dateDay := a.splitDateWithSep(dateArgsReplace)
 
 		if a.IsYearValid(dateYear) && a.IsMonthValid(dateMonth) && a.IsDayValid(dateYear, dateMonth, dateDay) {
 			dateStr := a.DateOutput(dateYear, dateMonth, dateDay)
 			return dateStr, nil
-		} else {
-			return a.DefaultDateValue(), nil
 		}
 	}
 	// format - YYYYMMDD, YYMMDD
-	pat = "^\\d{5,8}$"
-	match, err = regexp.MatchString(pat, dateArgs)
-	if match && err == nil {
+	match = _dateMatchInt.MatchString(dateArgs)
+	if match {
 		dateYear, dateMonth, dateDay := a.splitDateWithoutSep(dateArgs)
 
 		if a.IsYearValid(dateYear) && a.IsMonthValid(dateMonth) && a.IsDayValid(dateYear, dateMonth, dateDay) {
 			dateStr := a.DateOutput(dateYear, dateMonth, dateDay)
 			return dateStr, nil
-		} else {
-			return a.DefaultDateValue(), nil
 		}
 	}
 
@@ -94,39 +91,45 @@ func (a castDateFunc) NumInput() int {
 }
 
 func (a castDateFunc) DateOutput(year, month, day int) proto.Value {
-	dayStr := fmt.Sprint(day)
-	if day < 10 {
-		dayStr = "0" + dayStr
-	}
-	monthStr := fmt.Sprint(month)
-	if month < 10 {
-		monthStr = "0" + monthStr
-	}
-	yearStr := fmt.Sprint(year)
-	if year >= 100 && year <= 999 {
-		yearStr = "0" + yearStr
-	}
+	var sb strings.Builder
 
-	dateStr := yearStr + "-" + monthStr + "-" + dayStr
-	return proto.NewValueString(dateStr)
+	yearStr := strconv.FormatInt(int64(year), 10)
+	if year >= 100 && year <= 999 {
+		sb.WriteString("0")
+	}
+	sb.WriteString(yearStr)
+	sb.WriteString("-")
+	monthStr := strconv.FormatInt(int64(month), 10)
+	if month < 10 {
+		sb.WriteString("0")
+	}
+	sb.WriteString(monthStr)
+	sb.WriteString("-")
+	dayStr := strconv.FormatInt(int64(day), 10)
+	if day < 10 {
+		sb.WriteString("0")
+	}
+	sb.WriteString(dayStr)
+
+	return proto.NewValueString(sb.String())
 }
 
 func (a castDateFunc) splitDateWithSep(dateArgs string) (year, month, day int) {
 	dateLen := len(dateArgs)
-	dateDayStr := string(dateArgs[dateLen-1 : dateLen])
-	dateLeft := string(dateArgs[0 : dateLen-2])
+	dateDayStr := dateArgs[dateLen-1 : dateLen]
+	dateLeft := dateArgs[0 : dateLen-2]
 	if a.IsDigitalValid(string(dateArgs[dateLen-2])) {
-		dateDayStr = string(dateArgs[dateLen-2 : dateLen])
-		dateLeft = string(dateArgs[0 : dateLen-3])
+		dateDayStr = dateArgs[dateLen-2 : dateLen]
+		dateLeft = dateArgs[0 : dateLen-3]
 	}
 	dateArgs = dateLeft
 
 	dateLen = len(dateArgs)
-	dateMonthStr := string(dateArgs[dateLen-1 : dateLen])
-	dateLeft = string(dateArgs[0 : dateLen-2])
+	dateMonthStr := dateArgs[dateLen-1 : dateLen]
+	dateLeft = dateArgs[0 : dateLen-2]
 	if a.IsDigitalValid(string(dateArgs[dateLen-2])) {
-		dateMonthStr = string(dateArgs[dateLen-2 : dateLen])
-		dateLeft = string(dateArgs[0 : dateLen-3])
+		dateMonthStr = dateArgs[dateLen-2 : dateLen]
+		dateLeft = dateArgs[0 : dateLen-3]
 	}
 	dateYearStr := dateLeft
 
@@ -140,13 +143,13 @@ func (a castDateFunc) splitDateWithSep(dateArgs string) (year, month, day int) {
 
 func (a castDateFunc) splitDateWithoutSep(dateArgs string) (year, month, day int) {
 	dateLen := len(dateArgs)
-	dateDayStr := string(dateArgs[dateLen-2 : dateLen])
-	dateLeft := string(dateArgs[0 : dateLen-2])
+	dateDayStr := dateArgs[dateLen-2 : dateLen]
+	dateLeft := dateArgs[0 : dateLen-2]
 	dateArgs = dateLeft
 
 	dateLen = len(dateArgs)
-	dateMonthStr := string(dateArgs[dateLen-2 : dateLen])
-	dateLeft = string(dateArgs[0 : dateLen-2])
+	dateMonthStr := dateArgs[dateLen-2 : dateLen]
+	dateLeft = dateArgs[0 : dateLen-2]
 	dateYearStr := dateLeft
 
 	dateYear, _ := strconv.Atoi(dateYearStr)

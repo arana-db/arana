@@ -36,6 +36,10 @@ import (
 // FuncCastTime is  https://dev.mysql.com/doc/refman/5.6/en/cast-functions.html#function_cast
 const FuncCastTime = "CAST_TIME"
 
+var _timeMatchDay = regexp.MustCompile(`^\d{1,2} \d{1,3}(:\d{1,2}){0,2}$`)
+var _timeMatchString = regexp.MustCompile(`^\d{1,3}(:\d{1,2}){1,2}$`)
+var _timeMatchInt = regexp.MustCompile(`^\d{1,7}$`)
+
 var _ proto.Func = (*castTimeFunc)(nil)
 
 func init() {
@@ -60,10 +64,10 @@ func (a castTimeFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.
 	nega := false
 	if strings.Compare(string(timeArgs[0]), "-") == 0 {
 		nega = true
-		timeArgs = string(timeArgs[1:])
+		timeArgs = timeArgs[1:]
 	}
 	if strings.Compare(string(timeArgs[0]), "+") == 0 {
-		timeArgs = string(timeArgs[1:])
+		timeArgs = timeArgs[1:]
 	}
 
 	// fractional seconds
@@ -81,9 +85,8 @@ func (a castTimeFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.
 
 	if strings.Contains(timeArgs, " ") {
 		// format - D hhh:mm:ss.ms，D hhh:mm.ms，D hhh.ms
-		pat := "^\\d{1,2} \\d{1,3}(:\\d{1,2}){0,2}$"
-		match, err := regexp.MatchString(pat, timeArgs)
-		if !match || err != nil {
+		match := _timeMatchDay.MatchString(timeArgs)
+		if !match {
 			return a.DefaultTimeValue(), nil
 		}
 
@@ -101,9 +104,8 @@ func (a castTimeFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.
 		}
 	} else if strings.Contains(timeArgs, ":") {
 		// format - hhh:mm:ss.ms，hhh:mm.ms
-		pat := "^\\d{1,3}(:\\d{1,2}){1,2}$"
-		match, err := regexp.MatchString(pat, timeArgs)
-		if !match || err != nil {
+		match := _timeMatchString.MatchString(timeArgs)
+		if !match {
 			return a.DefaultTimeValue(), nil
 		}
 
@@ -118,9 +120,8 @@ func (a castTimeFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.
 		}
 	} else {
 		// format - hhhmmss.ms，mmss.ms，ss.ms
-		pat := "^\\d{1,7}$"
-		match, err := regexp.MatchString(pat, timeArgs)
-		if !match || err != nil {
+		match := _timeMatchInt.MatchString(timeArgs)
+		if !match {
 			return a.DefaultTimeValue(), nil
 		}
 
@@ -163,24 +164,29 @@ func (a castTimeFunc) TimeOutput(hour, minutes, second int, nega, frac bool) pro
 		}
 	}
 
-	secondStr := fmt.Sprint(second)
-	if second < 10 {
-		secondStr = "0" + secondStr
-	}
-	minutesStr := fmt.Sprint(minutes)
-	if minutes < 10 {
-		minutesStr = "0" + minutesStr
-	}
-	hourStr := fmt.Sprint(hour)
-	if hour < 10 {
-		hourStr = "0" + hourStr
-	}
-
-	timeStr := hourStr + ":" + minutesStr + ":" + secondStr
+	var sb strings.Builder
 	if nega {
-		timeStr = "-" + timeStr
+		sb.WriteString("-")
 	}
-	return proto.NewValueString(timeStr)
+	hourStr := strconv.FormatInt(int64(hour), 10)
+	if hour < 10 {
+		sb.WriteString("0")
+	}
+	sb.WriteString(hourStr)
+	sb.WriteString(":")
+	minutesStr := strconv.FormatInt(int64(minutes), 10)
+	if minutes < 10 {
+		sb.WriteString("0")
+	}
+	sb.WriteString(minutesStr)
+	sb.WriteString(":")
+	secondStr := strconv.FormatInt(int64(second), 10)
+	if second < 10 {
+		sb.WriteString("0")
+	}
+	sb.WriteString(secondStr)
+
+	return proto.NewValueString(sb.String())
 }
 
 func (a castTimeFunc) splitTimeWithSep(timeArgs string) (hour, minutes, second int) {

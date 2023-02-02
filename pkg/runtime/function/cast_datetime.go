@@ -37,7 +37,12 @@ import (
 // FuncCastDatetime is  https://dev.mysql.com/doc/refman/5.6/en/cast-functions.html#function_cast
 const FuncCastDatetime = "CAST_DATETIME"
 
-var DatetimeSep = "~!@#$%^&*_+=:;,|/?\\(\\)\\[\\]\\{\\}\\-\\\\"
+var DatetimeSep = `[~!@#$%^&*_+=:;,|/?\(\)\[\]\{\}\-\\]+`
+var _datetimeReplace = regexp.MustCompile(DatetimeSep)
+var _datetimeMatchUpperString = regexp.MustCompile(fmt.Sprintf(`^\d{1,4}%s\d{1,2}%s\d{1,2}$`, DatetimeSep, DatetimeSep))
+var _datetimeMatchLowerString = regexp.MustCompile(fmt.Sprintf(`^\d{1,2}%s\d{1,2}%s\d{1,2}$`, DatetimeSep, DatetimeSep))
+var _datetimeMatchInt = regexp.MustCompile(`^\d{11,14}$`)
+
 var _ proto.Func = (*castDatetimeFunc)(nil)
 
 func init() {
@@ -85,22 +90,19 @@ func (a castDatetimeFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (pr
 			return a.DefaultDatetimeValue(), nil
 		}
 
-		pat := "^\\d{1,4}[" + DatetimeSep + "]+\\d{1,2}[" + DatetimeSep + "]+\\d{1,2}$"
-		match, err := regexp.MatchString(pat, datetimeArr[0])
-		if !match || err != nil {
+		match := _datetimeMatchUpperString.MatchString(datetimeArr[0])
+		if !match {
 			return a.DefaultDatetimeValue(), nil
 		}
-		rep := regexp.MustCompile(`[` + DateSep + `]+`)
-		datetimeArrReplace := rep.ReplaceAllStringFunc(datetimeArr[0], func(s string) string { return "-" })
+		datetimeArrReplace := _datetimeReplace.ReplaceAllStringFunc(datetimeArr[0], func(s string) string { return "-" })
 		year, month, day := castDate.splitDateWithSep(datetimeArrReplace)
 		year = castDate.amend4DigtalYear(year)
 
-		pat = "^\\d{1,2}[" + DatetimeSep + "]+\\d{1,2}[" + DatetimeSep + "]+\\d{1,2}$"
-		match, err = regexp.MatchString(pat, datetimeArr[1])
-		if !match || err != nil {
+		match = _datetimeMatchLowerString.MatchString(datetimeArr[1])
+		if !match {
 			return a.DefaultDatetimeValue(), nil
 		}
-		datetimeArrReplace = rep.ReplaceAllStringFunc(datetimeArr[1], func(s string) string { return "-" })
+		datetimeArrReplace = _datetimeReplace.ReplaceAllStringFunc(datetimeArr[1], func(s string) string { return "-" })
 		hour, minutes, second := a.splitDatetimeWithSep(datetimeArrReplace)
 
 		if castDate.IsYearValid(year) && castDate.IsMonthValid(month) && castDate.IsDayValid(year, month, day) &&
@@ -111,18 +113,17 @@ func (a castDatetimeFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (pr
 		}
 	} else {
 		// format - YYYYMMDDhhmmss.ms
-		pat := "^\\d{11,14}$"
-		match, err := regexp.MatchString(pat, datetimeArgs)
-		if !match || err != nil {
+		match := _datetimeMatchInt.MatchString(datetimeArgs)
+		if !match {
 			return a.DefaultDatetimeValue(), nil
 		}
 
 		datetimeLen := len(datetimeArgs)
-		dateArgs := string(datetimeArgs[0 : datetimeLen-6])
+		dateArgs := datetimeArgs[0 : datetimeLen-6]
 		year, month, day := castDate.splitDateWithoutSep(dateArgs)
 		year = castDate.amend4DigtalYear(year)
 
-		timeArgs := string(datetimeArgs[datetimeLen-6 : datetimeLen])
+		timeArgs := datetimeArgs[datetimeLen-6 : datetimeLen]
 		hour, minutes, second := a.splitDatetimeWithoutSep(timeArgs)
 
 		if castDate.IsYearValid(year) && castDate.IsMonthValid(month) && castDate.IsDayValid(year, month, day) &&
@@ -139,35 +140,46 @@ func (a castDatetimeFunc) NumInput() int {
 }
 
 func (a castDatetimeFunc) DatetimeOutput(year, month, day, hour, minutes, second int, frac bool) proto.Value {
-	secondStr := fmt.Sprint(second)
-	if second < 10 {
-		secondStr = "0" + secondStr
-	}
-	minutesStr := fmt.Sprint(minutes)
-	if minutes < 10 {
-		minutesStr = "0" + minutesStr
-	}
-	hourStr := fmt.Sprint(hour)
-	if hour < 10 {
-		hourStr = "0" + hourStr
-	}
-	timeStr := hourStr + ":" + minutesStr + ":" + secondStr
+	var sb strings.Builder
 
-	dayStr := fmt.Sprint(day)
-	if day < 10 {
-		dayStr = "0" + dayStr
-	}
-	monthStr := fmt.Sprint(month)
-	if month < 10 {
-		monthStr = "0" + monthStr
-	}
-	yearStr := fmt.Sprint(year)
+	yearStr := strconv.FormatInt(int64(year), 10)
 	if year >= 100 && year <= 999 {
-		yearStr = "0" + yearStr
+		sb.WriteString("0")
 	}
-	dateStr := yearStr + "-" + monthStr + "-" + dayStr
+	sb.WriteString(yearStr)
+	sb.WriteString("-")
+	monthStr := strconv.FormatInt(int64(month), 10)
+	if month < 10 {
+		sb.WriteString("0")
+	}
+	sb.WriteString(monthStr)
+	sb.WriteString("-")
+	dayStr := strconv.FormatInt(int64(day), 10)
+	if day < 10 {
+		sb.WriteString("0")
+	}
+	sb.WriteString(dayStr)
+	sb.WriteString(" ")
 
-	datetimeRet, _ := time.Parse("2006-01-02 15:04:05", dateStr+" "+timeStr)
+	hourStr := strconv.FormatInt(int64(hour), 10)
+	if hour < 10 {
+		sb.WriteString("0")
+	}
+	sb.WriteString(hourStr)
+	sb.WriteString(":")
+	minutesStr := strconv.FormatInt(int64(minutes), 10)
+	if minutes < 10 {
+		sb.WriteString("0")
+	}
+	sb.WriteString(minutesStr)
+	sb.WriteString(":")
+	secondStr := strconv.FormatInt(int64(second), 10)
+	if second < 10 {
+		sb.WriteString("0")
+	}
+	sb.WriteString(secondStr)
+
+	datetimeRet, _ := time.Parse("2006-01-02 15:04:05", sb.String())
 
 	if frac {
 		datetimeRet = datetimeRet.Add(1 * time.Second)
@@ -178,20 +190,20 @@ func (a castDatetimeFunc) DatetimeOutput(year, month, day, hour, minutes, second
 
 func (a castDatetimeFunc) splitDatetimeWithSep(timeArgs string) (hour, minutes, second int) {
 	timeLen := len(timeArgs)
-	timeSecondStr := string(timeArgs[timeLen-1 : timeLen])
-	timeLeft := string(timeArgs[0 : timeLen-2])
+	timeSecondStr := timeArgs[timeLen-1 : timeLen]
+	timeLeft := timeArgs[0 : timeLen-2]
 	if castDate.IsDigitalValid(string(timeArgs[timeLen-2])) {
-		timeSecondStr = string(timeArgs[timeLen-2 : timeLen])
-		timeLeft = string(timeArgs[0 : timeLen-3])
+		timeSecondStr = timeArgs[timeLen-2 : timeLen]
+		timeLeft = timeArgs[0 : timeLen-3]
 	}
 	timeArgs = timeLeft
 
 	timeLen = len(timeArgs)
-	timeMinutesStr := string(timeArgs[timeLen-1 : timeLen])
-	timeLeft = string(timeArgs[0 : timeLen-2])
+	timeMinutesStr := timeArgs[timeLen-1 : timeLen]
+	timeLeft = timeArgs[0 : timeLen-2]
 	if castDate.IsDigitalValid(string(timeArgs[timeLen-2])) {
-		timeMinutesStr = string(timeArgs[timeLen-2 : timeLen])
-		timeLeft = string(timeArgs[0 : timeLen-3])
+		timeMinutesStr = timeArgs[timeLen-2 : timeLen]
+		timeLeft = timeArgs[0 : timeLen-3]
 	}
 	timeHourStr := timeLeft
 
@@ -204,13 +216,13 @@ func (a castDatetimeFunc) splitDatetimeWithSep(timeArgs string) (hour, minutes, 
 
 func (a castDatetimeFunc) splitDatetimeWithoutSep(timeArgs string) (hour, minutes, second int) {
 	timeLen := len(timeArgs)
-	timeSecondStr := string(timeArgs[timeLen-2 : timeLen])
-	timeLeft := string(timeArgs[0 : timeLen-2])
+	timeSecondStr := timeArgs[timeLen-2 : timeLen]
+	timeLeft := timeArgs[0 : timeLen-2]
 	timeArgs = timeLeft
 
 	timeLen = len(timeArgs)
-	timeMinutesStr := string(timeArgs[timeLen-2 : timeLen])
-	timeLeft = string(timeArgs[0 : timeLen-2])
+	timeMinutesStr := timeArgs[timeLen-2 : timeLen]
+	timeLeft = timeArgs[0 : timeLen-2]
 	timeHourStr := timeLeft
 
 	timeHour, _ := strconv.Atoi(timeHourStr)
