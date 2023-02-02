@@ -18,12 +18,17 @@
 package extvalue
 
 import (
+	"context"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
-func Compute(node ast.Node, args ...proto.Value) (proto.Value, error) {
+func Compute(ctx context.Context, node ast.Node, args ...proto.Value) (proto.Value, error) {
 	var vv valueVisitor
+	vv.Context = ctx
 	vv.args = args
 	ret, err := node.Accept(&vv)
 	if err != nil {

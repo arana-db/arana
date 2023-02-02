@@ -19,39 +19,44 @@ package function
 
 import (
 	"context"
-	"math"
+	"fmt"
+	"testing"
 )
 
 import (
-	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
-// FuncSin https://dev.mysql.com/doc/refman/5.6/en/mathematical-functions.html#function_sin
-const FuncSin = "SIN"
+func TestFormatBytes(t *testing.T) {
+	fn := proto.MustGetFunc(FuncFormatBytes)
+	assert.Equal(t, 1, fn.NumInput())
 
-var _ proto.Func = (*sinFunc)(nil)
+	out, err := fn.Apply(context.TODO(), proto.ToValuer(nil))
+	assert.NoError(t, err)
+	assert.Nil(t, out)
 
-func init() {
-	proto.RegisterFunc(FuncSin, sinFunc{})
-}
-
-type sinFunc struct{}
-
-// Apply call the current function.
-func (s sinFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
-	param, err := inputs[0].Value(ctx)
-	if param == nil || err != nil {
-		return nil, errors.WithStack(err)
+	type tt struct {
+		input  interface{}
+		output string
 	}
-	f, _ := param.Float64()
-	return proto.NewValueFloat64(math.Sin(f)), nil
-}
 
-// NumInput returns the minimum number of inputs.
-func (s sinFunc) NumInput() int {
-	return 1
+	for _, next := range []tt{
+		{int64(512), "512 bytes"},
+		{int64(1025), "1.00 KiB"},
+		{3.14, "3 bytes"},
+		{-5.55, "-5 bytes"},
+		{uint64(18446644073709551615), "16.00 EiB"},
+	} {
+		t.Run(fmt.Sprint(next.input), func(t *testing.T) {
+			val, err := proto.NewValue(next.input)
+			assert.NoError(t, err)
+			actual, err := fn.Apply(context.TODO(), proto.ToValuer(val))
+			assert.NoError(t, err)
+			assert.Equal(t, next.output, actual.String())
+		})
+	}
 }
