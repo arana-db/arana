@@ -19,6 +19,7 @@ package dml
 
 import (
 	"context"
+	uconfig "github.com/arana-db/arana/pkg/util/config"
 	"strings"
 )
 
@@ -51,6 +52,32 @@ func init() {
 
 func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error) {
 	stmt := o.Stmt.(*ast.SelectStatement)
+	if uconfig.IsEnableLocalMathCompu(false) {
+		for i, _ := range stmt.Select {
+			switch stmt.Select[i].(type) {
+			case *ast.SelectElementExpr:
+				calculateRes, errtmp := stmt.Select[i].(*ast.SelectElementExpr).Accept(optimize.NewXCalcualtor(o.Args))
+				if errtmp != nil {
+					break
+				}
+				sRes := calculateRes.(proto.Value).String()
+				_, newStmt, _ := ast.ParseSelect("select " + sRes)
+				originText := stmt.Select[i].ToSelectString()
+				stmt.Select[i] = ast.NewSelectElementExprFull(newStmt.Select[0].(*ast.SelectElementExpr).Expression(), "", originText)
+			case *ast.SelectElementFunction:
+				calculateRes, errtmp := stmt.Select[i].(*ast.SelectElementFunction).Accept(optimize.NewXCalcualtor(o.Args))
+				if errtmp != nil {
+					break
+				}
+				sRes := calculateRes.(proto.Value).String()
+				originText := stmt.Select[i].ToSelectString()
+				_, newStmt, _ := ast.ParseSelect("select " + sRes)
+				stmt.Select[i] = ast.NewSelectElementExprFull(newStmt.Select[0].(*ast.SelectElementExpr).Expression(), "", originText)
+
+			}
+		}
+
+	}
 
 	// overwrite stmt limit x offset y. eg `select * from student offset 100 limit 5` will be
 	// `select * from student offset 0 limit 100+5`
@@ -70,6 +97,7 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 				return nil, err
 			}
 		}
+
 		ret := &dml.SimpleQueryPlan{Stmt: stmt}
 		ret.BindArgs(o.Args)
 

@@ -29,119 +29,27 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
 	"github.com/arana-db/arana/pkg/runtime/logical"
-	"github.com/arana-db/arana/pkg/runtime/misc"
 	"github.com/arana-db/arana/pkg/runtime/misc/extvalue"
 	rrule "github.com/arana-db/arana/pkg/runtime/rule"
 )
 
-var _ ast.Visitor = (*ShardVisitor)(nil)
+var _ ast.Visitor = (*CalculateVisitor)(nil)
 
-type ShardVisitor struct {
+type CalculateVisitor struct {
 	ast.BaseVisitor
-	ru      *rule.Rule
-	args    []proto.Value
-	results []misc.Pair[ast.TableName, *rule.Shards]
+	args []proto.Value
 }
 
-func NewXSharder(ru *rule.Rule, args []proto.Value) *ShardVisitor {
-	return &ShardVisitor{
-		ru:   ru,
+func NewXCalcualtor(args []proto.Value) *CalculateVisitor {
+	return &CalculateVisitor{
 		args: args,
 	}
 }
 
-func (sd *ShardVisitor) SimpleShard(table ast.TableName, where ast.ExpressionNode) (rule.DatabaseTables, error) {
-	var (
-		shards rule.DatabaseTables
-		err    error
-	)
-	if err = sd.ForSingleSelect(table, "", where); err != nil {
-		return nil, errors.Wrapf(err, "cannot calculate shards of table '%s'", table.Suffix())
-	}
-	vt, _ := sd.ru.VTable(table.Suffix())
-	for i := range sd.results {
-		if sd.results[i].L.Suffix() == table.Suffix() {
-			if r := sd.results[i].R; r != nil {
-				shards = make(rule.DatabaseTables)
-				r.Each(func(db, tb uint32) bool {
-					dbs, tbs, ok := vt.Topology().Render(int(db), int(tb))
-					if !ok {
-						err = errors.Errorf("cannot render table '%s'", vt.Name())
-						return false
-					}
-					shards[dbs] = append(shards[dbs], tbs)
-					return true
-				})
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-
-	return shards, nil
-}
-
-func (sd *ShardVisitor) ForSingleSelect(table ast.TableName, alias string, where ast.ExpressionNode) error {
-	vtab, ok := sd.ru.VTable(table.Suffix())
-	if !ok {
-		shards := rule.NewShards()
-		shards.Add(0, 0)
-		sd.results = append(sd.results, misc.Pair[ast.TableName, *rule.Shards]{
-			L: table,
-			R: shards,
-		})
-		return nil
-	}
-
-	if where == nil {
-		sd.results = append(sd.results, misc.Pair[ast.TableName, *rule.Shards]{
-			L: table,
-		})
-		return nil
-	}
-
-	l, err := where.Accept(sd)
-	if err != nil {
-		return errors.WithStack(err)
-	}
-
-	ev, err := rrule.Eval(l.(logical.Logical), vtab)
-	// 2. logical to evaluator
-	if err != nil {
-		return errors.Wrap(err, "compute shard evaluator failed")
-	}
-	// 3. eval
-	shards, err := ev.Eval(vtab)
-	if err != nil && !errors.Is(err, rrule.ErrNoRuleMetadata) {
-		return errors.Wrap(err, "eval shards failed")
-	}
-
-	sd.results = append(sd.results, misc.Pair[ast.TableName, *rule.Shards]{
-		L: table,
-		R: shards,
-	})
-
-	return nil
-}
-
-func (sd *ShardVisitor) VisitSelectStatement(node *ast.SelectStatement) (interface{}, error) {
-	switch len(node.From) {
-	case 0:
-		return nil, nil
-	case 1:
-		return nil, sd.ForSingleSelect(node.From[0].TableName(), node.From[0].Alias, node.Where)
-	default:
-		// TODO: need implementation multiple select from
-		panic("implement me: multiple select from")
-	}
-}
-
-func (sd *ShardVisitor) VisitLogicalExpression(node *ast.LogicalExpressionNode) (interface{}, error) {
+func (sd *CalculateVisitor) VisitLogicalExpression(node *ast.LogicalExpressionNode) (interface{}, error) {
 	left, err := node.Left.Accept(sd)
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -163,7 +71,7 @@ func (sd *ShardVisitor) VisitLogicalExpression(node *ast.LogicalExpressionNode) 
 	}
 }
 
-func (sd *ShardVisitor) VisitNotExpression(node *ast.NotExpressionNode) (interface{}, error) {
+func (sd *CalculateVisitor) VisitNotExpression(node *ast.NotExpressionNode) (interface{}, error) {
 	ret, err := node.E.Accept(sd)
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -171,10 +79,10 @@ func (sd *ShardVisitor) VisitNotExpression(node *ast.NotExpressionNode) (interfa
 	return ret.(logical.Logical).Not(), nil
 }
 
-func (sd *ShardVisitor) VisitPredicateExpression(node *ast.PredicateExpressionNode) (interface{}, error) {
+func (sd *CalculateVisitor) VisitPredicateExpression(node *ast.PredicateExpressionNode) (interface{}, error) {
 	return node.P.Accept(sd)
 }
-func (sd *ShardVisitor) VisitSelectElementExpr(node *ast.SelectElementExpr) (interface{}, error) {
+func (sd *CalculateVisitor) VisitSelectElementExpr(node *ast.SelectElementExpr) (interface{}, error) {
 	switch node.Expression().(type) {
 	case *ast.PredicateExpressionNode:
 		return sd.VisitPredicateExpression(node.Expression().(*ast.PredicateExpressionNode))
@@ -183,11 +91,24 @@ func (sd *ShardVisitor) VisitSelectElementExpr(node *ast.SelectElementExpr) (int
 	}
 	return node.Expression().Accept(sd)
 }
-func (sd *ShardVisitor) VisitPredicateAtom(node *ast.AtomPredicateNode) (interface{}, error) {
+
+func (sd *CalculateVisitor) VisitSelectElementFunction(node *ast.SelectElementFunction) (interface{}, error) {
+	nodeF := node.Function().(*ast.Function)
+	val, err := extvalue.Compute(nodeF, sd.args...)
+	if err != nil {
+		if extvalue.IsErrNotSupportedValue(err) {
+			return rrule.AlwaysTrueLogical, nil
+		}
+		return nil, errors.WithStack(err)
+	}
+	return sd.fromConstant(val)
+}
+
+func (sd *CalculateVisitor) VisitPredicateAtom(node *ast.AtomPredicateNode) (interface{}, error) {
 	return node.A.Accept(sd)
 }
 
-func (sd *ShardVisitor) VisitPredicateBetween(node *ast.BetweenPredicateNode) (interface{}, error) {
+func (sd *CalculateVisitor) VisitPredicateBetween(node *ast.BetweenPredicateNode) (interface{}, error) {
 	key := node.Key.(*ast.AtomPredicateNode).A.(ast.ColumnNameExpressionAtom)
 
 	l, err := extvalue.Compute(node.Left, sd.args...)
@@ -213,7 +134,7 @@ func (sd *ShardVisitor) VisitPredicateBetween(node *ast.BetweenPredicateNode) (i
 	return k1.ToLogical().And(k2.ToLogical()), nil
 }
 
-func (sd *ShardVisitor) VisitPredicateBinaryComparison(node *ast.BinaryComparisonPredicateNode) (interface{}, error) {
+func (sd *CalculateVisitor) VisitPredicateBinaryComparison(node *ast.BinaryComparisonPredicateNode) (interface{}, error) {
 	switch k := node.Left.(*ast.AtomPredicateNode).A.(type) {
 	case ast.ColumnNameExpressionAtom:
 		v, err := extvalue.Compute(node.Right, sd.args...)
@@ -297,7 +218,7 @@ func (sd *ShardVisitor) VisitPredicateBinaryComparison(node *ast.BinaryCompariso
 	return rrule.AlwaysFalseLogical, nil
 }
 
-func (sd *ShardVisitor) VisitPredicateIn(node *ast.InPredicateNode) (interface{}, error) {
+func (sd *CalculateVisitor) VisitPredicateIn(node *ast.InPredicateNode) (interface{}, error) {
 	key := node.P.(*ast.AtomPredicateNode).A.(ast.ColumnNameExpressionAtom)
 
 	var ret logical.Logical
@@ -331,37 +252,11 @@ func (sd *ShardVisitor) VisitPredicateIn(node *ast.InPredicateNode) (interface{}
 	return ret, nil
 }
 
-func (sd *ShardVisitor) VisitPredicateLike(node *ast.LikePredicateNode) (interface{}, error) {
-	key := node.Left.(*ast.AtomPredicateNode).A.(ast.ColumnNameExpressionAtom)
-
-	like, err := extvalue.Compute(node.Right, sd.args...)
-	if err != nil {
-		if extvalue.IsErrNotSupportedValue(err) {
-			return rrule.AlwaysTrueLogical, nil
-		}
-		return nil, errors.WithStack(err)
-	}
-
-	if like == nil {
-		return rrule.AlwaysTrueLogical, nil
-	}
-
-	if !strings.ContainsAny(like.String(), "%_") {
-		return rrule.NewKeyed(key.Suffix(), cmp.Ceq, like).ToLogical(), nil
-	}
-
+func (sd *CalculateVisitor) VisitAtomColumn(node ast.ColumnNameExpressionAtom) (interface{}, error) {
 	return rrule.AlwaysTrueLogical, nil
 }
 
-func (sd *ShardVisitor) VisitPredicateRegexp(node *ast.RegexpPredicationNode) (interface{}, error) {
-	return rrule.AlwaysTrueLogical, nil
-}
-
-func (sd *ShardVisitor) VisitAtomColumn(node ast.ColumnNameExpressionAtom) (interface{}, error) {
-	return rrule.AlwaysTrueLogical, nil
-}
-
-func (sd *ShardVisitor) VisitAtomConstant(node *ast.ConstantExpressionAtom) (interface{}, error) {
+func (sd *CalculateVisitor) VisitAtomConstant(node *ast.ConstantExpressionAtom) (interface{}, error) {
 	v, err := proto.NewValue(node.Value())
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -373,7 +268,7 @@ func (sd *ShardVisitor) VisitAtomConstant(node *ast.ConstantExpressionAtom) (int
 	return l, nil
 }
 
-func (sd *ShardVisitor) VisitAtomFunction(node *ast.FunctionCallExpressionAtom) (interface{}, error) {
+func (sd *CalculateVisitor) VisitAtomFunction(node *ast.FunctionCallExpressionAtom) (interface{}, error) {
 	val, err := extvalue.Compute(node, sd.args...)
 	if err != nil {
 		if extvalue.IsErrNotSupportedValue(err) {
@@ -384,43 +279,38 @@ func (sd *ShardVisitor) VisitAtomFunction(node *ast.FunctionCallExpressionAtom) 
 	return sd.fromConstant(val)
 }
 
-func (sd *ShardVisitor) VisitAtomNested(node *ast.NestedExpressionAtom) (interface{}, error) {
+func (sd *CalculateVisitor) VisitAtomNested(node *ast.NestedExpressionAtom) (interface{}, error) {
 	return node.First.Accept(sd)
 }
 
-func (sd *ShardVisitor) VisitAtomUnary(node *ast.UnaryExpressionAtom) (interface{}, error) {
+func (sd *CalculateVisitor) VisitAtomUnary(node *ast.UnaryExpressionAtom) (interface{}, error) {
 	return sd.fromValueNode(node)
 }
 
-func (sd *ShardVisitor) VisitAtomMath(node *ast.MathExpressionAtom) (interface{}, error) {
+func (sd *CalculateVisitor) VisitAtomMath(node *ast.MathExpressionAtom) (interface{}, error) {
 	return sd.fromValueNode(node)
 }
 
-func (sd *ShardVisitor) VisitAtomSystemVariable(node *ast.SystemVariableExpressionAtom) (interface{}, error) {
+func (sd *CalculateVisitor) VisitAtomSystemVariable(node *ast.SystemVariableExpressionAtom) (interface{}, error) {
 	return rrule.AlwaysTrueLogical, nil
 }
 
-func (sd *ShardVisitor) VisitAtomVariable(node ast.VariableExpressionAtom) (interface{}, error) {
+func (sd *CalculateVisitor) VisitAtomVariable(node ast.VariableExpressionAtom) (interface{}, error) {
 	return sd.fromConstant(sd.args[node.N()])
 }
 
-func (sd *ShardVisitor) VisitAtomInterval(node *ast.IntervalExpressionAtom) (interface{}, error) {
+func (sd *CalculateVisitor) VisitAtomInterval(node *ast.IntervalExpressionAtom) (interface{}, error) {
 	return rrule.AlwaysTrueLogical, nil
 }
 
-func (sd *ShardVisitor) fromConstant(val proto.Value) (logical.Logical, error) {
-	if val == nil {
-		return rrule.AlwaysFalseLogical, nil
+func (sd *CalculateVisitor) fromConstant(val proto.Value) (proto.Value, error) {
+	if val.Family().IsNumberic() {
+		return val, nil
 	}
-
-	if b, err := val.Bool(); err == nil && !b {
-		return rrule.AlwaysFalseLogical, nil
-	}
-
-	return rrule.AlwaysTrueLogical, nil
+	return val, errors.New("Local Calculate error ! ")
 }
 
-func (sd *ShardVisitor) fromValueNode(node ast.Node) (interface{}, error) {
+func (sd *CalculateVisitor) fromValueNode(node ast.Node) (interface{}, error) {
 	val, err := extvalue.Compute(node, sd.args...)
 	if err != nil {
 		if extvalue.IsErrNotSupportedValue(err) {
