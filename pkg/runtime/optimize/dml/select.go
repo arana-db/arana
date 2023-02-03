@@ -83,7 +83,7 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 	// `select * from student offset 0 limit 100+5`
 	originOffset, newLimit := overwriteLimit(stmt, &o.Args)
 	if stmt.HasJoin() {
-		return optimizeJoin(o, stmt)
+		return optimizeJoin(ctx, o, stmt)
 	}
 	flag := getSelectFlag(o.Rule, stmt)
 	if flag&_supported == 0 {
@@ -128,7 +128,7 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 	}
 
 	if shards == nil {
-		if shards, err = optimize.NewXSharder(o.Rule, o.Args).SimpleShard(tableName, stmt.Where); err != nil {
+		if shards, err = optimize.NewXSharder(ctx, o.Rule, o.Args).SimpleShard(tableName, stmt.Where); err != nil {
 			return nil, errors.WithStack(err)
 		}
 		fullScan = shards == nil
@@ -383,7 +383,7 @@ func handleGroupBy(parentPlan proto.Plan, stmt *ast.SelectStatement) (proto.Plan
 }
 
 // optimizeJoin ony support  a join b in one db
-func optimizeJoin(o *optimize.Optimizer, stmt *ast.SelectStatement) (proto.Plan, error) {
+func optimizeJoin(ctx context.Context, o *optimize.Optimizer, stmt *ast.SelectStatement) (proto.Plan, error) {
 	join := stmt.From[0].Source().(*ast.JoinNode)
 
 	compute := func(tableSource *ast.TableSourceNode) (database, alias string, shardList []string, err error) {
@@ -395,7 +395,7 @@ func optimizeJoin(o *optimize.Optimizer, stmt *ast.SelectStatement) (proto.Plan,
 		alias = tableSource.Alias
 		database = table.Prefix()
 
-		shards, err := o.ComputeShards(table, nil, o.Args)
+		shards, err := o.ComputeShards(ctx, table, nil, o.Args)
 		if err != nil {
 			return
 		}

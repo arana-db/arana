@@ -15,43 +15,43 @@
  * limitations under the License.
  */
 
-package function
+package ast
 
 import (
-	"context"
-	"math"
+	"strings"
 )
 
 import (
 	"github.com/pkg/errors"
 )
 
-import (
-	"github.com/arana-db/arana/pkg/proto"
-)
+var _ Statement = (*CheckTableStmt)(nil)
 
-// FuncSin https://dev.mysql.com/doc/refman/5.6/en/mathematical-functions.html#function_sin
-const FuncSin = "SIN"
-
-var _ proto.Func = (*sinFunc)(nil)
-
-func init() {
-	proto.RegisterFunc(FuncSin, sinFunc{})
+type CheckTableStmt struct {
+	Tables []*TableName
 }
 
-type sinFunc struct{}
-
-// Apply call the current function.
-func (s sinFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
-	param, err := inputs[0].Value(ctx)
-	if param == nil || err != nil {
-		return nil, errors.WithStack(err)
-	}
-	f, _ := param.Float64()
-	return proto.NewValueFloat64(math.Sin(f)), nil
+func NewCheckTableStmt() *CheckTableStmt {
+	return &CheckTableStmt{}
 }
 
-// NumInput returns the minimum number of inputs.
-func (s sinFunc) NumInput() int {
+func (c *CheckTableStmt) CntParams() int {
 	return 1
+}
+
+func (c *CheckTableStmt) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	sb.WriteString("CHECK TABLE ")
+	for index, table := range c.Tables {
+		if index != 0 {
+			sb.WriteString(", ")
+		}
+		if err := table.Restore(flag, sb, args); err != nil {
+			return errors.Wrapf(err, "an error occurred while restore AnalyzeTableStatement.Tables[%d]", index)
+		}
+	}
+	return nil
+}
+
+func (c *CheckTableStmt) Mode() SQLType {
+	return SQLTypeCheckTable
 }

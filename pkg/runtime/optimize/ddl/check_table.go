@@ -15,43 +15,34 @@
  * limitations under the License.
  */
 
-package function
+package ddl
 
 import (
 	"context"
-	"math"
-)
-
-import (
-	"github.com/pkg/errors"
+	"github.com/arana-db/arana/pkg/runtime/plan/ddl"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/proto/rule"
+	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/runtime/optimize"
 )
 
-// FuncSin https://dev.mysql.com/doc/refman/5.6/en/mathematical-functions.html#function_sin
-const FuncSin = "SIN"
-
-var _ proto.Func = (*sinFunc)(nil)
-
 func init() {
-	proto.RegisterFunc(FuncSin, sinFunc{})
+	optimize.Register(ast.SQLTypeCheckTable, optimizeCheckTable)
 }
 
-type sinFunc struct{}
+func optimizeCheckTable(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error) {
+	shards := rule.DatabaseTables{}
+	shardsByName := make(map[string]rule.DatabaseTables)
 
-// Apply call the current function.
-func (s sinFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
-	param, err := inputs[0].Value(ctx)
-	if param == nil || err != nil {
-		return nil, errors.WithStack(err)
+	for _, table := range o.Rule.VTables() {
+		shards = table.Topology().Enumerate()
+		shardsByName[table.Name()] = shards
+		break
 	}
-	f, _ := param.Float64()
-	return proto.NewValueFloat64(math.Sin(f)), nil
-}
 
-// NumInput returns the minimum number of inputs.
-func (s sinFunc) NumInput() int {
-	return 1
+	stmt := o.Stmt.(*ast.CheckTableStmt)
+	return ddl.NewCheckTablePlan(stmt, shards, shardsByName), nil
 }

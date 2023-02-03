@@ -119,6 +119,8 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		return cc.convAnalyzeTable(stmt), nil
 	case *ast.OptimizeTableStmt:
 		return cc.convOptimizeTable(stmt), nil
+	case *ast.CheckTableStmt:
+		return cc.convCheckTableStmt(stmt), nil
 	case *ast.KillStmt:
 		return cc.convKill(stmt), nil
 	default:
@@ -683,6 +685,10 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 		return &ShowTables{baseShow: toBaseShow()}
 	case ast.ShowReplicas:
 		return &ShowReplicas{baseShow: toBaseShow()}
+	case ast.ShowMasterStatus:
+		return &ShowMasterStatus{baseShow: toBaseShow()}
+	case ast.ShowReplicaStatus:
+		return &ShowReplicaStatus{baseShow: toBaseShow()}
 	case ast.ShowDatabases:
 		return &ShowDatabases{baseShow: toBaseShow()}
 	case ast.ShowCollation:
@@ -1631,6 +1637,16 @@ func isColumnAtom(expr PredicateNode) bool {
 		}
 	}
 	return false
+}
+
+func (cc *convCtx) convCheckTableStmt(stmt *ast.CheckTableStmt) Statement {
+	tables := make([]*TableName, len(stmt.Tables))
+	for i, table := range stmt.Tables {
+		tables[i] = &TableName{
+			table.Name.String(),
+		}
+	}
+	return &CheckTableStmt{Tables: tables}
 }
 
 func (cc *convCtx) convAnalyzeTable(stmt *ast.AnalyzeTableStmt) Statement {

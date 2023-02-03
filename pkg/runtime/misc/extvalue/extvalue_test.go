@@ -18,6 +18,7 @@
 package extvalue_test
 
 import (
+	"context"
 	"testing"
 )
 
@@ -28,6 +29,7 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	_ "github.com/arana-db/arana/pkg/runtime/function"
 	"github.com/arana-db/arana/pkg/runtime/misc/extvalue"
@@ -51,7 +53,7 @@ func TestCompute(t *testing.T) {
 		t.Run(next.input, func(t *testing.T) {
 			expr, err := getExpr(next.input)
 			assert.NoError(t, err)
-			v, err := extvalue.Compute(expr)
+			v, err := extvalue.Compute(context.TODO(), expr)
 			assert.NoError(t, err)
 
 			var actual string
@@ -63,6 +65,30 @@ func TestCompute(t *testing.T) {
 			assert.Equal(t, next.expect, actual)
 		})
 	}
+
+	ctx := context.TODO()
+	ctx = context.WithValue(ctx, proto.ContextKeySchema{}, "fake_schema")
+
+	t.Run("FORMAT_BYTES(512)", func(t *testing.T) {
+		expr, err := getExpr("FORMAT_BYTES(512)")
+		assert.NoError(t, err)
+
+		// NOTICE: FORMAT_BYTES is only for mysql 8.0.16+
+
+		// check <8.0.16
+		_, err = extvalue.Compute(context.WithValue(ctx, proto.ContextKeyServerVersion{}, "5.7.0"), expr)
+		assert.Error(t, err)
+
+		// check >=8.0.16
+		v, err := extvalue.Compute(context.WithValue(ctx, proto.ContextKeyServerVersion{}, "8.0.31"), expr)
+		assert.NoError(t, err)
+		assert.Equal(t, "512 bytes", v.String())
+
+		// check semver
+		v, err = extvalue.Compute(context.WithValue(ctx, proto.ContextKeyServerVersion{}, "8.0.31-dmr"), expr)
+		assert.NoError(t, err)
+		assert.Equal(t, "512 bytes", v.String())
+	})
 }
 
 func getExpr(s string) (ast.ExpressionNode, error) {

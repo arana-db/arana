@@ -569,7 +569,6 @@ func (s *IntegrationSuite) TestCreateIndex() {
 			_, err = db.Exec("drop index name on student")
 			assert.NoError(t, err)
 		})
-
 	}
 }
 
@@ -1009,6 +1008,30 @@ func (s *IntegrationSuite) TestAnalyzeTable() {
 	for _, it := range [...]tt{
 		{"Analyze table student"},
 		{"Analyze table student, departments"},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			rows, err := db.Query(it.sql)
+			assert.NoError(t, err)
+			defer rows.Close()
+		})
+	}
+}
+
+// TestCheckTable
+func (s *IntegrationSuite) TestCheckTable() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql string
+	}
+
+	for _, it := range [...]tt{
+		{"CHECK TABLE student"},
+		{"CHECK TABLE student,departments"},
+		{"CHECK TABLE student QUICK"},
 	} {
 		t.Run(it.sql, func(t *testing.T) {
 			rows, err := db.Query(it.sql)

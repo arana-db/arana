@@ -19,7 +19,6 @@ package function
 
 import (
 	"context"
-	"math"
 )
 
 import (
@@ -30,28 +29,32 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
-// FuncSin https://dev.mysql.com/doc/refman/5.6/en/mathematical-functions.html#function_sin
-const FuncSin = "SIN"
+// FuncIfNull is https://dev.mysql.com/doc/refman/5.6/en/flow-control-functions.html#function_ifnull
+const FuncIfNull = "IFNULL"
 
-var _ proto.Func = (*sinFunc)(nil)
+var _ proto.Func = (*ifNullFunc)(nil)
 
 func init() {
-	proto.RegisterFunc(FuncSin, sinFunc{})
+	proto.RegisterFunc(FuncIfNull, ifNullFunc{})
 }
 
-type sinFunc struct{}
+type ifNullFunc struct{}
 
-// Apply call the current function.
-func (s sinFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
-	param, err := inputs[0].Value(ctx)
-	if param == nil || err != nil {
+func (i ifNullFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
+	val1, err := inputs[0].Value(ctx)
+	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	f, _ := param.Float64()
-	return proto.NewValueFloat64(math.Sin(f)), nil
+	val2, err := inputs[1].Value(ctx)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	if val1 != nil {
+		return val1, nil
+	}
+	return val2, nil
 }
 
-// NumInput returns the minimum number of inputs.
-func (s sinFunc) NumInput() int {
-	return 1
+func (i ifNullFunc) NumInput() int {
+	return 2
 }

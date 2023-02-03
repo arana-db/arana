@@ -30,28 +30,28 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
-// FuncSin https://dev.mysql.com/doc/refman/5.6/en/mathematical-functions.html#function_sin
-const FuncSin = "SIN"
+// FuncTan https://dev.mysql.com/doc/refman/5.6/en/mathematical-functions.html#function_tan
+const FuncTan = "TAN"
 
-var _ proto.Func = (*sinFunc)(nil)
+var _ proto.Func = (*tanFunc)(nil)
 
 func init() {
-	proto.RegisterFunc(FuncSin, sinFunc{})
+	proto.RegisterFunc(FuncTan, tanFunc{})
 }
 
-type sinFunc struct{}
+type tanFunc struct{}
 
 // Apply call the current function.
-func (s sinFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
+func (s tanFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
 	param, err := inputs[0].Value(ctx)
 	if param == nil || err != nil {
 		return nil, errors.WithStack(err)
 	}
 	f, _ := param.Float64()
-	return proto.NewValueFloat64(math.Sin(f)), nil
+	return proto.NewValueFloat64(math.Tan(f)), nil
 }
 
 // NumInput returns the minimum number of inputs.
-func (s sinFunc) NumInput() int {
+func (s tanFunc) NumInput() int {
 	return 1
 }
