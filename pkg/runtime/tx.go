@@ -445,7 +445,7 @@ func (tx *compositeTx) setTxState(ctx context.Context, state TxState) {
 	tx.txState = state
 	for i := range tx.hooks {
 		if err := tx.hooks[i].OnTxStateChange(ctx, state, tx); err != nil {
-			// TODO
+			log.Errorf("[TX] %s trigger trx state change fail : %+v", tx, err)
 		}
 	}
 }

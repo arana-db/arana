@@ -27,13 +27,15 @@ type (
 )
 
 // NewXAHook creates new XAHook
-func NewXAHook(tenant string) (*xaHook, error) {
+func NewXAHook(tenant string, enable bool) (*xaHook, error) {
 	trxMgr, err := GetTrxManager(tenant)
 	if err != nil {
 		return nil, err
 	}
 
-	xh := &xaHook{}
+	xh := &xaHook{
+		enable: enable,
+	}
 
 	trxStateChangeFunc := map[runtime.TxState]handleFunc{
 		runtime.TrxActive:     xh.onActive,
@@ -58,12 +60,16 @@ func NewXAHook(tenant string) (*xaHook, error) {
 // xaHook XA transaction-related hook implementation
 // case 1: Modify the execution action of branchTx
 type xaHook struct {
+	enable             bool
 	trxMgr             *TrxManager
 	trxLog             *TrxLog
 	trxStateChangeFunc map[runtime.TxState]handleFunc
 }
 
 func (xh *xaHook) OnTxStateChange(ctx context.Context, state runtime.TxState, tx runtime.CompositeTx) error {
+	if !xh.enable {
+		return nil
+	}
 	xh.trxLog.State = state
 	handle, ok := xh.trxStateChangeFunc[state]
 	if ok {
@@ -74,6 +80,9 @@ func (xh *xaHook) OnTxStateChange(ctx context.Context, state runtime.TxState, tx
 
 // OnCreateBranchTx Fired when BranchTx create
 func (xh *xaHook) OnCreateBranchTx(ctx context.Context, tx runtime.BranchTx) {
+	if !xh.enable {
+		return
+	}
 	xh.trxLog.Participants = append(xh.trxLog.Participants, TrxParticipant{
 		NodeID:     "",
 		RemoteAddr: tx.GetConn().GetDatabaseConn().GetNetConn().RemoteAddr().String(),

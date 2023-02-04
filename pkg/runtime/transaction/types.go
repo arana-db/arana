@@ -30,8 +30,28 @@ type TrxLog struct {
 	Tenant       string
 }
 
+// TrxParticipant join target trx all node info
 type TrxParticipant struct {
 	NodeID     string
 	RemoteAddr string
 	Schema     string
+}
+
+type dBOperation string
+
+const (
+	Like           dBOperation = "LIKE"
+	Equal          dBOperation = "="
+	NotEqual       dBOperation = "!="
+	LessThan       dBOperation = "<"
+	LessEqualThan  dBOperation = "<="
+	GreatThan      dBOperation = ">"
+	GrateEqualThan dBOperation = ">="
+)
+
+// Condition sql query where condition
+type Condition struct {
+	FiledName string
+	Operation dBOperation
+	Value     interface{}
 }
