@@ -26,6 +26,7 @@ import (
 )
 
 type GroupDTO struct {
+	ClusterName string `json:"clusterName,omitempty"`
 	Name  string   `json:"name,omitempty"`
 	Nodes []string `json:"nodes,omitempty"`
 }

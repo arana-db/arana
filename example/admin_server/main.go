@@ -24,5 +24,5 @@ import (
 
 func main() {
 	bootstrap := testdata.Path("../conf/bootstrap.local-etcd.yaml")
-	_ = admin.Run(bootstrap, ":8080")
+	_ = admin.Run(bootstrap, ":8088")
 }

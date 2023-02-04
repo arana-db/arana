@@ -211,6 +211,7 @@ func (cs *myConfigService) ListDBGroups(ctx context.Context, tenant, cluster str
 	ret := make([]*GroupDTO, 0, len(d.Groups))
 	for i := range d.Groups {
 		ret = append(ret, &GroupDTO{
+			ClusterName: cluster,
 			Name:  d.Groups[i].Name,
 			Nodes: d.Groups[i].Nodes,
 		})
@@ -305,10 +306,14 @@ func (cs *myConfigService) UpsertCluster(ctx context.Context, tenant, cluster st
 		exist       = false
 	)
 
-	_ = reflect.Copy(reflect.ValueOf(newClusters), reflect.ValueOf(cfg.DataSourceClusters))
+	for _, item := range cfg.DataSourceClusters {
+		newClusters = append(newClusters, item)
+	}
+
 	for _, newCluster := range newClusters {
 		if newCluster.Name == cluster {
 			exist = true
+			newCluster.Name = body.Name
 			newCluster.Type = body.Type
 			newCluster.Parameters = body.Parameters
 			newCluster.SqlMaxLimit = body.SqlMaxLimit
