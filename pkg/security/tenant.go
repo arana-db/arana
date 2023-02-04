@@ -45,6 +45,10 @@ type TenantManager interface {
 	PutCluster(tenant string, cluster string)
 	// RemoveCluster removes a cluster from tenant.
 	RemoveCluster(tenant string, cluster string)
+	// SetSupervisor gets supervisor info
+	SetSupervisor(supervisor *config.User)
+	// GetSupervisor gets supervisor info
+	GetSupervisor() *config.User
 }
 
 type tenantItem struct {
@@ -54,7 +58,8 @@ type tenantItem struct {
 
 type simpleTenantManager struct {
 	sync.RWMutex
-	tenants map[string]*tenantItem
+	supervisor *config.User
+	tenants    map[string]*tenantItem
 }
 
 func (st *simpleTenantManager) GetTenants() []string {
@@ -155,6 +160,20 @@ func (st *simpleTenantManager) RemoveCluster(tenant string, cluster string) {
 		return
 	}
 	delete(exist.clusters, cluster)
+}
+
+func (st *simpleTenantManager) SetSupervisor(supervisor *config.User) {
+	st.Lock()
+	defer st.Unlock()
+
+	st.supervisor = supervisor
+}
+
+func (st *simpleTenantManager) GetSupervisor() *config.User {
+	st.Lock()
+	defer st.Unlock()
+
+	return st.supervisor
 }
 
 var (

@@ -37,11 +37,81 @@ const (
 	IndexKeyTypeFullText
 )
 
+// IndexType is the type of index.
+// e.g. using {btree | hash}
+type IndexType int
+
+const (
+	IndexTypeInvalid IndexType = iota
+	IndexTypeBtree
+	IndexTypeHash
+)
+
+func (i IndexType) String() string {
+	switch i {
+	case IndexTypeBtree:
+		return "BTREE"
+	case IndexTypeHash:
+		return "HASH"
+	default:
+		return ""
+	}
+}
+
+type LockType int
+
+const (
+	LockTypeNone LockType = iota + 1
+	LockTypeDefault
+	LockTypeShared
+	LockTypeExclusive
+)
+
+func (l LockType) String() string {
+	switch l {
+	case LockTypeNone:
+		return "NONE"
+	case LockTypeDefault:
+		return "DEFAULT"
+	case LockTypeShared:
+		return "SHARED"
+	case LockTypeExclusive:
+		return "EXCLUSIVE"
+	}
+	return ""
+}
+
+type AlgorithmType int
+
+const (
+	AlgorithmTypeDefault AlgorithmType = iota
+	AlgorithmTypeCopy
+	AlgorithmTypeInplace
+	AlgorithmTypeInstant
+)
+
+func (a AlgorithmType) String() string {
+	switch a {
+	case AlgorithmTypeDefault:
+		return "DEFAULT"
+	case AlgorithmTypeCopy:
+		return "COPY"
+	case AlgorithmTypeInplace:
+		return "INPLACE"
+	case AlgorithmTypeInstant:
+		return "INSTANT"
+	default:
+		return "DEFAULT"
+	}
+}
+
 type CreateIndexStatement struct {
-	IndexName string
-	Table     TableName
-	KeyType   IndexKeyType
-	Keys      []*IndexPartSpec
+	IndexName   string
+	Table       TableName
+	KeyType     IndexKeyType
+	Keys        []*IndexPartSpec
+	IndexOption *IndexOption
+	LockAlg     *IndexLockAndAlgorithm
 }
 
 func (c *CreateIndexStatement) CntParams() int {
@@ -81,6 +151,23 @@ func (c *CreateIndexStatement) Restore(flag RestoreFlag, sb *strings.Builder, ar
 		}
 	}
 	sb.WriteString(")")
+
+	// index option
+	if c.IndexOption != nil {
+		sb.WriteString(" ")
+		if err := c.IndexOption.Restore(flag, sb, args); err != nil {
+			return err
+		}
+	}
+
+	// algorithm & lock
+	if c.LockAlg != nil {
+		sb.WriteString(" ")
+		if err := c.LockAlg.Restore(flag, sb, args); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

@@ -33,11 +33,11 @@ func init() {
 	optimize.Register(ast.SQLTypeDropIndex, optimizeDropIndex)
 }
 
-func optimizeDropIndex(_ context.Context, o *optimize.Optimizer) (proto.Plan, error) {
+func optimizeDropIndex(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error) {
 	stmt := o.Stmt.(*ast.DropIndexStatement)
 	// table shard
 
-	shard, err := o.ComputeShards(stmt.Table, nil, o.Args)
+	shard, err := o.ComputeShards(ctx, stmt.Table, nil, o.Args)
 	if err != nil {
 		return nil, err
 	}

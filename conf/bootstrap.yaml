@@ -60,3 +60,7 @@ config:
 #     scheme: http
 #     username: nacos
 #     password: nacos
+
+supervisor:
+  username: root
+  password: root
