@@ -37,9 +37,9 @@ func init() {
 	optimize.Register(ast.SQLTypeTruncate, optimizeTruncate)
 }
 
-func optimizeTruncate(_ context.Context, o *optimize.Optimizer) (proto.Plan, error) {
+func optimizeTruncate(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error) {
 	stmt := o.Stmt.(*ast.TruncateStatement)
-	shards, err := o.ComputeShards(stmt.Table, nil, o.Args)
+	shards, err := o.ComputeShards(ctx, stmt.Table, nil, o.Args)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to optimize TRUNCATE statement")
 	}

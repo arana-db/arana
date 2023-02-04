@@ -119,6 +119,8 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		return cc.convAnalyzeTable(stmt), nil
 	case *ast.OptimizeTableStmt:
 		return cc.convOptimizeTable(stmt), nil
+	case *ast.CheckTableStmt:
+		return cc.convCheckTableStmt(stmt), nil
 	case *ast.KillStmt:
 		return cc.convKill(stmt), nil
 	default:
@@ -154,11 +156,37 @@ func (cc *convCtx) convCreateIndexStmt(stmt *ast.CreateIndexStmt) *CreateIndexSt
 		}
 	}
 
+	convIndexOption := func(opt *ast.IndexOption) *IndexOption {
+		if opt == nil {
+			return nil
+		}
+
+		return &IndexOption{
+			KeyBlockSize: opt.KeyBlockSize,
+			Tp:           IndexType(opt.Tp),
+			Comment:      opt.Comment,
+			ParserName:   opt.ParserName.String(),
+		}
+	}
+
+	convLockAlg := func(lockAlg *ast.IndexLockAndAlgorithm) *IndexLockAndAlgorithm {
+		if lockAlg == nil {
+			return nil
+		}
+
+		return &IndexLockAndAlgorithm{
+			LockTp:      LockType(lockAlg.LockTp),
+			AlgorithmTp: AlgorithmType(lockAlg.AlgorithmTp),
+		}
+	}
+
 	return &CreateIndexStatement{
-		Table:     tableName,
-		IndexName: stmt.IndexName,
-		Keys:      keys,
-		KeyType:   IndexKeyType(stmt.KeyType),
+		Table:       tableName,
+		IndexName:   stmt.IndexName,
+		Keys:        keys,
+		KeyType:     IndexKeyType(stmt.KeyType),
+		IndexOption: convIndexOption(stmt.IndexOption),
+		LockAlg:     convLockAlg(stmt.LockAlg),
 	}
 }
 
@@ -657,6 +685,10 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 		return &ShowTables{baseShow: toBaseShow()}
 	case ast.ShowReplicas:
 		return &ShowReplicas{baseShow: toBaseShow()}
+	case ast.ShowMasterStatus:
+		return &ShowMasterStatus{baseShow: toBaseShow()}
+	case ast.ShowReplicaStatus:
+		return &ShowReplicaStatus{baseShow: toBaseShow()}
 	case ast.ShowDatabases:
 		return &ShowDatabases{baseShow: toBaseShow()}
 	case ast.ShowCollation:
@@ -1605,6 +1637,16 @@ func isColumnAtom(expr PredicateNode) bool {
 		}
 	}
 	return false
+}
+
+func (cc *convCtx) convCheckTableStmt(stmt *ast.CheckTableStmt) Statement {
+	tables := make([]*TableName, len(stmt.Tables))
+	for i, table := range stmt.Tables {
+		tables[i] = &TableName{
+			table.Name.String(),
+		}
+	}
+	return &CheckTableStmt{Tables: tables}
 }
 
 func (cc *convCtx) convAnalyzeTable(stmt *ast.AnalyzeTableStmt) Statement {

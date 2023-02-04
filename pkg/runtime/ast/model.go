@@ -502,6 +502,86 @@ func (i *IndexPartSpec) CntParams() int {
 	return 0
 }
 
+// IndexOption is the index options.
+//
+//	  KEY_BLOCK_SIZE [=] value
+//	| index_type
+//	| WITH PARSER parser_name
+//	| COMMENT 'string'
+//
+// See https://dev.mysql.com/doc/refman/5.7/en/create-index.html
+type IndexOption struct {
+	KeyBlockSize uint64
+	Tp           IndexType
+	Comment      string
+	ParserName   string
+}
+
+func (i *IndexOption) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	hasPrevOption := false
+
+	if i.KeyBlockSize > 0 {
+		if _, err := fmt.Fprintf(sb, "KEY_BLOCK_SIZE=%d", i.KeyBlockSize); err != nil {
+			return err
+		}
+		hasPrevOption = true
+	}
+
+	if i.Tp != IndexTypeInvalid {
+		if hasPrevOption {
+			sb.WriteString(" ")
+		}
+		sb.WriteString("USING ")
+		sb.WriteString(i.Tp.String())
+		hasPrevOption = true
+	}
+
+	// parser name
+	if len(i.ParserName) != 0 {
+		if hasPrevOption {
+			sb.WriteString(" ")
+		}
+		sb.WriteString("WITH PARSER ")
+		sb.WriteString(i.ParserName)
+		hasPrevOption = true
+	}
+
+	// comment
+	if len(i.Comment) != 0 {
+		if hasPrevOption {
+			sb.WriteString(" ")
+		}
+		sb.WriteString("COMMENT ")
+		sb.WriteString(i.Comment)
+	}
+	return nil
+}
+
+type IndexLockAndAlgorithm struct {
+	LockTp      LockType
+	AlgorithmTp AlgorithmType
+}
+
+func (i *IndexLockAndAlgorithm) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	hasPrevOption := false
+	if i.AlgorithmTp != AlgorithmTypeDefault {
+		sb.WriteString("ALGORITHM")
+		sb.WriteString(" = ")
+		sb.WriteString(i.AlgorithmTp.String())
+		hasPrevOption = true
+	}
+
+	if i.LockTp != LockTypeDefault {
+		if hasPrevOption {
+			sb.WriteString(" ")
+		}
+		sb.WriteString("LOCK")
+		sb.WriteString(" = ")
+		sb.WriteString(i.LockTp.String())
+	}
+	return nil
+}
+
 type ConstraintType uint8
 
 const (

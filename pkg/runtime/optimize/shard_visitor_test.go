@@ -18,6 +18,7 @@
 package optimize_test
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"testing"
@@ -68,7 +69,7 @@ func TestShardNG(t *testing.T) {
 				args = append(args, arg)
 			}
 
-			shd := NewXSharder(fakeRule, args)
+			shd := NewXSharder(context.TODO(), fakeRule, args)
 
 			shards, err := stmt.Accept(shd)
 			assert.NoError(t, err)
