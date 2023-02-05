@@ -110,9 +110,6 @@ type (
 
 		// Variable returns the variable value.
 		Variable(ctx context.Context, name string) (interface{}, error)
-
-		// Copy returns DB deep copy instance
-		Copy() DB
 	}
 
 	// Executable represents an executor which can send sql request.

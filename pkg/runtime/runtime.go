@@ -359,10 +359,6 @@ func (db *AtomDB) returnConnection(bc *mysql.BackendConnection) {
 	// log.Infof("^^^^^ return conn: active=%d, available=%d", db.pool.Active(), db.pool.Available())
 }
 
-func (db *AtomDB) Copy() proto.DB {
-	return NewAtomDB(db.node)
-}
-
 type defaultRuntime namespace.Namespace
 
 func (pi *defaultRuntime) Version(ctx context.Context) (string, error) {
