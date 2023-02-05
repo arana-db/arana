@@ -23,21 +23,20 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/runtime/namespace"
+	aranatenant "github.com/arana-db/arana/pkg/runtime/tenant"
 )
 
 var (
 	ErrorTrxManagerNotInitialize = errors.New("TrxManager not initialize")
-	ErrorNotFoundTargetTenant    = errors.New("tenant not found")
 )
 
 var (
 	lock    sync.RWMutex
-	trxMgrs map[string]*TrxManager
+	trxMgrs = make(map[string]*TrxManager)
 )
 
-// InitTrxManager inits TxBottomMaker
-func InitTrxManager(tenant string) error {
+// CreateTrxManager inits TxBottomMaker
+func CreateTrxManager(tenant string) error {
 	lock.Lock()
 	defer lock.Unlock()
 
@@ -45,19 +44,18 @@ func InitTrxManager(tenant string) error {
 		return nil
 	}
 
-	ns := namespace.Load(tenant)
-	if ns == nil {
-		return ErrorNotFoundTargetTenant
+	sysDB, err := aranatenant.LoadSysDB(tenant)
+	if err == nil {
+		return err
 	}
 
-	trxLog := &TxLogManager{sysDB: ns.SysDB()}
+	trxLog := &TxLogManager{sysDB: sysDB}
 	trxBottomMaker := &TxBottomMaker{tm: trxLog}
 
 	trxMgrs[tenant] = &TrxManager{
 		trxLog:         trxLog,
 		trxBottomMaker: trxBottomMaker,
 	}
-
 	return nil
 }
 

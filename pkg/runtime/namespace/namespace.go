@@ -61,6 +61,16 @@ func Register(tenant string, namespace *Namespace) error {
 	return nil
 }
 
+// List lists all namespace.
+func List() []*Namespace {
+	ret := make([]*Namespace, 0, 4)
+	_namespaces.Range(func(_, value any) bool {
+		ret = append(ret, value.(*Namespace))
+		return true
+	})
+	return ret
+}
+
 // Unregister unregisters a namespace.
 func Unregister(tenant, namespace string) error {
 	removed, loaded := _namespaces.LoadAndDelete(getLoadKey(tenant, namespace))

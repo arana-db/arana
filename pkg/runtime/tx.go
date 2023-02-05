@@ -324,7 +324,7 @@ func (tx *compositeTx) doPrepareCommit(ctx context.Context) error {
 		k, v := k, v
 		g.Go(func() error {
 			if err := v.Prepare(ctx); err != nil {
-				log.Errorf("prepare %s for group %s failed: %v", tx, k, err)
+				log.Errorf("prepare commit %s for group %s failed: %v", tx, k, err)
 				return err
 			}
 			return nil
@@ -392,8 +392,8 @@ func (tx *compositeTx) doPrepareRollback(ctx context.Context) error {
 	for k, v := range tx.txs {
 		k, v := k, v
 		g.Go(func() error {
-			if _, _, err := v.Rollback(ctx); err != nil {
-				log.Errorf("rollback %s for group %s failed: %v", tx, k, err)
+			if err := v.Prepare(ctx); err != nil {
+				log.Errorf("prepare rollback %s for group %s failed: %v", tx, k, err)
 				return err
 			}
 			return nil

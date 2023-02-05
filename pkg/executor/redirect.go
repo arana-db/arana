@@ -208,7 +208,7 @@ func (executor *RedirectExecutor) doExecutorComQuery(ctx *proto.Context, act ast
 			err = errNoDatabaseSelected
 		} else {
 			// begin a new tx
-			xaHook, err := transaction.NewXAHook(rcontext.Tenant(ctx), true)
+			xaHook, err := transaction.NewXAHook(rcontext.Tenant(ctx), false)
 			if err != nil {
 				return nil, 0, err
 			}
@@ -416,6 +416,7 @@ func (executor *RedirectExecutor) ConnectionClose(ctx *proto.Context) {
 }
 
 func (executor *RedirectExecutor) putTx(ctx *proto.Context, tx proto.Tx) {
+	ctx.Context = rcontext.WithTransactionID(ctx.Context, tx.ID())
 	executor.localTransactionMap.Store(ctx.C.ID(), tx)
 }
 
@@ -424,6 +425,7 @@ func (executor *RedirectExecutor) removeTx(ctx *proto.Context) (proto.Tx, bool) 
 	if !ok {
 		return nil, false
 	}
+	ctx.Context = rcontext.WithTransactionID(ctx.Context, exist.(proto.Tx).ID())
 	return exist.(proto.Tx), true
 }
 
@@ -432,5 +434,6 @@ func (executor *RedirectExecutor) getTx(ctx *proto.Context) (proto.Tx, bool) {
 	if !ok {
 		return nil, false
 	}
+	ctx.Context = rcontext.WithTransactionID(ctx.Context, exist.(proto.Tx).ID())
 	return exist.(proto.Tx), true
 }

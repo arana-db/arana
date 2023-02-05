@@ -39,6 +39,8 @@
 --  Any similarity to existing people is purely coincidental.
 --
 
+CREATE DATABASE IF NOT EXISTS __arana_sys CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
 CREATE DATABASE IF NOT EXISTS employees_0000 CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE DATABASE IF NOT EXISTS employees_show CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
