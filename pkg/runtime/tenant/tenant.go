@@ -19,9 +19,12 @@ package tenant
 
 import (
 	"fmt"
+	"sync"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/proto"
-	"sync"
 )
 
 var (
