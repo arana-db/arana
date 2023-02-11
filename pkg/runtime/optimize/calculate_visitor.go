@@ -18,6 +18,7 @@
 package optimize
 
 import (
+	"context"
 	"strings"
 )
 
@@ -39,11 +40,12 @@ import (
 var _ ast.Visitor = (*CalculateVisitor)(nil)
 
 type CalculateVisitor struct {
+	ctx context.Context
 	ast.BaseVisitor
 	args []proto.Value
 }
 
-func NewXCalcualtor(args []proto.Value) *CalculateVisitor {
+func NewCalcualtor(args []proto.Value) *CalculateVisitor {
 	return &CalculateVisitor{
 		args: args,
 	}
@@ -94,7 +96,7 @@ func (sd *CalculateVisitor) VisitSelectElementExpr(node *ast.SelectElementExpr) 
 
 func (sd *CalculateVisitor) VisitSelectElementFunction(node *ast.SelectElementFunction) (interface{}, error) {
 	nodeF := node.Function().(*ast.Function)
-	val, err := extvalue.Compute(nodeF, sd.args...)
+	val, err := extvalue.Compute(sd.ctx, nodeF, sd.args...)
 	if err != nil {
 		if extvalue.IsErrNotSupportedValue(err) {
 			return rrule.AlwaysTrueLogical, nil
@@ -111,12 +113,12 @@ func (sd *CalculateVisitor) VisitPredicateAtom(node *ast.AtomPredicateNode) (int
 func (sd *CalculateVisitor) VisitPredicateBetween(node *ast.BetweenPredicateNode) (interface{}, error) {
 	key := node.Key.(*ast.AtomPredicateNode).A.(ast.ColumnNameExpressionAtom)
 
-	l, err := extvalue.Compute(node.Left, sd.args...)
+	l, err := extvalue.Compute(sd.ctx, node.Left, sd.args...)
 	if err != nil {
 		return nil, err
 	}
 
-	r, err := extvalue.Compute(node.Right, sd.args...)
+	r, err := extvalue.Compute(sd.ctx, node.Right, sd.args...)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +139,7 @@ func (sd *CalculateVisitor) VisitPredicateBetween(node *ast.BetweenPredicateNode
 func (sd *CalculateVisitor) VisitPredicateBinaryComparison(node *ast.BinaryComparisonPredicateNode) (interface{}, error) {
 	switch k := node.Left.(*ast.AtomPredicateNode).A.(type) {
 	case ast.ColumnNameExpressionAtom:
-		v, err := extvalue.Compute(node.Right, sd.args...)
+		v, err := extvalue.Compute(sd.ctx, node.Right, sd.args...)
 		if err != nil {
 			if extvalue.IsErrNotSupportedValue(err) {
 				return rrule.AlwaysTrueLogical, nil
@@ -149,7 +151,7 @@ func (sd *CalculateVisitor) VisitPredicateBinaryComparison(node *ast.BinaryCompa
 
 	switch k := node.Right.(*ast.AtomPredicateNode).A.(type) {
 	case ast.ColumnNameExpressionAtom:
-		v, err := extvalue.Compute(node.Left, sd.args...)
+		v, err := extvalue.Compute(sd.ctx, node.Left, sd.args...)
 		if err != nil {
 			if extvalue.IsErrNotSupportedValue(err) {
 				return rrule.AlwaysTrueLogical, nil
@@ -159,8 +161,8 @@ func (sd *CalculateVisitor) VisitPredicateBinaryComparison(node *ast.BinaryCompa
 		return rrule.NewKeyed(k.Suffix(), node.Op, v).ToLogical(), nil
 	}
 
-	l, _ := extvalue.Compute(node.Left, sd.args...)
-	r, _ := extvalue.Compute(node.Right, sd.args...)
+	l, _ := extvalue.Compute(sd.ctx, node.Left, sd.args...)
+	r, _ := extvalue.Compute(sd.ctx, node.Right, sd.args...)
 	if l == nil || r == nil {
 		return rrule.AlwaysTrueLogical, nil
 	}
@@ -223,7 +225,7 @@ func (sd *CalculateVisitor) VisitPredicateIn(node *ast.InPredicateNode) (interfa
 
 	var ret logical.Logical
 	for i := range node.E {
-		actualValue, err := extvalue.Compute(node.E[i], sd.args...)
+		actualValue, err := extvalue.Compute(sd.ctx, node.E[i], sd.args...)
 		if err != nil {
 			if extvalue.IsErrNotSupportedValue(err) {
 				return rrule.AlwaysTrueLogical, nil
@@ -269,7 +271,7 @@ func (sd *CalculateVisitor) VisitAtomConstant(node *ast.ConstantExpressionAtom) 
 }
 
 func (sd *CalculateVisitor) VisitAtomFunction(node *ast.FunctionCallExpressionAtom) (interface{}, error) {
-	val, err := extvalue.Compute(node, sd.args...)
+	val, err := extvalue.Compute(sd.ctx, node, sd.args...)
 	if err != nil {
 		if extvalue.IsErrNotSupportedValue(err) {
 			return rrule.AlwaysTrueLogical, nil
@@ -311,7 +313,7 @@ func (sd *CalculateVisitor) fromConstant(val proto.Value) (proto.Value, error) {
 }
 
 func (sd *CalculateVisitor) fromValueNode(node ast.Node) (interface{}, error) {
-	val, err := extvalue.Compute(node, sd.args...)
+	val, err := extvalue.Compute(sd.ctx, node, sd.args...)
 	if err != nil {
 		if extvalue.IsErrNotSupportedValue(err) {
 			return rrule.AlwaysTrueLogical, nil

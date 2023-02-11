@@ -56,7 +56,7 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		for i, _ := range stmt.Select {
 			switch stmt.Select[i].(type) {
 			case *ast.SelectElementExpr:
-				calculateRes, errtmp := stmt.Select[i].(*ast.SelectElementExpr).Accept(optimize.NewXCalcualtor(o.Args))
+				calculateRes, errtmp := stmt.Select[i].(*ast.SelectElementExpr).Accept(optimize.NewCalcualtor(o.Args))
 				if errtmp != nil {
 					break
 				}
@@ -65,7 +65,7 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 				originText := stmt.Select[i].ToSelectString()
 				stmt.Select[i] = ast.NewSelectElementExprFull(newStmt.Select[0].(*ast.SelectElementExpr).Expression(), "", originText)
 			case *ast.SelectElementFunction:
-				calculateRes, errtmp := stmt.Select[i].(*ast.SelectElementFunction).Accept(optimize.NewXCalcualtor(o.Args))
+				calculateRes, errtmp := stmt.Select[i].(*ast.SelectElementFunction).Accept(optimize.NewCalcualtor(o.Args))
 				if errtmp != nil {
 					break
 				}

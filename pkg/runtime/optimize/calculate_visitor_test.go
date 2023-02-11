@@ -52,7 +52,7 @@ func TestCalculVisitor(t *testing.T) {
 			_, rawStmt := ast.MustParse(it.sql)
 			stmt := rawStmt.(*ast.SelectStatement)
 
-			cal := NewXCalcualtor(nil)
+			cal := NewCalcualtor(nil)
 
 			calculateRes, errtmp := stmt.Select[0].(*ast.SelectElementExpr).Accept(cal)
 			assert.NoError(t, errtmp)

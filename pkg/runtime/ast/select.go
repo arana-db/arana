@@ -49,26 +49,6 @@ type SelectStatement struct {
 	Limit   *LimitNode
 }
 
-func (ss *SelectStatement) Alias() string {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (ss *SelectStatement) ToSelectString() string {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (ss *SelectStatement) DisplayName() string {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (ss *SelectStatement) phantom() selectElementPhantom {
-	//TODO implement me
-	panic("implement me")
-}
-
 func (ss *SelectStatement) Accept(visitor Visitor) (interface{}, error) {
 	return visitor.VisitSelectStatement(ss)
 }
