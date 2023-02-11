@@ -22,6 +22,8 @@ import (
 )
 
 import (
+	"github.com/golang/mock/gomock"
+
 	"github.com/pkg/errors"
 
 	"github.com/stretchr/testify/assert"
@@ -29,6 +31,7 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/testdata"
 )
 
 func TestIsErrMissingTx(t *testing.T) {
@@ -42,21 +45,33 @@ func TestProcessDistributedTransaction(t *testing.T) {
 }
 
 func TestInGlobalTransaction(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	c := testdata.NewMockFrontConn(ctrl)
+	c.EXPECT().ID().Return(uint32(0)).AnyTimes()
+
 	redirect := NewRedirectExecutor()
-	assert.False(t, redirect.InGlobalTransaction(createContext()))
+	assert.False(t, redirect.InGlobalTransaction(createContext(c)))
 }
 
 func TestInLocalTransaction(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	c := testdata.NewMockFrontConn(ctrl)
+	c.EXPECT().ID().Return(uint32(0)).Times(1)
+
 	redirect := NewRedirectExecutor()
-	result := redirect.InLocalTransaction(createContext())
+	result := redirect.InLocalTransaction(createContext(c))
 	assert.False(t, result)
 }
 
-func createContext() *proto.Context {
+func createContext(c proto.FrontConn) *proto.Context {
 	result := &proto.Context{
-		ConnectionID: 0,
-		Data:         make([]byte, 0),
-		Stmt:         nil,
+		C:    c,
+		Data: make([]byte, 0),
+		Stmt: nil,
 	}
 	return result
 }
