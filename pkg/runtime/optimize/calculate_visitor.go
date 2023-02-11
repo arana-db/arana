@@ -95,7 +95,15 @@ func (sd *CalculateVisitor) VisitSelectElementExpr(node *ast.SelectElementExpr) 
 }
 
 func (sd *CalculateVisitor) VisitSelectElementFunction(node *ast.SelectElementFunction) (interface{}, error) {
-	nodeF := node.Function().(*ast.Function)
+	var nodeF ast.Node
+	nodeInner := node.Function()
+	switch nodeInner.(type) {
+	case *ast.Function:
+		nodeF = nodeInner.(*ast.Function)
+	default:
+		return nil, errors.New("Not support ast function type")
+	}
+
 	val, err := extvalue.Compute(sd.ctx, nodeF, sd.args...)
 	if err != nil {
 		if extvalue.IsErrNotSupportedValue(err) {
