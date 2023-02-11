@@ -271,9 +271,8 @@ func (fp *discovery) ListNodes(ctx context.Context, tenant, cluster, group strin
 	}
 
 	var nodes []string
-	for i := range bingo.Nodes {
-		nodes = append(nodes, bingo.Nodes[i])
-	}
+
+	nodes = append(nodes, bingo.Nodes...)
 
 	return nodes, nil
 }

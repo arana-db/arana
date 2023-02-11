@@ -53,7 +53,7 @@ func init() {
 func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error) {
 	stmt := o.Stmt.(*ast.SelectStatement)
 	if uconfig.IsEnableLocalMathCompu(false) {
-		for i, _ := range stmt.Select {
+		for i := range stmt.Select {
 			switch stmt.Select[i].(type) {
 			case *ast.SelectElementExpr:
 				calculateRes, errtmp := stmt.Select[i].(*ast.SelectElementExpr).Accept(optimize.NewCalcualtor(o.Args))
