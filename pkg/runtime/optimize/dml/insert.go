@@ -19,17 +19,13 @@ package dml
 
 import (
 	"context"
-)
 
-import (
-	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
+	"github.com/pkg/errors"
+
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/runtime/optimize"
 	"github.com/arana-db/arana/pkg/runtime/plan/dml"
@@ -57,32 +53,32 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		return ret, nil
 	}
 
-	// TODO: handle multiple shard keys.
-
-	bingo := -1
 	// check existing shard columns
-	for i, col := range stmt.Columns {
-		if _, _, ok = vt.GetShardMetadata(col); ok {
-			bingo = i
-			break
-		}
-	}
+	bingoList := vt.GetShardColumnIndex(stmt.Columns)
 
-	if bingo < 0 {
+	if len(bingoList) == 0 {
 		return nil, errors.Wrap(optimize.ErrNoShardKeyFound, "failed to insert")
 	}
 
 	// check on duplicated key update
 	for _, upd := range stmt.DuplicatedUpdates {
-		if upd.Column.Suffix() == stmt.Columns[bingo] {
-			return nil, errors.New("do not support update sharding key")
+		for bingo := range bingoList {
+			if upd.Column.Suffix() == stmt.Columns[bingo] {
+				return nil, errors.New("do not support update sharding key")
+			}
 		}
 	}
 
 	var (
 		sharder = optimize.NewXSharder(ctx, o.Rule, o.Args)
-		left    = ast.ColumnNameExpressionAtom(make([]string, 1))
-		filter  = &ast.PredicateExpressionNode{
+
+		slots = make(map[string]map[string][]int) // (db,table,valuesIndex)
+	)
+
+	// reset filter
+	resetFilter := func(column string, value ast.ExpressionNode) ast.ExpressionNode {
+		left := ast.ColumnNameExpressionAtom(make([]string, 1))
+		filter := &ast.PredicateExpressionNode{
 			P: &ast.BinaryComparisonPredicateNode{
 				Left: &ast.AtomPredicateNode{
 					A: left,
@@ -90,19 +86,20 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 				Op: cmp.Ceq,
 			},
 		}
-		slots = make(map[string]map[string][]int) // (db,table,valuesIndex)
-	)
-
-	// reset filter
-	resetFilter := func(column string, value ast.ExpressionNode) {
 		left[0] = column
 		filter.P.(*ast.BinaryComparisonPredicateNode).Right = value.(*ast.PredicateExpressionNode).P
+		return filter
 	}
 
 	for i, values := range stmt.Values {
-		var shards rule.DatabaseTables
-		value := values[bingo]
-		resetFilter(stmt.Columns[bingo], value)
+		var (
+			shards  rule.DatabaseTables
+			filters []ast.ExpressionNode
+		)
+		for bingo := range bingoList {
+			value := values[bingo]
+			filters = append(filters, resetFilter(stmt.Columns[bingo], value))
+		}
 
 		if len(o.Hints) > 0 {
 			if shards, err = optimize.Hints(tableName, o.Hints, o.Rule); err != nil {
@@ -111,7 +108,7 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		}
 
 		if shards == nil {
-			if shards, err = sharder.SimpleShard(tableName, filter); err != nil {
+			if shards, err = sharder.SimpleShard(tableName, filters); err != nil {
 				return nil, errors.WithStack(err)
 			}
 		}

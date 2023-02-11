@@ -24,20 +24,16 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 	"unicode"
-)
 
-import (
 	"github.com/go-playground/validator/v10"
-
 	"github.com/pkg/errors"
-
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
-
 	"gopkg.in/yaml.v3"
 )
 
@@ -191,10 +187,10 @@ type (
 	}
 
 	Rule struct {
-		Column string `validate:"required" yaml:"column" json:"column"`
-		Type   string `validate:"required" yaml:"type" json:"type"`
-		Expr   string `validate:"required" yaml:"expr" json:"expr"`
-		Step   int    `yaml:"step" json:"step"`
+		Columns []string `validate:"required" yaml:"columns" json:"columns"`
+		Type    string   `validate:"required" yaml:"type" json:"type"`
+		Expr    string   `validate:"required" yaml:"expr" json:"expr"`
+		Step    int      `yaml:"step" json:"step"`
 	}
 
 	Topology struct {
@@ -426,4 +422,9 @@ func NewEmptyTenant() *Tenant {
 func (l *Listener) String() string {
 	socketAddr := fmt.Sprintf("%s:%d", l.SocketAddress.Address, l.SocketAddress.Port)
 	return fmt.Sprintf("Listener protocol_type:%s, socket_address:%s, server_version:%s", l.ProtocolType, socketAddr, l.ServerVersion)
+}
+
+func (l *Rule) ColumnKey() string {
+	sort.Strings(l.Columns)
+	return strings.Join(l.Columns, ",")
 }

@@ -20,10 +20,10 @@ package rule
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 	"sync"
-)
 
-import (
 	"github.com/pkg/errors"
 )
 
@@ -59,11 +59,42 @@ type VTable struct {
 	autoIncrement *AutoIncrement
 	topology      *Topology
 	shards        map[string][2]*ShardMetadata // column -> [db shard metadata,table shard metadata]
+	shardsC       []*VShards
+}
+
+type VShards struct {
+	columns       []string
+	shardMetadata [2]*ShardMetadata
+	key           string
+}
+
+func (vt *VShards) HasColumns(columns []string) []int {
+	var bingoList []int
+	for _, v := range vt.columns {
+		for i, column := range columns {
+			if v != column {
+				return []int{}
+			}
+			bingoList = append(bingoList, i)
+		}
+	}
+	return bingoList
 }
 
 func (vt *VTable) HasColumn(column string) bool {
-	_, ok := vt.shards[column]
-	return ok
+	//return vt.shards.HasColumn(column)
+	return false
+}
+
+func (vt *VTable) ShardMetadata(columns []string) ([2]*ShardMetadata, bool) {
+	sort.Strings(columns)
+	key := strings.Join(columns, ",")
+	for _, v := range vt.shardsC {
+		if v.key == key {
+			return v.shardMetadata, true
+		}
+	}
+	return [2]*ShardMetadata{}, false
 }
 
 func (vt *VTable) Name() string {
@@ -93,6 +124,7 @@ func (vt *VTable) GetShardKeys() []string {
 		keys = append(keys, k)
 	}
 	return keys
+	//return vt.shards.columns
 }
 
 // Topology returns the topology of VTable.
@@ -101,23 +133,23 @@ func (vt *VTable) Topology() *Topology {
 }
 
 // Shard returns the shard result.
-func (vt *VTable) Shard(column string, value interface{}) (uint32 /* db */, uint32 /* table */, error) {
+func (vt *VTable) Shard(column []string, values []interface{}) (uint32 /* db */, uint32 /* table */, error) {
 	var (
 		db, table int
 		err       error
 	)
-	sm, ok := vt.shards[column]
+	sm, ok := vt.ShardMetadata(column)
 	if !ok {
 		return 0, 0, errors.Errorf("no shard metadata for column %s", column)
 	}
 
 	if sm[0] != nil { // compute the index of db
-		if db, err = sm[0].Computer.Compute(value); err != nil {
+		if db, err = sm[0].Computer.Compute(values); err != nil {
 			return 0, 0, errors.WithStack(err)
 		}
 	}
 	if sm[1] != nil { // compute the index of table
-		if table, err = sm[1].Computer.Compute(value); err != nil {
+		if table, err = sm[1].Computer.Compute(values); err != nil {
 			return 0, 0, errors.WithStack(err)
 		}
 	}
@@ -125,10 +157,19 @@ func (vt *VTable) Shard(column string, value interface{}) (uint32 /* db */, uint
 	return uint32(db), uint32(table), nil
 }
 
+func (vt *VTable) GetShardColumnIndex(columns []string) (bingoList []int) {
+	for _, v := range vt.shardsC {
+		if bingoList = v.HasColumns(columns); len(bingoList) > 0 {
+			return bingoList
+		}
+	}
+	return []int{}
+}
+
 // GetShardMetadata returns the shard metadata with given column.
-func (vt *VTable) GetShardMetadata(column string) (db *ShardMetadata, tbl *ShardMetadata, ok bool) {
+func (vt *VTable) GetShardMetadata(columns []string) (db *ShardMetadata, tbl *ShardMetadata, ok bool) {
 	var exist [2]*ShardMetadata
-	if exist, ok = vt.shards[column]; !ok {
+	if exist, ok = vt.ShardMetadata(columns); !ok {
 		return
 	}
 	db, tbl = exist[0], exist[1]
@@ -151,6 +192,7 @@ func (vt *VTable) SetShardMetadata(column string, dbShardMetadata, tblShardMetad
 		vt.shards = make(map[string][2]*ShardMetadata)
 	}
 	vt.shards[column] = [2]*ShardMetadata{dbShardMetadata, tblShardMetadata}
+	vt.shardsC = append(vt.shardsC, &VShards{key: column, columns: strings.Split(column, ","), shardMetadata: [2]*ShardMetadata{dbShardMetadata, tblShardMetadata}})
 }
 
 // SetTopology sets the topology.
@@ -169,7 +211,7 @@ type Rule struct {
 }
 
 // HasColumn returns true if the table and columns exists.
-func (ru *Rule) HasColumn(table, column string) bool {
+func (ru *Rule) HasColumn(table string, column []string) bool {
 	vt, ok := ru.VTable(table)
 	if !ok {
 		return false

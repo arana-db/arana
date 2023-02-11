@@ -20,18 +20,13 @@ package rule
 import (
 	stdErrors "errors"
 	"fmt"
-)
 
-import (
-	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
 	"github.com/arana-db/arana/pkg/runtime/logical"
 	"github.com/arana-db/arana/pkg/runtime/misc"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -199,7 +194,7 @@ func (t *KeyedEvaluator) ToLogical() logical.Logical {
 func (t *KeyedEvaluator) Eval(vt *rule.VTable) (*rule.Shards, error) {
 	var actualMetadata *rule.ShardMetadata
 
-	dbMetadata, tbMetadata, ok := vt.GetShardMetadata(t.k)
+	dbMetadata, tbMetadata, ok := vt.GetShardMetadata([]string{t.k})
 	if !ok || (dbMetadata == nil && tbMetadata == nil) {
 		return nil, errors.Wrapf(ErrNoRuleMetadata, "cannot get rule metadata %s.%s", vt.Name(), t.k)
 	}
@@ -210,7 +205,7 @@ func (t *KeyedEvaluator) Eval(vt *rule.VTable) (*rule.Shards, error) {
 		actualMetadata = dbMetadata
 	}
 
-	mat, err := Route(vt, t.toComparative(actualMetadata))
+	mat, err := Route(vt, []*cmp.Comparative{t.toComparative(actualMetadata)})
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +216,7 @@ func (t *KeyedEvaluator) Eval(vt *rule.VTable) (*rule.Shards, error) {
 	if it == nil {
 		return nil, nil
 	}
-	return MatchTables(vt, t.k, it)
+	return MatchTables(vt, []string{t.k}, it)
 }
 
 func (t *KeyedEvaluator) Not() Evaluator {
@@ -248,6 +243,86 @@ func (t *KeyedEvaluator) Not() Evaluator {
 	ret.op = op
 
 	return ret
+}
+
+type MultipleKeyedEvaluator []KeyedEvaluator
+
+func (t MultipleKeyedEvaluator) Not() Evaluator {
+	return nil
+}
+
+func (t MultipleKeyedEvaluator) Eval(vt *rule.VTable) (*rule.Shards, error) {
+	var (
+		actualMetadata *rule.ShardMetadata
+		columns        []string
+	)
+	for _, keyedEvaluator := range t {
+		columns = append(columns, keyedEvaluator.k)
+	}
+
+	dbMetadata, tbMetadata, ok := vt.GetShardMetadata(columns)
+	if !ok || (dbMetadata == nil && tbMetadata == nil) {
+		return nil, errors.Wrapf(ErrNoRuleMetadata, "cannot get rule metadata %s.%s", vt.Name(), columns)
+	}
+
+	if dbMetadata == tbMetadata || tbMetadata != nil {
+		actualMetadata = tbMetadata
+	} else {
+		actualMetadata = dbMetadata
+	}
+
+	mat, err := Route(vt, t.toComparative(actualMetadata))
+	if err != nil {
+		return nil, err
+	}
+	it, err := mat.Eval()
+	if err != nil {
+		return nil, err
+	}
+	if len(it) == 0 {
+		return nil, nil
+	}
+	return MatchTables(vt, columns, it)
+}
+
+func (t MultipleKeyedEvaluator) toComparative(metadata *rule.ShardMetadata) []*cmp.Comparative {
+	var (
+		s            string
+		k            cmp.Kind
+		comparatives []*cmp.Comparative
+	)
+
+	for _, keyedEvaluator := range t {
+		if keyedEvaluator.v == nil {
+			continue
+		}
+
+		switch keyedEvaluator.v.Family() {
+		case proto.ValueFamilyString:
+			k = cmp.Kstring
+			s = keyedEvaluator.v.String()
+		case proto.ValueFamilyTime:
+			k = cmp.Kdate
+			dt, _ := keyedEvaluator.v.Time()
+			s = dt.Format("2006-01-02 15:04:05")
+		case proto.ValueFamilyDecimal, proto.ValueFamilySign, proto.ValueFamilyUnsigned, proto.ValueFamilyFloat, proto.ValueFamilyBool:
+			k = cmp.Kint
+			s = keyedEvaluator.v.String()
+		}
+
+		if metadata != nil {
+			switch metadata.Stepper.U {
+			case rule.Umonth, rule.Uyear, rule.Uweek, rule.Uday, rule.Uhour:
+				k = cmp.Kdate
+			case rule.Unum:
+				k = cmp.Kint
+			case rule.Ustr:
+				k = cmp.Kstring
+			}
+		}
+		comparatives = append(comparatives, cmp.New(keyedEvaluator.k, keyedEvaluator.op, s, k))
+	}
+	return comparatives
 }
 
 func EvalWithVTable(l logical.Logical, vtab *rule.VTable) (Evaluator, error) {
@@ -284,7 +359,19 @@ func EvalWithVTable(l logical.Logical, vtab *rule.VTable) (Evaluator, error) {
 	return ret.(Evaluator), nil
 }
 
-func Eval(l logical.Logical, vtab *rule.VTable) (Evaluator, error) {
+func MultipleEval(ls []logical.Logical, vtab *rule.VTable) (Evaluator, error) {
+	evaluators := make(MultipleKeyedEvaluator, 0, len(ls))
+	for _, l := range ls {
+		evaluator, err := Eval(l, vtab)
+		if err != nil {
+			return nil, err
+		}
+		evaluators = append(evaluators, evaluator)
+	}
+	return evaluators, nil
+}
+
+func Eval(l logical.Logical, vtab *rule.VTable) (KeyedEvaluator, error) {
 	ret, err := logical.Eval(l, func(a, b interface{}) (interface{}, error) {
 		x := a.(Evaluator)
 		y := b.(Evaluator)
@@ -313,9 +400,9 @@ func Eval(l logical.Logical, vtab *rule.VTable) (Evaluator, error) {
 		return x.Not()
 	})
 	if err != nil {
-		return nil, err
+		return KeyedEvaluator{}, err
 	}
-	return ret.(Evaluator), nil
+	return ret.(KeyedEvaluator), nil
 }
 
 func or(vt *rule.VTable, first, second Evaluator) (Evaluator, error) {

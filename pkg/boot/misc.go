@@ -20,15 +20,10 @@ package boot
 import (
 	"regexp"
 	"sync"
-)
 
-import (
-	"github.com/pkg/errors"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/proto/rule"
+	"github.com/pkg/errors"
 )
 
 func makeVTable(tableName string, table *config.Table) (*rule.VTable, error) {
@@ -75,9 +70,10 @@ func makeVTable(tableName string, table *config.Table) (*rule.VTable, error) {
 		if dbSteps == nil {
 			dbSteps = make(map[string]int)
 		}
-		dbSharder[it.Column] = shd
-		keys[it.Column] = struct{}{}
-		dbSteps[it.Column] = it.Step
+		columnKey := it.ColumnKey()
+		dbSharder[columnKey] = shd
+		keys[columnKey] = struct{}{}
+		dbSteps[columnKey] = it.Step
 	}
 
 	for _, it := range table.TblRules {
@@ -94,9 +90,10 @@ func makeVTable(tableName string, table *config.Table) (*rule.VTable, error) {
 		if tbSteps == nil {
 			tbSteps = make(map[string]int)
 		}
-		tbSharder[it.Column] = shd
-		keys[it.Column] = struct{}{}
-		tbSteps[it.Column] = it.Step
+		columnKey := it.ColumnKey()
+		tbSharder[columnKey] = shd
+		keys[columnKey] = struct{}{}
+		tbSteps[columnKey] = it.Step
 	}
 
 	for k := range keys {

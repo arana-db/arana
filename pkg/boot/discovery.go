@@ -24,19 +24,14 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-)
 
-import (
 	"github.com/creasty/defaults"
-
 	"github.com/pkg/errors"
 
-	uatomic "go.uber.org/atomic"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/proto/rule"
+	uatomic "go.uber.org/atomic"
+
 	rrule "github.com/arana-db/arana/pkg/runtime/rule"
 	"github.com/arana-db/arana/pkg/security"
 	"github.com/arana-db/arana/pkg/trace"
@@ -504,7 +499,7 @@ func toSharder(input *config.Rule) (rule.ShardComputer, error) {
 	case rrule.HashCrc32Shard:
 		computer = rrule.NewHashCrc32Shard(mod)
 	case rrule.ScriptExpr:
-		computer, err = rrule.NewJavascriptShardComputer(input.Expr)
+		computer, err = rrule.NewJavascriptShardComputer(input.Expr, input.Columns)
 	default:
 		panic(fmt.Errorf("error config, unsupport shard type: %s", input.Type))
 	}

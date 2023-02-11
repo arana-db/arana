@@ -57,12 +57,12 @@ func NewXSharder(ctx context.Context, ru *rule.Rule, args []proto.Value) *ShardV
 	}
 }
 
-func (sd *ShardVisitor) SimpleShard(table ast.TableName, where ast.ExpressionNode) (rule.DatabaseTables, error) {
+func (sd *ShardVisitor) SimpleShard(table ast.TableName, wheres []ast.ExpressionNode) (rule.DatabaseTables, error) {
 	var (
 		shards rule.DatabaseTables
 		err    error
 	)
-	if err = sd.ForSingleSelect(table, "", where); err != nil {
+	if err = sd.ForSingleSelect(table, "", wheres); err != nil {
 		return nil, errors.Wrapf(err, "cannot calculate shards of table '%s'", table.Suffix())
 	}
 	vt, _ := sd.ru.VTable(table.Suffix())
@@ -89,7 +89,7 @@ func (sd *ShardVisitor) SimpleShard(table ast.TableName, where ast.ExpressionNod
 	return shards, nil
 }
 
-func (sd *ShardVisitor) ForSingleSelect(table ast.TableName, alias string, where ast.ExpressionNode) error {
+func (sd *ShardVisitor) ForSingleSelect(table ast.TableName, alias string, wheres []ast.ExpressionNode) error {
 	vtab, ok := sd.ru.VTable(table.Suffix())
 	if !ok {
 		shards := rule.NewShards()
@@ -101,23 +101,28 @@ func (sd *ShardVisitor) ForSingleSelect(table ast.TableName, alias string, where
 		return nil
 	}
 
-	if where == nil {
+	if len(wheres) == 0 {
 		sd.results = append(sd.results, misc.Pair[ast.TableName, *rule.Shards]{
 			L: table,
 		})
 		return nil
 	}
 
-	l, err := where.Accept(sd)
-	if err != nil {
-		return errors.WithStack(err)
+	multipleLogical := make([]logical.Logical, 0, len(wheres))
+	for _, where := range wheres {
+		l, err := where.Accept(sd)
+		if err != nil {
+			return errors.WithStack(err)
+		}
+		multipleLogical = append(multipleLogical, l.(logical.Logical))
 	}
 
-	ev, err := rrule.Eval(l.(logical.Logical), vtab)
 	// 2. logical to evaluator
+	ev, err := rrule.MultipleEval(multipleLogical, vtab)
 	if err != nil {
 		return errors.Wrap(err, "compute shard evaluator failed")
 	}
+
 	// 3. eval
 	shards, err := ev.Eval(vtab)
 	if err != nil && !errors.Is(err, rrule.ErrNoRuleMetadata) {

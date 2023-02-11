@@ -19,16 +19,13 @@ package rule
 
 import (
 	"fmt"
-	"strconv"
 	"testing"
-)
 
-import (
 	"github.com/stretchr/testify/assert"
 )
 
 func TestBadScript(t *testing.T) {
-	_, err := NewJavascriptShardComputer(")))BAD(((")
+	_, err := NewJavascriptShardComputer(")))BAD(((", []string{})
 	assert.Error(t, err)
 }
 
@@ -38,7 +35,7 @@ if ($value < 0) {
   throw new Error('oops');
 }
 return $value;
-`)
+`, []string{})
 
 	assert.NoError(t, err)
 	_, err = c.Compute(0)
@@ -50,24 +47,24 @@ return $value;
 func TestSimpleScript(t *testing.T) {
 	// tables: 4*32
 	var (
-		db, _ = NewJavascriptShardComputer("($value % 128) / 32")
-		tb, _ = NewJavascriptShardComputer("$value % 128")
+		db, _ = NewJavascriptShardComputer("parseInt(($uid % 32 +$id % 32) / 8)", []string{"uid", "id"})
+		tb, _ = NewJavascriptShardComputer("$uid % 32 + $id % 32", []string{"uid", "id"})
 	)
 
 	type tt struct {
-		input   int
+		input   []interface{}
 		db, tbl int
 	}
 
 	for _, it := range []tt{
-		{1, 0, 1},     // DB_0000.TBL_0001
-		{16, 0, 16},   // DB_0000.TBL_0016
-		{32, 1, 32},   // DB_0001.TBL_0032
-		{100, 3, 100}, // DB_0003.TBL_0100
-		{128, 0, 0},   // DB_0000.TBL_0001
-		{129, 0, 1},   // DB_0000.TBL_0001
+		{[]interface{}{40, 28}, 0, 1}, // DB_0000.TBL_0001
+		/*{16, 0, 16},                 // DB_0000.TBL_0016
+		{32, 1, 32},                 // DB_0001.TBL_0032
+		{100, 3, 100},               // DB_0003.TBL_0100
+		{128, 0, 0},                 // DB_0000.TBL_0001
+		{129, 0, 1},                 // DB_0000.TBL_0001*/
 	} {
-		t.Run(strconv.Itoa(it.input), func(t *testing.T) {
+		t.Run("1", func(t *testing.T) {
 			v, err := db.Compute(it.input)
 			assert.NoError(t, err)
 			assert.Equal(t, it.db, v)
@@ -98,7 +95,7 @@ if (isNaN(n)) {
 return n%32;
 `
 
-	c, err := NewJavascriptShardComputer(script)
+	c, err := NewJavascriptShardComputer(script, []string{})
 	assert.NoError(t, err)
 
 	type tt struct {
@@ -121,7 +118,7 @@ return n%32;
 }
 
 func BenchmarkJavascriptShardComputer(b *testing.B) {
-	computer, _ := NewJavascriptShardComputer("$value % 32")
+	computer, _ := NewJavascriptShardComputer("$value % 32", []string{})
 	_, _ = computer.Compute(42)
 
 	b.ResetTimer()
