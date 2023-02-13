@@ -267,13 +267,7 @@ func (fp *discovery) ListNodes(ctx context.Context, tenant, cluster, group strin
 	if !ok {
 		return nil, nil
 	}
-
-	var nodes []string
-	for i := range bingo.Nodes {
-		nodes = append(nodes, bingo.Nodes[i])
-	}
-
-	return nodes, nil
+	return append([]string{}, bingo.Nodes...), nil
 }
 
 func (fp *discovery) ListTables(ctx context.Context, tenant, cluster string) ([]string, error) {
