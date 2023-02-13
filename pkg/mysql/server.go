@@ -530,7 +530,7 @@ func (l *Listener) ValidateHash(handshake *handshakeResult) error {
 	} else { // login with schema
 		var ok bool
 		if tenant, ok = security.DefaultTenantManager().GetTenantOfCluster(handshake.schema); !ok {
-			return errors.NewSQLError(mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied for user '%v'", handshake.username)
+			return errors.NewSQLError(mysql.ERBadDb, mysql.SSSPNotExist, "Unknown database '%s'", handshake.schema)
 		}
 		err = doAuth(tenant)
 	}
