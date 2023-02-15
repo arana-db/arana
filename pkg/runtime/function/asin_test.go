@@ -25,11 +25,11 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/proto"
+	"github.com/stretchr/testify/assert"
 )
 
 import (
-	"github.com/stretchr/testify/assert"
+	"github.com/arana-db/arana/pkg/proto"
 )
 
 func TestAsin(t *testing.T) {

@@ -25,6 +25,7 @@ import (
 	"io"
 	"math"
 	"net"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -155,17 +156,17 @@ func (l *Listener) Close() {
 
 func (l *Listener) handle(conn net.Conn, connectionID uint32) {
 	c := newConn(conn)
-	c.ConnectionID = connectionID
+	c.connectionID = connectionID
 
 	// Catch panics, and close the connection in any case.
 	defer func() {
 		if x := recover(); x != nil {
-			log.Errorf("mysql_server caught panic:\n%v", x)
+			log.Errorf("mysql_server caught panic:\n%v\n%v", x, string(debug.Stack()))
 		}
 		conn.Close()
 		l.executor.ConnectionClose(&proto.Context{
-			Context:      context.Background(),
-			ConnectionID: c.ConnectionID,
+			Context: context.Background(),
+			C:       c,
 		})
 	}()
 
@@ -179,7 +180,8 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32) {
 	}
 
 	c.Capabilities = l.capabilities
-	c.CharacterSet = l.characterSet
+	c.characterSet = l.characterSet
+	c.serverVersion = l.conf.ServerVersion
 
 	// Negotiation worked, send OK packet.
 	if err = c.writeOKPacket(0, 0, c.StatusFlags, 0); err != nil {
@@ -201,19 +203,14 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32) {
 		content := make([]byte, len(data))
 		copy(content, data)
 		ctx := &proto.Context{
-			Context:            context.Background(),
-			Schema:             c.Schema,
-			Tenant:             c.Tenant,
-			ServerVersion:      l.conf.ServerVersion,
-			ConnectionID:       c.ConnectionID,
-			Data:               content,
-			TransientVariables: c.TransientVariables,
-			CharacterSet:       c.CharacterSet,
+			Context: context.Background(),
+			C:       c,
+			Data:    content,
 		}
 
 		if err = l.ExecuteCommand(c, ctx); err != nil {
 			if err == io.EOF {
-				log.Debugf("the connection#%d of remote client %s requests quit", c.ConnectionID, c.conn.(*net.TCPConn).RemoteAddr())
+				log.Debugf("the connection#%d of remote client %s requests quit", c.ID(), c.conn.(*net.TCPConn).RemoteAddr())
 			} else {
 				log.Errorf("failed to execute command: %v", err)
 			}
@@ -253,7 +250,7 @@ func (l *Listener) handshake(c *Conn) error {
 		log.Errorf("Cannot parse client handshake response from %s: %v", c, err)
 		return err
 	}
-	handshake.connectionID = c.ConnectionID
+	handshake.connectionID = c.ID()
 	handshake.salt = salt
 
 	if err = l.ValidateHash(handshake); err != nil {
@@ -261,8 +258,8 @@ func (l *Listener) handshake(c *Conn) error {
 		return err
 	}
 
-	c.Schema = handshake.schema
-	c.Tenant = handshake.tenant
+	c.SetSchema(handshake.schema)
+	c.SetTenant(handshake.tenant)
 
 	return nil
 }
@@ -311,7 +308,7 @@ func (l *Listener) writeHandshakeV10(c *Conn, enableTLS bool, salt []byte) error
 	pos = writeNullString(data, pos, l.conf.ServerVersion)
 
 	// Add connectionID in.
-	pos = writeUint32(data, pos, c.ConnectionID)
+	pos = writeUint32(data, pos, c.ID())
 
 	pos += copy(data[pos:], salt[:8])
 
@@ -530,7 +527,7 @@ func (l *Listener) ValidateHash(handshake *handshakeResult) error {
 	} else { // login with schema
 		var ok bool
 		if tenant, ok = security.DefaultTenantManager().GetTenantOfCluster(handshake.schema); !ok {
-			return errors.NewSQLError(mysql.ERBadDb, mysql.SSSPNotExist, "Unknown database '%s'", handshake.schema)
+			return errors.NewSQLError(mysql.ERBadDb, mysql.SS42000, "Unknown database '%s'", handshake.schema)
 		}
 		err = doAuth(tenant)
 	}

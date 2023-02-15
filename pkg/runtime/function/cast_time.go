@@ -36,9 +36,11 @@ import (
 // FuncCastTime is  https://dev.mysql.com/doc/refman/5.6/en/cast-functions.html#function_cast
 const FuncCastTime = "CAST_TIME"
 
-var _timeMatchDay = regexp.MustCompile(`^\d{1,2} \d{1,3}(:\d{1,2}){0,2}$`)
-var _timeMatchString = regexp.MustCompile(`^\d{1,3}(:\d{1,2}){1,2}$`)
-var _timeMatchInt = regexp.MustCompile(`^\d{1,7}$`)
+var (
+	_timeMatchDay    = regexp.MustCompile(`^\d{1,2} \d{1,3}(:\d{1,2}){0,2}$`)
+	_timeMatchString = regexp.MustCompile(`^\d{1,3}(:\d{1,2}){1,2}$`)
+	_timeMatchInt    = regexp.MustCompile(`^\d{1,7}$`)
+)
 
 var _ proto.Func = (*castTimeFunc)(nil)
 
