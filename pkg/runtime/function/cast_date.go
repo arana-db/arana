@@ -36,10 +36,12 @@ import (
 // FuncCastDate is  https://dev.mysql.com/doc/refman/5.6/en/cast-functions.html#function_cast
 const FuncCastDate = "CAST_DATE"
 
-var DateSep = `[~!@#$%^&*_+=:;,.|/?\(\)\[\]\{\}\-\\]+`
-var _dateReplace = regexp.MustCompile(DateSep)
-var _dateMatchString = regexp.MustCompile(fmt.Sprintf(`^\d{1,4}%s\d{1,2}%s\d{1,2}$`, DateSep, DateSep))
-var _dateMatchInt = regexp.MustCompile(`^\d{5,8}$`)
+var (
+	DateSep          = `[~!@#$%^&*_+=:;,.|/?\(\)\[\]\{\}\-\\]+`
+	_dateReplace     = regexp.MustCompile(DateSep)
+	_dateMatchString = regexp.MustCompile(fmt.Sprintf(`^\d{1,4}%s\d{1,2}%s\d{1,2}$`, DateSep, DateSep))
+	_dateMatchInt    = regexp.MustCompile(`^\d{5,8}$`)
+)
 
 var _ proto.Func = (*castDateFunc)(nil)
 

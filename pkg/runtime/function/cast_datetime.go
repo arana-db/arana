@@ -37,11 +37,13 @@ import (
 // FuncCastDatetime is  https://dev.mysql.com/doc/refman/5.6/en/cast-functions.html#function_cast
 const FuncCastDatetime = "CAST_DATETIME"
 
-var DatetimeSep = `[~!@#$%^&*_+=:;,|/?\(\)\[\]\{\}\-\\]+`
-var _datetimeReplace = regexp.MustCompile(DatetimeSep)
-var _datetimeMatchUpperString = regexp.MustCompile(fmt.Sprintf(`^\d{1,4}%s\d{1,2}%s\d{1,2}$`, DatetimeSep, DatetimeSep))
-var _datetimeMatchLowerString = regexp.MustCompile(fmt.Sprintf(`^\d{1,2}%s\d{1,2}%s\d{1,2}$`, DatetimeSep, DatetimeSep))
-var _datetimeMatchInt = regexp.MustCompile(`^\d{11,14}$`)
+var (
+	DatetimeSep               = `[~!@#$%^&*_+=:;,|/?\(\)\[\]\{\}\-\\]+`
+	_datetimeReplace          = regexp.MustCompile(DatetimeSep)
+	_datetimeMatchUpperString = regexp.MustCompile(fmt.Sprintf(`^\d{1,4}%s\d{1,2}%s\d{1,2}$`, DatetimeSep, DatetimeSep))
+	_datetimeMatchLowerString = regexp.MustCompile(fmt.Sprintf(`^\d{1,2}%s\d{1,2}%s\d{1,2}$`, DatetimeSep, DatetimeSep))
+	_datetimeMatchInt         = regexp.MustCompile(`^\d{11,14}$`)
+)
 
 var _ proto.Func = (*castDatetimeFunc)(nil)
 
@@ -51,8 +53,10 @@ func init() {
 
 type castDatetimeFunc struct{}
 
-var castDate castDateFunc
-var castTime castTimeFunc
+var (
+	castDate castDateFunc
+	castTime castTimeFunc
+)
 
 func (a castDatetimeFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
 	// expr

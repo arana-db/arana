@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+//go:generate mockgen -destination=../../testdata/mock_interface.go -package=testdata . FrontConn
 package proto
 
 import (
@@ -35,27 +36,46 @@ type (
 )
 
 type (
+	// FrontConn represents a frontend connection.
+	//    APP ---> FRONTEND_CONN ---> ARANA ---> BACKEND_CONN ---> MySQL
+	FrontConn interface {
+		// ID returns connection id.
+		ID() uint32
+
+		// Schema returns the current schema.
+		Schema() string
+
+		// SetSchema sets the current schema.
+		SetSchema(schema string)
+
+		// Tenant returns the tenant.
+		Tenant() string
+
+		// SetTenant sets the tenant.
+		SetTenant(tenant string)
+
+		// TransientVariables returns the transient variables.
+		TransientVariables() map[string]Value
+
+		// SetTransientVariables sets the transient variables.
+		SetTransientVariables(v map[string]Value)
+
+		// CharacterSet returns the character set.
+		CharacterSet() uint8
+
+		// ServerVersion returns the server version.
+		ServerVersion() string
+	}
 
 	// Context is used to carry context objects
 	Context struct {
 		context.Context
-		Tenant        string
-		Schema        string
-		ServerVersion string
-
-		ConnectionID uint32
+		C FrontConn
 
 		// sql Data
 		Data []byte
 
 		Stmt *Stmt
-
-		CharacterSet uint8
-
-		// TransientVariables stores the transient local variables, it will sync with the remote node automatically.
-		//   - SYSTEM: @@xxx
-		//   - USER: @xxx
-		TransientVariables map[string]Value
 	}
 
 	Listener interface {
@@ -68,7 +88,7 @@ type (
 		ProcessDistributedTransaction() bool
 		InLocalTransaction(ctx *Context) bool
 		InGlobalTransaction(ctx *Context) bool
-		ExecuteUseDB(ctx *Context) error
+		ExecuteUseDB(ctx *Context, schema string) error
 		ExecuteFieldList(ctx *Context) ([]Field, error)
 		ExecutorComQuery(ctx *Context, callback func(Result, uint16, error) error) error
 		ExecutorComStmtExecute(ctx *Context) (Result, uint16, error)
@@ -111,15 +131,15 @@ func (c Context) GetArgs() []Value {
 func (c Context) Value(key interface{}) interface{} {
 	switch key.(type) {
 	case ContextKeyTenant:
-		return c.Tenant
+		return c.C.Tenant()
 	case ContextKeySchema:
-		return c.Schema
+		return c.C.Schema()
 	case ContextKeyTransientVariables:
-		return c.TransientVariables
+		return c.C.TransientVariables()
 	case ContextKeySQL:
 		return c.GetQuery()
 	case ContextKeyServerVersion:
-		return c.ServerVersion
+		return c.C.ServerVersion()
 	}
 	return c.Context.Value(key)
 }
