@@ -105,12 +105,7 @@ VALUES
 
 // DeleteTxLog Delete transaction log
 func (gm *TxLogManager) DeleteTxLog(l TrxLog) error {
-	delSql := `
-DELETE FROM
-    __arana_trx_log
-WHERE
-    trx_id = ?
-`
+	delSql := "DELETE FROM __arana_trx_log WHERE trx_id = ?"
 	trxIdVal, _ := proto.NewValue(l.TrxID)
 	args := []proto.Value{
 		trxIdVal,

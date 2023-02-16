@@ -52,9 +52,7 @@ func NewXAHook(tenant string, enable bool) (*xaHook, error) {
 	}
 
 	xh.trxMgr = trxMgr
-	xh.trxLog = &TrxLog{
-		Participants: []TrxParticipant{},
-	}
+	xh.trxLog = &TrxLog{}
 	xh.trxStateChangeFunc = trxStateChangeFunc
 
 	return xh, nil

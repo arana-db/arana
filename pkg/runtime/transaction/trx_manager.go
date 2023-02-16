@@ -35,7 +35,7 @@ var (
 	trxMgrs = make(map[string]*TrxManager)
 )
 
-// CreateTrxManager inits TxBottomMaker
+// CreateTrxManager inits TxFaultDecisionExecutor
 func CreateTrxManager(tenant string) error {
 	lock.Lock()
 	defer lock.Unlock()
@@ -50,7 +50,7 @@ func CreateTrxManager(tenant string) error {
 	}
 
 	trxLog := &TxLogManager{sysDB: sysDB}
-	trxBottomMaker := &TxBottomMaker{tm: trxLog}
+	trxBottomMaker := &TxFaultDecisionExecutor{tm: trxLog}
 
 	trxMgrs[tenant] = &TrxManager{
 		trxLog:         trxLog,
@@ -71,5 +71,5 @@ func GetTrxManager(tenant string) (*TrxManager, error) {
 
 type TrxManager struct {
 	trxLog         *TxLogManager
-	trxBottomMaker *TxBottomMaker
+	trxBottomMaker *TxFaultDecisionExecutor
 }

@@ -42,7 +42,7 @@ type dBOperation string
 const (
 	Like           dBOperation = "LIKE"
 	Equal          dBOperation = "="
-	NotEqual       dBOperation = "!="
+	NotEqual       dBOperation = "<>"
 	LessThan       dBOperation = "<"
 	LessEqualThan  dBOperation = "<="
 	GreatThan      dBOperation = ">"

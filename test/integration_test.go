@@ -54,7 +54,7 @@ func TestSuite(t *testing.T) {
 		WithMySQLDatabase("employees"),
 		WithConfig("../integration_test/config/db_tbl/config.yaml"),
 		WithScriptPath("../scripts"),
-		//WithDevMode(), // NOTICE: UNCOMMENT IF YOU WANT TO DEBUG LOCAL ARANA SERVER!!!
+		// WithDevMode(), // NOTICE: UNCOMMENT IF YOU WANT TO DEBUG LOCAL ARANA SERVER!!!
 	)
 	suite.Run(t, &IntegrationSuite{su})
 }

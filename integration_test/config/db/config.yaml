@@ -27,7 +27,7 @@ data:
           password: "123456"
         - username: arana
           password: "123456"
-      sysDB:
+      sys_db:
         host: arana-mysql
         port: 3306
         username: root

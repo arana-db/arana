@@ -55,10 +55,7 @@ type xaDeadLockDog struct {
 
 // Start run deadlock detection dog, can set how long the delay starts to execute
 func (xd *xaDeadLockDog) Start(ctx context.Context, delay time.Duration, tx runtime.CompositeTx) {
-	_ctx, cancel := context.WithCancel(ctx)
-
-	xd.ctx = _ctx
-	xd.cancel = cancel
+	xd.ctx, xd.cancel = context.WithCancel(ctx)
 	xd.tx = tx
 	xd.timer = time.AfterFunc(delay, xd.runCheck)
 }

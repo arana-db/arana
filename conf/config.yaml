@@ -22,7 +22,7 @@ metadata:
 data:
   tenants:
     - name: arana
-      sysDB:
+      sys_db:
         host: arana-mysql
         port: 3306
         username: root
