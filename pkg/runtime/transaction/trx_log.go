@@ -44,18 +44,20 @@ var (
 const (
 	// TODO 启用 mysql 的二级分区功能，解决清理 tx log 的问题
 	_initTxLog = `
-CREATE TABLE IF NOT EXISTS __arana_trx_log (
-	log_id bigint(20) auto_increment,
-	txr_id varchar(255) NOT NULL,
-    tenant varchar(255) NOT NULL,
-	server_id int(10) UNSIGNED NOT NULL,
-	status int(10) NOT NULL,
-	participant varchar(500),
-	start_time timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
-	update_time timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-	PRIMARY KEY (log_id),
-	UNIQUE KEY (txr_id)
-  ) ENGINE = InnoDB CHARSET = utf8
+CREATE TABLE IF NOT EXISTS __arana_trx_log
+(
+    log_id      bigint(20) auto_increment COMMENT 'primary key',
+    txr_id      varchar(255)     NOT NULL COMMENT 'transaction uniq id',
+    tenant      varchar(255)     NOT NULL COMMENT 'tenant info',
+    server_id   int(10) UNSIGNED NOT NULL COMMENT 'arana server node id',
+    status      int(10)          NOT NULL COMMENT 'transaction status, preparing:2,prepared:3,committing:4,committed:5,aborting:6,rollback:7,finish:8,rolledBack:9',
+    participant varchar(500) COMMENT 'transaction participants, content is mysql node info',
+    start_time  timestamp        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time timestamp        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (log_id),
+    UNIQUE KEY (txr_id)
+) ENGINE = InnoDB
+  CHARSET = utf8
 `
 )
 
