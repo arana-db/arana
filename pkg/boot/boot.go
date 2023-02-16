@@ -118,7 +118,7 @@ func (bt *Booter) bootTenant(ctx context.Context, tenant string) {
 				errs = append(errs, err)
 				continue
 			}
-			if err := namespace.Register(ns); err != nil {
+			if err := namespace.Register(tenant, ns); err != nil {
 				errs = append(errs, err)
 				continue
 			}
@@ -167,7 +167,7 @@ func (bt *Booter) watchAllTenants(ctx context.Context) error {
 			}
 
 			for _, cluster := range clusters {
-				if err = runtime.Unload(cluster); err == nil {
+				if err = runtime.Unload(tenant, cluster); err == nil {
 					log.Infof("[%s] unload runtime '%s' successfully", tenant, cluster)
 				} else {
 					log.Errorf("[%s] unload runtime '%s' failed: %v", tenant, cluster, err)

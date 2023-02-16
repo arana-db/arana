@@ -129,7 +129,7 @@ func (executor *RedirectExecutor) ExecuteFieldList(ctx *proto.Context) ([]proto.
 	table := string(ctx.Data[1:index])
 	wildcard := string(ctx.Data[index+1:])
 
-	rt, err := runtime.Load(ctx.C.Schema())
+	rt, err := runtime.Load(ctx.C.Tenant(), ctx.C.Schema())
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -191,7 +191,7 @@ func (executor *RedirectExecutor) doExecutorComQuery(ctx *proto.Context, act ast
 		StmtNode: act,
 	}
 
-	rt, err := runtime.Load(ctx.C.Schema())
+	rt, err := runtime.Load(ctx.C.Tenant(), ctx.C.Schema())
 	if err != nil {
 		return nil, 0, err
 	}
@@ -369,7 +369,7 @@ func (executor *RedirectExecutor) ExecutorComStmtExecute(ctx *proto.Context) (pr
 		executable = tx
 	} else {
 		var rt runtime.Runtime
-		if rt, err = runtime.Load(ctx.C.Schema()); err != nil {
+		if rt, err = runtime.Load(ctx.C.Tenant(), ctx.C.Schema()); err != nil {
 			return nil, 0, err
 		}
 		executable = rt

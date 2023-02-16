@@ -53,10 +53,11 @@ func optimizeShowOpenTables(ctx context.Context, o *optimize.Optimizer) (proto.P
 
 	stmt := o.Stmt.(*ast.ShowOpenTables)
 
-	clusters := security.DefaultTenantManager().GetClusters(rcontext.Tenant(ctx))
+	tenant := rcontext.Tenant(ctx)
+	clusters := security.DefaultTenantManager().GetClusters(tenant)
 	plans := make([]proto.Plan, 0, len(clusters))
 	for _, cluster := range clusters {
-		ns := namespace.Load(cluster)
+		ns := namespace.Load(tenant, cluster)
 		// 配置里原子库 都需要执行一次
 		groups := ns.DBGroups()
 		for i := 0; i < len(groups); i++ {

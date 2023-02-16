@@ -157,8 +157,9 @@ func (seq *groupSequence) Acquire(ctx context.Context) (int64, error) {
 	defer seq.mu.Unlock()
 
 	if seq.currentVal >= seq.currentGroupMaxVal {
+		tenant := rcontext.Tenant(ctx)
 		schema := rcontext.Schema(ctx)
-		rt, err := runtime.Load(schema)
+		rt, err := runtime.Load(tenant, schema)
 		if err != nil {
 			log.Errorf("[sequence] load runtime.Runtime from schema=%s fail, %s", schema, err.Error())
 			return 0, err

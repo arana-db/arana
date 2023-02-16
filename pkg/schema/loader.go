@@ -134,7 +134,7 @@ func (l *SimpleSchemaLoader) Load(ctx context.Context, schema string, tables []s
 }
 
 func (l *SimpleSchemaLoader) LoadColumnMetadataMap(ctx context.Context, schema string, tables []string) (map[string][]*proto.ColumnMetadata, error) {
-	conn, err := runtime.Load(schema)
+	conn, err := runtime.Load(rcontext.Tenant(ctx), schema)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -206,7 +206,7 @@ func convertInterfaceToStrNullable(value proto.Value) string {
 }
 
 func (l *SimpleSchemaLoader) LoadIndexMetadata(ctx context.Context, schema string, tables []string) (map[string][]*proto.IndexMetadata, error) {
-	conn, err := runtime.Load(schema)
+	conn, err := runtime.Load(rcontext.Tenant(ctx), schema)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}

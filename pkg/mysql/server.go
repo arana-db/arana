@@ -494,53 +494,68 @@ func (l *Listener) parseClientHandshakePacket(firstTime bool, data []byte) (*han
 }
 
 func (l *Listener) ValidateHash(handshake *handshakeResult) error {
+	newErr := func() error {
+		return errors.NewSQLError(mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied for user '%v'", handshake.username)
+	}
+
 	doAuth := func(tenant string) error {
 		user, ok := security.DefaultTenantManager().GetUser(tenant, handshake.username)
 		if !ok {
-			return errors.NewSQLError(mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied for user '%v'", handshake.username)
+			return newErr()
 		}
 
 		computedAuthResponse := scramblePassword(handshake.salt, user.Password)
 		if !bytes.Equal(handshake.authResponse, computedAuthResponse) {
-			return errors.NewSQLError(mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied for user '%v'", handshake.username)
+			return newErr()
 		}
 
 		return nil
 	}
 
-	var (
-		tenant string
-		err    error
-	)
+	var tenant string
 
+	if idx := strings.IndexByte(handshake.username, '.'); idx > 0 && idx != len(handshake.username)-1 {
+		tenant = handshake.username[:idx]
+		handshake.username = handshake.username[idx+1:]
+	}
+
+	if len(tenant) > 0 {
+		if err := doAuth(tenant); err != nil {
+			return err
+		}
+		// bind tenant
+		handshake.tenant = tenant
+		return nil
+	}
+
+	var tenants []string
 	if len(handshake.schema) < 1 { // login without schema
-		var cnt int
-		for _, next := range security.DefaultTenantManager().GetTenants() {
-			if err = doAuth(next); err == nil {
-				tenant = next
-				cnt++
-			}
-		}
-		if cnt > 1 { // reject conflict user login
-			return errors.NewSQLError(mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied for user '%v'", handshake.username)
-		}
+		tenants = security.DefaultTenantManager().GetTenants()
 	} else { // login with schema
-		var ok bool
-		if tenant, ok = security.DefaultTenantManager().GetTenantOfCluster(handshake.schema); !ok {
-			return errors.NewSQLError(mysql.ERBadDb, mysql.SS42000, "Unknown database '%s'", handshake.schema)
+		tenants = security.DefaultTenantManager().GetTenantsOfCluster(handshake.schema)
+	}
+
+	for i := range tenants {
+		err := doAuth(tenants[i])
+		if err != nil {
+			continue
 		}
-		err = doAuth(tenant)
+
+		// check if more than 1 tenant with same username+password
+		if len(tenant) > 0 {
+			log.Warnf("client is trying to login confusing tenants: [%s,%s]", tenant, tenants[i])
+			return newErr()
+		}
+
+		tenant = tenants[i]
 	}
 
-	if err != nil {
-		return err
-	}
-
+	// no tenant matched
 	if len(tenant) < 1 {
-		return errors.NewSQLError(mysql.ERAccessDeniedError, mysql.SSAccessDeniedError, "Access denied for user '%v'", handshake.username)
+		return newErr()
 	}
 
-	// bind tenant
+	// bind single tenant
 	handshake.tenant = tenant
 
 	return nil
