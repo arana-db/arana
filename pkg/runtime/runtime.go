@@ -82,18 +82,18 @@ type Runtime interface {
 }
 
 // Load loads a Runtime, here schema means logical database name.
-func Load(schema string) (Runtime, error) {
+func Load(tenant, schema string) (Runtime, error) {
 	var ns *namespace.Namespace
-	if ns = namespace.Load(schema); ns == nil {
-		return nil, perrors.Errorf("no such logical database %s", schema)
+	if ns = namespace.Load(tenant, schema); ns == nil {
+		return nil, perrors.Errorf("no such schema: tenant=%s, schema=%s", tenant, schema)
 	}
 	return (*defaultRuntime)(ns), nil
 }
 
 // Unload unloads a Runtime, here schema means logical database name.
-func Unload(schema string) error {
-	if err := namespace.Unregister(schema); err != nil {
-		return perrors.Wrapf(err, "cannot unload schema '%s'", schema)
+func Unload(tenant, schema string) error {
+	if err := namespace.Unregister(tenant, schema); err != nil {
+		return perrors.Wrapf(err, "cannot unload schema: tenant=%s, schema=%s", tenant, schema)
 	}
 	return nil
 }
