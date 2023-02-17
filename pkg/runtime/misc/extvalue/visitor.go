@@ -279,7 +279,7 @@ func (vv *valueVisitor) VisitFunction(node *ast.Function) (interface{}, error) {
 
 		return mysqlErrors.NewSQLError(
 			mConstants.ERSPDoseNotExist,
-			mConstants.SSSPNotExist,
+			mConstants.SS42000,
 			sb.String(),
 		)
 	}

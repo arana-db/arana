@@ -35,8 +35,8 @@ func TestSimpleTenantManager(t *testing.T) {
 		ok bool
 	)
 
-	_, ok = tm.GetTenantOfCluster("fake-cluster")
-	assert.False(t, ok)
+	tenants := tm.GetTenantsOfCluster("fake-cluster")
+	assert.Empty(t, tenants)
 	_, ok = tm.GetUser("fake-tenant", "fake-user")
 	assert.False(t, ok)
 	cluster := tm.GetClusters("fake-tenant")
@@ -48,14 +48,13 @@ func TestSimpleTenantManager(t *testing.T) {
 	})
 
 	var (
-		tenant   string
 		user     *config.User
 		clusters []string
 	)
 
-	tenant, ok = tm.GetTenantOfCluster("fake-cluster")
-	assert.True(t, ok)
-	assert.Equal(t, "fake-tenant", tenant)
+	tenants = tm.GetTenantsOfCluster("fake-cluster")
+	assert.Len(t, tenants, 1)
+	assert.Equal(t, "fake-tenant", tenants[0])
 
 	user, ok = tm.GetUser("fake-tenant", "fake-user")
 	assert.True(t, ok)

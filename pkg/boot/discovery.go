@@ -270,9 +270,8 @@ func (fp *discovery) ListNodes(ctx context.Context, tenant, cluster, group strin
 		return nil, nil
 	}
 
-	var nodes []string
-
-	nodes = append(nodes, bingo.Nodes...)
+	nodes := make([]string, len(bingo.Nodes))
+	copy(nodes, bingo.Nodes)
 
 	return nodes, nil
 }

@@ -282,22 +282,13 @@ func (d *watcher) onGroupUpdate(ctx context.Context, cluster string, group *conf
 }
 
 func (d *watcher) getRuntime(cluster string) (runtime.Runtime, error) {
-	tenant, ok := security.DefaultTenantManager().GetTenantOfCluster(cluster)
-	if !ok {
-		return nil, errors.Errorf("cannot find cluster '%s' of tenant '%s'", cluster, d.tenant)
-	}
-
-	if d.tenant != tenant {
-		return nil, errors.Errorf("incorrect tenant of cluster '%s': expect='%s', actual='%s'", cluster, d.tenant, tenant)
-	}
-
-	return runtime.Load(cluster)
+	return runtime.Load(d.tenant, cluster)
 }
 
-func (d *watcher) onGroupDel(ctx context.Context, cluster, group string) error {
+func (d *watcher) onGroupDel(_ context.Context, cluster, group string) error {
 	rt, err := d.getRuntime(cluster)
 	if err != nil {
-		return errors.Wrap(err, "cannot load runtime")
+		return errors.Wrapf(err, "cannot load runtime: tenant=%s, schema=%s", d.tenant, cluster)
 	}
 
 	if err = rt.Namespace().EnqueueCommand(namespace.RemoveGroup(group)); err != nil {
@@ -383,7 +374,7 @@ func (d *watcher) onClusterAdd(ctx context.Context, cluster *config.DataSourceCl
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	if err := namespace.Register(ns); err != nil {
+	if err := namespace.Register(d.tenant, ns); err != nil {
 		return errors.WithStack(err)
 	}
 	security.DefaultTenantManager().PutCluster(d.tenant, cluster.Name)
@@ -391,17 +382,8 @@ func (d *watcher) onClusterAdd(ctx context.Context, cluster *config.DataSourceCl
 	return nil
 }
 
-func (d *watcher) onClusterDel(ctx context.Context, clusterName string) error {
-	tenant, ok := security.DefaultTenantManager().GetTenantOfCluster(clusterName)
-	if !ok {
-		return nil
-	}
-
-	if tenant != d.tenant {
-		return errors.Errorf("incorrect tenant of cluster '%s': expect '%s' but actual is '%s'", clusterName, tenant, d.tenant)
-	}
-
-	if err := runtime.Unload(clusterName); err != nil {
+func (d *watcher) onClusterDel(_ context.Context, clusterName string) error {
+	if err := runtime.Unload(d.tenant, clusterName); err != nil {
 		return errors.WithStack(err)
 	}
 
@@ -410,28 +392,28 @@ func (d *watcher) onClusterDel(ctx context.Context, clusterName string) error {
 	return nil
 }
 
-func (d *watcher) onUserUpdate(ctx context.Context, user *config.User) error {
+func (d *watcher) onUserUpdate(_ context.Context, user *config.User) error {
 	security.DefaultTenantManager().PutUser(d.tenant, user)
 	log.Infof("[%s] USER-CHG: update user '%s' successfully", d.tenant, user.Username)
 	return nil
 }
 
-func (d *watcher) onUserAdd(ctx context.Context, user *config.User) error {
+func (d *watcher) onUserAdd(_ context.Context, user *config.User) error {
 	security.DefaultTenantManager().PutUser(d.tenant, user)
 	log.Infof("[%s] USER-ADD: add user '%s' successfully", d.tenant, user.Username)
 	return nil
 }
 
-func (d *watcher) onUserDel(ctx context.Context, username string) error {
+func (d *watcher) onUserDel(_ context.Context, username string) error {
 	security.DefaultTenantManager().RemoveUser(d.tenant, username)
 	log.Infof("[%s] USER-DEL: remove user '%s' successfully", d.tenant, username)
 	return nil
 }
 
-func (d *watcher) onNodeDel(ctx context.Context, node string) error {
+func (d *watcher) onNodeDel(_ context.Context, node string) error {
 	clusters := security.DefaultTenantManager().GetClusters(d.tenant)
 	for _, cluster := range clusters {
-		rt, err := runtime.Load(cluster)
+		rt, err := runtime.Load(d.tenant, cluster)
 		if err != nil {
 			continue
 		}
@@ -490,7 +472,7 @@ func (d *watcher) onNodeUpdate(ctx context.Context, node *config.Node) error {
 	}
 
 	for _, cluster := range clusters {
-		rt, err := runtime.Load(cluster)
+		rt, err := runtime.Load(d.tenant, cluster)
 		if err != nil {
 			log.Errorf("cannot find runtime: tenant=%s, cluster=%s", d.tenant, cluster)
 			continue
@@ -510,7 +492,7 @@ func (d *watcher) onNodeUpdate(ctx context.Context, node *config.Node) error {
 	return nil
 }
 
-func (d *watcher) onTableDel(ctx context.Context, name string) error {
+func (d *watcher) onTableDel(_ context.Context, name string) error {
 	db, tbl, err := parseDatabaseAndTable(name)
 	if err != nil {
 		return errors.WithStack(err)
@@ -522,7 +504,7 @@ func (d *watcher) onTableDel(ctx context.Context, name string) error {
 		return nil
 	}
 
-	ns := namespace.Load(db)
+	ns := namespace.Load(d.tenant, db)
 	if ns == nil {
 		log.Warnf("[%s] ignore TABLE-DEL: no such namespace '%s'", d.tenant, db)
 		return nil
@@ -538,7 +520,7 @@ func (d *watcher) onTableDel(ctx context.Context, name string) error {
 	return nil
 }
 
-func (d *watcher) onTableAdd(ctx context.Context, table *config.Table) error {
+func (d *watcher) onTableAdd(_ context.Context, table *config.Table) error {
 	db, tbl, err := parseDatabaseAndTable(table.Name)
 	if err != nil {
 		return errors.WithStack(err)
@@ -548,7 +530,7 @@ func (d *watcher) onTableAdd(ctx context.Context, table *config.Table) error {
 		log.Warnf("[%s] TABLE-ADD: no such cluster '%s'", d.tenant, db)
 		return nil
 	}
-	ns := namespace.Load(db)
+	ns := namespace.Load(d.tenant, db)
 	if ns == nil {
 		log.Warnf("[%s] TABLE-ADD: no such namespace '%s'", d.tenant, db)
 		return nil
@@ -564,7 +546,7 @@ func (d *watcher) onTableAdd(ctx context.Context, table *config.Table) error {
 	return nil
 }
 
-func (d *watcher) onTableChange(ctx context.Context, table *config.Table) error {
+func (d *watcher) onTableChange(_ context.Context, table *config.Table) error {
 	db, tbl, err := parseDatabaseAndTable(table.Name)
 	if err != nil {
 		return errors.WithStack(err)
@@ -573,7 +555,7 @@ func (d *watcher) onTableChange(ctx context.Context, table *config.Table) error 
 	if !slices.Contains(clusters, db) {
 		return nil
 	}
-	ns := namespace.Load(db)
+	ns := namespace.Load(d.tenant, db)
 	if ns == nil {
 		log.Warnf("[%s] TABLE-CHG: no such namespace '%s'", d.tenant, db)
 		return nil

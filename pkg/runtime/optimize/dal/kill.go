@@ -19,9 +19,12 @@ package dal
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"strings"
+)
+
+import (
+	perrors "github.com/pkg/errors"
 )
 
 import (
@@ -49,7 +52,14 @@ func optimizeKill(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error
 	processId, groupId := math.DecodeProcessID(int64(stmt.ConnectionID), math.DefaultBase)
 	stmt.ConnectionID = uint64(processId)
 
-	groups := namespace.Load(rcontext.Schema(ctx)).DBGroups()
+	tenant := rcontext.Tenant(ctx)
+	schema := rcontext.Schema(ctx)
+	ns := namespace.Load(tenant, schema)
+	if ns == nil {
+		return nil, perrors.Errorf("no namespace found: tenant=%s, schema=%s", tenant, schema)
+	}
+
+	groups := ns.DBGroups()
 	for _, group := range groups {
 		strs := strings.Split(group, sep)
 		if len(strs) < 2 {
@@ -63,5 +73,5 @@ func optimizeKill(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error
 		}
 	}
 
-	return nil, fmt.Errorf("can't find a proper db group")
+	return nil, perrors.New("can't find a proper db group")
 }

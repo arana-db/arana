@@ -19,8 +19,7 @@ package function
 
 import (
 	"context"
-	"math"
-	"strconv"
+	"fmt"
 	"testing"
 )
 
@@ -32,35 +31,40 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
-func TestAsin(t *testing.T) {
-	fn := proto.MustGetFunc(FuncAsin)
+func TestFuncCastTime(t *testing.T) {
+	fn := proto.MustGetFunc(FuncCastTime)
 	assert.Equal(t, 1, fn.NumInput())
-
 	type tt struct {
-		in  interface{}
-		out interface{}
+		inFirst string
+		want    string
 	}
-
-	for i, it := range []tt{
-		{nil, nil},
-		{0, float64(0)},
-		{1, math.Pi / 2},
-		{-1, -math.Pi / 2},
-		{2, nil},
-		{-2, nil},
-		{"arana", float64(0)},
+	for _, v := range []tt{
+		{"1 1:2:3.111111", "25:02:03"},
+		{"2 1:2.599999", "49:02:01"},
+		{"3 1", "73:00:00"},
+		{"-34 22", "-838:00:00"},
+		{"35 1", "838:59:59"},
+		{"-838:59:59", "-838:59:59"},
+		{"1:2:3", "01:02:03"},
+		{"1:1", "01:01:00"},
+		{"1:100", "00:00:00"},
+		{"1:b", "00:00:00"},
+		{"838:12:11", "838:12:11"},
+		{"839:12:11", "838:59:59"},
+		{"1", "00:00:01"},
+		{"102", "00:01:02"},
+		{"51219", "05:12:19"},
+		{"173429", "17:34:29"},
+		{"173470", "00:00:00"},
+		{"176429", "00:00:00"},
+		{"17ab10", "00:00:00"},
+		{"8381211", "838:12:11"},
+		{"8391211", "838:59:59"},
 	} {
-		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			first, _ := proto.NewValue(it.in)
-			out, err := fn.Apply(context.Background(), proto.ToValuer(first))
+		t.Run(v.want, func(t *testing.T) {
+			out, err := fn.Apply(context.Background(), proto.ToValuer(proto.NewValueString(v.inFirst)))
 			assert.NoError(t, err)
-			if it.out == nil {
-				assert.Nil(t, out)
-				return
-			}
-			actual, err := out.Float64()
-			assert.NoError(t, err)
-			assert.Equal(t, it.out, actual)
+			assert.Equal(t, v.want, fmt.Sprint(out))
 		})
 	}
 }

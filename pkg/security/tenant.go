@@ -35,8 +35,8 @@ type TenantManager interface {
 	GetUser(tenant string, username string) (*config.User, bool)
 	// GetClusters returns cluster names.
 	GetClusters(tenant string) []string
-	// GetTenantOfCluster returns the tenant of cluster.
-	GetTenantOfCluster(cluster string) (string, bool)
+	// GetTenantsOfCluster returns all tenants of cluster.
+	GetTenantsOfCluster(cluster string) []string
 	// PutUser puts a user into tenant.
 	PutUser(tenant string, user *config.User)
 	// RemoveUser removes a user from tenant.
@@ -98,15 +98,16 @@ func (st *simpleTenantManager) GetClusters(tenant string) []string {
 	return clusters
 }
 
-func (st *simpleTenantManager) GetTenantOfCluster(cluster string) (string, bool) {
+func (st *simpleTenantManager) GetTenantsOfCluster(cluster string) []string {
 	st.RLock()
 	defer st.RUnlock()
+	var ret []string
 	for k, v := range st.tenants {
 		if _, ok := v.clusters[cluster]; ok {
-			return k, true
+			ret = append(ret, k)
 		}
 	}
-	return "", false
+	return ret
 }
 
 func (st *simpleTenantManager) PutUser(tenant string, user *config.User) {

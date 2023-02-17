@@ -589,8 +589,7 @@ const (
 	// SSNoDatabaseSelected is ER_NO_DB
 	SSNoDatabaseSelected = "3D000"
 
-	// SSSPNotExist is ER_SP_DOES_NOT_EXIST
-	SSSPNotExist = "42000"
+	SS42000 = "42000"
 )
 
 // Status flags. They are returned by the server in a few cases.

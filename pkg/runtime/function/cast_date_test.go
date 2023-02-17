@@ -19,8 +19,7 @@ package function
 
 import (
 	"context"
-	"math"
-	"strconv"
+	"fmt"
 	"testing"
 )
 
@@ -32,35 +31,35 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
-func TestAsin(t *testing.T) {
-	fn := proto.MustGetFunc(FuncAsin)
+func TestFuncCastDate(t *testing.T) {
+	fn := proto.MustGetFunc(FuncCastDate)
 	assert.Equal(t, 1, fn.NumInput())
-
 	type tt struct {
-		in  interface{}
-		out interface{}
+		inFirst string
+		want    string
 	}
-
-	for i, it := range []tt{
-		{nil, nil},
-		{0, float64(0)},
-		{1, math.Pi / 2},
-		{-1, -math.Pi / 2},
-		{2, nil},
-		{-2, nil},
-		{"arana", float64(0)},
+	for _, v := range []tt{
+		{"99-12-2", "1999-12-02"},
+		{"99-12-20", "1999-12-20"},
+		{"5#2?2", "2005-02-02"},
+		{"199#2?2", "0199-02-02"},
+		{"12.2+29", "2012-02-29"},
+		{"22.2+29", "0000-00-00"},
+		{"2.15+20", "0000-00-00"},
+		{"2002.5+20", "2002-05-20"},
+		{"2002.-5+20", "2002-05-20"},
+		{"991202", "1999-12-02"},
+		{"19991202", "1999-12-02"},
+		{"51202", "2005-12-02"},
+		{"051202", "2005-12-02"},
+		{"1991202", "0199-12-02"},
+		{"20051202", "2005-12-02"},
+		{"20051234", "0000-00-00"},
 	} {
-		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			first, _ := proto.NewValue(it.in)
-			out, err := fn.Apply(context.Background(), proto.ToValuer(first))
+		t.Run(v.want, func(t *testing.T) {
+			out, err := fn.Apply(context.Background(), proto.ToValuer(proto.NewValueString(v.inFirst)))
 			assert.NoError(t, err)
-			if it.out == nil {
-				assert.Nil(t, out)
-				return
-			}
-			actual, err := out.Float64()
-			assert.NoError(t, err)
-			assert.Equal(t, it.out, actual)
+			assert.Equal(t, v.want, fmt.Sprint(out))
 		})
 	}
 }
