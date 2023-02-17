@@ -80,8 +80,7 @@ func NewEtcdV3Discovery(basePath string, servicePath string, etcdAddrs []string,
 
 	registryNodes, err := client.List(context.Background(), discoveryPath)
 	if err != nil {
-		log.Errorf("cannot get services of from registry: %v, err: %v", discoveryPath, err)
-		return nil, err
+		log.Warnf("cannot get services of from registry: %v, err: %v", discoveryPath, err)
 	}
 
 	for _, registryNode := range registryNodes {
