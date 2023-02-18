@@ -19,7 +19,6 @@ package dml
 
 import (
 	"context"
-	uconfig "github.com/arana-db/arana/pkg/util/config"
 	"strings"
 )
 
@@ -38,6 +37,7 @@ import (
 	"github.com/arana-db/arana/pkg/runtime/optimize"
 	"github.com/arana-db/arana/pkg/runtime/optimize/dml/ext"
 	"github.com/arana-db/arana/pkg/runtime/plan/dml"
+	uconfig "github.com/arana-db/arana/pkg/util/config"
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
