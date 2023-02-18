@@ -70,6 +70,9 @@ type ConfigProvider interface {
 	// GetTable returns the table info.
 	GetTable(ctx context.Context, tenant, cluster, table string) (*rule.VTable, error)
 
+	// GetSysDB return the arana sys db
+	GetSysDB(ctx context.Context, tenant string) (*config.Node, error)
+
 	// Import import config into config_center
 	Import(ctx context.Context, info *config.Tenant) error
 }

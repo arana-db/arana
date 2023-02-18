@@ -36,8 +36,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"go.uber.org/atomic"
-
-	"golang.org/x/sync/errgroup"
 )
 
 import (
@@ -47,7 +45,6 @@ import (
 	errors2 "github.com/arana-db/arana/pkg/mysql/errors"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/hint"
-	"github.com/arana-db/arana/pkg/resultx"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	_ "github.com/arana-db/arana/pkg/runtime/function"
 	"github.com/arana-db/arana/pkg/runtime/namespace"
@@ -64,7 +61,6 @@ import (
 var (
 	_ Runtime     = (*defaultRuntime)(nil)
 	_ proto.VConn = (*defaultRuntime)(nil)
-	_ proto.VConn = (*compositeTx)(nil)
 )
 
 var Tracer = otel.Tracer("Runtime")
@@ -78,7 +74,7 @@ type Runtime interface {
 	// Namespace returns the namespace.
 	Namespace() *namespace.Namespace
 	// Begin begins a new transaction.
-	Begin(ctx context.Context) (proto.Tx, error)
+	Begin(ctx context.Context, hooks ...TxHook) (proto.Tx, error)
 }
 
 // Load loads a Runtime, here schema means logical database name.
@@ -99,274 +95,8 @@ func Unload(tenant, schema string) error {
 }
 
 var (
-	_ proto.DB             = (*AtomDB)(nil)
-	_ proto.Callable       = (*atomTx)(nil)
-	_ proto.Tx             = (*compositeTx)(nil)
-	_ proto.VersionSupport = (*compositeTx)(nil)
+	_ proto.DB = (*AtomDB)(nil)
 )
-
-type compositeTx struct {
-	closed atomic.Bool
-	id     int64
-
-	rt  *defaultRuntime
-	txs map[string]*atomTx
-}
-
-func (tx *compositeTx) Version(ctx context.Context) (string, error) {
-	return tx.rt.Version(ctx)
-}
-
-func (tx *compositeTx) Query(ctx context.Context, db string, query string, args ...proto.Value) (proto.Result, error) {
-	return tx.call(ctx, db, query, args...)
-}
-
-func (tx *compositeTx) Exec(ctx context.Context, db string, query string, args ...proto.Value) (proto.Result, error) {
-	return tx.call(ctx, db, query, args...)
-}
-
-func (tx *compositeTx) call(ctx context.Context, db string, query string, args ...proto.Value) (proto.Result, error) {
-	if len(db) < 1 {
-		db = tx.rt.Namespace().DBGroups()[0]
-	}
-
-	atx, err := tx.begin(ctx, db)
-	if err != nil {
-		return nil, err
-	}
-
-	log.Debugf("call upstream: db=%s, sql=\"%s\", args=%v", db, query, args)
-
-	res, _, err := atx.Call(ctx, query, args...)
-	if err != nil {
-		return nil, perrors.WithStack(err)
-	}
-	return res, nil
-}
-
-func (tx *compositeTx) begin(ctx context.Context, group string) (*atomTx, error) {
-	if exist, ok := tx.txs[group]; ok {
-		return exist, nil
-	}
-
-	// force use writeable node
-	ctx = rcontext.WithWrite(ctx)
-	db := selectDB(ctx, group, tx.rt.Namespace())
-	if db == nil {
-		return nil, perrors.Errorf("cannot get upstream database %s", group)
-	}
-
-	// begin atom tx
-	newborn, err := db.(*AtomDB).begin(ctx)
-	if err != nil {
-		return nil, err
-	}
-	tx.txs[group] = newborn
-	return newborn, nil
-}
-
-func (tx *compositeTx) String() string {
-	return fmt.Sprintf("tx-%d", tx.id)
-}
-
-func (tx *compositeTx) Execute(ctx *proto.Context) (res proto.Result, warn uint16, err error) {
-	var span trace.Span
-	ctx.Context, span = Tracer.Start(ctx.Context, "compositeTx.Execute")
-	execStart := time.Now()
-	defer func() {
-		span.End()
-		metrics.ExecuteDuration.Observe(time.Since(execStart).Seconds())
-	}()
-	if tx.closed.Load() {
-		err = errTxClosed
-		return
-	}
-
-	args := ctx.GetArgs()
-	if direct := rcontext.IsDirect(ctx.Context); direct {
-		var (
-			group = tx.rt.Namespace().DBGroups()[0]
-			atx   *atomTx
-			cctx  = rcontext.WithWrite(ctx.Context)
-		)
-		if atx, err = tx.begin(cctx, group); err != nil {
-			return
-		}
-		res, warn, err = atx.Call(cctx, ctx.GetQuery(), args...)
-		if err != nil {
-			err = perrors.WithStack(err)
-		}
-		return
-	}
-
-	var (
-		ru   = tx.rt.Namespace().Rule()
-		plan proto.Plan
-	)
-
-	ctx.Context = rcontext.WithHints(ctx.Context, ctx.Stmt.Hints)
-
-	var opt proto.Optimizer
-	if opt, err = optimize.NewOptimizer(ru, ctx.Stmt.Hints, ctx.Stmt.StmtNode, args); err != nil {
-		err = perrors.WithStack(err)
-		return
-	}
-
-	if plan, err = opt.Optimize(ctx); err != nil {
-		err = perrors.WithStack(err)
-		return
-	}
-
-	if res, err = plan.ExecIn(ctx, tx); err != nil {
-		// TODO: how to warp error packet
-		err = perrors.WithStack(err)
-		return
-	}
-
-	return
-}
-
-func (tx *compositeTx) ID() int64 {
-	return tx.id
-}
-
-func (tx *compositeTx) Commit(ctx context.Context) (proto.Result, uint16, error) {
-	if !tx.closed.CAS(false, true) {
-		return nil, 0, errTxClosed
-	}
-	ctx, span := Tracer.Start(ctx, "compositeTx.Commit")
-	defer func() { // cleanup
-		tx.rt = nil
-		tx.txs = nil
-		span.End()
-	}()
-
-	var g errgroup.Group
-	for k, v := range tx.txs {
-		k, v := k, v
-		g.Go(func() error {
-			_, _, err := v.Commit(ctx)
-			if err != nil {
-				log.Errorf("commit %s for group %s failed: %v", tx, k, err)
-				return err
-			}
-			return nil
-		})
-	}
-
-	if err := g.Wait(); err != nil {
-		return nil, 0, err
-	}
-
-	log.Debugf("commit %s success: total=%d", tx, len(tx.txs))
-
-	return resultx.New(), 0, nil
-}
-
-func (tx *compositeTx) Rollback(ctx context.Context) (proto.Result, uint16, error) {
-	ctx, span := Tracer.Start(ctx, "compositeTx.Rollback")
-	defer span.End()
-	if !tx.closed.CAS(false, true) {
-		return nil, 0, errTxClosed
-	}
-
-	defer func() { // cleanup
-		tx.rt = nil
-		tx.txs = nil
-	}()
-
-	var g errgroup.Group
-	for k, v := range tx.txs {
-		k, v := k, v
-		g.Go(func() error {
-			_, _, err := v.Rollback(ctx)
-			if err != nil {
-				log.Errorf("rollback %s for group %s failed: %v", tx, k, err)
-				return err
-			}
-			return nil
-		})
-	}
-
-	if err := g.Wait(); err != nil {
-		return nil, 0, err
-	}
-
-	log.Debugf("rollback %s success: total=%d", tx, len(tx.txs))
-
-	return resultx.New(), 0, nil
-}
-
-type atomTx struct {
-	closed atomic.Bool
-	parent *AtomDB
-	bc     *mysql.BackendConnection
-}
-
-func (tx *atomTx) Commit(ctx context.Context) (res proto.Result, warn uint16, err error) {
-	_ = ctx
-	if !tx.closed.CAS(false, true) {
-		err = errTxClosed
-		return
-	}
-	defer tx.dispose()
-	if res, err = tx.bc.ExecuteWithWarningCount("commit", true); err != nil {
-		return
-	}
-
-	var affected, lastInsertId uint64
-
-	if affected, err = res.RowsAffected(); err != nil {
-		return
-	}
-	if lastInsertId, err = res.LastInsertId(); err != nil {
-		return
-	}
-
-	res = resultx.New(resultx.WithRowsAffected(affected), resultx.WithLastInsertID(lastInsertId))
-	return
-}
-
-func (tx *atomTx) Rollback(ctx context.Context) (res proto.Result, warn uint16, err error) {
-	if !tx.closed.CAS(false, true) {
-		err = errTxClosed
-		return
-	}
-	defer tx.dispose()
-	res, err = tx.bc.ExecuteWithWarningCount("rollback", true)
-	return
-}
-
-func (tx *atomTx) Call(ctx context.Context, sql string, args ...proto.Value) (res proto.Result, warn uint16, err error) {
-	if len(args) > 0 {
-		res, err = tx.bc.PrepareQueryArgs(sql, args)
-	} else {
-		res, err = tx.bc.ExecuteWithWarningCountIterRow(sql)
-	}
-	return
-}
-
-func (tx *atomTx) CallFieldList(ctx context.Context, table, wildcard string) ([]proto.Field, error) {
-	// TODO: choose table
-	var err error
-	if err = tx.bc.WriteComFieldList(table, wildcard); err != nil {
-		return nil, perrors.WithStack(err)
-	}
-	return tx.bc.ReadColumnDefinitions()
-}
-
-func (tx *atomTx) dispose() {
-	defer func() {
-		tx.parent = nil
-		tx.bc = nil
-	}()
-
-	cnt := tx.parent.pendingRequests.Dec()
-	tx.parent.returnConnection(tx.bc)
-	if cnt == 0 && tx.parent.closed.Load() {
-		tx.parent.pool.Close()
-	}
-}
 
 type AtomDB struct {
 	mu sync.Mutex
@@ -379,6 +109,8 @@ type AtomDB struct {
 	closed atomic.Bool
 
 	pendingRequests atomic.Int64
+
+	node *config.Node
 }
 
 func NewAtomDB(node *config.Node) *AtomDB {
@@ -392,6 +124,7 @@ func NewAtomDB(node *config.Node) *AtomDB {
 	db := &AtomDB{
 		id:     node.Name,
 		weight: proto.Weight{R: int32(r), W: int32(w)},
+		node:   node,
 	}
 
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?%s", node.Username, node.Password, node.Host, node.Port, node.Database, node.Parameters.String())
@@ -444,7 +177,7 @@ func (db *AtomDB) Variable(ctx context.Context, name string) (interface{}, error
 	return nil, nil
 }
 
-func (db *AtomDB) begin(ctx context.Context) (*atomTx, error) {
+func (db *AtomDB) begin(ctx context.Context, f dbFunc) (*branchTx, error) {
 	if db.closed.Load() {
 		return nil, perrors.Errorf("the db instance '%s' is closed already", db.id)
 	}
@@ -470,7 +203,7 @@ func (db *AtomDB) begin(ctx context.Context) (*atomTx, error) {
 	}
 
 	var res proto.Result
-	if res, err = bc.ExecuteWithWarningCount("begin", true); err != nil {
+	if res, err = f(ctx, bc); err != nil {
 		defer dispose()
 		return nil, perrors.WithStack(err)
 	}
@@ -481,7 +214,7 @@ func (db *AtomDB) begin(ctx context.Context) (*atomTx, error) {
 		return nil, perrors.WithStack(err)
 	}
 
-	return &atomTx{parent: db, bc: bc}, nil
+	return newBranchTx(db, bc), nil
 }
 
 func (db *AtomDB) CallFieldList(ctx context.Context, table, wildcard string) ([]proto.Field, error) {
@@ -641,14 +374,11 @@ func (pi *defaultRuntime) Version(ctx context.Context) (string, error) {
 	return "", perrors.New("no version found")
 }
 
-func (pi *defaultRuntime) Begin(ctx context.Context) (proto.Tx, error) {
+func (pi *defaultRuntime) Begin(ctx context.Context, hooks ...TxHook) (proto.Tx, error) {
 	_, span := Tracer.Start(ctx, "defaultRuntime.Begin")
 	defer span.End()
-	tx := &compositeTx{
-		id:  nextTxID(),
-		rt:  pi,
-		txs: make(map[string]*atomTx),
-	}
+
+	tx := newCompositeTx(ctx, pi, hooks...)
 	log.Debugf("begin transaction: %s", tx)
 	return tx, nil
 }
