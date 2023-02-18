@@ -64,17 +64,11 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 					isLocalFlag = false
 					break
 				}
-				switch calculateRes.(type) {
-				case proto.Value:
+				if _, ok := calculateRes.(proto.Value); ok {
 					valueList = append(valueList, calculateRes.(proto.Value))
-					//_, newStmt, _ := ast.ParseSelect("select " + sRes.String())
-					//originText := stmt.Select[i].ToSelectString()
-					//stmt.Select[i] = ast.NewSelectElementExprFull(newStmt.Select[0].(*ast.SelectElementExpr).Expression(), "", originText)
 					columnList = append(columnList, stmt.Select[i].DisplayName())
-				default:
+				} else {
 					isLocalFlag = false
-					break
-
 				}
 			case *ast.SelectElementFunction:
 				calculateRes, errTmp := stmt.Select[i].(*ast.SelectElementFunction).Accept(optimize.NewCalcualtor(o.Args))
@@ -82,22 +76,12 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 					isLocalFlag = false
 					break
 				}
-				switch calculateRes.(type) {
-				case proto.Value:
+				if _, ok := calculateRes.(proto.Value); ok {
 					valueList = append(valueList, calculateRes.(proto.Value))
 					columnList = append(columnList, stmt.Select[i].DisplayName())
-
-				default:
+				} else {
 					isLocalFlag = false
-					break
-
 				}
-
-				//sRes := calculateRes.(proto.Value).String()
-				//originText := stmt.Select[i].ToSelectString()
-				//_, newStmt, _ := ast.ParseSelect("select " + sRes)
-				//stmt.Select[i] = ast.NewSelectElementExprFull(newStmt.Select[0].(*ast.SelectElementExpr).Expression(), "", originText)
-
 			}
 		}
 		if isLocalFlag {

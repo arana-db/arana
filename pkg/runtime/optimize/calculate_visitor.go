@@ -97,10 +97,10 @@ func (sd *CalculateVisitor) VisitSelectElementExpr(node *ast.SelectElementExpr) 
 func (sd *CalculateVisitor) VisitSelectElementFunction(node *ast.SelectElementFunction) (interface{}, error) {
 	var nodeF ast.Node
 	nodeInner := node.Function()
-	switch nodeInner.(type) {
-	case *ast.Function:
+
+	if _, ok := nodeInner.(*ast.Function); ok {
 		nodeF = nodeInner.(*ast.Function)
-	default:
+	} else {
 		return nil, errors.New("Not support ast function type")
 	}
 

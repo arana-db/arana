@@ -47,7 +47,7 @@ func (s *LocalSelectPlan) Type() proto.PlanType {
 }
 
 func (s *LocalSelectPlan) ExecIn(ctx context.Context, _ proto.VConn) (proto.Result, error) {
-	ctx, span := plan.Tracer.Start(ctx, "LocalSelectPlan.ExecIn")
+	_, span := plan.Tracer.Start(ctx, "LocalSelectPlan.ExecIn")
 	defer span.End()
 	var theadLocalSelect thead.Thead
 
