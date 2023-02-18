@@ -122,6 +122,7 @@ func (fp *discovery) InitTenant(tenant string) error {
 		config.WithWatcher(true),
 		config.WithWriter(true),
 	)
+
 	return err
 }
 
@@ -333,6 +334,20 @@ func (fp *discovery) GetNode(ctx context.Context, tenant, cluster, group, node s
 	}
 
 	return nodes[nodeId], nil
+}
+
+func (fp *discovery) GetSysDB(ctx context.Context, tenant string) (*config.Node, error) {
+	op, ok := fp.centers[tenant]
+	if !ok {
+		return nil, ErrorNoTenant
+	}
+
+	cfg, err := op.LoadAll(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	return cfg.SysDB, nil
 }
 
 func (fp *discovery) GetTable(ctx context.Context, tenant, cluster, tableName string) (*rule.VTable, error) {

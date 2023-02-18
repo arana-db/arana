@@ -61,6 +61,16 @@ func Register(tenant string, namespace *Namespace) error {
 	return nil
 }
 
+// List lists all namespace.
+func List() []*Namespace {
+	ret := make([]*Namespace, 0, 4)
+	_namespaces.Range(func(_, value any) bool {
+		ret = append(ret, value.(*Namespace))
+		return true
+	})
+	return ret
+}
+
 // Unregister unregisters a namespace.
 func Unregister(tenant, namespace string) error {
 	removed, loaded := _namespaces.LoadAndDelete(getLoadKey(tenant, namespace))
@@ -83,6 +93,8 @@ type (
 
 		// datasource map, eg: employee_0001 -> [mysql-a,mysql-b,mysql-c], ... employee_0007 -> [mysql-x,mysql-y,mysql-z]
 		dss atomic.Value // map[string][]proto.DB
+
+		sysDb proto.DB
 
 		parameters    config.ParametersMap
 		slowThreshold time.Duration
@@ -233,6 +245,11 @@ func (ns *Namespace) DBSlave(_ context.Context, group string) proto.DB {
 		target = selector.NewWeightRandomSelector(wrList).GetDataSourceNo()
 	}
 	return readDBList[target]
+}
+
+// SysDB returns SysDB
+func (ns *Namespace) SysDB() proto.DB {
+	return ns.sysDb
 }
 
 // Rule returns the sharding rule.

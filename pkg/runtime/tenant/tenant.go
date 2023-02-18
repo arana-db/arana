@@ -15,40 +15,50 @@
  * limitations under the License.
  */
 
-package identity
+package tenant
 
 import (
-	"os"
-)
-
-import (
-	"github.com/google/uuid"
+	"fmt"
+	"sync"
 )
 
 import (
-	"github.com/arana-db/arana/pkg/util/net"
+	"github.com/arana-db/arana/pkg/config"
+	"github.com/arana-db/arana/pkg/proto"
 )
 
-const (
-	AranaNodeId = "ARANA_NODE_ID"
-	PodName     = "POD_NAME"
+var (
+	lock         sync.RWMutex
+	_tenantSysDB = make(map[string]*tenantSysInfo)
 )
 
-func GetNodeIdentity() string {
-	nodeId := os.Getenv(AranaNodeId)
-	if len(nodeId) != 0 {
-		return nodeId
+type tenantSysInfo struct {
+	Conf *config.Node
+	DB   proto.DB
+}
+
+func RegisterSysDB(tenant string, conf *config.Node, db proto.DB) {
+	lock.Lock()
+	defer lock.Unlock()
+
+	if _, ok := _tenantSysDB[tenant]; ok {
+		return
 	}
 
-	podName := os.Getenv(PodName)
-	if len(podName) != 0 {
-		return podName
+	_tenantSysDB[tenant] = &tenantSysInfo{
+		Conf: conf,
+		DB:   db,
+	}
+}
+
+func LoadSysDB(tenant string) (proto.DB, error) {
+	lock.RLock()
+	defer lock.RUnlock()
+
+	val, ok := _tenantSysDB[tenant]
+	if ok {
+		return nil, fmt.Errorf("cannot load sysdb: tenant=%s", tenant)
 	}
 
-	ip, err := net.FindSelfIP()
-	if err == nil {
-		return ip
-	}
-
-	return uuid.NewString()
+	return val.DB, nil
 }
