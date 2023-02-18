@@ -259,7 +259,7 @@ func (executor *RedirectExecutor) doExecutorComQuery(ctx *proto.Context, act ast
 			err = errNoDatabaseSelected
 		}
 	case *ast.TruncateTableStmt, *ast.DropTableStmt, *ast.ExplainStmt, *ast.DropIndexStmt, *ast.CreateIndexStmt,
-		*ast.AnalyzeTableStmt, *ast.OptimizeTableStmt, *ast.CheckTableStmt:
+		*ast.AnalyzeTableStmt, *ast.OptimizeTableStmt, *ast.CheckTableStmt, *ast.RenameTableStmt:
 		res, warn, err = executeStmt(ctx, schemaless, rt)
 	case *ast.DropTriggerStmt, *ast.SetStmt, *ast.KillStmt:
 		res, warn, err = rt.Execute(ctx)

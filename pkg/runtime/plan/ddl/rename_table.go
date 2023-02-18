@@ -24,25 +24,35 @@ import (
 import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
+	"github.com/arana-db/arana/pkg/resultx"
 	"github.com/arana-db/arana/pkg/runtime/ast"
-	"github.com/arana-db/arana/pkg/runtime/optimize"
-	"github.com/arana-db/arana/pkg/runtime/plan/ddl"
+	"github.com/arana-db/arana/pkg/runtime/plan"
 )
 
-func init() {
-	optimize.Register(ast.SQLTypeCheckTable, optimizeCheckTable)
+type RenameTablePlan struct {
+	plan.BasePlan
+	Stmt         *ast.RenameTableStatement
+	Shards       rule.DatabaseTables
+	ShardsByName map[string]rule.DatabaseTables
 }
 
-func optimizeCheckTable(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error) {
-	shards := rule.DatabaseTables{}
-	shardsByName := make(map[string]rule.DatabaseTables)
-
-	for _, table := range o.Rule.VTables() {
-		shards = table.Topology().Enumerate()
-		shardsByName[table.Name()] = shards
-		break
+func NewRenameTablePlan(
+	stmt *ast.RenameTableStatement,
+	shards rule.DatabaseTables,
+	shardsByName map[string]rule.DatabaseTables,
+) *RenameTablePlan {
+	return &RenameTablePlan{
+		Stmt:         stmt,
+		Shards:       shards,
+		ShardsByName: shardsByName,
 	}
+}
 
-	stmt := o.Stmt.(*ast.CheckTableStmt)
-	return ddl.NewCheckTablePlan(stmt, shards, shardsByName), nil
+func (d *RenameTablePlan) Type() proto.PlanType {
+	return proto.PlanTypeExec
+}
+
+func (d *RenameTablePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+	// TODO: sharing plan
+	return resultx.New(), nil
 }

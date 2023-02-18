@@ -30,10 +30,10 @@ import (
 )
 
 func init() {
-	optimize.Register(ast.SQLTypeCheckTable, optimizeCheckTable)
+	optimize.Register(ast.SQLTypeRenameTable, optimizeRenameTable)
 }
 
-func optimizeCheckTable(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error) {
+func optimizeRenameTable(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error) {
 	shards := rule.DatabaseTables{}
 	shardsByName := make(map[string]rule.DatabaseTables)
 
@@ -43,6 +43,6 @@ func optimizeCheckTable(ctx context.Context, o *optimize.Optimizer) (proto.Plan,
 		break
 	}
 
-	stmt := o.Stmt.(*ast.CheckTableStmt)
-	return ddl.NewCheckTablePlan(stmt, shards, shardsByName), nil
+	stmt := o.Stmt.(*ast.RenameTableStatement)
+	return ddl.NewRenameTablePlan(stmt, shards, shardsByName), nil
 }

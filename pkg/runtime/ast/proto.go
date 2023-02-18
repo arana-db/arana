@@ -59,6 +59,7 @@ const (
 	SQLTypeShowReplicaStatus         // SHOW REPLICA STATUS
 	SQLTypeKill                      // KILL
 	SQLTypeCheckTable                // CHECK TABLE
+	SQLTypeRenameTable               // RENAME TABLE
 )
 
 var _sqlTypeNames = [...]string{
@@ -93,6 +94,7 @@ var _sqlTypeNames = [...]string{
 	SQLTypeShowReplicaStatus: "SHOW REPLICA STATUS",
 	SQLTypeKill:              "KILL",
 	SQLTypeCheckTable:        "CHECK TABLE",
+	SQLTypeRenameTable:       "RENAME TABLE",
 }
 
 // SQLType represents the type of SQL.
