@@ -74,14 +74,6 @@ func (d SetStatement) Restore(rf RestoreFlag, sb *strings.Builder, args *[]int) 
 	return nil
 }
 
-func (d SetStatement) CntParams() int {
-	var cnt int
-	for _, next := range d.Variables {
-		cnt += next.Value.CntParams()
-	}
-	return cnt
-}
-
 func (d SetStatement) Mode() SQLType {
 	return SQLTypeSetVariable
 }

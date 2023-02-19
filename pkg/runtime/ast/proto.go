@@ -104,15 +104,9 @@ func (s SQLType) String() string {
 
 // Statement represents the SQL statement.
 type Statement interface {
-	paramsCounter
 	Restorer
 	// Mode returns the SQLType of current Statement.
 	Mode() SQLType
-}
-
-type paramsCounter interface {
-	// CntParams returns the amount of params.
-	CntParams() int
 }
 
 func RestoreToString(flag RestoreFlag, r Restorer) (string, error) {

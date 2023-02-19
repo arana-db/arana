@@ -79,10 +79,6 @@ func (bs *baseShow) Where() (ExpressionNode, bool) {
 	return v, ok
 }
 
-func (bs *baseShow) CntParams() int {
-	return 0
-}
-
 type ShowDatabases struct {
 	*baseShow
 }
@@ -212,10 +208,6 @@ func (s *ShowCreate) Target() string {
 	return s.tgt
 }
 
-func (s *ShowCreate) CntParams() int {
-	return 0
-}
-
 func (s *ShowCreate) Mode() SQLType {
 	return SQLTypeShowCreate
 }
@@ -245,13 +237,6 @@ func (s *ShowIndex) Where() (ExpressionNode, bool) {
 		return s.where, true
 	}
 	return nil, false
-}
-
-func (s *ShowIndex) CntParams() int {
-	if s.where == nil {
-		return 0
-	}
-	return s.where.CntParams()
 }
 
 func (s *ShowIndex) Mode() SQLType {
@@ -319,10 +304,6 @@ func (sh *ShowColumns) Table() TableName {
 	return sh.TableName
 }
 
-func (sh *ShowColumns) CntParams() int {
-	return 0
-}
-
 func (sh *ShowColumns) Mode() SQLType {
 	return SQLTypeShowColumns
 }
@@ -373,10 +354,6 @@ func (s *ShowVariables) Like() (string, bool) {
 		return s.like.String, true
 	}
 	return "", false
-}
-
-func (s *ShowVariables) CntParams() int {
-	return 0
 }
 
 func (s *ShowVariables) Mode() SQLType {

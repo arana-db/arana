@@ -47,7 +47,6 @@ type ExpressionMode uint8
 type ExpressionNode interface {
 	Node
 	Restorer
-	paramsCounter
 	Mode() ExpressionMode
 }
 
@@ -82,10 +81,6 @@ func (l *LogicalExpressionNode) Restore(flag RestoreFlag, sb *strings.Builder, a
 	return nil
 }
 
-func (l *LogicalExpressionNode) CntParams() int {
-	return l.Left.CntParams() + l.Right.CntParams()
-}
-
 func (l *LogicalExpressionNode) Mode() ExpressionMode {
 	return EmLogical
 }
@@ -106,10 +101,6 @@ func (n *NotExpressionNode) Restore(flag RestoreFlag, sb *strings.Builder, args 
 	return nil
 }
 
-func (n *NotExpressionNode) CntParams() int {
-	return n.E.CntParams()
-}
-
 func (n *NotExpressionNode) Mode() ExpressionMode {
 	return EmNot
 }
@@ -127,10 +118,6 @@ func (a *PredicateExpressionNode) Restore(flag RestoreFlag, sb *strings.Builder,
 		return errors.WithStack(err)
 	}
 	return nil
-}
-
-func (a *PredicateExpressionNode) CntParams() int {
-	return a.P.CntParams()
 }
 
 func (a *PredicateExpressionNode) Mode() ExpressionMode {

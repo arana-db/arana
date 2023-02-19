@@ -32,10 +32,6 @@ type DropIndexStatement struct {
 	Table     TableName
 }
 
-func (d *DropIndexStatement) CntParams() int {
-	return 0
-}
-
 func (d *DropIndexStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("DROP INDEX ")
 	if d.IfExists {
