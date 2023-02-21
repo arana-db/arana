@@ -79,7 +79,7 @@ func (d *Div) DoDiv(ctx context.Context, lval, rval decimal.Decimal) (decimal.De
 		} else {
 
 			divRes := lval.DivRound(rval, v+2)
-			
+
 			return divRes.Truncate(v), nil
 		}
 	}

@@ -38,7 +38,7 @@ func TestDodiv(t *testing.T) {
 	}
 
 	var d Div
-	
+
 	for _, v := range []tt{
 		{4, decimal.NewFromInt(1), decimal.NewFromInt(3), decimal.NewFromFloat(0.3333)},
 		{4, decimal.NewFromInt(-1), decimal.NewFromInt(3), decimal.NewFromFloat(-0.3333)},
