@@ -23,7 +23,7 @@ import (
 	"math"
 )
 
-import(
+import (
 	"github.com/shopspring/decimal"
 )
 
@@ -64,9 +64,9 @@ func (d *Div) DoDiv(ctx context.Context, lval, rval decimal.Decimal) (decimal.De
 	if rval.Equal(decimal.NewFromInt(0)) {
 		return decimal.NewFromInt(0), errors.New("division by 0")
 	}
-	
+
 	v, ok := ctx.Value(ctxPrecisionKey).(int32)
-	
+
 	if !ok {
 		return decimal.Decimal{}, errors.New("context key Precision value is nil")
 	}
@@ -77,7 +77,9 @@ func (d *Div) DoDiv(ctx context.Context, lval, rval decimal.Decimal) (decimal.De
 		if !isIntOr1(lval) {
 			d.curIntermediatePrecisionInc = int(math.Ceil(float64(lval.Exponent()*-1) / float64(divIntermediatePrecisionInc)))
 		} else {
+
 			divRes := lval.DivRound(rval, v+2)
+			
 			return divRes.Truncate(v), nil
 		}
 	}
