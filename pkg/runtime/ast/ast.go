@@ -121,6 +121,8 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		return cc.convOptimizeTable(stmt), nil
 	case *ast.CheckTableStmt:
 		return cc.convCheckTableStmt(stmt), nil
+	case *ast.RenameTableStmt:
+		return cc.convRenameTableStmt(stmt), nil
 	case *ast.KillStmt:
 		return cc.convKill(stmt), nil
 	default:
@@ -1647,6 +1649,23 @@ func (cc *convCtx) convCheckTableStmt(stmt *ast.CheckTableStmt) Statement {
 		}
 	}
 	return &CheckTableStmt{Tables: tables}
+}
+
+func (cc *convCtx) convRenameTableStmt(stmt *ast.RenameTableStmt) Statement {
+	tableToTables := make([]*TableToTable, len(stmt.TableToTables))
+	for i, tableToTable := range stmt.TableToTables {
+		tableToTables[i] = &TableToTable{
+			OldTable: &TableName{
+				tableToTable.OldTable.Name.String(),
+			},
+			NewTable: &TableName{
+				tableToTable.NewTable.Name.String(),
+			},
+		}
+	}
+	return &RenameTableStatement{
+		TableToTables: tableToTables,
+	}
 }
 
 func (cc *convCtx) convAnalyzeTable(stmt *ast.AnalyzeTableStmt) Statement {
