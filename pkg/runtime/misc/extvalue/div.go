@@ -89,5 +89,6 @@ func (d *Div) DoDiv(ctx context.Context, lval, rval decimal.Decimal) (decimal.De
 	// give it buffer of 2 additional scale to avoid the result to be rounded
 	divRes := l.DivRound(r, storedScale+2)
 
-	return divRes.Truncate(v), nil
+	// round
+	return divRes.RoundBank(v), nil
 }
