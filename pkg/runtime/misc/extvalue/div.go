@@ -23,7 +23,7 @@ import (
 	"math"
 )
 
-import (
+import(
 	"github.com/shopspring/decimal"
 )
 
@@ -66,6 +66,7 @@ func (d *Div) DoDiv(ctx context.Context, lval, rval decimal.Decimal) (decimal.De
 	}
 	
 	v, ok := ctx.Value(ctxPrecisionKey).(int32)
+	
 	if !ok {
 		return decimal.Decimal{}, errors.New("context key Precision value is nil")
 	}
