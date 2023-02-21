@@ -61,12 +61,13 @@ func isIntOr1(val decimal.Decimal) bool {
 }
 
 func (d *Div) DoDiv(ctx context.Context, lval, rval decimal.Decimal) (decimal.Decimal, error) {
+	if rval.Equal(decimal.NewFromInt(0)) {
+		return decimal.NewFromInt(0), errors.New("division by 0")
+	}
+	
 	v, ok := ctx.Value(ctxPrecisionKey).(int32)
 	if !ok {
 		return decimal.Decimal{}, errors.New("context key Precision value is nil")
-	}
-	if rval.Equal(decimal.NewFromInt(0)) {
-		return decimal.NewFromInt(0), errors.New("division by 0")
 	}
 
 	if d.curIntermediatePrecisionInc == 0 {

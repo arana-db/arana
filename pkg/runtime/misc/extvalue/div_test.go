@@ -54,9 +54,8 @@ func TestDodiv(t *testing.T) {
 				v.inSecond,
 			)
 			assert.NoError(t, err)
-			fmt.Println("want", v.want, "get", out)
-			ok := v.want.Equal(out)
-			assert.Equal(t, ok, true)
+			fmt.Print("want", v.want, "get", out)
+			assert.Equal(t, v.want.Equal(out), true)
 		})
 	}
 }
