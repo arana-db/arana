@@ -45,7 +45,6 @@ func TestDodiv(t *testing.T) {
 		{5, decimal.NewFromFloat(1.5), decimal.NewFromInt(4), decimal.NewFromFloat(0.37500)},
 		{5, decimal.NewFromFloat(1.5), decimal.NewFromInt(3), decimal.NewFromFloat(0.50000)},
 		{5, decimal.NewFromFloat(1.5), decimal.NewFromFloat(3.5), decimal.NewFromFloat(0.42857)},
-		{5, decimal.NewFromFloat(1.5), decimal.NewFromFloat(3.5), decimal.NewFromFloat(0.42857)},
 		{8, decimal.NewFromFloat(14620), decimal.NewFromFloat(9432456), decimal.NewFromFloat(0.00154997)},
 		{8, decimal.NewFromFloat(24250), decimal.NewFromFloat(9432456), decimal.NewFromFloat(0.00257091)},
 		{8, decimal.NewFromFloat(0.001549967), decimal.NewFromFloat(0.002570910), decimal.NewFromFloat(0.60288653)},
