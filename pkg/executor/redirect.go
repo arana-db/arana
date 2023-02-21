@@ -20,6 +20,7 @@ package executor
 import (
 	"bytes"
 	stdErrors "errors"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -32,6 +33,8 @@ import (
 	pMysql "github.com/arana-db/parser/mysql"
 
 	"github.com/pkg/errors"
+
+	"golang.org/x/exp/slices"
 )
 
 import (
@@ -43,6 +46,7 @@ import (
 	"github.com/arana-db/arana/pkg/resultx"
 	"github.com/arana-db/arana/pkg/runtime"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
+	"github.com/arana-db/arana/pkg/runtime/transaction"
 	"github.com/arana-db/arana/pkg/security"
 	"github.com/arana-db/arana/pkg/trace"
 	"github.com/arana-db/arana/pkg/util/log"
@@ -77,7 +81,7 @@ func IsErrMissingTx(err error) bool {
 }
 
 type RedirectExecutor struct {
-	localTransactionMap sync.Map // map[uint32]proto.Tx, (ConnectionID,Tx)
+	localTransactionMap sync.Map // map[uint32]proto.Tx, (connectionID,Tx)
 }
 
 func NewRedirectExecutor() *RedirectExecutor {
@@ -89,7 +93,7 @@ func (executor *RedirectExecutor) ProcessDistributedTransaction() bool {
 }
 
 func (executor *RedirectExecutor) InLocalTransaction(ctx *proto.Context) bool {
-	_, ok := executor.localTransactionMap.Load(ctx.ConnectionID)
+	_, ok := executor.localTransactionMap.Load(ctx.C.ID())
 	return ok
 }
 
@@ -97,22 +101,27 @@ func (executor *RedirectExecutor) InGlobalTransaction(ctx *proto.Context) bool {
 	return false
 }
 
-func (executor *RedirectExecutor) ExecuteUseDB(ctx *proto.Context) error {
-	// TODO: check permission, target database should belong to same tenant.
-	// TODO: process transactions when database switched?
+func (executor *RedirectExecutor) ExecuteUseDB(ctx *proto.Context, db string) error {
+	if ctx.C.Schema() == db {
+		return nil
+	}
 
-	// do nothing.
-	//resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(executor.dataSources[0].Master.Name)
-	//r, err := resourcePool.Get(ctx)
-	//defer func() {
-	//	resourcePool.Put(r)
-	//}()
-	//if err != nil {
-	//	return err
-	//}
-	//backendConn := r.(*mysql.BackendConnection)
-	//db := string(ctx.Data[1:])
-	//return backendConn.WriteComInitDB(db)
+	clusters := security.DefaultTenantManager().GetClusters(ctx.C.Tenant())
+	if !slices.Contains(clusters, db) {
+		return mysqlErrors.NewSQLError(mConstants.ERBadDb, mConstants.SS42000, fmt.Sprintf("Unknown database '%s'", db))
+	}
+
+	if hasTx := executor.InLocalTransaction(ctx); hasTx {
+		// TODO: should commit existing TX when DB switched
+		log.Debugf("commit tx when db switched: conn=%s", ctx.C)
+	}
+
+	// bind schema
+	ctx.C.SetSchema(db)
+
+	// reset transient variables
+	ctx.C.SetTransientVariables(make(map[string]proto.Value))
+
 	return nil
 }
 
@@ -121,7 +130,7 @@ func (executor *RedirectExecutor) ExecuteFieldList(ctx *proto.Context) ([]proto.
 	table := string(ctx.Data[1:index])
 	wildcard := string(ctx.Data[index+1:])
 
-	rt, err := runtime.Load(ctx.Schema)
+	rt, err := runtime.Load(ctx.C.Tenant(), ctx.C.Schema())
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -141,6 +150,15 @@ func (executor *RedirectExecutor) ExecuteFieldList(ctx *proto.Context) ([]proto.
 }
 
 func (executor *RedirectExecutor) doExecutorComQuery(ctx *proto.Context, act ast.StmtNode) (proto.Result, uint16, error) {
+	// switch DB
+	switch u := act.(type) {
+	case *ast.UseStmt:
+		if err := executor.ExecuteUseDB(ctx, u.DBName); err != nil {
+			return nil, 0, err
+		}
+		return resultx.New(), 0, nil
+	}
+
 	var (
 		start      = time.Now()
 		schemaless bool // true if schema is not specified
@@ -158,15 +176,15 @@ func (executor *RedirectExecutor) doExecutorComQuery(ctx *proto.Context, act ast
 	trace.Extract(ctx, hints)
 	metrics.ParserDuration.Observe(time.Since(start).Seconds())
 
-	if len(ctx.Schema) < 1 {
+	if len(ctx.C.Schema()) < 1 {
 		// TODO: handle multiple clusters
-		clusters := security.DefaultTenantManager().GetClusters(ctx.Tenant)
+		clusters := security.DefaultTenantManager().GetClusters(ctx.C.Tenant())
 		if len(clusters) != 1 {
 			// reject if no schema specified
 			return nil, 0, mysqlErrors.NewSQLError(mConstants.ERNoDb, mConstants.SSNoDatabaseSelected, "No database selected")
 		}
 		schemaless = true
-		ctx.Schema = security.DefaultTenantManager().GetClusters(ctx.Tenant)[0]
+		ctx.C.SetSchema(security.DefaultTenantManager().GetClusters(ctx.C.Tenant())[0])
 	}
 
 	ctx.Stmt = &proto.Stmt{
@@ -174,7 +192,7 @@ func (executor *RedirectExecutor) doExecutorComQuery(ctx *proto.Context, act ast
 		StmtNode: act,
 	}
 
-	rt, err := runtime.Load(ctx.Schema)
+	rt, err := runtime.Load(ctx.C.Tenant(), ctx.C.Schema())
 	if err != nil {
 		return nil, 0, err
 	}
@@ -190,8 +208,12 @@ func (executor *RedirectExecutor) doExecutorComQuery(ctx *proto.Context, act ast
 			err = errNoDatabaseSelected
 		} else {
 			// begin a new tx
+			xaHook, err := transaction.NewXAHook(rcontext.Tenant(ctx), false)
+			if err != nil {
+				return nil, 0, err
+			}
 			var tx proto.Tx
-			if tx, err = rt.Begin(ctx); err == nil {
+			if tx, err = rt.Begin(ctx, xaHook); err == nil {
 				executor.putTx(ctx, tx)
 				res = resultx.New()
 			}
@@ -258,7 +280,8 @@ func (executor *RedirectExecutor) doExecutorComQuery(ctx *proto.Context, act ast
 		} else {
 			err = errNoDatabaseSelected
 		}
-	case *ast.TruncateTableStmt, *ast.DropTableStmt, *ast.ExplainStmt, *ast.DropIndexStmt, *ast.CreateIndexStmt, *ast.AnalyzeTableStmt, *ast.OptimizeTableStmt:
+	case *ast.TruncateTableStmt, *ast.DropTableStmt, *ast.ExplainStmt, *ast.DropIndexStmt, *ast.CreateIndexStmt,
+		*ast.AnalyzeTableStmt, *ast.OptimizeTableStmt, *ast.CheckTableStmt, *ast.RenameTableStmt:
 		res, warn, err = executeStmt(ctx, schemaless, rt)
 	case *ast.DropTriggerStmt, *ast.SetStmt, *ast.KillStmt:
 		res, warn, err = rt.Execute(ctx)
@@ -284,7 +307,7 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context, h func(re
 	query := ctx.GetQuery()
 	log.Debugf("ComQuery: %s", query)
 
-	charset, collation := getCharsetCollation(ctx.CharacterSet)
+	charset, collation := getCharsetCollation(ctx.C.CharacterSet())
 
 	switch strings.IndexByte(query, ';') {
 	case -1: // no ';' exists
@@ -351,7 +374,7 @@ func (executor *RedirectExecutor) ExecutorComStmtExecute(ctx *proto.Context) (pr
 		executable = tx
 	} else {
 		var rt runtime.Runtime
-		if rt, err = runtime.Load(ctx.Schema); err != nil {
+		if rt, err = runtime.Load(ctx.C.Tenant(), ctx.C.Schema()); err != nil {
 			return nil, 0, err
 		}
 		executable = rt
@@ -379,7 +402,7 @@ func (executor *RedirectExecutor) ConnectionClose(ctx *proto.Context) {
 	}
 
 	//resourcePool := resource.GetDataSourceManager().GetMasterResourcePool(executor.dataSources[0].Master.Name)
-	//r, ok := executor.localTransactionMap[ctx.ConnectionID]
+	//r, ok := executor.localTransactionMap[ctx.connectionID]
 	//if ok {
 	//	defer func() {
 	//		resourcePool.Put(r)
@@ -393,21 +416,24 @@ func (executor *RedirectExecutor) ConnectionClose(ctx *proto.Context) {
 }
 
 func (executor *RedirectExecutor) putTx(ctx *proto.Context, tx proto.Tx) {
-	executor.localTransactionMap.Store(ctx.ConnectionID, tx)
+	ctx.Context = rcontext.WithTransactionID(ctx.Context, tx.ID())
+	executor.localTransactionMap.Store(ctx.C.ID(), tx)
 }
 
 func (executor *RedirectExecutor) removeTx(ctx *proto.Context) (proto.Tx, bool) {
-	exist, ok := executor.localTransactionMap.LoadAndDelete(ctx.ConnectionID)
+	exist, ok := executor.localTransactionMap.LoadAndDelete(ctx.C.ID())
 	if !ok {
 		return nil, false
 	}
+	ctx.Context = rcontext.WithTransactionID(ctx.Context, exist.(proto.Tx).ID())
 	return exist.(proto.Tx), true
 }
 
 func (executor *RedirectExecutor) getTx(ctx *proto.Context) (proto.Tx, bool) {
-	exist, ok := executor.localTransactionMap.Load(ctx.ConnectionID)
+	exist, ok := executor.localTransactionMap.Load(ctx.C.ID())
 	if !ok {
 		return nil, false
 	}
+	ctx.Context = rcontext.WithTransactionID(ctx.Context, exist.(proto.Tx).ID())
 	return exist.(proto.Tx), true
 }

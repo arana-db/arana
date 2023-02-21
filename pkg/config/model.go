@@ -101,6 +101,7 @@ type (
 		Spec
 		Name               string               `validate:"required" yaml:"name" json:"name"`
 		Users              []*User              `validate:"required" yaml:"users" json:"users"`
+		SysDB              *Node                `validate:"required" yaml:"sys_db" json:"sys_db"`
 		DataSourceClusters []*DataSourceCluster `validate:"required,dive" yaml:"clusters" json:"clusters"`
 		ShardingRule       *ShardingRule        `validate:"required,dive" yaml:"sharding_rule,omitempty" json:"sharding_rule,omitempty"`
 		ShadowRule         *ShadowRule          `yaml:"shadow_rule,omitempty" json:"shadow_rule,omitempty"`

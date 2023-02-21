@@ -80,7 +80,7 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 	}
 
 	var (
-		sharder = optimize.NewXSharder(o.Rule, o.Args)
+		sharder = optimize.NewXSharder(ctx, o.Rule, o.Args)
 		left    = ast.ColumnNameExpressionAtom(make([]string, 1))
 		filter  = &ast.PredicateExpressionNode{
 			P: &ast.BinaryComparisonPredicateNode{

@@ -533,6 +533,7 @@ const (
 	ERInvalidOnUpdate              = 1294
 	ERUnknownTimeZone              = 1298
 	ERInvalidCharacterString       = 1300
+	ERSPDoseNotExist               = 1305
 	ERIllegalReference             = 1247
 	ERDerivedMustHaveAlias         = 1248
 	ERTableNameNotAllowedHere      = 1250
@@ -587,6 +588,8 @@ const (
 
 	// SSNoDatabaseSelected is ER_NO_DB
 	SSNoDatabaseSelected = "3D000"
+
+	SS42000 = "42000"
 )
 
 // Status flags. They are returned by the server in a few cases.

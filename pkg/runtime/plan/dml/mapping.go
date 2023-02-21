@@ -33,7 +33,9 @@ import (
 )
 
 import (
+	mConstants "github.com/arana-db/arana/pkg/constants/mysql"
 	"github.com/arana-db/arana/pkg/dataset"
+	mysqlErrors "github.com/arana-db/arana/pkg/mysql/errors"
 	"github.com/arana-db/arana/pkg/mysql/rows"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/resultx"
@@ -81,6 +83,7 @@ func (mp *MappingPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Resu
 			next proto.Value
 			vt   virtualValueVisitor
 		)
+		vt.Context = ctx
 		vt.row = m
 
 		for k := range mappings {
@@ -121,6 +124,7 @@ func (mp *MappingPlan) probe() map[int]*ext.MappingSelectElement {
 }
 
 type virtualValueVisitor struct {
+	context.Context
 	ast.BaseVisitor
 	row map[string]proto.Value
 }
@@ -338,6 +342,27 @@ func (vt *virtualValueVisitor) VisitFunction(node *ast.Function) (interface{}, e
 	if !ok {
 		return nil, errors.Errorf("no such mysql function '%s'", funcName)
 	}
+
+	if !proto.ValidateFunction(vt, nextFunc, false) {
+		schema, _ := vt.Context.Value(proto.ContextKeySchema{}).(string)
+		var sb strings.Builder
+		sb.Grow(32 + len(schema) + len(funcName))
+
+		sb.WriteString("FUNCTION ")
+		if len(schema) > 0 {
+			sb.WriteString(schema)
+			sb.WriteByte('.')
+		}
+		sb.WriteString(funcName)
+		sb.WriteString(" doesn't exist")
+
+		return nil, mysqlErrors.NewSQLError(
+			mConstants.ERSPDoseNotExist,
+			mConstants.SS42000,
+			sb.String(),
+		)
+	}
+
 	args := getValuers(node.Args())
 	if len(args) < nextFunc.NumInput() {
 		return nil, errors.Errorf("incorrect parameter count in the call to native function '%s'", funcName)

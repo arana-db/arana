@@ -569,7 +569,6 @@ func (s *IntegrationSuite) TestCreateIndex() {
 			_, err = db.Exec("drop index name on student")
 			assert.NoError(t, err)
 		})
-
 	}
 }
 
@@ -1018,6 +1017,30 @@ func (s *IntegrationSuite) TestAnalyzeTable() {
 	}
 }
 
+// TestCheckTable
+func (s *IntegrationSuite) TestCheckTable() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql string
+	}
+
+	for _, it := range [...]tt{
+		{"CHECK TABLE student"},
+		{"CHECK TABLE student,departments"},
+		{"CHECK TABLE student QUICK"},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			rows, err := db.Query(it.sql)
+			assert.NoError(t, err)
+			defer rows.Close()
+		})
+	}
+}
+
 // TestOptimizeTable
 func (s *IntegrationSuite) TestOptimizeTable() {
 	var (
@@ -1034,6 +1057,29 @@ func (s *IntegrationSuite) TestOptimizeTable() {
 		{"Optimize table student, departments"},
 		{"Optimize LOCAL table student, departments"},
 		{"Optimize NO_WRITE_TO_BINLOG table student, departments"},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			rows, err := db.Query(it.sql)
+			assert.NoError(t, err)
+			defer rows.Close()
+		})
+	}
+}
+
+// TestRenameTable
+func (s *IntegrationSuite) TestRenameTable() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql string
+	}
+
+	for _, it := range [...]tt{
+		{"RENAME TABLE student TO student_new"},
+		{"RENAME TABLE student TO student_new, employees TO employees_new"},
 	} {
 		t.Run(it.sql, func(t *testing.T) {
 			rows, err := db.Query(it.sql)

@@ -53,7 +53,7 @@ func (d *SetVariablePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 	defer span.End()
 
 	// 0. generate newest variables to be updated
-	nextVars, err := d.nextVars()
+	nextVars, err := d.nextVars(ctx)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -112,11 +112,11 @@ func (d *SetVariablePlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 	return resultx.New(), nil
 }
 
-func (d *SetVariablePlan) nextVars() (map[string]proto.Value, error) {
+func (d *SetVariablePlan) nextVars(ctx context.Context) (map[string]proto.Value, error) {
 	ret := make(map[string]proto.Value)
 	var key strings.Builder
 	for _, next := range d.Stmt.Variables {
-		v, err := extvalue.Compute(next.Value, d.Args...)
+		v, err := extvalue.Compute(ctx, next.Value, d.Args...)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}

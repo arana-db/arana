@@ -30,7 +30,7 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
-// FuncSin https://dev.mysql.com/doc/refman/5.6/en/mathematical-functions.html#function_sign
+// FuncSin https://dev.mysql.com/doc/refman/5.6/en/mathematical-functions.html#function_sin
 const FuncSin = "SIN"
 
 var _ proto.Func = (*sinFunc)(nil)
@@ -44,12 +44,8 @@ type sinFunc struct{}
 // Apply call the current function.
 func (s sinFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
 	param, err := inputs[0].Value(ctx)
-	if err != nil {
+	if param == nil || err != nil {
 		return nil, errors.WithStack(err)
-	}
-
-	if param == nil {
-		return nil, nil
 	}
 	f, _ := param.Float64()
 	return proto.NewValueFloat64(math.Sin(f)), nil

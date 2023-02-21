@@ -40,7 +40,7 @@ func init() {
 func optimizeDelete(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error) {
 	stmt := o.Stmt.(*ast.DeleteStatement)
 
-	shards, err := o.ComputeShards(stmt.Table, stmt.Where, o.Args)
+	shards, err := o.ComputeShards(ctx, stmt.Table, stmt.Where, o.Args)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to optimize DELETE statement")
 	}

@@ -21,6 +21,7 @@ import (
 	"context"
 	"io"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -43,8 +44,8 @@ import (
 var _namespaces sync.Map
 
 // Load loads a namespace, return nil if no namespace found.
-func Load(namespace string) *Namespace {
-	exist, ok := _namespaces.Load(namespace)
+func Load(tenant, namespace string) *Namespace {
+	exist, ok := _namespaces.Load(getLoadKey(tenant, namespace))
 	if !ok {
 		return nil
 	}
@@ -52,17 +53,27 @@ func Load(namespace string) *Namespace {
 }
 
 // Register registers a namespace.
-func Register(namespace *Namespace) error {
+func Register(tenant string, namespace *Namespace) error {
 	name := namespace.Name()
-	if _, loaded := _namespaces.LoadOrStore(name, namespace); loaded {
-		return errors.Errorf("cannot register namesapce: conflict name %s", name)
+	if _, loaded := _namespaces.LoadOrStore(getLoadKey(tenant, name), namespace); loaded {
+		return errors.Errorf("cannot register conflict namesapce: tenant=%s, name=%s", tenant, name)
 	}
 	return nil
 }
 
+// List lists all namespace.
+func List() []*Namespace {
+	ret := make([]*Namespace, 0, 4)
+	_namespaces.Range(func(_, value any) bool {
+		ret = append(ret, value.(*Namespace))
+		return true
+	})
+	return ret
+}
+
 // Unregister unregisters a namespace.
-func Unregister(namespace string) error {
-	removed, loaded := _namespaces.LoadAndDelete(namespace)
+func Unregister(tenant, namespace string) error {
+	removed, loaded := _namespaces.LoadAndDelete(getLoadKey(tenant, namespace))
 	if !loaded {
 		return nil
 	}
@@ -82,6 +93,8 @@ type (
 
 		// datasource map, eg: employee_0001 -> [mysql-a,mysql-b,mysql-c], ... employee_0007 -> [mysql-x,mysql-y,mysql-z]
 		dss atomic.Value // map[string][]proto.DB
+
+		sysDb proto.DB
 
 		parameters    config.ParametersMap
 		slowThreshold time.Duration
@@ -234,6 +247,11 @@ func (ns *Namespace) DBSlave(_ context.Context, group string) proto.DB {
 	return readDBList[target]
 }
 
+// SysDB returns SysDB
+func (ns *Namespace) SysDB() proto.DB {
+	return ns.sysDb
+}
+
 // Rule returns the sharding rule.
 func (ns *Namespace) Rule() *rule.Rule {
 	ru, ok := ns.rule.Load().(*rule.Rule)
@@ -295,4 +313,13 @@ func (ns *Namespace) loopCmds() {
 	for cmd := range ns.cmds {
 		_ = cmd(ns)
 	}
+}
+
+func getLoadKey(tenant, namespace string) string {
+	var sb strings.Builder
+	sb.Grow(len(tenant) + len(namespace) + 1)
+	sb.WriteString(tenant)
+	sb.WriteByte(':')
+	sb.WriteString(namespace)
+	return sb.String()
 }

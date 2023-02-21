@@ -149,11 +149,7 @@ func (seq *snowflakeSequence) initTableAndKeepalive(ctx context.Context, rt runt
 	}
 	_, _ = ret.RowsAffected()
 
-	nodeId, err := identity.GetNodeIdentity()
-	if err != nil {
-		return err
-	}
-	_nodeId = nodeId
+	_nodeId = identity.GetNodeIdentity()
 
 	if _, _, err := tx.Commit(ctx); err != nil {
 		return err

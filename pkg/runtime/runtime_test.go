@@ -36,19 +36,22 @@ func TestLoad(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	const schemaName = "FakeSchema"
+	const (
+		tenantName = "FakeTenant"
+		schemaName = "FakeSchema"
+	)
 
-	rt, err := Load(schemaName)
+	rt, err := Load(tenantName, schemaName)
 	assert.Error(t, err)
 	assert.Nil(t, rt)
 	ns, err := namespace.New(schemaName)
 	assert.NoError(t, err)
-	_ = namespace.Register(ns)
+	_ = namespace.Register(tenantName, ns)
 	defer func() {
-		_ = namespace.Unregister(schemaName)
+		_ = namespace.Unregister(tenantName, schemaName)
 	}()
 
-	rt, err = Load(schemaName)
+	rt, err = Load(tenantName, schemaName)
 	assert.NoError(t, err)
 	assert.NotNil(t, rt)
 }

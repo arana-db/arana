@@ -123,7 +123,7 @@ type (
 		Executable
 		VConn
 		// ID returns the unique transaction id.
-		ID() int64
+		ID() string
 		// Commit commits current transaction.
 		Commit(ctx context.Context) (Result, uint16, error)
 		// Rollback rollbacks current transaction.

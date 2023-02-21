@@ -119,6 +119,10 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		return cc.convAnalyzeTable(stmt), nil
 	case *ast.OptimizeTableStmt:
 		return cc.convOptimizeTable(stmt), nil
+	case *ast.CheckTableStmt:
+		return cc.convCheckTableStmt(stmt), nil
+	case *ast.RenameTableStmt:
+		return cc.convRenameTableStmt(stmt), nil
 	case *ast.KillStmt:
 		return cc.convKill(stmt), nil
 	default:
@@ -1635,6 +1639,33 @@ func isColumnAtom(expr PredicateNode) bool {
 		}
 	}
 	return false
+}
+
+func (cc *convCtx) convCheckTableStmt(stmt *ast.CheckTableStmt) Statement {
+	tables := make([]*TableName, len(stmt.Tables))
+	for i, table := range stmt.Tables {
+		tables[i] = &TableName{
+			table.Name.String(),
+		}
+	}
+	return &CheckTableStmt{Tables: tables}
+}
+
+func (cc *convCtx) convRenameTableStmt(stmt *ast.RenameTableStmt) Statement {
+	tableToTables := make([]*TableToTable, len(stmt.TableToTables))
+	for i, tableToTable := range stmt.TableToTables {
+		tableToTables[i] = &TableToTable{
+			OldTable: &TableName{
+				tableToTable.OldTable.Name.String(),
+			},
+			NewTable: &TableName{
+				tableToTable.NewTable.Name.String(),
+			},
+		}
+	}
+	return &RenameTableStatement{
+		TableToTables: tableToTables,
+	}
 }
 
 func (cc *convCtx) convAnalyzeTable(stmt *ast.AnalyzeTableStmt) Statement {
