@@ -15,40 +15,34 @@
  * limitations under the License.
  */
 
-package identity
+package ddl
 
 import (
-	"os"
-)
-
-import (
-	"github.com/google/uuid"
+	"context"
 )
 
 import (
-	"github.com/arana-db/arana/pkg/util/net"
+	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/proto/rule"
+	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/runtime/optimize"
+	"github.com/arana-db/arana/pkg/runtime/plan/ddl"
 )
 
-const (
-	AranaNodeId = "ARANA_NODE_ID"
-	PodName     = "POD_NAME"
-)
+func init() {
+	optimize.Register(ast.SQLTypeRenameTable, optimizeRenameTable)
+}
 
-func GetNodeIdentity() string {
-	nodeId := os.Getenv(AranaNodeId)
-	if len(nodeId) != 0 {
-		return nodeId
+func optimizeRenameTable(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error) {
+	shards := rule.DatabaseTables{}
+	shardsByName := make(map[string]rule.DatabaseTables)
+
+	for _, table := range o.Rule.VTables() {
+		shards = table.Topology().Enumerate()
+		shardsByName[table.Name()] = shards
+		break
 	}
 
-	podName := os.Getenv(PodName)
-	if len(podName) != 0 {
-		return podName
-	}
-
-	ip, err := net.FindSelfIP()
-	if err == nil {
-		return ip
-	}
-
-	return uuid.NewString()
+	stmt := o.Stmt.(*ast.RenameTableStatement)
+	return ddl.NewRenameTablePlan(stmt, shards, shardsByName), nil
 }

@@ -15,40 +15,48 @@
  * limitations under the License.
  */
 
-package identity
+package gtid
 
 import (
-	"os"
-)
-
-import (
-	"github.com/google/uuid"
+	"fmt"
+	"sync"
 )
 
 import (
-	"github.com/arana-db/arana/pkg/util/net"
+	"github.com/bwmarrin/snowflake"
 )
 
-const (
-	AranaNodeId = "ARANA_NODE_ID"
-	PodName     = "POD_NAME"
+import (
+	"github.com/arana-db/arana/pkg/util/identity"
+	"github.com/arana-db/arana/pkg/util/rand2"
 )
 
-func GetNodeIdentity() string {
-	nodeId := os.Getenv(AranaNodeId)
-	if len(nodeId) != 0 {
-		return nodeId
-	}
+var (
+	nodeId     string
+	once       sync.Once
+	seqBuilder *snowflake.Node
+)
 
-	podName := os.Getenv(PodName)
-	if len(podName) != 0 {
-		return podName
-	}
+// ID Gtid
+type ID struct {
+	NodeID string
+	Seq    int64
+}
 
-	ip, err := net.FindSelfIP()
-	if err == nil {
-		return ip
-	}
+// NewID generates next Gtid
+func NewID() ID {
+	once.Do(func() {
+		nodeId = identity.GetNodeIdentity()
+		seqBuilder, _ = snowflake.NewNode(rand2.Int63n(1024))
+	})
 
-	return uuid.NewString()
+	return ID{
+		NodeID: nodeId,
+		Seq:    seqBuilder.Generate().Int64(),
+	}
+}
+
+// String ID to string
+func (i ID) String() string {
+	return fmt.Sprintf("%s-%d", i.NodeID, i.Seq)
 }

@@ -46,6 +46,7 @@ import (
 	"github.com/arana-db/arana/pkg/resultx"
 	"github.com/arana-db/arana/pkg/runtime"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
+	"github.com/arana-db/arana/pkg/runtime/transaction"
 	"github.com/arana-db/arana/pkg/security"
 	"github.com/arana-db/arana/pkg/trace"
 	"github.com/arana-db/arana/pkg/util/log"
@@ -207,8 +208,12 @@ func (executor *RedirectExecutor) doExecutorComQuery(ctx *proto.Context, act ast
 			err = errNoDatabaseSelected
 		} else {
 			// begin a new tx
+			xaHook, err := transaction.NewXAHook(rcontext.Tenant(ctx), false)
+			if err != nil {
+				return nil, 0, err
+			}
 			var tx proto.Tx
-			if tx, err = rt.Begin(ctx); err == nil {
+			if tx, err = rt.Begin(ctx, xaHook); err == nil {
 				executor.putTx(ctx, tx)
 				res = resultx.New()
 			}
@@ -276,7 +281,7 @@ func (executor *RedirectExecutor) doExecutorComQuery(ctx *proto.Context, act ast
 			err = errNoDatabaseSelected
 		}
 	case *ast.TruncateTableStmt, *ast.DropTableStmt, *ast.ExplainStmt, *ast.DropIndexStmt, *ast.CreateIndexStmt,
-		*ast.AnalyzeTableStmt, *ast.OptimizeTableStmt, *ast.CheckTableStmt:
+		*ast.AnalyzeTableStmt, *ast.OptimizeTableStmt, *ast.CheckTableStmt, *ast.RenameTableStmt:
 		res, warn, err = executeStmt(ctx, schemaless, rt)
 	case *ast.DropTriggerStmt, *ast.SetStmt, *ast.KillStmt:
 		res, warn, err = rt.Execute(ctx)
@@ -411,6 +416,7 @@ func (executor *RedirectExecutor) ConnectionClose(ctx *proto.Context) {
 }
 
 func (executor *RedirectExecutor) putTx(ctx *proto.Context, tx proto.Tx) {
+	ctx.Context = rcontext.WithTransactionID(ctx.Context, tx.ID())
 	executor.localTransactionMap.Store(ctx.C.ID(), tx)
 }
 
@@ -419,6 +425,7 @@ func (executor *RedirectExecutor) removeTx(ctx *proto.Context) (proto.Tx, bool) 
 	if !ok {
 		return nil, false
 	}
+	ctx.Context = rcontext.WithTransactionID(ctx.Context, exist.(proto.Tx).ID())
 	return exist.(proto.Tx), true
 }
 
@@ -427,5 +434,6 @@ func (executor *RedirectExecutor) getTx(ctx *proto.Context) (proto.Tx, bool) {
 	if !ok {
 		return nil, false
 	}
+	ctx.Context = rcontext.WithTransactionID(ctx.Context, exist.(proto.Tx).ID())
 	return exist.(proto.Tx), true
 }

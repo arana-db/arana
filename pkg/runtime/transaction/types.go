@@ -15,40 +15,43 @@
  * limitations under the License.
  */
 
-package identity
+package transaction
 
 import (
-	"os"
+	"github.com/arana-db/arana/pkg/runtime"
 )
 
-import (
-	"github.com/google/uuid"
-)
+// TrxLog arana tx log
+type TrxLog struct {
+	TrxID        string
+	ServerID     int32
+	State        runtime.TxState
+	Participants []TrxParticipant
+	Tenant       string
+}
 
-import (
-	"github.com/arana-db/arana/pkg/util/net"
-)
+// TrxParticipant join target trx all node info
+type TrxParticipant struct {
+	NodeID     string
+	RemoteAddr string
+	Schema     string
+}
+
+type dBOperation string
 
 const (
-	AranaNodeId = "ARANA_NODE_ID"
-	PodName     = "POD_NAME"
+	Like           dBOperation = "LIKE"
+	Equal          dBOperation = "="
+	NotEqual       dBOperation = "<>"
+	LessThan       dBOperation = "<"
+	LessEqualThan  dBOperation = "<="
+	GreatThan      dBOperation = ">"
+	GrateEqualThan dBOperation = ">="
 )
 
-func GetNodeIdentity() string {
-	nodeId := os.Getenv(AranaNodeId)
-	if len(nodeId) != 0 {
-		return nodeId
-	}
-
-	podName := os.Getenv(PodName)
-	if len(podName) != 0 {
-		return podName
-	}
-
-	ip, err := net.FindSelfIP()
-	if err == nil {
-		return ip
-	}
-
-	return uuid.NewString()
+// Condition sql query where condition
+type Condition struct {
+	FiledName string
+	Operation dBOperation
+	Value     interface{}
 }
