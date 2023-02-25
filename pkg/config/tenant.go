@@ -22,7 +22,6 @@ package config
 
 import (
 	"context"
-	"github.com/arana-db/arana/pkg/admin/exception"
 	"sync"
 )
 
