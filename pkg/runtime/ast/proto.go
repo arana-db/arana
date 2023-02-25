@@ -22,44 +22,45 @@ import (
 )
 
 const (
-	_                        SQLType = iota
-	SQLTypeSelect                    // SELECT
-	SQLTypeDelete                    // DELETE
-	SQLTypeUpdate                    // UPDATE
-	SQLTypeInsert                    // INSERT
-	SQLTypeInsertSelect              // INSERT SELECT
-	SQLTypeReplace                   // REPLACE
-	SQLTypeTruncate                  // TRUNCATE
-	SQLTypeDropTable                 // DROP TABLE
-	SQLTypeAlterTable                // ALTER TABLE
-	SQLTypeDropIndex                 // DROP INDEX
-	SQLTypeShowDatabases             // SHOW DATABASES
-	SQLTypeShowCollation             // SHOW COLLATION
-	SQLTypeShowTables                // SHOW TABLES
-	SQLTypeShowOpenTables            // SHOW OPEN TABLES
-	SQLTypeShowIndex                 // SHOW INDEX
-	SQLTypeShowColumns               // SHOW COLUMNS
-	SQLTypeShowCreate                // SHOW CREATE
-	SQLTypeShowVariables             // SHOW VARIABLES
-	SQLTypeShowTopology              // SHOW TOPOLOGY
-	SQLTypeDescribe                  // DESCRIBE
-	SQLTypeUnion                     // UNION
-	SQLTypeDropTrigger               // DROP TRIGGER
-	SQLTypeCreateIndex               // CREATE INDEX
-	SQLTypeShowStatus                // SHOW STATUS
-	SQLTypeShowTableStatus           // SHOW TABLE STATUS
-	SQLTypeShowWarnings              // SHOW WARNINGS
-	SQLTypeShowCharacterSet          // SHOW CHARACTER SET
-	SQLTypeSetVariable               // SET VARIABLE
-	SQLTypeAnalyzeTable              // ANALYZE TABLE
-	SQLTypeOptimizeTable             // OPTIMIZE TABLE
-	SQLTypeShowMasterStatus          // SHOW MASTER STATUS
-	SQLTypeShowReplicas              // SHOW REPLICAS
-	SQLTypeShowProcessList           // SHOW PROCESSLIST
-	SQLTypeShowReplicaStatus         // SHOW REPLICA STATUS
-	SQLTypeKill                      // KILL
-	SQLTypeCheckTable                // CHECK TABLE
-	SQLTypeRenameTable               // RENAME TABLE
+	_                          SQLType = iota
+	SQLTypeSelect                      // SELECT
+	SQLTypeDelete                      // DELETE
+	SQLTypeUpdate                      // UPDATE
+	SQLTypeInsert                      // INSERT
+	SQLTypeInsertSelect                // INSERT SELECT
+	SQLTypeReplace                     // REPLACE
+	SQLTypeTruncate                    // TRUNCATE
+	SQLTypeDropTable                   // DROP TABLE
+	SQLTypeAlterTable                  // ALTER TABLE
+	SQLTypeDropIndex                   // DROP INDEX
+	SQLTypeShowDatabases               // SHOW DATABASES
+	SQLTypeShowCollation               // SHOW COLLATION
+	SQLTypeShowTables                  // SHOW TABLES
+	SQLTypeShowOpenTables              // SHOW OPEN TABLES
+	SQLTypeShowIndex                   // SHOW INDEX
+	SQLTypeShowColumns                 // SHOW COLUMNS
+	SQLTypeShowCreate                  // SHOW CREATE
+	SQLTypeShowVariables               // SHOW VARIABLES
+	SQLTypeShowTopology                // SHOW TOPOLOGY
+	SQLTypeDescribe                    // DESCRIBE
+	SQLTypeUnion                       // UNION
+	SQLTypeDropTrigger                 // DROP TRIGGER
+	SQLTypeCreateIndex                 // CREATE INDEX
+	SQLTypeShowStatus                  // SHOW STATUS
+	SQLTypeShowTableStatus             // SHOW TABLE STATUS
+	SQLTypeShowWarnings                // SHOW WARNINGS
+	SQLTypeShowCharacterSet            // SHOW CHARACTER SET
+	SQLTypeSetVariable                 // SET VARIABLE
+	SQLTypeAnalyzeTable                // ANALYZE TABLE
+	SQLTypeOptimizeTable               // OPTIMIZE TABLE
+	SQLTypeShowMasterStatus            // SHOW MASTER STATUS
+	SQLTypeShowReplicas                // SHOW REPLICAS
+	SQLTypeShowProcessList             // SHOW PROCESSLIST
+	SQLTypeShowReplicaStatus           // SHOW REPLICA STATUS
+	SQLTypeShowUsersFromTenant         // SHOW USERS FROM TENANT
+	SQLTypeKill                        // KILL
+	SQLTypeCheckTable                  // CHECK TABLE
+	SQLTypeRenameTable                 // RENAME TABLE
 )
 
 var _sqlTypeNames = [...]string{

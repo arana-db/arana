@@ -20,9 +20,7 @@ package ast
 import (
 	"database/sql"
 	"strings"
-)
 
-import (
 	"github.com/pkg/errors"
 )
 
@@ -540,5 +538,18 @@ func (s *ShowReplicaStatus) Mode() SQLType {
 
 func (s *ShowReplicaStatus) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("SHOW REPLICA STATUS")
+	return s.baseShow.Restore(flag, sb, args)
+}
+
+type ShowUsersFromTenant struct {
+	*baseShow
+}
+
+func (s *ShowUsersFromTenant) Mode() SQLType {
+	return SQLTypeShowUsersFromTenant
+}
+
+func (s *ShowUsersFromTenant) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	sb.WriteString("SHOW USERS FROM TENANT")
 	return s.baseShow.Restore(flag, sb, args)
 }

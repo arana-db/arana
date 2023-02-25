@@ -21,22 +21,16 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-)
 
-import (
+	"github.com/arana-db/arana/pkg/proto/hint"
+	"github.com/arana-db/arana/pkg/runtime/cmp"
+	"github.com/arana-db/arana/pkg/runtime/logical"
 	"github.com/arana-db/parser"
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/mysql"
 	"github.com/arana-db/parser/opcode"
 	"github.com/arana-db/parser/test_driver"
-
 	"github.com/pkg/errors"
-)
-
-import (
-	"github.com/arana-db/arana/pkg/proto/hint"
-	"github.com/arana-db/arana/pkg/runtime/cmp"
-	"github.com/arana-db/arana/pkg/runtime/logical"
 )
 
 var _opcode2comparison = map[opcode.Op]cmp.Comparison{
@@ -679,6 +673,8 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 	}
 
 	switch node.Tp {
+	case ast.ShowUsersFromTenant:
+		return &ShowUsersFromTenant{baseShow: toBaseShow()}
 	case ast.ShowTopology:
 		return &ShowTopology{baseShow: toBaseShow()}
 	case ast.ShowOpenTables:
