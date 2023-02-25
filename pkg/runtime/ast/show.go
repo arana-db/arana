@@ -20,7 +20,9 @@ package ast
 import (
 	"database/sql"
 	"strings"
+)
 
+import (
 	"github.com/pkg/errors"
 )
 
