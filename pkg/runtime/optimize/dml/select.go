@@ -52,7 +52,7 @@ func init() {
 
 func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error) {
 	stmt := o.Stmt.(*ast.SelectStatement)
-	enableLocalMathComputation := ctx.Value("EnableLocalMathComputation").(bool)
+	enableLocalMathComputation := ctx.Value(proto.ContextKeyEnableLocalComputation{}).(bool)
 	if enableLocalMathComputation && len(stmt.From) == 0 {
 		isLocalFlag := true
 		var columnList []string
@@ -74,7 +74,7 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 					break
 				}
 				if _, ok := calculateRes.(proto.Value); ok {
-					valueList = append(valueList, calculateRes.(proto.Value))
+					valueList = append(valueList, calculateRes)
 					columnList = append(columnList, stmt.Select[i].DisplayName())
 				} else {
 					isLocalFlag = false
@@ -94,7 +94,7 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 					break
 				}
 				if _, ok := calculateRes.(proto.Value); ok {
-					valueList = append(valueList, calculateRes.(proto.Value))
+					valueList = append(valueList, calculateRes)
 					columnList = append(columnList, stmt.Select[i].DisplayName())
 				} else {
 					isLocalFlag = false

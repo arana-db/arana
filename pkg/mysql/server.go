@@ -203,7 +203,7 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32) {
 
 		content := make([]byte, len(data))
 		copy(content, data)
-		vctx := context.WithValue(context.Background(), "EnableLocalMathComputation", uconfig.IsEnableLocalMathCompu(false))
+		vctx := context.WithValue(context.Background(), proto.ContextKeyEnableLocalComputation{}, uconfig.IsEnableLocalMathCompu(false))
 
 		ctx := &proto.Context{
 			Context: vctx,
