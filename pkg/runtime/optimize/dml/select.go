@@ -73,12 +73,9 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 					isLocalFlag = false
 					break
 				}
-				if _, ok := calculateRes.(proto.Value); ok {
-					valueList = append(valueList, calculateRes)
-					columnList = append(columnList, stmt.Select[i].DisplayName())
-				} else {
-					isLocalFlag = false
-				}
+
+				valueList = append(valueList, calculateRes)
+				columnList = append(columnList, stmt.Select[i].DisplayName())
 			case *ast.SelectElementFunction:
 				var nodeF ast.Node
 				calculateNode := stmt.Select[i].(*ast.SelectElementFunction).Function()
@@ -93,12 +90,9 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 					isLocalFlag = false
 					break
 				}
-				if _, ok := calculateRes.(proto.Value); ok {
-					valueList = append(valueList, calculateRes)
-					columnList = append(columnList, stmt.Select[i].DisplayName())
-				} else {
-					isLocalFlag = false
-				}
+				valueList = append(valueList, calculateRes)
+				columnList = append(columnList, stmt.Select[i].DisplayName())
+
 			}
 		}
 		if isLocalFlag {
