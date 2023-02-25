@@ -18,7 +18,6 @@
 package router
 
 import (
-	"fmt"
 	"net/http"
 )
 
@@ -80,8 +79,6 @@ func UpdateUser(c *gin.Context) error {
 	if err := c.ShouldBindJSON(&user); err != nil {
 		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
-
-	fmt.Printf("user.Username: %s, username: %s", user.Username, username)
 
 	if !validatePassword(user.Password) {
 		return exception.New(exception.CodeInvalidParams, "bad password format")
