@@ -34,6 +34,8 @@ import (
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime"
 	"github.com/arana-db/arana/pkg/runtime/namespace"
+	aranatenant "github.com/arana-db/arana/pkg/runtime/tenant"
+	"github.com/arana-db/arana/pkg/runtime/transaction"
 	_ "github.com/arana-db/arana/pkg/schema"
 	"github.com/arana-db/arana/pkg/security"
 	"github.com/arana-db/arana/pkg/util/log"
@@ -62,12 +64,15 @@ func (bt *Booter) Boot(ctx context.Context) error {
 	}
 
 	for i := range tenants {
+		log.Infof("start boot tenant=%s", tenants[i])
 		bt.bootTenant(ctx, tenants[i])
 	}
 
 	go func() {
 		_ = bt.watchAllTenants(ctx)
 	}()
+
+	_ = namespace.List()
 
 	return nil
 }
@@ -118,7 +123,7 @@ func (bt *Booter) bootTenant(ctx context.Context, tenant string) {
 				errs = append(errs, err)
 				continue
 			}
-			if err := namespace.Register(ns); err != nil {
+			if err := namespace.Register(tenant, ns); err != nil {
 				errs = append(errs, err)
 				continue
 			}
@@ -136,9 +141,19 @@ func (bt *Booter) bootTenant(ctx context.Context, tenant string) {
 		}
 	}
 
+	if conf, err := bt.discovery.GetSysDB(ctx, tenant); err != nil {
+		errs = append(errs, err)
+	} else {
+		aranatenant.RegisterSysDB(tenant, conf, runtime.NewAtomDB(conf))
+	}
+
+	if err := transaction.CreateTrxManager(tenant); err != nil {
+		errs = append(errs, err)
+	}
+
 	cost := time.Since(begin).Milliseconds()
 	if err := multierr.Combine(errs...); err != nil {
-		log.Errorf("[%s] boot failed after %dms: %v", tenant, err, cost)
+		log.Errorf("[%s] boot failed after %dms: %v", tenant, cost, err)
 	} else {
 		log.Infof("[%s] boot successfully after %dms", tenant, cost)
 	}
@@ -167,7 +182,7 @@ func (bt *Booter) watchAllTenants(ctx context.Context) error {
 			}
 
 			for _, cluster := range clusters {
-				if err = runtime.Unload(cluster); err == nil {
+				if err = runtime.Unload(tenant, cluster); err == nil {
 					log.Infof("[%s] unload runtime '%s' successfully", tenant, cluster)
 				} else {
 					log.Errorf("[%s] unload runtime '%s' failed: %v", tenant, cluster, err)

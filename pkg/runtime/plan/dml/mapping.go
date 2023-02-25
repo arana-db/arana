@@ -358,7 +358,7 @@ func (vt *virtualValueVisitor) VisitFunction(node *ast.Function) (interface{}, e
 
 		return nil, mysqlErrors.NewSQLError(
 			mConstants.ERSPDoseNotExist,
-			mConstants.SSSPNotExist,
+			mConstants.SS42000,
 			sb.String(),
 		)
 	}

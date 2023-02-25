@@ -37,9 +37,15 @@ type (
 	keyNodeLabel      struct{}
 	keyDefaultDBGroup struct{}
 	keyHints          struct{}
+	keyTransactionID  struct{}
 )
 
 type cFlag uint8
+
+// WithTransactionID sets transaction id
+func WithTransactionID(ctx context.Context, id string) context.Context {
+	return context.WithValue(ctx, keyTransactionID{}, id)
+}
 
 // WithNodeLabel sets the database node label, it will be used for node select.
 // For Example, use `WithNodeLabel(ctx, "zone:shanghai")` if you want to choose nodes in Shanghai DC.
@@ -116,6 +122,14 @@ func Version(ctx context.Context) string {
 // NodeLabel returns the label of node.
 func NodeLabel(ctx context.Context) string {
 	if label, ok := ctx.Value(keyNodeLabel{}).(string); ok {
+		return label
+	}
+	return ""
+}
+
+// TransactionID returns the transactions id
+func TransactionID(ctx context.Context) string {
+	if label, ok := ctx.Value(keyTransactionID{}).(string); ok {
 		return label
 	}
 	return ""

@@ -91,21 +91,21 @@ type Conn struct {
 	// If there are any ongoing reads or writes, they may get interrupted.
 	conn net.Conn
 
-	// Schema is the current database name.
-	Schema string
+	// schema is the current database name.
+	schema string
 
-	// Tenant is the current tenant login.
-	Tenant string
+	// tenant is the current tenant login.
+	tenant string
 
-	// ConnectionID is set:
+	// connectionID is set:
 	// - at Connect() time for clients, with the value returned by
 	// the server.
 	// - at accept time for the server.
-	ConnectionID uint32
+	connectionID uint32
 
-	// TransientVariables represents local transient variables.
+	// transientVariables represents local transient variables.
 	// These variables will always keep sync with backend mysql conns.
-	TransientVariables map[string]proto.Value
+	transientVariables map[string]proto.Value
 
 	// closed is set to true when Close() is called on the connection.
 	closed *atomic.Bool
@@ -149,7 +149,9 @@ type Conn struct {
 	// connection.
 	// It is set during the initial handshake.
 	// See the values in constants.go.
-	CharacterSet uint8
+	characterSet uint8
+
+	serverVersion string
 }
 
 // newConn is an internal method to create a Conn. Used by client and server
@@ -159,8 +161,40 @@ func newConn(conn net.Conn) *Conn {
 		conn:               conn,
 		closed:             atomic.NewBool(false),
 		bufferedReader:     bufio.NewReaderSize(conn, connBufferSize),
-		TransientVariables: make(map[string]proto.Value),
+		transientVariables: make(map[string]proto.Value),
 	}
+}
+
+func (c *Conn) ServerVersion() string {
+	return c.serverVersion
+}
+
+func (c *Conn) CharacterSet() uint8 {
+	return c.characterSet
+}
+
+func (c *Conn) Schema() string {
+	return c.schema
+}
+
+func (c *Conn) SetSchema(schema string) {
+	c.schema = schema
+}
+
+func (c *Conn) Tenant() string {
+	return c.tenant
+}
+
+func (c *Conn) SetTenant(t string) {
+	c.tenant = t
+}
+
+func (c *Conn) TransientVariables() map[string]proto.Value {
+	return c.transientVariables
+}
+
+func (c *Conn) SetTransientVariables(v map[string]proto.Value) {
+	c.transientVariables = v
 }
 
 // startWriterBuffering starts using buffered writes. This should
@@ -631,13 +665,13 @@ func (c *Conn) RemoteAddr() net.Addr {
 }
 
 // ID returns the MySQL connection ID for this connection.
-func (c *Conn) ID() int64 {
-	return int64(c.ConnectionID)
+func (c *Conn) ID() uint32 {
+	return c.connectionID
 }
 
 // Ident returns a useful identification string for error logging
 func (c *Conn) String() string {
-	return fmt.Sprintf("client %v (%s)", c.ConnectionID, c.RemoteAddr().String())
+	return fmt.Sprintf("client %v (%s)", c.ID(), c.RemoteAddr().String())
 }
 
 // Close closes the connection. It can be called from a different go
@@ -708,7 +742,7 @@ func (c *Conn) fixErrNoSuchTable(errorMessage string) string {
 		var sb strings.Builder
 		sb.Grow(len(errorMessage))
 		sb.WriteString("Table '")
-		sb.WriteString(c.Schema)
+		sb.WriteString(c.Schema())
 		sb.WriteByte('.')
 		sb.WriteString(matches[2])
 		sb.WriteString("' doesn't exist")

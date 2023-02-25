@@ -15,19 +15,48 @@
  * limitations under the License.
  */
 
-package mysql
+package gtid
 
 import (
-	"context"
+	"fmt"
+	"sync"
 )
 
-// Context
-type Context struct {
-	context.Context
+import (
+	"github.com/bwmarrin/snowflake"
+)
 
-	Conn *Conn
+import (
+	"github.com/arana-db/arana/pkg/util/identity"
+	"github.com/arana-db/arana/pkg/util/rand2"
+)
 
-	CommandType byte
-	// sql Data
-	Data []byte
+var (
+	nodeId     string
+	once       sync.Once
+	seqBuilder *snowflake.Node
+)
+
+// ID Gtid
+type ID struct {
+	NodeID string
+	Seq    int64
+}
+
+// NewID generates next Gtid
+func NewID() ID {
+	once.Do(func() {
+		nodeId = identity.GetNodeIdentity()
+		seqBuilder, _ = snowflake.NewNode(rand2.Int63n(1024))
+	})
+
+	return ID{
+		NodeID: nodeId,
+		Seq:    seqBuilder.Generate().Int64(),
+	}
+}
+
+// String ID to string
+func (i ID) String() string {
+	return fmt.Sprintf("%s-%d", i.NodeID, i.Seq)
 }
