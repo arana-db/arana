@@ -355,6 +355,17 @@ paths:
       responses:
         '204':
           description: NONE
+  /tables:
+    get:
+      operationId: listAllTables
+      summary: List all tables
+      responses:
+        '200':
+          description: All Tables
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tables'
   /tenants/{tenantName}/clusters/{clusterName}/tables:
     parameters:
       - in: path
@@ -371,7 +382,7 @@ paths:
         description: the name of cluster
     get:
       operationId: listTables
-      summary: List all tables
+      summary: List all tables under the give tenant and cluster
       responses:
         '200':
           description: All Tables
