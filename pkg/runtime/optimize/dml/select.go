@@ -19,6 +19,7 @@ package dml
 
 import (
 	"context"
+	"github.com/arana-db/arana/pkg/runtime/misc/extvalue"
 	"strings"
 )
 
@@ -37,7 +38,6 @@ import (
 	"github.com/arana-db/arana/pkg/runtime/optimize"
 	"github.com/arana-db/arana/pkg/runtime/optimize/dml/ext"
 	"github.com/arana-db/arana/pkg/runtime/plan/dml"
-	uconfig "github.com/arana-db/arana/pkg/util/config"
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
@@ -52,14 +52,23 @@ func init() {
 
 func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error) {
 	stmt := o.Stmt.(*ast.SelectStatement)
-	if uconfig.IsEnableLocalMathCompu(false) && stmt.From == nil {
+	enableLocalMathComputation := ctx.Value("EnableLocalMathComputation").(bool)
+	if enableLocalMathComputation && len(stmt.From) == 0 {
 		isLocalFlag := true
 		var columnList []string
 		var valueList []proto.Value
 		for i := range stmt.Select {
 			switch stmt.Select[i].(type) {
 			case *ast.SelectElementExpr:
-				calculateRes, errtmp := stmt.Select[i].(*ast.SelectElementExpr).Accept(optimize.NewCalcualtor(o.Args))
+				var nodeInner *ast.PredicateExpressionNode
+				calculateNode := stmt.Select[i].(*ast.SelectElementExpr).Expression()
+				if _, ok := calculateNode.(*ast.PredicateExpressionNode); ok {
+					nodeInner = calculateNode.(*ast.PredicateExpressionNode)
+				} else {
+					isLocalFlag = false
+					break
+				}
+				calculateRes, errtmp := extvalue.Compute(ctx, nodeInner.P)
 				if errtmp != nil {
 					isLocalFlag = false
 					break
@@ -71,7 +80,15 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 					isLocalFlag = false
 				}
 			case *ast.SelectElementFunction:
-				calculateRes, errTmp := stmt.Select[i].(*ast.SelectElementFunction).Accept(optimize.NewCalcualtor(o.Args))
+				var nodeF ast.Node
+				calculateNode := stmt.Select[i].(*ast.SelectElementFunction).Function()
+				if _, ok := calculateNode.(*ast.Function); ok {
+					nodeF = calculateNode.(*ast.Function)
+				} else {
+					isLocalFlag = false
+					break
+				}
+				calculateRes, errTmp := extvalue.Compute(ctx, nodeF)
 				if errTmp != nil {
 					isLocalFlag = false
 					break
