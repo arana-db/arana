@@ -69,6 +69,16 @@ func (t TableName) Suffix() string {
 	return t[len(t)-1]
 }
 
+// TableToTable represents renaming old table to new table used in RenameTableStmt.
+type TableToTable struct {
+	OldTable *TableName
+	NewTable *TableName
+}
+
+func (t TableToTable) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	return errors.Errorf("unimplement: tableToTable restore!")
+}
+
 const (
 	_ indexHintType = iota
 	indexHintTypeJoin

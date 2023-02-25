@@ -22,6 +22,10 @@ import (
 )
 
 import (
+	perrors "github.com/pkg/errors"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
@@ -38,7 +42,13 @@ func init() {
 func optimizeShowProcessList(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error) {
 	stmt := o.Stmt.(*ast.ShowProcessList)
 
-	groups := namespace.Load(rcontext.Schema(ctx)).DBGroups()
+	tenant := rcontext.Tenant(ctx)
+	schema := rcontext.Schema(ctx)
+	ns := namespace.Load(tenant, schema)
+	if ns == nil {
+		return nil, perrors.Errorf("no namespace found: tenant=%s, schema=%s", tenant, schema)
+	}
+	groups := ns.DBGroups()
 	plans := make([]proto.Plan, 0, len(groups))
 	for _, group := range groups {
 		ret := dal.NewShowProcessListPlan(stmt)

@@ -501,7 +501,7 @@ func (c *Connector) NewBackendConnection(ctx context.Context) (*BackendConnectio
 //                 \                   /
 //                      >>> SYNC <<<
 func (conn *BackendConnection) SyncVariables(vars map[string]proto.Value) error {
-	transient := conn.c.TransientVariables
+	transient := conn.c.TransientVariables()
 
 	if len(vars) < 1 && len(transient) < 1 {
 		return nil
@@ -799,7 +799,7 @@ func (conn *BackendConnection) parseInitialHandshakePacket(data []byte) (uint32,
 	}
 
 	// Read the connection id.
-	conn.c.ConnectionID, pos, ok = readUint32(data, pos)
+	conn.c.connectionID, pos, ok = readUint32(data, pos)
 	if !ok {
 		return 0, nil, "", err2.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "parseInitialHandshakePacket: packet has no connection id")
 	}

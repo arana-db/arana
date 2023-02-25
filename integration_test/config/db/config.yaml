@@ -27,6 +27,13 @@ data:
           password: "123456"
         - username: arana
           password: "123456"
+      sys_db:
+        host: arana-mysql
+        port: 3306
+        username: root
+        password: "123456"
+        # TODO It is recommended that the initialization of the subsequent system library be handled by arana internally
+        database: __arana_sys
       clusters:
         - name: employees
           type: mysql

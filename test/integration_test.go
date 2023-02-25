@@ -1066,6 +1066,29 @@ func (s *IntegrationSuite) TestOptimizeTable() {
 	}
 }
 
+// TestRenameTable
+func (s *IntegrationSuite) TestRenameTable() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql string
+	}
+
+	for _, it := range [...]tt{
+		{"RENAME TABLE student TO student_new"},
+		{"RENAME TABLE student TO student_new, employees TO employees_new"},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			rows, err := db.Query(it.sql)
+			assert.NoError(t, err)
+			defer rows.Close()
+		})
+	}
+}
+
 func (s *IntegrationSuite) TestCompat80() {
 	var (
 		db = s.DB()
