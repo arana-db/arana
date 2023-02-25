@@ -19,7 +19,6 @@ package dml
 
 import (
 	"context"
-	"github.com/arana-db/arana/pkg/runtime/misc/extvalue"
 	"strings"
 )
 
@@ -35,6 +34,7 @@ import (
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
+	"github.com/arana-db/arana/pkg/runtime/misc/extvalue"
 	"github.com/arana-db/arana/pkg/runtime/optimize"
 	"github.com/arana-db/arana/pkg/runtime/optimize/dml/ext"
 	"github.com/arana-db/arana/pkg/runtime/plan/dml"
@@ -58,10 +58,10 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		var columnList []string
 		var valueList []proto.Value
 		for i := range stmt.Select {
-			switch stmt.Select[i].(type) {
+			switch selectItem := stmt.Select[i].(type) {
 			case *ast.SelectElementExpr:
 				var nodeInner *ast.PredicateExpressionNode
-				calculateNode := stmt.Select[i].(*ast.SelectElementExpr).Expression()
+				calculateNode := selectItem.Expression()
 				if _, ok := calculateNode.(*ast.PredicateExpressionNode); ok {
 					nodeInner = calculateNode.(*ast.PredicateExpressionNode)
 				} else {
@@ -78,7 +78,7 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 				columnList = append(columnList, stmt.Select[i].DisplayName())
 			case *ast.SelectElementFunction:
 				var nodeF ast.Node
-				calculateNode := stmt.Select[i].(*ast.SelectElementFunction).Function()
+				calculateNode := selectItem.Function()
 				if _, ok := calculateNode.(*ast.Function); ok {
 					nodeF = calculateNode.(*ast.Function)
 				} else {
