@@ -21,16 +21,22 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+)
 
-	"github.com/arana-db/arana/pkg/proto/hint"
-	"github.com/arana-db/arana/pkg/runtime/cmp"
-	"github.com/arana-db/arana/pkg/runtime/logical"
+import (
 	"github.com/arana-db/parser"
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/mysql"
 	"github.com/arana-db/parser/opcode"
 	"github.com/arana-db/parser/test_driver"
+
 	"github.com/pkg/errors"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/proto/hint"
+	"github.com/arana-db/arana/pkg/runtime/cmp"
+	"github.com/arana-db/arana/pkg/runtime/logical"
 )
 
 var _opcode2comparison = map[opcode.Op]cmp.Comparison{
