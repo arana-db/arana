@@ -26,59 +26,68 @@ import (
 )
 
 func TestLiker(t *testing.T) {
-	liker := NewLiker("abc%")
-	assert.Equal(t, true, liker.Like("abc*"))
-	assert.Equal(t, true, liker.Like("abc?"))
-	assert.Equal(t, true, liker.Like("abc_"))
-	assert.Equal(t, true, liker.Like("abc%"))
-	assert.Equal(t, false, liker.Like("zmo"))
+	tests := []struct {
+		pattern string
+		input   []string
+		except  []bool
+	}{
+		{
+			pattern: "abc%",
+			input:   []string{"abc*", "abc?", "abc_", "abc%", "zmo"},
+			except:  []bool{true, true, true, true, false},
+		},
+		{
+			pattern: "abc_",
+			input:   []string{"abc*", "abc?", "abc_", "abc%", "abc"},
+			except:  []bool{true, true, true, true, false},
+		},
+		{
+			pattern: "abc?",
+			input:   []string{"abc*", "abc?", "abc_", "abc%", "abc"},
+			except:  []bool{false, true, false, false, false},
+		},
+		{
+			pattern: "*?abc_",
+			input:   []string{"*?abc.", "**abc.", "?*abc.", "??abc."},
+			except:  []bool{true, false, false, false},
+		},
+		{
+			pattern: "[CB]at",
+			input:   []string{"[CB]at", "Cat", "cat"},
+			except:  []bool{true, false, false},
+		},
+		{
+			pattern: "[a-z]at",
+			input:   []string{"[a-z]at", "cat", "Cat"},
+			except:  []bool{true, false, false},
+		}, {
+			pattern: "[!C]at",
+			input:   []string{"[!C]at", "Bat", "Cat"},
+			except:  []bool{true, false, false},
+		},
+		{
+			pattern: "\\%",
+			input:   []string{"\\\\"},
+			except:  []bool{true},
+		},
+		{
+			pattern: "/home/\\\\*",
+			input:   []string{"/home/\\\\*", "/home/\\*"},
+			except:  []bool{true, false},
+		},
+		{
+			pattern: "/hom%",
+			input:   []string{"/home/hello/world"},
+			except:  []bool{true},
+		},
+	}
 
-	liker = NewLiker("abc_")
-	assert.Equal(t, true, liker.Like("abc*"))
-	assert.Equal(t, true, liker.Like("abc?"))
-	assert.Equal(t, true, liker.Like("abc_"))
-	assert.Equal(t, true, liker.Like("abc%"))
-	assert.Equal(t, false, liker.Like("abc"))
-
-	liker = NewLiker("abc?")
-	assert.Equal(t, true, liker.Like("abc?"))
-	assert.Equal(t, false, liker.Like("abc*"))
-	assert.Equal(t, false, liker.Like("abc_"))
-	assert.Equal(t, false, liker.Like("abc%"))
-
-	liker = NewLiker("*?abc_")
-	assert.Equal(t, true, liker.Like("*?abc."))
-	assert.Equal(t, false, liker.Like("**abc."))
-	assert.Equal(t, false, liker.Like("??abc."))
-	assert.Equal(t, false, liker.Like("?*abc."))
-	assert.Equal(t, false, liker.Like("??abc."))
-
-	liker = NewLiker("[CB]at")
-	assert.Equal(t, true, liker.Like("[CB]at"))
-	assert.Equal(t, false, liker.Like("Cat"))
-	assert.Equal(t, false, liker.Like("cat"))
-
-	liker = NewLiker("[a-z]at")
-	assert.Equal(t, true, liker.Like("[a-z]at"))
-	assert.Equal(t, false, liker.Like("cat"))
-	assert.Equal(t, false, liker.Like("Cat"))
-
-	liker = NewLiker("[!C]at")
-	assert.Equal(t, true, liker.Like("[!C]at"))
-	assert.Equal(t, false, liker.Like("Bat"))
-	assert.Equal(t, false, liker.Like("Cat"))
-
-	liker = NewLiker("Letter[!3-5]")
-	assert.Equal(t, true, liker.Like("Letter[!3-5]"))
-	assert.Equal(t, false, liker.Like("Letter1"))
-	assert.Equal(t, false, liker.Like("Letter5"))
-
-	liker = NewLiker("/home/\\\\*")
-	assert.Equal(t, false, liker.Like("/home/\\*"))
-
-	liker = NewLiker("\\%")
-	assert.Equal(t, true, liker.Like("\\\\"))
-
-	liker = NewLiker("/hom%")
-	assert.Equal(t, true, liker.Like("/home/hello/world"))
+	for _, tt := range tests {
+		t.Run(tt.pattern, func(t *testing.T) {
+			for i := 0; i < len(tt.input); i++ {
+				liker := NewLiker(tt.pattern)
+				assert.Equal(t, tt.except[i], liker.Like(tt.input[i]))
+			}
+		})
+	}
 }
