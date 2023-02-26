@@ -63,8 +63,7 @@ func (h *HashJoinPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Resu
 		return nil, errors.WithStack(err)
 	}
 
-	resultx.New(resultx.WithDataset(probeDs))
-	return nil, nil
+	return resultx.New(resultx.WithDataset(probeDs)), nil
 }
 
 func (h *HashJoinPlan) queryAggregate(ctx context.Context, conn proto.VConn, plans []proto.Plan) (proto.Dataset, error) {
