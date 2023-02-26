@@ -157,5 +157,6 @@ func (h *HashJoinPlan) probe(ctx context.Context, conn proto.VConn, buildDs prot
 		return rows.NewBinaryVirtualRow(append(bFields, fields...), append(bDest, dest...)), nil
 	}
 
+	// filter match row & aggregate fields and row
 	return dataset.Pipe(ds, dataset.Filter(filterFunc), dataset.Map(aggregateFieldsFunc, transformFunc)), nil
 }
