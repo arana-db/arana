@@ -117,18 +117,26 @@ func (s ShowCollation) Restore(flag RestoreFlag, sb *strings.Builder, args *[]in
 
 type ShowTables struct {
 	*baseShow
+	like sql.NullString
 }
 
-func (s ShowTables) Mode() SQLType {
+func (st *ShowTables) Mode() SQLType {
 	return SQLTypeShowTables
 }
 
-func (s ShowTables) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+func (st *ShowTables) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("SHOW TABLES")
-	if err := s.baseShow.Restore(flag, sb, args); err != nil {
+	if err := st.baseShow.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
 	return nil
+}
+
+func (st *ShowTables) Like() (string, bool) {
+	if st.like.Valid {
+		return st.like.String, true
+	}
+	return "", false
 }
 
 type ShowTopology struct {
