@@ -134,7 +134,7 @@ func (h *HashJoinPlan) probe(ctx context.Context, conn proto.VConn, buildDs prot
 	cn := h.ProbeKey[0]
 	filterFunc := func(row proto.Row) bool {
 		findRow := probeMapFunc(row, cn)
-		return findRow == nil
+		return findRow != nil
 	}
 
 	bFields, _ := buildDs.Fields()
