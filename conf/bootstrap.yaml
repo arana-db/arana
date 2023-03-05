@@ -43,6 +43,7 @@ registry:
 
 log_path: "log"
 slow_log_path: "slow_log"
+enable_local_math_computation: True
 config:
   name: file
 

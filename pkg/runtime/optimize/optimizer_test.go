@@ -63,7 +63,7 @@ func TestOptimizer_OptimizeSelect(t *testing.T) {
 
 	var (
 		sql = "select id, uid from student where uid in (?,?,?)"
-		ctx = context.Background()
+		ctx = context.WithValue(context.Background(), proto.ContextKeyEnableLocalComputation{}, true)
 		ru  = makeFakeRule(ctrl, 8)
 	)
 

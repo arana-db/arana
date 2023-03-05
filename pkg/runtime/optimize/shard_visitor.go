@@ -177,7 +177,15 @@ func (sd *ShardVisitor) VisitNotExpression(node *ast.NotExpressionNode) (interfa
 func (sd *ShardVisitor) VisitPredicateExpression(node *ast.PredicateExpressionNode) (interface{}, error) {
 	return node.P.Accept(sd)
 }
-
+func (sd *ShardVisitor) VisitSelectElementExpr(node *ast.SelectElementExpr) (interface{}, error) {
+	switch inner := node.Expression().(type) {
+	case *ast.PredicateExpressionNode:
+		return sd.VisitPredicateExpression(inner)
+	case *ast.LogicalExpressionNode:
+		return sd.VisitLogicalExpression(inner)
+	}
+	return node.Expression().Accept(sd)
+}
 func (sd *ShardVisitor) VisitPredicateAtom(node *ast.AtomPredicateNode) (interface{}, error) {
 	return node.A.Accept(sd)
 }

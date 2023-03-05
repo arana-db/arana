@@ -34,6 +34,7 @@ import (
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
+	"github.com/arana-db/arana/pkg/runtime/misc/extvalue"
 	"github.com/arana-db/arana/pkg/runtime/optimize"
 	"github.com/arana-db/arana/pkg/runtime/optimize/dml/ext"
 	"github.com/arana-db/arana/pkg/runtime/plan/dml"
@@ -51,6 +52,62 @@ func init() {
 
 func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error) {
 	stmt := o.Stmt.(*ast.SelectStatement)
+	enableLocalMathComputation := ctx.Value(proto.ContextKeyEnableLocalComputation{}).(bool)
+	if enableLocalMathComputation && len(stmt.From) == 0 {
+		isLocalFlag := true
+		var columnList []string
+		var valueList []proto.Value
+		for i := range stmt.Select {
+			switch selectItem := stmt.Select[i].(type) {
+			case *ast.SelectElementExpr:
+				var nodeInner *ast.PredicateExpressionNode
+				calculateNode := selectItem.Expression()
+				if _, ok := calculateNode.(*ast.PredicateExpressionNode); ok {
+					nodeInner = calculateNode.(*ast.PredicateExpressionNode)
+				} else {
+					isLocalFlag = false
+					break
+				}
+				calculateRes, errtmp := extvalue.Compute(ctx, nodeInner.P)
+				if errtmp != nil {
+					isLocalFlag = false
+					break
+				}
+
+				valueList = append(valueList, calculateRes)
+				columnList = append(columnList, stmt.Select[i].DisplayName())
+			case *ast.SelectElementFunction:
+				var nodeF ast.Node
+				calculateNode := selectItem.Function()
+				if _, ok := calculateNode.(*ast.Function); ok {
+					nodeF = calculateNode.(*ast.Function)
+				} else {
+					isLocalFlag = false
+					break
+				}
+				calculateRes, errTmp := extvalue.Compute(ctx, nodeF)
+				if errTmp != nil {
+					isLocalFlag = false
+					break
+				}
+				valueList = append(valueList, calculateRes)
+				columnList = append(columnList, stmt.Select[i].DisplayName())
+
+			}
+		}
+		if isLocalFlag {
+
+			ret := &dml.LocalSelectPlan{
+				Stmt:       stmt,
+				Result:     valueList,
+				ColumnList: columnList,
+			}
+			ret.BindArgs(o.Args)
+
+			return ret, nil
+		}
+
+	}
 
 	// overwrite stmt limit x offset y. eg `select * from student offset 100 limit 5` will be
 	// `select * from student offset 0 limit 100+5`
@@ -70,6 +127,7 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 				return nil, err
 			}
 		}
+
 		ret := &dml.SimpleQueryPlan{Stmt: stmt}
 		ret.BindArgs(o.Args)
 
