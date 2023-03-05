@@ -29,13 +29,13 @@ import (
 )
 
 func init() {
-	optimize.Register(ast.SQLTypeShowUsersFromTenant, showUsers)
+	optimize.Register(ast.SQLTypeShowUser, showUsers)
 }
 
 func showUsers(_ context.Context, o *optimize.Optimizer) (proto.Plan, error) {
 	rule := o.Rule
-	stmt := o.Stmt.(*ast.ShowUsersFromTenant)
-	ret := dal.NewShowUsersFromTenantPlan(stmt)
+	stmt := o.Stmt.(*ast.ShowUsers)
+	ret := dal.NewShowUsers(stmt)
 	ret.BindArgs(o.Args)
 	ret.SetRule(rule)
 	return ret, nil

@@ -679,8 +679,8 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 	}
 
 	switch node.Tp {
-	case ast.ShowUsersFromTenant:
-		return &ShowUsersFromTenant{baseShow: toBaseShow()}
+	case ast.ShowUsers:
+		return &ShowUsers{baseShow: toBaseShow()}
 	case ast.ShowTopology:
 		return &ShowTopology{baseShow: toBaseShow()}
 	case ast.ShowOpenTables:

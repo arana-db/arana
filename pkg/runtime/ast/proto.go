@@ -57,7 +57,7 @@ const (
 	SQLTypeShowReplicas                // SHOW REPLICAS
 	SQLTypeShowProcessList             // SHOW PROCESSLIST
 	SQLTypeShowReplicaStatus           // SHOW REPLICA STATUS
-	SQLTypeShowUsersFromTenant         // SHOW USERS FROM TENANT
+	SQLTypeShowUsers        		   // SHOW USERS FROM TENANT
 	SQLTypeKill                        // KILL
 	SQLTypeCheckTable                  // CHECK TABLE
 	SQLTypeRenameTable                 // RENAME TABLE

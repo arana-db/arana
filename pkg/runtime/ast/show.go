@@ -543,15 +543,15 @@ func (s *ShowReplicaStatus) Restore(flag RestoreFlag, sb *strings.Builder, args 
 	return s.baseShow.Restore(flag, sb, args)
 }
 
-type ShowUsersFromTenant struct {
+type ShowUsers struct{
 	*baseShow
 }
 
-func (s *ShowUsersFromTenant) Mode() SQLType {
-	return SQLTypeShowUsersFromTenant
+func (s *ShowUsers) Mode() SQLType {
+	return SQLTypeShowUsers
 }
 
-func (s *ShowUsersFromTenant) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+func (s *ShowUsers) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("SHOW USERS FROM TENANT")
 	return s.baseShow.Restore(flag, sb, args)
 }

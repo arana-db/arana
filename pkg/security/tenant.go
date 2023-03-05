@@ -83,6 +83,22 @@ func (st *simpleTenantManager) GetUser(tenant string, username string) (*config.
 	return user, ok
 }
 
+func (st *simpleTenantManager) GetUsers(tenant string) ([]*config.User, bool) {
+	st.RLock()
+	defer st.RUnlock()
+	var users = []*config.User{}
+	exist, ok := st.tenants[tenant]
+	if !ok {
+		return nil, false
+	}else{
+		for _, v:= range exist.users{
+			users=append(users,v)
+		}
+	}
+	return users, ok
+}
+
+
 func (st *simpleTenantManager) GetClusters(tenant string) []string {
 	st.RLock()
 	defer st.RUnlock()

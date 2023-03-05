@@ -24,31 +24,34 @@ import (
 	"github.com/arana-db/arana/pkg/runtime/ast"
 
 	"github.com/arana-db/arana/pkg/runtime/plan"
+	"github.com/arana-db/arana/pkg/security"
 )
 
-var _ proto.Plan = (*ShowUsersFromTenantPlan)(nil)
+var _ proto.Plan = (*ShowUsers)(nil)
 
-type ShowUsersFromTenantPlan struct {
+type ShowUsers struct {
 	plan.BasePlan
-	Stmt *ast.ShowUsersFromTenant
+	Stmt *ast.ShowUsers
 	rule *rule.Rule
 }
 
-// New ShowUsersFromTenantPlan ...
-func NewShowUsersFromTenantPlan(stmt *ast.ShowUsersFromTenant) *ShowUsersFromTenantPlan {
-	return &ShowUsersFromTenantPlan{
+// New ShowUsers ...
+func NewShowUsers(stmt *ast.ShowUsers) *ShowUsers {
+	return &ShowUsers{
 		Stmt: stmt,
 	}
 }
 
-func (s *ShowUsersFromTenantPlan) Type() proto.PlanType {
+func (s * ShowUsers) Type() proto.PlanType {
 	return proto.PlanTypeQuery
 }
 
-func (s *ShowUsersFromTenantPlan) ExecIn(ctx context.Context, _ proto.VConn) (proto.Result, error) {
-	return nil, nil
+func (s * ShowUsers) ExecIn(ctx context.Context, _ proto.VConn) (proto.Result, error) {
+	tenantManager := security.DefaultTenantManager()
+	ueser,ok:=tenantManager.GetUsers()
+	return user, ok
 }
 
-func (st *ShowUsersFromTenantPlan) SetRule(rule *rule.Rule) {
+func (st * ShowUsers) SetRule(rule *rule.Rule) {
 	st.rule = rule
 }
