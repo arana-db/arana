@@ -28,38 +28,19 @@ import (
 var (
 	_ Restorer = (*TableSourceNode)(nil)
 	_ Node     = (*TableSourceNode)(nil)
+	_ Restorer = (*TableSourceItem)(nil)
 )
 
-type TableSourceNode struct {
-	source     interface{} // TableName or Statement or *JoinNode
+type TableSourceItem struct {
+	Source     Node // TableName,*SelectStatement,*UnionSelectStatement
 	Alias      string
 	Partitions []string
 	IndexHints []*IndexHint
 }
 
-func (t *TableSourceNode) Accept(visitor Visitor) (interface{}, error) {
-	return visitor.VisitTableSource(t)
-}
-
-func (t *TableSourceNode) ResetTableName(newTableName string) bool {
-	switch source := t.source.(type) {
+func (t *TableSourceItem) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	switch source := t.Source.(type) {
 	case TableName:
-		newSource := make(TableName, len(source))
-		copy(newSource, source)
-		newSource[len(newSource)-1] = newTableName
-		t.source = newSource
-		return true
-	}
-	return false
-}
-
-func (t *TableSourceNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
-	switch source := t.source.(type) {
-	case TableName:
-		if err := source.Restore(flag, sb, args); err != nil {
-			return errors.WithStack(err)
-		}
-	case *JoinNode:
 		if err := source.Restore(flag, sb, args); err != nil {
 			return errors.WithStack(err)
 		}
@@ -76,7 +57,7 @@ func (t *TableSourceNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[
 		}
 		sb.WriteByte(')')
 	default:
-		return errors.Errorf("unsupported table source %T!", source)
+		panic("unreachable")
 	}
 
 	if len(t.Partitions) > 0 {
@@ -111,27 +92,37 @@ func (t *TableSourceNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[
 	return nil
 }
 
-func (t *TableSourceNode) Source() interface{} {
-	return t.source
-}
-
-func (t *TableSourceNode) TableName() TableName {
-	tn, ok := t.source.(TableName)
-	if ok {
-		return tn
+func (t *TableSourceItem) ResetTableName(newTableName string) bool {
+	switch source := t.Source.(type) {
+	case TableName:
+		newSource := make(TableName, len(source))
+		copy(newSource, source)
+		newSource[len(newSource)-1] = newTableName
+		t.Source = newSource
+		return true
 	}
-	return nil
+	return false
 }
 
-func (t *TableSourceNode) Join() (*JoinNode, bool) {
-	jn, ok := t.source.(*JoinNode)
-	return jn, ok
+type TableSourceNode struct {
+	TableSourceItem
+	Joins []*JoinNode
 }
 
-func (t *TableSourceNode) SubQuery() Statement {
-	stmt, ok := t.source.(Statement)
-	if ok {
-		return stmt
+func (t *TableSourceNode) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitTableSource(t)
+}
+
+func (t *TableSourceNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	if err := t.TableSourceItem.Restore(flag, sb, args); err != nil {
+		return err
 	}
+
+	for _, next := range t.Joins {
+		if err := next.Restore(flag, sb, args); err != nil {
+			return errors.WithStack(err)
+		}
+	}
+
 	return nil
 }

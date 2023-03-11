@@ -89,17 +89,6 @@ func (ds *DeleteStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *
 	return nil
 }
 
-func (ds *DeleteStatement) CntParams() int {
-	var n int
-	if ds.Where != nil {
-		n += ds.Where.CntParams()
-	}
-	if limit := ds.Limit; limit != nil && limit.IsLimitVar() {
-		n++
-	}
-	return n
-}
-
 func (ds *DeleteStatement) Mode() SQLType {
 	return SQLTypeDelete
 }

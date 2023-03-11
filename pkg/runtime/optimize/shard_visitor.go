@@ -137,7 +137,7 @@ func (sd *ShardVisitor) VisitSelectStatement(node *ast.SelectStatement) (interfa
 	case 0:
 		return nil, nil
 	case 1:
-		return nil, sd.ForSingleSelect(node.From[0].TableName(), node.From[0].Alias, node.Where)
+		return nil, sd.ForSingleSelect(node.From[0].Source.(ast.TableName), node.From[0].Alias, node.Where)
 	default:
 		// TODO: need implementation multiple select from
 		panic("implement me: multiple select from")

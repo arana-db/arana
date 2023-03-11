@@ -35,10 +35,6 @@ func NewAnalyzeTableStatement() *AnalyzeTableStatement {
 	return &AnalyzeTableStatement{}
 }
 
-func (a *AnalyzeTableStatement) CntParams() int {
-	return 0
-}
-
 func (a *AnalyzeTableStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("ANALYZE TABLE ")
 	for index, table := range a.Tables {
