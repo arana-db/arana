@@ -34,6 +34,7 @@ import (
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
+	"github.com/arana-db/arana/pkg/runtime/misc/extvalue"
 	"github.com/arana-db/arana/pkg/runtime/optimize"
 	"github.com/arana-db/arana/pkg/runtime/optimize/dml/ext"
 	"github.com/arana-db/arana/pkg/runtime/plan/dml"
@@ -51,6 +52,62 @@ func init() {
 
 func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error) {
 	stmt := o.Stmt.(*ast.SelectStatement)
+	enableLocalMathComputation := ctx.Value(proto.ContextKeyEnableLocalComputation{}).(bool)
+	if enableLocalMathComputation && len(stmt.From) == 0 {
+		isLocalFlag := true
+		var columnList []string
+		var valueList []proto.Value
+		for i := range stmt.Select {
+			switch selectItem := stmt.Select[i].(type) {
+			case *ast.SelectElementExpr:
+				var nodeInner *ast.PredicateExpressionNode
+				calculateNode := selectItem.Expression()
+				if _, ok := calculateNode.(*ast.PredicateExpressionNode); ok {
+					nodeInner = calculateNode.(*ast.PredicateExpressionNode)
+				} else {
+					isLocalFlag = false
+					break
+				}
+				calculateRes, errtmp := extvalue.Compute(ctx, nodeInner.P)
+				if errtmp != nil {
+					isLocalFlag = false
+					break
+				}
+
+				valueList = append(valueList, calculateRes)
+				columnList = append(columnList, stmt.Select[i].DisplayName())
+			case *ast.SelectElementFunction:
+				var nodeF ast.Node
+				calculateNode := selectItem.Function()
+				if _, ok := calculateNode.(*ast.Function); ok {
+					nodeF = calculateNode.(*ast.Function)
+				} else {
+					isLocalFlag = false
+					break
+				}
+				calculateRes, errTmp := extvalue.Compute(ctx, nodeF)
+				if errTmp != nil {
+					isLocalFlag = false
+					break
+				}
+				valueList = append(valueList, calculateRes)
+				columnList = append(columnList, stmt.Select[i].DisplayName())
+
+			}
+		}
+		if isLocalFlag {
+
+			ret := &dml.LocalSelectPlan{
+				Stmt:       stmt,
+				Result:     valueList,
+				ColumnList: columnList,
+			}
+			ret.BindArgs(o.Args)
+
+			return ret, nil
+		}
+
+	}
 
 	// overwrite stmt limit x offset y. eg `select * from student offset 100 limit 5` will be
 	// `select * from student offset 0 limit 100+5`
@@ -65,11 +122,12 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 
 	if flag&_bypass != 0 {
 		if len(stmt.From) > 0 {
-			err := rewriteSelectStatement(ctx, stmt, stmt.From[0].TableName().Suffix())
+			err := rewriteSelectStatement(ctx, stmt, stmt.From[0].Source.(ast.TableName).Suffix())
 			if err != nil {
 				return nil, err
 			}
 		}
+
 		ret := &dml.SimpleQueryPlan{Stmt: stmt}
 		ret.BindArgs(o.Args)
 
@@ -90,8 +148,8 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		shards    rule.DatabaseTables
 		fullScan  bool
 		err       error
-		vt        = o.Rule.MustVTable(stmt.From[0].TableName().Suffix())
-		tableName = stmt.From[0].TableName()
+		tableName = stmt.From[0].Source.(ast.TableName)
+		vt        = o.Rule.MustVTable(tableName.Suffix())
 	)
 	if len(o.Hints) > 0 {
 		if shards, err = optimize.Hints(tableName, o.Hints, o.Rule); err != nil {
@@ -144,7 +202,7 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 			ok        bool
 		)
 		if db0, tbl0, ok = vt.Topology().Render(0, 0); !ok {
-			return nil, errors.Errorf("cannot compute minimal topology from '%s'", stmt.From[0].TableName().Suffix())
+			return nil, errors.Errorf("cannot compute minimal topology from '%s'", stmt.From[0].Source.(ast.TableName).Suffix())
 		}
 
 		return toSingle(db0, tbl0)
@@ -354,12 +412,11 @@ func handleGroupBy(parentPlan proto.Plan, stmt *ast.SelectStatement) (proto.Plan
 	return groupPlan, nil
 }
 
-// optimizeJoin ony support  a join b in one db
+// optimizeJoin ony support  a join b in one db.
+// DEPRECATED: reimplement in the future
 func optimizeJoin(ctx context.Context, o *optimize.Optimizer, stmt *ast.SelectStatement) (proto.Plan, error) {
-	join := stmt.From[0].Source().(*ast.JoinNode)
-
-	compute := func(tableSource *ast.TableSourceNode) (database string, shardsMap map[string][]string, alias string, err error) {
-		table := tableSource.TableName()
+	compute := func(tableSource *ast.TableSourceItem) (database, alias string, shardList []string, err error) {
+		table := tableSource.Source.(ast.TableName)
 		if table == nil {
 			err = errors.New("must table, not statement or join node")
 			return
@@ -388,32 +445,39 @@ func optimizeJoin(ctx context.Context, o *optimize.Optimizer, stmt *ast.SelectSt
 		return
 	}
 
-	dbLeft, shardsLeft, aliasLeft, err := compute(join.Left)
+	//dbLeft, shardsLeft, aliasLeft, err := compute(join.Left)
+	from := stmt.From[0]
+
+	dbLeft, aliasLeft, shardLeft, err := compute(&from.TableSourceItem)
 	if err != nil {
 		return nil, err
 	}
-	dbRight, shardsRight, aliasRight, err := compute(join.Right)
+	//dbRight, shardsRight, aliasRight, err := compute(join.Right)
+	dbRight, aliasRight, shardRight, err := compute(from.Joins[0].Target)
 	if err != nil {
 		return nil, err
 	}
 
-	// one db
-	if dbLeft == dbRight && len(shardsLeft) == 1 && len(shardsRight) == 1 {
-		joinPan := &dml.SimpleJoinPlan{
-			Left: &dml.JoinTable{
-				Tables: shardsLeft[dbLeft],
-				Alias:  aliasLeft,
-			},
-			Join: join,
-			Right: &dml.JoinTable{
-				Tables: shardsRight[dbRight],
-				Alias:  aliasRight,
-			},
-			Stmt: o.Stmt.(*ast.SelectStatement),
-		}
-		joinPan.BindArgs(o.Args)
-		return joinPan, nil
+	if dbLeft != "" && dbRight != "" && dbLeft != dbRight {
+		return nil, errors.New("not support more than one db")
 	}
+
+	joinPan := &dml.SimpleJoinPlan{
+		Left: &dml.JoinTable{
+			Tables: shardLeft,
+			Alias:  aliasLeft,
+		},
+		Join: from.Joins[0],
+		Right: &dml.JoinTable{
+			Tables: shardRight,
+			Alias:  aliasRight,
+		},
+		Stmt: o.Stmt.(*ast.SelectStatement),
+	}
+	joinPan.BindArgs(o.Args)
+
+	return joinPan, nil
+}
 
 	// multiple shards & hash join
 	hashJoinPlan := &dml.HashJoinPlan{
@@ -472,7 +536,7 @@ func getSelectFlag(ru *rule.Rule, stmt *ast.SelectStatement) (flag uint32) {
 	switch len(stmt.From) {
 	case 1:
 		from := stmt.From[0]
-		tn := from.TableName()
+		tn := from.Source.(ast.TableName)
 
 		if tn == nil { // only FROM table supported now
 			return
@@ -568,7 +632,7 @@ func rewriteSelectStatement(ctx context.Context, stmt *ast.SelectStatement, tb s
 	}
 
 	if len(tb) < 1 {
-		tb = stmt.From[0].TableName().Suffix()
+		tb = stmt.From[0].Source.(ast.TableName).Suffix()
 	}
 	metadatas, err := proto.LoadSchemaLoader().Load(ctx, rcontext.Schema(ctx), []string{tb})
 	if err != nil {

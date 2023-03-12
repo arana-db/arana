@@ -79,10 +79,6 @@ func (bs *baseShow) Where() (ExpressionNode, bool) {
 	return v, ok
 }
 
-func (bs *baseShow) CntParams() int {
-	return 0
-}
-
 type ShowDatabases struct {
 	*baseShow
 }
@@ -117,18 +113,26 @@ func (s ShowCollation) Restore(flag RestoreFlag, sb *strings.Builder, args *[]in
 
 type ShowTables struct {
 	*baseShow
+	like sql.NullString
 }
 
-func (s ShowTables) Mode() SQLType {
+func (st *ShowTables) Mode() SQLType {
 	return SQLTypeShowTables
 }
 
-func (s ShowTables) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+func (st *ShowTables) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("SHOW TABLES")
-	if err := s.baseShow.Restore(flag, sb, args); err != nil {
+	if err := st.baseShow.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
 	return nil
+}
+
+func (st *ShowTables) Like() (string, bool) {
+	if st.like.Valid {
+		return st.like.String, true
+	}
+	return "", false
 }
 
 type ShowTopology struct {
@@ -212,10 +216,6 @@ func (s *ShowCreate) Target() string {
 	return s.tgt
 }
 
-func (s *ShowCreate) CntParams() int {
-	return 0
-}
-
 func (s *ShowCreate) Mode() SQLType {
 	return SQLTypeShowCreate
 }
@@ -245,13 +245,6 @@ func (s *ShowIndex) Where() (ExpressionNode, bool) {
 		return s.where, true
 	}
 	return nil, false
-}
-
-func (s *ShowIndex) CntParams() int {
-	if s.where == nil {
-		return 0
-	}
-	return s.where.CntParams()
 }
 
 func (s *ShowIndex) Mode() SQLType {
@@ -319,10 +312,6 @@ func (sh *ShowColumns) Table() TableName {
 	return sh.TableName
 }
 
-func (sh *ShowColumns) CntParams() int {
-	return 0
-}
-
 func (sh *ShowColumns) Mode() SQLType {
 	return SQLTypeShowColumns
 }
@@ -373,10 +362,6 @@ func (s *ShowVariables) Like() (string, bool) {
 		return s.like.String, true
 	}
 	return "", false
-}
-
-func (s *ShowVariables) CntParams() int {
-	return 0
 }
 
 func (s *ShowVariables) Mode() SQLType {

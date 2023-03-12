@@ -43,7 +43,6 @@ type predicateNodePhantom struct{}
 type PredicateNode interface {
 	Node
 	Restorer
-	paramsCounter
 	phantom() predicateNodePhantom
 }
 
@@ -78,10 +77,6 @@ func (l *LikePredicateNode) Restore(flag RestoreFlag, sb *strings.Builder, args 
 	return nil
 }
 
-func (l *LikePredicateNode) CntParams() int {
-	return l.Left.CntParams() + l.Right.CntParams()
-}
-
 func (l *LikePredicateNode) phantom() predicateNodePhantom {
 	return predicateNodePhantom{}
 }
@@ -114,10 +109,6 @@ func (rp *RegexpPredicationNode) Restore(flag RestoreFlag, sb *strings.Builder, 
 
 func (rp *RegexpPredicationNode) phantom() predicateNodePhantom {
 	return predicateNodePhantom{}
-}
-
-func (rp *RegexpPredicationNode) CntParams() int {
-	return rp.Left.CntParams() + rp.Right.CntParams()
 }
 
 type BinaryComparisonPredicateNode struct {
@@ -163,10 +154,6 @@ func (b *BinaryComparisonPredicateNode) Restore(flag RestoreFlag, sb *strings.Bu
 	return nil
 }
 
-func (b *BinaryComparisonPredicateNode) CntParams() int {
-	return b.Left.CntParams() + b.Right.CntParams()
-}
-
 func (b *BinaryComparisonPredicateNode) phantom() predicateNodePhantom {
 	return predicateNodePhantom{}
 }
@@ -192,10 +179,6 @@ func (a *AtomPredicateNode) Restore(flag RestoreFlag, sb *strings.Builder, args 
 		return errors.WithStack(err)
 	}
 	return nil
-}
-
-func (a *AtomPredicateNode) CntParams() int {
-	return a.A.CntParams()
 }
 
 func (a *AtomPredicateNode) phantom() predicateNodePhantom {
@@ -233,10 +216,6 @@ func (b *BetweenPredicateNode) Restore(flag RestoreFlag, sb *strings.Builder, ar
 	}
 
 	return nil
-}
-
-func (b *BetweenPredicateNode) CntParams() int {
-	return b.Key.CntParams() + b.Left.CntParams() + b.Right.CntParams()
 }
 
 func (b *BetweenPredicateNode) phantom() predicateNodePhantom {
@@ -280,14 +259,6 @@ func (ip *InPredicateNode) Restore(flag RestoreFlag, sb *strings.Builder, args *
 	sb.WriteByte(')')
 
 	return nil
-}
-
-func (ip *InPredicateNode) CntParams() (n int) {
-	n += ip.P.CntParams()
-	for _, it := range ip.E {
-		n += it.CntParams()
-	}
-	return
 }
 
 func (ip *InPredicateNode) phantom() predicateNodePhantom {

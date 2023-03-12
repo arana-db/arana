@@ -22,6 +22,10 @@ import (
 )
 
 import (
+	"github.com/google/uuid"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/util/net"
 )
 
@@ -30,16 +34,21 @@ const (
 	PodName     = "POD_NAME"
 )
 
-func GetNodeIdentity() (string, error) {
+func GetNodeIdentity() string {
 	nodeId := os.Getenv(AranaNodeId)
 	if len(nodeId) != 0 {
-		return nodeId, nil
+		return nodeId
 	}
 
 	podName := os.Getenv(PodName)
 	if len(podName) != 0 {
-		return podName, nil
+		return podName
 	}
 
-	return net.FindSelfIP()
+	ip, err := net.FindSelfIP()
+	if err == nil {
+		return ip
+	}
+
+	return uuid.NewString()
 }

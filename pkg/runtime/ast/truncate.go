@@ -53,10 +53,6 @@ func (stmt *TruncateStatement) Restore(flag RestoreFlag, sb *strings.Builder, ar
 	return nil
 }
 
-func (stmt *TruncateStatement) CntParams() int {
-	return 0
-}
-
 func (stmt *TruncateStatement) Mode() SQLType {
 	return SQLTypeTruncate
 }

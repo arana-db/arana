@@ -123,14 +123,6 @@ func (f *Function) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) e
 	return nil
 }
 
-func (f *Function) CntParams() int {
-	var n int
-	for _, it := range f.args {
-		n += it.CntParams()
-	}
-	return n
-}
-
 type FunctionArg struct {
 	Type  FunctionArgType
 	Value interface{}
@@ -166,14 +158,6 @@ func (f *FunctionArg) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int
 	}
 
 	return nil
-}
-
-func (f *FunctionArg) CntParams() int {
-	c, ok := f.Value.(paramsCounter)
-	if ok {
-		return c.CntParams()
-	}
-	return 0
 }
 
 const (
@@ -320,20 +304,6 @@ func (c *CaseWhenElseFunction) Restore(flag RestoreFlag, sb *strings.Builder, ar
 	return nil
 }
 
-func (c *CaseWhenElseFunction) CntParams() (n int) {
-	if c.CaseBlock != nil {
-		n += c.CaseBlock.CntParams()
-	}
-	for _, it := range c.BranchBlocks {
-		n += it.When.CntParams()
-		n += it.Then.CntParams()
-	}
-	if c.ElseBlock != nil {
-		n += c.ElseBlock.CntParams()
-	}
-	return
-}
-
 type CastFunction struct {
 	isCast bool
 	src    ExpressionNode
@@ -388,10 +358,6 @@ func (c *CastFunction) Restore(flag RestoreFlag, sb *strings.Builder, args *[]in
 	sb.WriteByte(')')
 
 	return nil
-}
-
-func (c *CastFunction) CntParams() int {
-	return c.src.CntParams()
 }
 
 const (

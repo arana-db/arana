@@ -44,7 +44,10 @@ func TestRegister(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	const name = "employees"
+	const (
+		tenant = "fakeTenant"
+		name   = "employees"
+	)
 
 	getDB := func(i int) proto.DB {
 		db := testdata.NewMockDB(ctrl)
@@ -56,15 +59,15 @@ func TestRegister(t *testing.T) {
 
 	ns, err := New(name, UpsertDB(getGroup(0), getDB(1)))
 	assert.NoError(t, err, "should new namespace ok")
-	err = Register(ns)
+	err = Register(tenant, ns)
 	assert.NoError(t, err, "should register namespace ok")
 
 	defer func() {
-		err := Unregister(name)
+		err := Unregister(tenant, name)
 		assert.NoError(t, err, "should unregister ok")
 	}()
 
-	ns = Load(name)
+	ns = Load(tenant, name)
 	assert.NotNil(t, ns, "should load namespace")
 
 	db := ns.DB(context.Background(), getGroup(0))
@@ -88,7 +91,8 @@ func TestGetDBByWeight(t *testing.T) {
 	defer ctrl.Finish()
 
 	const (
-		name = "account"
+		tenant = "fakeTenant"
+		name   = "account"
 	)
 	// params w: write weight of the db, r: read weight of the db
 	getDB := func(i int, w, r int32) proto.DB {
@@ -106,14 +110,14 @@ func TestGetDBByWeight(t *testing.T) {
 		UpsertDB(getGroup(0), getDB(3, 3, 10)),
 	)
 	assert.NoError(t, err, "should new namespace ok")
-	err = Register(ns)
+	err = Register(tenant, ns)
 	assert.NoError(t, err, "should register namespace ok")
 	defer func() {
-		err := Unregister(name)
+		err := Unregister(tenant, name)
 		assert.NoError(t, err, "should unregister ok")
 	}()
 	time.Sleep(5 * time.Millisecond)
-	ns = Load(name)
+	ns = Load(tenant, name)
 	assert.NotNil(t, ns, "should load namespace")
 	ctx := rcontext.WithRead(context.Background())
 	assert.NotNil(t, ns.DB(ctx, getGroup(0)))

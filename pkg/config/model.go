@@ -47,11 +47,12 @@ type (
 	}
 
 	Spec struct {
-		Kind        string                 `yaml:"kind" json:"kind,omitempty"`
-		APIVersion  string                 `yaml:"apiVersion" json:"apiVersion,omitempty"`
-		LogPath     string                 `yaml:"log_path" json:"log_path,omitempty"`
-		SlowLogPath string                 `yaml:"slow_log_path" json:"slow_log_path,omitempty"`
-		Metadata    map[string]interface{} `yaml:"metadata" json:"metadata"`
+		Kind                       string                 `yaml:"kind" json:"kind,omitempty"`
+		APIVersion                 string                 `yaml:"apiVersion" json:"apiVersion,omitempty"`
+		LogPath                    string                 `yaml:"log_path" json:"log_path,omitempty"`
+		SlowLogPath                string                 `yaml:"slow_log_path" json:"slow_log_path,omitempty"`
+		EnableLocalMathComputation bool                   `yaml:"enable_local_math_computation" json:"enable_local_math_computation,omitempty"`
+		Metadata                   map[string]interface{} `yaml:"metadata" json:"metadata"`
 	}
 
 	// SocketAddress specify either a logical or physical address and port, which are
@@ -101,6 +102,7 @@ type (
 		Spec
 		Name               string               `validate:"required" yaml:"name" json:"name"`
 		Users              []*User              `validate:"required" yaml:"users" json:"users"`
+		SysDB              *Node                `validate:"required" yaml:"sys_db" json:"sys_db"`
 		DataSourceClusters []*DataSourceCluster `validate:"required,dive" yaml:"clusters" json:"clusters"`
 		ShardingRule       *ShardingRule        `validate:"required,dive" yaml:"sharding_rule,omitempty" json:"sharding_rule,omitempty"`
 		ShadowRule         *ShadowRule          `yaml:"shadow_rule,omitempty" json:"shadow_rule,omitempty"`

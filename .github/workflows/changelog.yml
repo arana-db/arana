@@ -19,7 +19,7 @@
 
 name: Changelog
 on:
-  releases:
+  release:
     types:
       - created
 jobs:

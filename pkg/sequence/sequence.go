@@ -25,6 +25,7 @@ import (
 import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime"
+	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
@@ -127,7 +128,7 @@ func (m *sequenceManager) CreateSequence(ctx context.Context, tenant, schema str
 	}
 
 	if err := sbucket.createIfAbsent(conf.Name, func() (proto.EnhancedSequence, error) {
-		rt, err := runtime.Load(schema)
+		rt, err := runtime.Load(rcontext.Tenant(ctx), schema)
 		if err != nil {
 			log.Errorf("[sequence] load runtime.Runtime from schema=%s fail, %s", schema, err.Error())
 			return nil, err

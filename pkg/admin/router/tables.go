@@ -32,12 +32,43 @@ import (
 
 func init() {
 	admin.Register(func(router admin.Router) {
+		router.GET("/tables", ListAllTables)
 		router.GET("/tenants/:tenant/clusters/:cluster/tables", ListTables)
 		router.POST("/tenants/:tenant/clusters/:cluster/tables", CreateTable)
 		router.GET("/tenants/:tenant/clusters/:cluster/tables/:table", GetTable)
 		router.PUT("/tenants/:tenant/clusters/:cluster/tables/:table", UpsertTable)
 		router.DELETE("/tenants/:tenant/clusters/:cluster/tables/:table", RemoveTable)
 	})
+}
+
+func ListAllTables(c *gin.Context) error {
+	var (
+		result = make([]*admin.TableDTO, 0)
+	)
+	service := admin.GetService(c)
+
+	tenants, err := service.ListTenants(c)
+	if err != nil {
+		return err
+	}
+
+	for _, tenant := range tenants {
+		tName := tenant.Name
+		clusters, err := service.ListClusters(c, tName)
+		if err != nil {
+			return err
+		}
+		for _, cluster := range clusters {
+			tables, err := service.ListTables(c, tName, cluster.Name)
+			if err != nil {
+				return err
+			}
+			result = append(result, tables...)
+		}
+	}
+
+	c.JSON(http.StatusOK, result)
+	return nil
 }
 
 func ListTables(c *gin.Context) error {

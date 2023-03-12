@@ -27,10 +27,6 @@ type KillStmt struct {
 	ConnectionID uint64
 }
 
-func (k *KillStmt) CntParams() int {
-	return 1
-}
-
 func (k *KillStmt) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("KILL ")
 	if k.Query {

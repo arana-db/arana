@@ -40,6 +40,7 @@ import (
 	rrule "github.com/arana-db/arana/pkg/runtime/rule"
 	"github.com/arana-db/arana/pkg/security"
 	"github.com/arana-db/arana/pkg/trace"
+	uconfig "github.com/arana-db/arana/pkg/util/config"
 	"github.com/arana-db/arana/pkg/util/log"
 	"github.com/arana-db/arana/pkg/util/misc"
 )
@@ -88,6 +89,7 @@ func (fp *discovery) Init(ctx context.Context) error {
 	}
 
 	cfg, err := config.LoadBootOptions(fp.path)
+	uconfig.IsEnableLocalMathCompu(cfg.Spec.EnableLocalMathComputation)
 	if err != nil {
 		return err
 	}
@@ -122,6 +124,7 @@ func (fp *discovery) InitTenant(tenant string) error {
 		config.WithWatcher(true),
 		config.WithWriter(true),
 	)
+
 	return err
 }
 
@@ -268,10 +271,8 @@ func (fp *discovery) ListNodes(ctx context.Context, tenant, cluster, group strin
 		return nil, nil
 	}
 
-	var nodes []string
-	for i := range bingo.Nodes {
-		nodes = append(nodes, bingo.Nodes[i])
-	}
+	nodes := make([]string, len(bingo.Nodes))
+	copy(nodes, bingo.Nodes)
 
 	return nodes, nil
 }
@@ -335,6 +336,20 @@ func (fp *discovery) GetNode(ctx context.Context, tenant, cluster, group, node s
 	}
 
 	return nodes[nodeId], nil
+}
+
+func (fp *discovery) GetSysDB(ctx context.Context, tenant string) (*config.Node, error) {
+	op, ok := fp.centers[tenant]
+	if !ok {
+		return nil, ErrorNoTenant
+	}
+
+	cfg, err := op.LoadAll(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	return cfg.SysDB, nil
 }
 
 func (fp *discovery) GetTable(ctx context.Context, tenant, cluster, tableName string) (*rule.VTable, error) {

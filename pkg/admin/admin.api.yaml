@@ -355,6 +355,17 @@ paths:
       responses:
         '204':
           description: NONE
+  /tables:
+    get:
+      operationId: listAllTables
+      summary: List all tables
+      responses:
+        '200':
+          description: All Tables
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tables'
   /tenants/{tenantName}/clusters/{clusterName}/tables:
     parameters:
       - in: path
@@ -371,7 +382,7 @@ paths:
         description: the name of cluster
     get:
       operationId: listTables
-      summary: List all tables
+      summary: List all tables under the give tenant and cluster
       responses:
         '200':
           description: All Tables
@@ -437,6 +448,18 @@ paths:
       responses:
         '204':
           description: NONE
+  /services:
+    get:
+      operationId: listServices
+      summary: List all services
+      responses:
+        '200':
+          description: All Service instances
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Services'
+
 components:
   schemas:
     User:
@@ -577,3 +600,23 @@ components:
       type: array
       items:
         $ref: '#/components/schemas/Cluster'
+    Service:
+      type: object
+      required:
+        - id
+        - name
+        - version
+        - endpoints
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        version:
+          type: string
+        endpoints:
+          type: object
+    Services:
+      type: array
+      items:
+        $ref: '#/components/schemas/Service'

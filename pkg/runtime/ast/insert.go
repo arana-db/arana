@@ -35,7 +35,6 @@ const (
 
 type BaseInsertStatement interface {
 	Statement
-	paramsCounter
 	IsSetSyntax() bool
 	IsIgnore() bool
 	Priority() (string, bool)
@@ -121,18 +120,6 @@ func (r *ReplaceStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *
 
 func (r *ReplaceStatement) Mode() SQLType {
 	return SQLTypeReplace
-}
-
-func (r *ReplaceStatement) CntParams() int {
-	var n int
-	for _, row := range r.Values {
-		for _, col := range row {
-			if col != nil {
-				n += col.CntParams()
-			}
-		}
-	}
-	return n
 }
 
 // InsertStatement represents mysql insert statement. see https://dev.mysql.com/doc/refman/8.0/en/insert.html
@@ -261,23 +248,6 @@ func (is *InsertStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *
 	return nil
 }
 
-func (is *InsertStatement) CntParams() int {
-	var n int
-	for _, row := range is.Values {
-		for _, col := range row {
-			if col != nil {
-				n += col.CntParams()
-			}
-		}
-	}
-
-	for _, dup := range is.DuplicatedUpdates {
-		n += dup.CntParams()
-	}
-
-	return n
-}
-
 func (is *InsertStatement) Mode() SQLType {
 	return SQLTypeInsert
 }
@@ -290,10 +260,6 @@ type ReplaceSelectStatement struct {
 func (r *ReplaceSelectStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	// TODO implement me
 	panic("implement me")
-}
-
-func (r *ReplaceSelectStatement) CntParams() int {
-	return r.Select.CntParams()
 }
 
 func (r *ReplaceSelectStatement) Mode() SQLType {
@@ -372,13 +338,6 @@ func (is *InsertSelectStatement) Restore(flag RestoreFlag, sb *strings.Builder, 
 
 func (is *InsertSelectStatement) Select() *SelectStatement {
 	return is.sel
-}
-
-func (is *InsertSelectStatement) CntParams() int {
-	if is.unionSel != nil {
-		return is.unionSel.CntParams()
-	}
-	return is.sel.CntParams()
 }
 
 func (is *InsertSelectStatement) Mode() SQLType {

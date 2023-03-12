@@ -137,7 +137,7 @@ func (sd *ShardVisitor) VisitSelectStatement(node *ast.SelectStatement) (interfa
 	case 0:
 		return nil, nil
 	case 1:
-		return nil, sd.ForSingleSelect(node.From[0].TableName(), node.From[0].Alias, node.Where)
+		return nil, sd.ForSingleSelect(node.From[0].Source.(ast.TableName), node.From[0].Alias, node.Where)
 	default:
 		// TODO: need implementation multiple select from
 		panic("implement me: multiple select from")
@@ -177,7 +177,15 @@ func (sd *ShardVisitor) VisitNotExpression(node *ast.NotExpressionNode) (interfa
 func (sd *ShardVisitor) VisitPredicateExpression(node *ast.PredicateExpressionNode) (interface{}, error) {
 	return node.P.Accept(sd)
 }
-
+func (sd *ShardVisitor) VisitSelectElementExpr(node *ast.SelectElementExpr) (interface{}, error) {
+	switch inner := node.Expression().(type) {
+	case *ast.PredicateExpressionNode:
+		return sd.VisitPredicateExpression(inner)
+	case *ast.LogicalExpressionNode:
+		return sd.VisitLogicalExpression(inner)
+	}
+	return node.Expression().Accept(sd)
+}
 func (sd *ShardVisitor) VisitPredicateAtom(node *ast.AtomPredicateNode) (interface{}, error) {
 	return node.A.Accept(sd)
 }
