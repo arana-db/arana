@@ -55,6 +55,7 @@ import (
 var (
 	errMissingTx          = stdErrors.New("no transaction found")
 	errNoDatabaseSelected = mysqlErrors.NewSQLError(mConstants.ERNoDb, mConstants.SSNoDatabaseSelected, "No database selected")
+	errEmptyQuery         = mysqlErrors.NewSQLError(mConstants.EREmptyQuery, mConstants.SS42000, "Query was empty")
 )
 
 var (
@@ -305,7 +306,12 @@ func (executor *RedirectExecutor) doExecutorComQuery(ctx *proto.Context, act ast
 func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context, h func(result proto.Result, warns uint16, failure error) error) error {
 	p := parser.New()
 	query := ctx.GetQuery()
-	log.Debugf("ComQuery: %s", query)
+
+	if len(query) < 1 {
+		return h(nil, 0, errEmptyQuery)
+	}
+
+	log.Debugf("ComQuery: '%s'", query)
 
 	charset, collation := getCharsetCollation(ctx.C.CharacterSet())
 
