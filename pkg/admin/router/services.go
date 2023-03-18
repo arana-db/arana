@@ -30,7 +30,7 @@ import (
 )
 
 func init() {
-	admin.Register(func(router admin.Router) {
+	admin.Register(func(router admin.Router, openRouter admin.Router) {
 		router.GET("/services", GetServices)
 	})
 }
