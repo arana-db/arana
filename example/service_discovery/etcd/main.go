@@ -31,9 +31,10 @@ import (
 func main() {
 	storeType := base.ETCD
 	basePath := "arana"
-	storeAddrs := []string{"http://127.0.0.1:2379"}
+	options := make(map[string]interface{})
+	options["endpoints"] = "http://127.0.0.1:2379"
 
-	etcdDiscovery, err := registry.InitDiscovery(storeType, basePath, "service", storeAddrs)
+	etcdDiscovery, err := registry.InitDiscovery(storeType, basePath, "service", options)
 	if err != nil {
 		log.Fatalf("Init %s discovery err:%v", storeType, err)
 		return

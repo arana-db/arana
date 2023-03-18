@@ -107,7 +107,7 @@ func (s *SimpleJoinPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Re
 func (s *SimpleJoinPlan) generateSelect(sb *strings.Builder, args *[]int) error {
 	sb.WriteString("SELECT ")
 
-	if s.Stmt.IsDistinct() {
+	if s.Stmt.Distinct {
 		sb.WriteString(ast.Distinct)
 		sb.WriteString(" ")
 	}

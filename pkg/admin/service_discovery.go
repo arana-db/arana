@@ -15,19 +15,35 @@
  * limitations under the License.
  */
 
-package mysql
+package admin
 
 import (
-	"context"
+	"github.com/arana-db/arana/pkg/config"
+	"github.com/arana-db/arana/pkg/registry/base"
 )
 
-// Context
-type Context struct {
-	context.Context
+type ServiceDiscovery interface {
+	ListServices() []*ServiceInstanceDTO
+}
 
-	Conn *Conn
+type myServiceDiscovery struct {
+	serviceDiscovery base.Discovery
+}
 
-	CommandType byte
-	// sql Data
-	Data []byte
+func (mysds *myServiceDiscovery) ListServices() []*ServiceInstanceDTO {
+	var (
+		services = mysds.serviceDiscovery.GetServices()
+		srvDTOs  = make([]*ServiceInstanceDTO, 0, len(services))
+	)
+	for _, srv := range services {
+		endpoints := make([]*config.Listener, len(srv.Endpoints))
+		copy(endpoints, srv.Endpoints)
+		srvDTOs = append(srvDTOs, &ServiceInstanceDTO{
+			ID:        srv.ID,
+			Name:      srv.Name,
+			Version:   srv.Version,
+			Endpoints: endpoints,
+		})
+	}
+	return srvDTOs
 }

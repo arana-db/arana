@@ -28,10 +28,6 @@ type DropTriggerStatement struct {
 	Table    TableName
 }
 
-func (d DropTriggerStatement) CntParams() int {
-	return 0
-}
-
 func (d DropTriggerStatement) Mode() SQLType {
 	return SQLTypeDropTrigger
 }

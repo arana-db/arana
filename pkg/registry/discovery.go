@@ -31,12 +31,12 @@ import (
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
-func InitDiscovery(storeType string, basePath string, servicePath string, storeAddrs []string) (base.Discovery, error) {
+func InitDiscovery(storeType string, basePath string, servicePath string, options map[string]interface{}) (base.Discovery, error) {
 	var serviceDiscovery base.Discovery
 	var err error
 	switch storeType {
 	case base.ETCD:
-		serviceDiscovery, err = initEtcdDiscovery(basePath, servicePath, storeAddrs)
+		serviceDiscovery, err = initEtcdDiscovery(basePath, servicePath, []string{options["endpoints"].(string)})
 	case base.NACOS:
 	default:
 		err = errors.Errorf("Service registry not support store:%s", storeType)

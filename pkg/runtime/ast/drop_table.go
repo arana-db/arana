@@ -46,10 +46,6 @@ func (d DropTableStatement) Restore(flag RestoreFlag, sb *strings.Builder, args 
 	return nil
 }
 
-func (d DropTableStatement) CntParams() int {
-	return 0
-}
-
 func (d DropTableStatement) Mode() SQLType {
 	return SQLTypeDropTable
 }

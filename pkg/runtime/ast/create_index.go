@@ -114,10 +114,6 @@ type CreateIndexStatement struct {
 	LockAlg     *IndexLockAndAlgorithm
 }
 
-func (c *CreateIndexStatement) CntParams() int {
-	return 0
-}
-
 func (c *CreateIndexStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("CREATE ")
 

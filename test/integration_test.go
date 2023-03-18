@@ -948,6 +948,28 @@ func (s *IntegrationSuite) TestShowTableStatus() {
 	}
 }
 
+func (s *IntegrationSuite) TestShowTables() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql string
+	}
+
+	for _, it := range [...]tt{
+		{"SHOW TABLES"},
+		{"SHOW TABLES LIKE '%stu%'"},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			rows, err := db.Query(it.sql)
+			assert.NoError(t, err)
+			defer rows.Close()
+		})
+	}
+}
+
 func (s *IntegrationSuite) TestShowCharacterSet() {
 	var (
 		db = s.DB()
@@ -1066,6 +1088,29 @@ func (s *IntegrationSuite) TestOptimizeTable() {
 	}
 }
 
+// TestRenameTable
+func (s *IntegrationSuite) TestRenameTable() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql string
+	}
+
+	for _, it := range [...]tt{
+		{"RENAME TABLE student TO student_new"},
+		{"RENAME TABLE student TO student_new, employees TO employees_new"},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			rows, err := db.Query(it.sql)
+			assert.NoError(t, err)
+			defer rows.Close()
+		})
+	}
+}
+
 func (s *IntegrationSuite) TestCompat80() {
 	var (
 		db = s.DB()
@@ -1134,4 +1179,26 @@ func (s *IntegrationSuite) TestKill() {
 	// 2. kill the last process
 	_, err = db.Query(fmt.Sprintf("KILL %s", data[row-1][0]))
 	assert.NoError(t, err)
+}
+func (s *IntegrationSuite) TestOptimizeLocalCompute() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql string
+	}
+
+	for _, it := range [...]tt{
+		{"SELECT 1+1;"},
+		{"SELECT ABS(-1)+1;"},
+		{"SELECT ABS(-1)+RAND()+1,1;"},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			rows, err := db.Query(it.sql)
+			assert.NoError(t, err)
+			defer rows.Close()
+		})
+	}
 }

@@ -28,6 +28,10 @@ import (
 
 type TableName []string
 
+func (t TableName) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitTableName(t)
+}
+
 func (t TableName) ResetSuffix(suffix string) TableName {
 	if t == nil {
 		return nil
@@ -67,6 +71,16 @@ func (t TableName) Prefix() (prefix string) {
 
 func (t TableName) Suffix() string {
 	return t[len(t)-1]
+}
+
+// TableToTable represents renaming old table to new table used in RenameTableStmt.
+type TableToTable struct {
+	OldTable *TableName
+	NewTable *TableName
+}
+
+func (t TableToTable) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	return errors.Errorf("unimplement: tableToTable restore!")
 }
 
 const (
@@ -349,13 +363,6 @@ func (u *UpdateElement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]i
 	return nil
 }
 
-func (u *UpdateElement) CntParams() int {
-	if u.Value == nil {
-		return 0
-	}
-	return u.Value.CntParams()
-}
-
 type ColumnOptionType uint8
 
 const (
@@ -416,10 +423,6 @@ func (c *ColumnOption) Restore(flag RestoreFlag, sb *strings.Builder, args *[]in
 	return nil
 }
 
-func (c *ColumnOption) CntParams() int {
-	return 0
-}
-
 type ColumnDefine struct {
 	Column  ColumnNameExpressionAtom
 	Tp      string
@@ -440,10 +443,6 @@ func (c *ColumnDefine) Restore(flag RestoreFlag, sb *strings.Builder, args *[]in
 		}
 	}
 	return nil
-}
-
-func (c *ColumnDefine) CntParams() int {
-	return 0
 }
 
 type ColumnPositionType uint8
@@ -474,10 +473,6 @@ func (c *ColumnPosition) Restore(flag RestoreFlag, sb *strings.Builder, args *[]
 	return nil
 }
 
-func (c *ColumnPosition) CntParams() int {
-	return 0
-}
-
 type IndexPartSpec struct {
 	Column ColumnNameExpressionAtom
 	Expr   ExpressionNode
@@ -496,10 +491,6 @@ func (i *IndexPartSpec) Restore(flag RestoreFlag, sb *strings.Builder, args *[]i
 		return err
 	}
 	return nil
-}
-
-func (i *IndexPartSpec) CntParams() int {
-	return 0
 }
 
 // IndexOption is the index options.
@@ -633,8 +624,4 @@ func (c *Constraint) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int)
 	}
 	sb.WriteString(")")
 	return nil
-}
-
-func (c *Constraint) CntParams() int {
-	return 0
 }

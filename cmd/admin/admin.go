@@ -18,6 +18,7 @@
 package admin
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -31,11 +32,13 @@ import (
 	"github.com/arana-db/arana/cmd/cmds"
 	"github.com/arana-db/arana/pkg/admin"
 	_ "github.com/arana-db/arana/pkg/admin/router"
+	"github.com/arana-db/arana/pkg/boot"
 	"github.com/arana-db/arana/pkg/config"
 	_ "github.com/arana-db/arana/pkg/config/etcd"
 	_ "github.com/arana-db/arana/pkg/config/file"
 	_ "github.com/arana-db/arana/pkg/config/nacos"
 	"github.com/arana-db/arana/pkg/constants"
+	"github.com/arana-db/arana/pkg/registry"
 	"github.com/arana-db/arana/pkg/security"
 	"github.com/arana-db/arana/pkg/util/log"
 )
@@ -74,8 +77,21 @@ func Run(bootstrapPath string, addr string) error {
 		log.Fatalf("start admin api server failed: %v", err)
 		return err
 	}
+	discovery := boot.NewDiscovery(bootstrapPath)
 
-	adminServer := admin.New(op)
+	if err := boot.Boot(context.Background(), discovery); err != nil {
+		log.Fatal("start failed: %v", err)
+		return err
+	}
+
+	registryConf := discovery.GetServiceRegistry(context.Background())
+	serviceDiscovery, err := registry.InitDiscovery(registryConf.Name, registryConf.RootPath, "service", registryConf.Options)
+	if err != nil {
+		log.Fatal("init service discovert failed: %v", err)
+		return err
+	}
+
+	adminServer := admin.New(op, serviceDiscovery)
 	return adminServer.Listen(addr)
 }
 

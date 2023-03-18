@@ -128,7 +128,7 @@ func (s *SimpleQueryPlan) filter() bool {
 	if len(s.Stmt.From) <= 0 {
 		return false
 	}
-	source, ok := s.Stmt.From[0].Source().(ast.TableName)
+	source, ok := s.Stmt.From[0].Source.(ast.TableName)
 	if !ok {
 		return false
 	}

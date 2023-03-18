@@ -50,10 +50,6 @@ func (d *DescribeStatement) Restore(flag RestoreFlag, sb *strings.Builder, args 
 	return nil
 }
 
-func (d *DescribeStatement) CntParams() int {
-	return 0
-}
-
 func (d *DescribeStatement) Mode() SQLType {
 	return SQLTypeDescribe
 }
@@ -69,10 +65,6 @@ func (e *ExplainStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *
 		return errors.WithStack(err)
 	}
 	return nil
-}
-
-func (e *ExplainStatement) CntParams() int {
-	return e.Target.CntParams()
 }
 
 func (e *ExplainStatement) Mode() SQLType {

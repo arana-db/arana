@@ -59,6 +59,7 @@ const (
 	SQLTypeShowReplicaStatus         // SHOW REPLICA STATUS
 	SQLTypeKill                      // KILL
 	SQLTypeCheckTable                // CHECK TABLE
+	SQLTypeRenameTable               // RENAME TABLE
 )
 
 var _sqlTypeNames = [...]string{
@@ -93,6 +94,7 @@ var _sqlTypeNames = [...]string{
 	SQLTypeShowReplicaStatus: "SHOW REPLICA STATUS",
 	SQLTypeKill:              "KILL",
 	SQLTypeCheckTable:        "CHECK TABLE",
+	SQLTypeRenameTable:       "RENAME TABLE",
 }
 
 // SQLType represents the type of SQL.
@@ -104,15 +106,9 @@ func (s SQLType) String() string {
 
 // Statement represents the SQL statement.
 type Statement interface {
-	paramsCounter
 	Restorer
 	// Mode returns the SQLType of current Statement.
 	Mode() SQLType
-}
-
-type paramsCounter interface {
-	// CntParams returns the amount of params.
-	CntParams() int
 }
 
 func RestoreToString(flag RestoreFlag, r Restorer) (string, error) {
