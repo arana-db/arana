@@ -306,9 +306,7 @@ func (cs *myConfigService) UpsertCluster(ctx context.Context, tenant, cluster st
 		exist       = false
 	)
 
-	for _, item := range cfg.DataSourceClusters {
-		newClusters = append(newClusters, item)
-	}
+	newClusters = append(newClusters, cfg.DataSourceClusters...)
 
 	for _, newCluster := range newClusters {
 		if newCluster.Name == cluster {
