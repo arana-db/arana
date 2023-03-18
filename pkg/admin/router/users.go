@@ -32,7 +32,7 @@ import (
 )
 
 func init() {
-	admin.Register(func(router admin.Router) {
+	admin.Register(func(router admin.Router, openRouter admin.Router) {
 		router.GET("/tenants/:tenant/users", ListUser)
 		router.POST("/tenants/:tenant/users", CreateUser)
 		router.PUT("/tenants/:tenant/users/:user", UpdateUser)

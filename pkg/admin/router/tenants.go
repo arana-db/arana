@@ -31,7 +31,8 @@ import (
 )
 
 func init() {
-	admin.Register(func(router admin.Router) {
+	admin.Register(func(router admin.Router, openRouter admin.Router) {
+		openRouter.GET("/tenants", ListTenants)
 		router.GET("/tenants", ListTenants)
 		router.POST("/tenants", CreateTenant)
 		router.GET("/tenants/:tenant", GetTenant)
