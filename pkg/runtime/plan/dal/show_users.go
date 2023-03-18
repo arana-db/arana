@@ -18,13 +18,13 @@ package dal
 
 import (
 	"context"
+	"strings"
 
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/ast"
-
 	"github.com/arana-db/arana/pkg/runtime/plan"
-	"github.com/arana-db/arana/pkg/security"
+	"github.com/pkg/errors"
 )
 
 var _ proto.Plan = (*ShowUsers)(nil)
@@ -42,16 +42,37 @@ func NewShowUsers(stmt *ast.ShowUsers) *ShowUsers {
 	}
 }
 
-func (s * ShowUsers) Type() proto.PlanType {
+func (s *ShowUsers) Type() proto.PlanType {
 	return proto.PlanTypeQuery
 }
 
-func (s * ShowUsers) ExecIn(ctx context.Context, _ proto.VConn) (proto.Result, error) {
-	tenantManager := security.DefaultTenantManager()
-	ueser,ok:=tenantManager.GetUsers()
-	return user, ok
+func (s *ShowUsers) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+	var (
+		sb   strings.Builder
+		args []int
+		res  proto.Result
+	)
+	ctx, span := plan.Tracer.Start(ctx, "ShowUsersPlan.ExecIn")
+	defer span.End()
+
+	if err := s.Stmt.Restore(ast.RestoreDefault, &sb, &args); err != nil {
+		return nil, errors.Wrap(err, "failed to execute SHOW USERS FROM TELNANT")
+	}
+	/*
+		tenantManager := security.DefaultTenantManager()
+		tenant := rcontext.Tenant(ctx)
+		users, _ := tenantManager.GetUsers(tenant)
+		for _, v := range users {
+			res = append(res, proto.NewValueString(v.Username))
+		}
+	*/
+	res, err := conn.Query(ctx, "", sb.String(), s.ToArgs(args)...)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
 }
 
-func (st * ShowUsers) SetRule(rule *rule.Rule) {
+func (st *ShowUsers) SetRule(rule *rule.Rule) {
 	st.rule = rule
 }

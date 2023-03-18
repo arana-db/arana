@@ -19,9 +19,7 @@ package security
 
 import (
 	"sync"
-)
 
-import (
 	"github.com/arana-db/arana/pkg/config"
 )
 
@@ -33,6 +31,8 @@ type TenantManager interface {
 	GetTenants() []string
 	// GetUser returns user by tenant and username.
 	GetUser(tenant string, username string) (*config.User, bool)
+	// GetUsers returns users by tenant
+	GetUsers(tenant string) ([]*config.User, bool)
 	// GetClusters returns cluster names.
 	GetClusters(tenant string) []string
 	// GetTenantsOfCluster returns all tenants of cluster.
@@ -90,14 +90,13 @@ func (st *simpleTenantManager) GetUsers(tenant string) ([]*config.User, bool) {
 	exist, ok := st.tenants[tenant]
 	if !ok {
 		return nil, false
-	}else{
-		for _, v:= range exist.users{
-			users=append(users,v)
+	} else {
+		for _, v := range exist.users {
+			users = append(users, v)
 		}
 	}
 	return users, ok
 }
-
 
 func (st *simpleTenantManager) GetClusters(tenant string) []string {
 	st.RLock()

@@ -19,9 +19,7 @@ package dal
 
 import (
 	"context"
-)
 
-import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/optimize"
@@ -29,7 +27,7 @@ import (
 )
 
 func init() {
-	optimize.Register(ast.SQLTypeShowUser, showUsers)
+	optimize.Register(ast.SQLTypeShowUsers, showUsers)
 }
 
 func showUsers(_ context.Context, o *optimize.Optimizer) (proto.Plan, error) {
