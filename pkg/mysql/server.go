@@ -34,6 +34,7 @@ import (
 import (
 	_ "github.com/arana-db/parser/test_driver"
 
+	uconfig "github.com/arana-db/arana/pkg/util/config"
 	perrors "github.com/pkg/errors"
 
 	"go.uber.org/atomic"
@@ -202,8 +203,10 @@ func (l *Listener) handle(conn net.Conn, connectionID uint32) {
 
 		content := make([]byte, len(data))
 		copy(content, data)
+		vctx := context.WithValue(context.Background(), proto.ContextKeyEnableLocalComputation{}, uconfig.IsEnableLocalMathCompu(false))
+
 		ctx := &proto.Context{
-			Context: context.Background(),
+			Context: vctx,
 			C:       c,
 			Data:    content,
 		}

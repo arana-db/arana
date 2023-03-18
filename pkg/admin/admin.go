@@ -38,6 +38,7 @@ import (
 	"github.com/arana-db/arana/pkg/admin/exception"
 	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/constants"
+	"github.com/arana-db/arana/pkg/registry/base"
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
@@ -46,7 +47,8 @@ const (
 	_defaultUIPath = "/var/www/arana"
 )
 
-const K = "ARANA_ADMIN_SERVICE"
+const _ADMIN_SERVICE = "ARANA_ADMIN_SERVICE"
+const _SERVICE_DISCOVERY = "ARANA_SERVICE_DISCOVERY"
 
 var _hooks []Hook
 
@@ -76,20 +78,24 @@ func init() {
 }
 
 type Server struct {
-	l       net.Listener
-	engine  *gin.Engine
-	service ConfigService
-	started uatomic.Bool
+	l                net.Listener
+	engine           *gin.Engine
+	service          ConfigService
+	serviceDiscovery ServiceDiscovery
+	started          uatomic.Bool
 }
 
-func New(tenantOp config.TenantOperator) *Server {
+func New(tenantOp config.TenantOperator, serviceDiscovery base.Discovery) *Server {
 	srv := &myConfigService{
 		tenantOp: tenantOp,
 	}
-
+	srvDiscSrv := &myServiceDiscovery{
+		serviceDiscovery: serviceDiscovery,
+	}
 	return &Server{
-		service: srv,
-		engine:  gin.New(),
+		service:          srv,
+		serviceDiscovery: srvDiscSrv,
+		engine:           gin.New(),
 	}
 }
 
@@ -111,7 +117,8 @@ func (srv *Server) Listen(addr string) error {
 	)
 
 	srv.engine.Use(func(c *gin.Context) {
-		c.Set(K, srv.service)
+		c.Set(_ADMIN_SERVICE, srv.service)
+		c.Set(_SERVICE_DISCOVERY, srv.serviceDiscovery)
 		c.Next()
 	})
 	srv.engine.Use(gin.Logger())
@@ -156,8 +163,14 @@ func (srv *Server) Listen(addr string) error {
 
 // GetService returns ConfigService from gin context.
 func GetService(c *gin.Context) ConfigService {
-	v, _ := c.Get(K)
+	v, _ := c.Get(_ADMIN_SERVICE)
 	return v.(ConfigService)
+}
+
+// GetServiceDiscovery returns ConfigService from gin context.
+func GetServiceDiscovery(c *gin.Context) ServiceDiscovery {
+	v, _ := c.Get(_SERVICE_DISCOVERY)
+	return v.(ServiceDiscovery)
 }
 
 type myRouter gin.RouterGroup

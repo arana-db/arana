@@ -15,27 +15,30 @@
  * limitations under the License.
  */
 
-package ast
+package router
 
 import (
-	"strconv"
-	"strings"
+	"net/http"
 )
 
-type KillStmt struct {
-	Query        bool
-	ConnectionID uint64
+import (
+	"github.com/gin-gonic/gin"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/admin"
+)
+
+func init() {
+	admin.Register(func(router admin.Router) {
+		router.GET("/services", GetServices)
+	})
 }
 
-func (k *KillStmt) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
-	sb.WriteString("KILL ")
-	if k.Query {
-		sb.WriteString("QUERY ")
-	}
-	sb.WriteString(strconv.FormatUint(k.ConnectionID, 10))
+func GetServices(c *gin.Context) error {
+	serviceDiscovery := admin.GetServiceDiscovery(c)
+	data := serviceDiscovery.ListServices()
+
+	c.JSON(http.StatusOK, data)
 	return nil
-}
-
-func (k *KillStmt) Mode() SQLType {
-	return SQLTypeKill
 }

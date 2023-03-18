@@ -40,6 +40,7 @@ import (
 	rrule "github.com/arana-db/arana/pkg/runtime/rule"
 	"github.com/arana-db/arana/pkg/security"
 	"github.com/arana-db/arana/pkg/trace"
+	uconfig "github.com/arana-db/arana/pkg/util/config"
 	"github.com/arana-db/arana/pkg/util/log"
 	"github.com/arana-db/arana/pkg/util/misc"
 )
@@ -88,6 +89,7 @@ func (fp *discovery) Init(ctx context.Context) error {
 	}
 
 	cfg, err := config.LoadBootOptions(fp.path)
+	uconfig.IsEnableLocalMathCompu(cfg.Spec.EnableLocalMathComputation)
 	if err != nil {
 		return err
 	}

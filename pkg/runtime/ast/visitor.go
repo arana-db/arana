@@ -27,9 +27,12 @@ type Node interface {
 type Visitor interface {
 	// VisitSelectStatement visits select statement.
 	VisitSelectStatement(node *SelectStatement) (interface{}, error)
-
+	// VisitUnionStatement visits union select statement.
+	VisitUnionStatement(node *UnionSelectStatement) (interface{}, error)
 	// VisitSelectElementWildcard visits select element of wildcard.
 	VisitSelectElementWildcard(node *SelectElementAll) (interface{}, error)
+	// VisitJoin visits join node.
+	VisitJoin(node *JoinNode) (interface{}, error)
 
 	VisitSelectElementColumn(node *SelectElementColumn) (interface{}, error)
 	VisitSelectElementFunction(node *SelectElementFunction) (interface{}, error)
@@ -72,6 +75,14 @@ var (
 )
 
 type BaseVisitor struct{}
+
+func (b BaseVisitor) VisitUnionStatement(node *UnionSelectStatement) (interface{}, error) {
+	panic("implement me")
+}
+
+func (b BaseVisitor) VisitJoin(node *JoinNode) (interface{}, error) {
+	panic("implement me")
+}
 
 func (b BaseVisitor) VisitSelectStatement(node *SelectStatement) (interface{}, error) {
 	panic("implement me")
@@ -214,6 +225,14 @@ func (b BaseVisitor) VisitFunctionArg(node *FunctionArg) (interface{}, error) {
 }
 
 type AlwaysReturnSelfVisitor struct{}
+
+func (a AlwaysReturnSelfVisitor) VisitUnionStatement(node *UnionSelectStatement) (interface{}, error) {
+	return node, nil
+}
+
+func (a AlwaysReturnSelfVisitor) VisitJoin(node *JoinNode) (interface{}, error) {
+	return node, nil
+}
 
 func (a AlwaysReturnSelfVisitor) VisitSelectStatement(node *SelectStatement) (interface{}, error) {
 	return node, nil

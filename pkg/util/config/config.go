@@ -15,27 +15,26 @@
  * limitations under the License.
  */
 
-package ast
+// Copyright 2020 Gin Core Team. All rights reserved.
+// Use of this source code is governed by a MIT style
+// license that can be found in the LICENSE file.
+
+package config
 
 import (
-	"strconv"
-	"strings"
+	"sync"
 )
 
-type KillStmt struct {
-	Query        bool
-	ConnectionID uint64
-}
+var (
+	_enableLocalMathCompu     bool
+	_enableLocalMathCompuSync sync.Once
+)
 
-func (k *KillStmt) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
-	sb.WriteString("KILL ")
-	if k.Query {
-		sb.WriteString("QUERY ")
-	}
-	sb.WriteString(strconv.FormatUint(k.ConnectionID, 10))
-	return nil
-}
+// _enableLocalMathCompu returns true if config the local math computation
+func IsEnableLocalMathCompu(enable bool) bool {
+	_enableLocalMathCompuSync.Do(func() {
+		_enableLocalMathCompu = enable
 
-func (k *KillStmt) Mode() SQLType {
-	return SQLTypeKill
+	})
+	return _enableLocalMathCompu
 }

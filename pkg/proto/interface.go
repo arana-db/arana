@@ -28,11 +28,12 @@ import (
 )
 
 type (
-	ContextKeyTenant             struct{}
-	ContextKeySchema             struct{}
-	ContextKeySQL                struct{}
-	ContextKeyTransientVariables struct{}
-	ContextKeyServerVersion      struct{}
+	ContextKeyTenant                 struct{}
+	ContextKeySchema                 struct{}
+	ContextKeySQL                    struct{}
+	ContextKeyTransientVariables     struct{}
+	ContextKeyServerVersion          struct{}
+	ContextKeyEnableLocalComputation struct{}
 )
 
 type (
@@ -140,6 +141,8 @@ func (c Context) Value(key interface{}) interface{} {
 		return c.GetQuery()
 	case ContextKeyServerVersion:
 		return c.C.ServerVersion()
+	case ContextKeyEnableLocalComputation:
+		return c.Context.Value(ContextKeyEnableLocalComputation{})
 	}
 	return c.Context.Value(key)
 }

@@ -41,7 +41,10 @@ func init() {
 }
 
 func ListUser(ctx *gin.Context) error {
-	tenant := ctx.Param("tenant")
+	var (
+		result = make([]*config.User, 0)
+		tenant = ctx.Param("tenant")
+	)
 
 	tenants, err := admin.GetService(ctx).ListTenants(ctx)
 	if err != nil {
@@ -50,7 +53,13 @@ func ListUser(ctx *gin.Context) error {
 
 	for i := range tenants {
 		if tenants[i].Name == tenant {
-			ctx.JSON(http.StatusOK, tenants[i].Users)
+			for _, user := range tenants[i].Users {
+				result = append(result, &config.User{
+					Username: user.Username,
+					Password: "",
+				})
+			}
+			ctx.JSON(http.StatusOK, result)
 			return nil
 		}
 	}

@@ -48,6 +48,16 @@ var _opcode2comparison = map[opcode.Op]cmp.Comparison{
 	opcode.GE: cmp.Cgte,
 }
 
+const (
+	_ccHasSubQuery        uint32 = 1 << iota // 存在子查询
+	_ccHasJoin                               // 存在 JOIN
+	_ccHasInSelect                           // 存在 xxx in (select xxx from ...)
+	_ccHasAggregate                          // 存在聚合
+	_ccMultiTables                           // 多表
+	_ccHasRand                               // 有随机函数
+	_ccHasComplexSubQuery                    // 复杂子查询, 位置出现在COMPARISON/IN/EXISTS等
+)
+
 type (
 	parseOption struct {
 		charset   string
@@ -479,10 +489,7 @@ func (cc *convCtx) convUnionStmt(stmt *ast.SetOprStmt) *UnionSelectStatement {
 func (cc *convCtx) convSelectStmt(stmt *ast.SelectStmt) *SelectStatement {
 	var ret SelectStatement
 
-	if stmt.Distinct {
-		ret.enableDistinct()
-	}
-
+	ret.Distinct = stmt.Distinct
 	ret.Select = cc.convFieldList(stmt.Fields)
 	ret.From = cc.convFrom(stmt.From)
 	if stmt.Where != nil {
@@ -496,9 +503,9 @@ func (cc *convCtx) convSelectStmt(stmt *ast.SelectStmt) *SelectStatement {
 	if stmt.LockInfo != nil {
 		switch stmt.LockInfo.LockType {
 		case ast.SelectLockForUpdate:
-			ret.enableForUpdate()
+			ret.Lock = SelectLockForUpdate
 		case ast.SelectLockForShare:
-			ret.enableLockInShareMode()
+			ret.Lock = SelectLockInShardMode
 		}
 	}
 
@@ -522,7 +529,7 @@ func (cc *convCtx) convDeleteStmt(stmt *ast.DeleteStmt) Statement {
 	}
 
 	// TODO: Now only support single table delete clause, need to fill flag OrderBy field
-	ret.Table = cc.convFrom(stmt.TableRefs)[0].TableName()
+	ret.Table = cc.convFrom(stmt.TableRefs)[0].Source.(TableName)
 
 	if stmt.Where != nil {
 		ret.Where = toExpressionNode(cc.convExpr(stmt.Where))
@@ -546,7 +553,7 @@ func (cc *convCtx) convInsertStmt(stmt *ast.InsertStmt) Statement {
 	)
 
 	// extract table
-	bi.Table = cc.convFrom(stmt.Table)[0].TableName()
+	bi.Table = cc.convFrom(stmt.Table)[0].Source.(TableName)
 
 	if stmt.IgnoreErr {
 		bi.enableIgnore()
@@ -684,7 +691,11 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 	case ast.ShowOpenTables:
 		return &ShowOpenTables{baseShow: toBaseShow()}
 	case ast.ShowTables:
-		return &ShowTables{baseShow: toBaseShow()}
+		ret := &ShowTables{baseShow: toBaseShow()}
+		if like, ok := toLike(node); ok {
+			ret.like.Valid, ret.like.String = true, like
+		}
+		return ret
 	case ast.ShowReplicas:
 		return &ShowReplicas{baseShow: toBaseShow()}
 	case ast.ShowMasterStatus:
@@ -833,59 +844,56 @@ func MustParse(sql string) ([]*hint.Hint, Statement) {
 	return hints, stmt
 }
 
-type convCtx struct{}
+type convCtx struct {
+	flag   uint32
+	tables []string
+}
 
-func (cc *convCtx) convFrom(from *ast.TableRefsClause) (ret []*TableSourceNode) {
-	if from == nil {
+func (cc *convCtx) convTableSource(input *ast.TableSource) *TableSourceNode {
+	var target TableSourceNode
+	target.Alias = input.AsName.O
+	switch source := input.Source.(type) {
+	case *ast.TableName:
+		cc.convTableName(source, &target)
+	case *ast.SelectStmt:
+		target.Source = cc.convSelectStmt(source)
+		cc.flag |= _ccHasSubQuery
+	case *ast.SetOprStmt:
+		target.Source = cc.convUnionStmt(source)
+		cc.flag |= _ccHasSubQuery
+	default:
+		panic(fmt.Sprintf("unimplement: table source %T!", source))
+	}
+	return &target
+}
+
+func (cc *convCtx) convJoins(node *ast.Join, roots *[]*TableSourceNode, dest *[]*JoinNode) {
+	switch left := node.Left.(type) {
+	case *ast.TableSource:
+		*roots = append(*roots, cc.convTableSource(left))
+	case *ast.Join:
+		cc.convJoins(left, roots, dest)
+	}
+
+	if node.Right == nil {
 		return
 	}
 
-	transform := func(input ast.ResultSetNode) *TableSourceNode {
-		if input == nil {
-			return nil
-		}
-		switch val := input.(type) {
-		case *ast.TableSource:
-			var target TableSourceNode
-			target.Alias = val.AsName.O
-			switch source := val.Source.(type) {
-			case *ast.TableName:
-				cc.convTableName(source, &target)
-			case *ast.SelectStmt:
-				target.source = cc.convSelectStmt(source)
-			case *ast.SetOprStmt:
-				target.source = cc.convUnionStmt(source)
-			default:
-				panic(fmt.Sprintf("unimplement: table source %T!", source))
-			}
-			return &target
-		default:
-			panic(fmt.Sprintf("unimplement: table refs %T!", val))
-		}
-	}
+	right := cc.convTableSource(node.Right.(*ast.TableSource))
 
-	var (
-		left  = transform(from.TableRefs.Left)
-		right = transform(from.TableRefs.Right)
-	)
-
-	var on ExpressionNode
-	if from.TableRefs.On != nil {
-		on = toExpressionNode(cc.convExpr(from.TableRefs.On.Expr))
-	}
-
-	if on == nil {
-		ret = append(ret, left)
+	if node.On == nil {
+		*roots = append(*roots, right)
 		return
 	}
 
-	var jn JoinNode
+	on := toExpressionNode(cc.convExpr(node.On.Expr))
 
-	jn.Left = left
-	jn.Right = right
-	jn.On = on
+	jn := &JoinNode{
+		Target: &right.TableSourceItem,
+		On:     on,
+	}
 
-	switch from.TableRefs.Tp {
+	switch node.Tp {
 	case ast.LeftJoin:
 		jn.Typ = LeftJoin
 	case ast.RightJoin:
@@ -894,13 +902,33 @@ func (cc *convCtx) convFrom(from *ast.TableRefsClause) (ret []*TableSourceNode) 
 		jn.Typ = InnerJoin
 	}
 
-	if from.TableRefs.NaturalJoin {
-		jn.natural = true
+	if node.NaturalJoin {
+		jn.Natural = true
 	}
 
-	ret = append(ret, &TableSourceNode{source: &jn})
+	*dest = append(*dest, jn)
+}
 
-	return
+func (cc *convCtx) convFrom(from *ast.TableRefsClause) []*TableSourceNode {
+	if from == nil {
+		return nil
+	}
+
+	var (
+		roots []*TableSourceNode
+		joins []*JoinNode
+	)
+
+	cc.convJoins(from.TableRefs, &roots, &joins)
+
+	if len(joins) > 0 {
+		if len(roots) != 1 {
+			panic("unreachable")
+		}
+		roots[0].Joins = joins
+	}
+
+	return roots
 }
 
 func (cc *convCtx) convGroupBy(by *ast.GroupByClause) *GroupByNode {
@@ -1593,7 +1621,7 @@ func (cc *convCtx) convTableName(val *ast.TableName, tgt *TableSourceNode) {
 		indexHints = append(indexHints, &next)
 	}
 
-	tgt.source = tableName
+	tgt.Source = tableName
 	tgt.IndexHints = indexHints
 	tgt.Partitions = partitions
 }

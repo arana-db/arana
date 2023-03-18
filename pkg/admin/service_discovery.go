@@ -15,27 +15,35 @@
  * limitations under the License.
  */
 
-package ast
+package admin
 
 import (
-	"strconv"
-	"strings"
+	"github.com/arana-db/arana/pkg/config"
+	"github.com/arana-db/arana/pkg/registry/base"
 )
 
-type KillStmt struct {
-	Query        bool
-	ConnectionID uint64
+type ServiceDiscovery interface {
+	ListServices() []*ServiceInstanceDTO
 }
 
-func (k *KillStmt) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
-	sb.WriteString("KILL ")
-	if k.Query {
-		sb.WriteString("QUERY ")
+type myServiceDiscovery struct {
+	serviceDiscovery base.Discovery
+}
+
+func (mysds *myServiceDiscovery) ListServices() []*ServiceInstanceDTO {
+	var (
+		services = mysds.serviceDiscovery.GetServices()
+		srvDTOs  = make([]*ServiceInstanceDTO, 0, len(services))
+	)
+	for _, srv := range services {
+		endpoints := make([]*config.Listener, len(srv.Endpoints))
+		copy(endpoints, srv.Endpoints)
+		srvDTOs = append(srvDTOs, &ServiceInstanceDTO{
+			ID:        srv.ID,
+			Name:      srv.Name,
+			Version:   srv.Version,
+			Endpoints: endpoints,
+		})
 	}
-	sb.WriteString(strconv.FormatUint(k.ConnectionID, 10))
-	return nil
-}
-
-func (k *KillStmt) Mode() SQLType {
-	return SQLTypeKill
+	return srvDTOs
 }

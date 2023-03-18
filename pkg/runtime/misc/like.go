@@ -15,27 +15,40 @@
  * limitations under the License.
  */
 
-package ast
+package misc
 
 import (
-	"strconv"
+	"path/filepath"
 	"strings"
 )
 
-type KillStmt struct {
-	Query        bool
-	ConnectionID uint64
+var replacer = strings.NewReplacer(
+	"%", "*",
+	"_", "?",
+	"*", "\u0000",
+	"?", "\u0001",
+	"[", "\u0002",
+	"]", "\u0003",
+	"\\", "\u0004",
+	"/", "\u0005",
+)
+
+type Liker interface {
+	Like(s string) bool
 }
 
-func (k *KillStmt) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
-	sb.WriteString("KILL ")
-	if k.Query {
-		sb.WriteString("QUERY ")
-	}
-	sb.WriteString(strconv.FormatUint(k.ConnectionID, 10))
-	return nil
+type liker struct {
+	pattern string
 }
 
-func (k *KillStmt) Mode() SQLType {
-	return SQLTypeKill
+func NewLiker(pattern string) Liker {
+	return &liker{pattern: pattern}
+}
+
+func (l *liker) Like(s string) bool {
+	p := l.pattern
+	p = replacer.Replace(p)
+	s = replacer.Replace(s)
+	flag, _ := filepath.Match(p, s)
+	return flag
 }

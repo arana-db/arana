@@ -87,7 +87,7 @@ func NewEtcdV3Registry(serviceAddr, path string, etcdAddrs []string, options *st
 				case <-ticker.C:
 					// set this same metrics for all services at this server
 					for _, name := range etcdRegistry.Services {
-						nodePath := fmt.Sprintf("%s/%s/%s", etcdRegistry.BasePath, name, etcdRegistry.ServiceAddress)
+						nodePath := fmt.Sprintf("/%s/%s/%s", etcdRegistry.BasePath, name, etcdRegistry.ServiceAddress)
 						if _, err := client.Get(context.Background(), nodePath); err != nil {
 							log.Warnf("can't get data of node: %s, because of %v", nodePath, err)
 

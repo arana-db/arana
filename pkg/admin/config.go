@@ -68,6 +68,17 @@ type NodeDTO struct {
 	Labels     map[string]string      `json:"labels,omitempty"`
 }
 
+type ServiceInstanceDTO struct {
+	// ID is the unique instance ID as registered.
+	ID string `json:"id"`
+	// Name is the service name as registered.
+	Name string `json:"name"`
+	// Version is the version of the compiled.
+	Version string `json:"version"`
+	// Endpoint addresses of the service instance.
+	Endpoints []*config.Listener
+}
+
 // XConfigWriter represents the mutations of configurations.
 // The configuration is designed for structure storage, here is a example in tree-view:
 // ── tenants

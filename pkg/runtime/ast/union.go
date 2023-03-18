@@ -32,9 +32,8 @@ const (
 )
 
 var (
-	_ Statement     = (*UnionSelectStatement)(nil)
-	_ paramsCounter = (*UnionSelectStatement)(nil)
-	_ Restorer      = (*UnionSelectStatement)(nil)
+	_ Statement = (*UnionSelectStatement)(nil)
+	_ Restorer  = (*UnionSelectStatement)(nil)
 )
 
 var _unionTypeNames = [...]string{
@@ -52,6 +51,10 @@ type UnionSelectStatement struct {
 	First               *SelectStatement
 	UnionStatementItems []*UnionStatementItem
 	OrderBy             OrderByNode
+}
+
+func (u *UnionSelectStatement) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitUnionStatement(u)
 }
 
 func (u *UnionSelectStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -80,17 +83,6 @@ func (u *UnionSelectStatement) Restore(flag RestoreFlag, sb *strings.Builder, ar
 	}
 
 	return nil
-}
-
-func (u *UnionSelectStatement) CntParams() int {
-	var cnt int
-
-	cnt += u.First.CntParams()
-	for _, it := range u.UnionStatementItems {
-		cnt += it.Stmt.CntParams()
-	}
-
-	return cnt
 }
 
 func (u *UnionSelectStatement) Mode() SQLType {
