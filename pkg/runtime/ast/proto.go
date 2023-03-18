@@ -60,6 +60,7 @@ const (
 	SQLTypeKill                      // KILL
 	SQLTypeCheckTable                // CHECK TABLE
 	SQLTypeRenameTable               // RENAME TABLE
+	SQLTypeCreateTable               // CREATE TABLE
 )
 
 var _sqlTypeNames = [...]string{
@@ -95,6 +96,7 @@ var _sqlTypeNames = [...]string{
 	SQLTypeKill:              "KILL",
 	SQLTypeCheckTable:        "CHECK TABLE",
 	SQLTypeRenameTable:       "RENAME TABLE",
+	SQLTypeCreateTable:       "CREATE TABLE",
 }
 
 // SQLType represents the type of SQL.
