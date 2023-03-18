@@ -23,7 +23,6 @@ import (
 	"github.com/arana-db/arana/pkg/mysql/rows"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/resultx"
-	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/plan"
 	"github.com/arana-db/arana/third_party/base58"
 	"github.com/cespare/xxhash/v2"
@@ -32,15 +31,12 @@ import (
 )
 
 type HashJoinPlan struct {
-	BuildPlans []proto.Plan
-	ProbePlans []proto.Plan
+	BuildPlan proto.Plan
+	ProbePlan proto.Plan
 
 	BuildKey []string
 	ProbeKey []string
 	hashArea map[string]proto.Row
-
-	Join *ast.JoinNode
-	Stmt *ast.SelectStatement
 }
 
 func (h *HashJoinPlan) Type() proto.PlanType {
@@ -66,36 +62,29 @@ func (h *HashJoinPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Resu
 	return resultx.New(resultx.WithDataset(probeDs)), nil
 }
 
-func (h *HashJoinPlan) queryAggregate(ctx context.Context, conn proto.VConn, plans []proto.Plan) (proto.Dataset, error) {
-	var generators []dataset.GenerateFunc
-	for _, it := range plans {
-		it := it
-		generators = append(generators, func() (proto.Dataset, error) {
-			res, err := it.ExecIn(ctx, conn)
-			if err != nil {
-				return nil, errors.WithStack(err)
-			}
-			return res.Dataset()
-		})
-	}
-
-	ds, err := dataset.Fuse(generators[0], generators[1:]...)
+func (h *HashJoinPlan) queryAggregate(ctx context.Context, conn proto.VConn, plan proto.Plan) (proto.Result, error) {
+	result, err := plan.ExecIn(ctx, conn)
 	if err != nil {
 		return nil, err
 	}
 
 	// todo 将所有结果聚合
-	return ds, nil
+	return result, nil
 }
 
 func (h *HashJoinPlan) build(ctx context.Context, conn proto.VConn) (proto.Dataset, error) {
-	ds, err := h.queryAggregate(ctx, conn, h.BuildPlans)
+	res, err := h.queryAggregate(ctx, conn, h.BuildPlan)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
 
+	ds, err := res.Dataset()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
 	cn := h.BuildKey[0]
 	xh := xxhash.New()
+	h.hashArea = make(map[string]proto.Row)
 	// build map
 	for {
 		xh.Reset()
@@ -118,7 +107,12 @@ func (h *HashJoinPlan) build(ctx context.Context, conn proto.VConn) (proto.Datas
 }
 
 func (h *HashJoinPlan) probe(ctx context.Context, conn proto.VConn, buildDs proto.Dataset) (proto.Dataset, error) {
-	ds, err := h.queryAggregate(ctx, conn, h.ProbePlans)
+	res, err := h.queryAggregate(ctx, conn, h.ProbePlan)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	ds, err := res.Dataset()
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -137,10 +131,10 @@ func (h *HashJoinPlan) probe(ctx context.Context, conn proto.VConn, buildDs prot
 		return findRow != nil
 	}
 
-	bFields, _ := buildDs.Fields()
+	buildFields, _ := buildDs.Fields()
 	// aggregate fields
 	aggregateFieldsFunc := func(fields []proto.Field) []proto.Field {
-		return append(bFields, fields...)
+		return append(buildFields, fields...)
 	}
 
 	// aggregate row
@@ -150,11 +144,13 @@ func (h *HashJoinPlan) probe(ctx context.Context, conn proto.VConn, buildDs prot
 		_ = row.Scan(dest)
 
 		matchRow := probeMapFunc(row, cn)
-		bDest := make([]proto.Value, len(bFields))
+		bDest := make([]proto.Value, len(buildFields))
 		_ = matchRow.Scan(bDest)
 
-		return rows.NewBinaryVirtualRow(append(bFields, fields...), append(bDest, dest...)), nil
+		return rows.NewBinaryVirtualRow(append(buildFields, fields...), append(bDest, dest...)), nil
 	}
+
+	// todo left/right join
 
 	// filter match row & aggregate fields and row
 	return dataset.Pipe(ds, dataset.Filter(filterFunc), dataset.Map(aggregateFieldsFunc, transformFunc)), nil

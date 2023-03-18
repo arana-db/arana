@@ -19,6 +19,7 @@ package dml
 
 import (
 	"context"
+	"github.com/arana-db/parser"
 	"strings"
 )
 
@@ -415,7 +416,7 @@ func handleGroupBy(parentPlan proto.Plan, stmt *ast.SelectStatement) (proto.Plan
 // optimizeJoin ony support  a join b in one db.
 // DEPRECATED: reimplement in the future
 func optimizeJoin(ctx context.Context, o *optimize.Optimizer, stmt *ast.SelectStatement) (proto.Plan, error) {
-	compute := func(tableSource *ast.TableSourceItem) (database, alias string, shardList []string, err error) {
+	compute := func(tableSource *ast.TableSourceItem) (database, alias string, shardsMap map[string][]string, err error) {
 		table := tableSource.Source.(ast.TableName)
 		if table == nil {
 			err = errors.New("must table, not statement or join node")
@@ -445,89 +446,113 @@ func optimizeJoin(ctx context.Context, o *optimize.Optimizer, stmt *ast.SelectSt
 		return
 	}
 
-	//dbLeft, shardsLeft, aliasLeft, err := compute(join.Left)
 	from := stmt.From[0]
-
-	dbLeft, aliasLeft, shardLeft, err := compute(&from.TableSourceItem)
-	if err != nil {
-		return nil, err
-	}
-	//dbRight, shardsRight, aliasRight, err := compute(join.Right)
-	dbRight, aliasRight, shardRight, err := compute(from.Joins[0].Target)
+	dbLeft, aliasLeft, shardsLeft, err := compute(&from.TableSourceItem)
 	if err != nil {
 		return nil, err
 	}
 
-	if dbLeft != "" && dbRight != "" && dbLeft != dbRight {
-		return nil, errors.New("not support more than one db")
+	dbRight, aliasRight, shardsRight, err := compute(from.Joins[0].Target)
+	if err != nil {
+		return nil, err
 	}
 
-	joinPan := &dml.SimpleJoinPlan{
-		Left: &dml.JoinTable{
-			Tables: shardLeft,
-			Alias:  aliasLeft,
-		},
-		Join: from.Joins[0],
-		Right: &dml.JoinTable{
-			Tables: shardRight,
-			Alias:  aliasRight,
-		},
-		Stmt: o.Stmt.(*ast.SelectStatement),
-	}
-	joinPan.BindArgs(o.Args)
+	//if dbLeft != "" && dbRight != "" && dbLeft != dbRight {
+	//	return nil, errors.New("not support more than one db")
+	//}
 
-	return joinPan, nil
-}
-
-	// multiple shards & hash join
-	hashJoinPlan := &dml.HashJoinPlan{
-		Join: join,
-		Stmt: stmt,
-	}
-
-	buildShards := shardsLeft
-	probeShards := shardsRight
-	if len(shardsLeft) > len(shardsRight) {
-		buildShards = shardsRight
-		probeShards = shardsLeft
+	// one db
+	if dbLeft == dbRight && len(shardsLeft) == 1 && len(shardsRight) == 1 {
+		joinPan := &dml.SimpleJoinPlan{
+			Left: &dml.JoinTable{
+				Tables: shardsLeft[dbLeft],
+				Alias:  aliasLeft,
+			},
+			Join: from.Joins[0],
+			Right: &dml.JoinTable{
+				Tables: shardsRight[dbRight],
+				Alias:  aliasRight,
+			},
+			Stmt: o.Stmt.(*ast.SelectStatement),
+		}
+		joinPan.BindArgs(o.Args)
+		return joinPan, nil
 	}
 
-	rewriteToSingle := func(shards map[string][]string) []proto.Plan {
-		// todo 过滤下select where条件对应的表
+	//multiple shards & do hash join
+	hashJoinPlan := &dml.HashJoinPlan{}
+
+	//todo small table join large table
+
+	rewriteToSingle := func(tableSource ast.TableSourceItem, shards map[string][]string) (proto.Plan, error) {
 		selectStmt := &ast.SelectStatement{
 			Select: stmt.Select,
-			From:   ast.FromNode{join.Right},
-			Where:  stmt.Where,
+			From: ast.FromNode{
+				&ast.TableSourceNode{
+					TableSourceItem: tableSource,
+				},
+			},
 		}
 
-		plans := make([]proto.Plan, 0, len(shards))
-		for k, v := range shards {
-			next := &dml.SimpleQueryPlan{
-				Database: k,
-				Tables:   v,
-				Stmt:     selectStmt,
-			}
-			next.BindArgs(o.Args)
-			plans = append(plans, next)
+		var (
+			err       error
+			optimizer proto.Optimizer
+			plan      proto.Plan
+			sb        strings.Builder
+		)
+		err = selectStmt.Restore(ast.RestoreDefault, &sb, nil)
+		if err != nil {
+			return nil, err
 		}
-		return plans
+
+		p := parser.New()
+		stmtNode, err := p.ParseOneStmt(sb.String(), "", "")
+		if err != nil {
+			return nil, err
+		}
+
+		optimizer, err = optimize.NewOptimizer(o.Rule, o.Hints, stmtNode, o.Args)
+		if err != nil {
+			return nil, err
+		}
+
+		plan, err = optimizeSelect(ctx, optimizer.(*optimize.Optimizer))
+		if err != nil {
+			return nil, err
+		}
+		return plan, nil
 	}
 
-	hashJoinPlan.BuildPlans = rewriteToSingle(buildShards)
-	hashJoinPlan.ProbePlans = rewriteToSingle(probeShards)
+	leftPlan, err := rewriteToSingle(from.TableSourceItem, shardsLeft)
+	if err != nil {
+		return nil, err
+	}
+	hashJoinPlan.BuildPlan = leftPlan
 
-	// todo 需要兼容多个on条件  ast.LogicalExpressionNode
-	onExpression := join.On.(*ast.PredicateExpressionNode).P.(*ast.BinaryComparisonPredicateNode)
+	rightPlan, err := rewriteToSingle(*from.Joins[0].Target, shardsRight)
+	if err != nil {
+		return nil, err
+	}
+	hashJoinPlan.ProbePlan = rightPlan
+
+	onExpression, ok := from.Joins[0].On.(*ast.PredicateExpressionNode).P.(*ast.BinaryComparisonPredicateNode)
+	// todo support more than one 'ON' condition  ast.LogicalExpressionNode
+	if !ok {
+		return nil, errors.New("not support more than one 'ON' condition")
+	}
+
 	onLeft := onExpression.Left.(*ast.AtomPredicateNode).A.(ast.ColumnNameExpressionAtom)
 	onRight := onExpression.Right.(*ast.AtomPredicateNode).A.(ast.ColumnNameExpressionAtom)
 
 	if onLeft[0] == aliasLeft {
-		hashJoinPlan.BuildKey[0] = onLeft[1]
+		hashJoinPlan.BuildKey = append(hashJoinPlan.BuildKey, onLeft[1])
 	}
 
 	if onRight[0] == aliasRight {
-		hashJoinPlan.ProbeKey[0] = onRight[1]
+		hashJoinPlan.ProbeKey = append(hashJoinPlan.ProbeKey, onRight[1])
 	}
+
+	//todo order by, limit, group by, having etc..
 
 	return hashJoinPlan, nil
 }
