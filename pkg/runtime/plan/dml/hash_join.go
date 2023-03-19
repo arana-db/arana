@@ -18,8 +18,10 @@
 package dml
 
 import (
+	"bytes"
 	"context"
 	"github.com/arana-db/arana/pkg/dataset"
+	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/mysql/rows"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/resultx"
@@ -67,8 +69,6 @@ func (h *HashJoinPlan) queryAggregate(ctx context.Context, conn proto.VConn, pla
 	if err != nil {
 		return nil, err
 	}
-
-	// todo 将所有结果聚合
 	return result, nil
 }
 
@@ -137,6 +137,8 @@ func (h *HashJoinPlan) probe(ctx context.Context, conn proto.VConn, buildDs prot
 		return append(buildFields, fields...)
 	}
 
+	// todo left/right join
+
 	// aggregate row
 	fields, _ := ds.Fields()
 	transformFunc := func(row proto.Row) (proto.Row, error) {
@@ -144,13 +146,32 @@ func (h *HashJoinPlan) probe(ctx context.Context, conn proto.VConn, buildDs prot
 		_ = row.Scan(dest)
 
 		matchRow := probeMapFunc(row, cn)
-		bDest := make([]proto.Value, len(buildFields))
-		_ = matchRow.Scan(bDest)
+		buildDest := make([]proto.Value, len(buildFields))
+		_ = matchRow.Scan(buildDest)
 
-		return rows.NewBinaryVirtualRow(append(buildFields, fields...), append(bDest, dest...)), nil
+		resFields := append(buildFields, fields...)
+		resDest := append(buildDest, dest...)
+
+		var b bytes.Buffer
+		if row.IsBinary() {
+			newRow := rows.NewBinaryVirtualRow(resFields, resDest)
+			_, err := newRow.WriteTo(&b)
+			if err != nil {
+				return nil, err
+			}
+
+			br := mysql.NewBinaryRow(fields, b.Bytes())
+			return br, nil
+		} else {
+			newRow := rows.NewTextVirtualRow(resFields, resDest)
+			_, err := newRow.WriteTo(&b)
+			if err != nil {
+				return nil, err
+			}
+
+			return mysql.NewTextRow(fields, b.Bytes()), nil
+		}
 	}
-
-	// todo left/right join
 
 	// filter match row & aggregate fields and row
 	return dataset.Pipe(ds, dataset.Filter(filterFunc), dataset.Map(aggregateFieldsFunc, transformFunc)), nil
