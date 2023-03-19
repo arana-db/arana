@@ -620,7 +620,7 @@ func (s *IntegrationSuite) TestShowNodes() {
 		t  = s.T()
 	)
 
-	result, err := db.Query("show nodes from arana")
+	_, err := db.Query("show nodes from arana")
 	assert.NoErrorf(t, err, "show nodes error: %v", err)
 }
 
