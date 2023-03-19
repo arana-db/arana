@@ -239,32 +239,3 @@ func Test_storeOpertae(t *testing.T) {
 
 	assert.NoError(t, err, "blank string should be success")
 }
-
-func Test_parseServerConfig(t *testing.T) {
-	// _namespaceKey string = "namespace"
-	// _groupKey     string = "group"
-	// _username     string = "username"
-	// _password     string = "password"
-	// _server       string = "endpoints"
-	// _contextPath  string = "contextPath"
-	// _scheme       string = "scheme"
-
-	options := map[string]interface{}{
-		_namespaceKey: "arana_test",
-		_groupKey:     "arana_test",
-		_username:     "nacos_test",
-		_password:     "nacos_test",
-		_server:       "127.0.0.1:8848,127.0.0.2:8848",
-	}
-
-	clientConfig := parseClientConfig(options)
-	assert.Equal(t, options[_namespaceKey], clientConfig.NamespaceId)
-	assert.Equal(t, options[_username], clientConfig.Username)
-	assert.Equal(t, options[_password], clientConfig.Password)
-
-	serverConfigs := parseServerConfig(options)
-	assert.Equal(t, 2, len(serverConfigs))
-
-	assert.Equal(t, "127.0.0.1", serverConfigs[0].IpAddr)
-	assert.Equal(t, "127.0.0.2", serverConfigs[1].IpAddr)
-}

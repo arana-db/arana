@@ -19,6 +19,7 @@ package registry
 
 import (
 	"fmt"
+	"strings"
 )
 
 import (
@@ -28,16 +29,27 @@ import (
 import (
 	"github.com/arana-db/arana/pkg/registry/base"
 	"github.com/arana-db/arana/pkg/registry/etcd"
+	"github.com/arana-db/arana/pkg/registry/nacos"
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
-func InitDiscovery(storeType string, basePath string, servicePath string, options map[string]interface{}) (base.Discovery, error) {
+const (
+	_rootPath    = "rootPath"
+	_servicePath = "servicePath"
+	_endpoints   = "endpoints"
+
+	_defaultServicePath = "service"
+	_defaultRootPath    = "arana"
+)
+
+func InitDiscovery(storeType string, options map[string]interface{}) (base.Discovery, error) {
 	var serviceDiscovery base.Discovery
 	var err error
 	switch storeType {
 	case base.ETCD:
-		serviceDiscovery, err = initEtcdDiscovery(basePath, servicePath, []string{options["endpoints"].(string)})
+		serviceDiscovery, err = initEtcdDiscovery(options)
 	case base.NACOS:
+		initNacosV2Discovery(options)
 	default:
 		err = errors.Errorf("Service registry not support store:%s", storeType)
 	}
@@ -50,12 +62,30 @@ func InitDiscovery(storeType string, basePath string, servicePath string, option
 	return serviceDiscovery, nil
 }
 
-func initEtcdDiscovery(basePath string, servicePath string, storeAddrs []string) (base.Discovery, error) {
+func initEtcdDiscovery(options map[string]interface{}) (base.Discovery, error) {
+	var (
+		rootPath    = _defaultRootPath
+		servicePath = _defaultServicePath
+		storeAddrs  = make([]string, 0)
+	)
+
+	if r, ok := options[_rootPath]; ok {
+		rootPath = r.(string)
+	}
+
+	if s, ok := options[_servicePath]; ok {
+		servicePath = s.(string)
+	}
+
+	if e, ok := options[_endpoints]; ok {
+		storeAddrs = append(storeAddrs, strings.Split(e.(string), ",")...)
+	}
+
 	if len(storeAddrs) == 0 {
 		return nil, fmt.Errorf("service discovery init etcd error because get endpoints nil :%v", storeAddrs)
 	}
 
-	serviceDiscovery, err := etcd.NewEtcdV3Discovery(basePath, servicePath, storeAddrs, nil)
+	serviceDiscovery, err := etcd.NewEtcdV3Discovery(rootPath, servicePath, storeAddrs, nil)
 	if err != nil {
 		return nil, fmt.Errorf("service discovery init etcd error because err: :%v", err)
 	}
@@ -63,6 +93,6 @@ func initEtcdDiscovery(basePath string, servicePath string, storeAddrs []string)
 	return serviceDiscovery, nil
 }
 
-func initNacosDiscovery(basePath string, servicePath string, storeAddrs []string) (base.Discovery, error) {
-	return nil, nil
+func initNacosV2Discovery(options map[string]interface{}) (base.Discovery, error) {
+	return nacos.NewNacosV2Discovery(options)
 }

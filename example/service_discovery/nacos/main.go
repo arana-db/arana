@@ -18,50 +18,29 @@
 package main
 
 import (
-	"sync"
-	"time"
+	"context"
 )
 
 import (
+	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/registry"
 	"github.com/arana-db/arana/pkg/registry/base"
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
 func main() {
-	storeType := base.ETCD
+	storeType := base.NACOS
 	options := make(map[string]interface{})
-	options["endpoints"] = "http://127.0.0.1:2379"
-	options["rootPath"] = "arana"
-	options["servicePath"] = "service"
+	options["endpoints"] = "127.0.0.1:8848"
+	options["scheme"] = "http"
+	options["username"] = "nacos"
+	options["password"] = "nacos"
 
-	etcdDiscovery, err := registry.InitDiscovery(storeType, options)
+	nacosDiscovery, err := registry.InitRegistry(&config.Registry{Options: options, Name: storeType})
 	if err != nil {
 		log.Fatalf("Init %s discovery err:%v", storeType, err)
 		return
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go displayWatchService(etcdDiscovery)
-	go displayGetService(etcdDiscovery)
-	wg.Wait()
-}
-
-func displayWatchService(etcdDiscovery base.Discovery) {
-	log.Infof("watch service...")
-	for service := range etcdDiscovery.WatchService() {
-		log.Infof("watch service, %s", service)
-	}
-}
-
-func displayGetService(etcdDiscovery base.Discovery) {
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
-
-	for range ticker.C {
-		for _, service := range etcdDiscovery.GetServices() {
-			log.Infof("get service, %s", service)
-		}
-	}
+	nacosDiscovery.UnregisterAllService(context.Background())
 }
