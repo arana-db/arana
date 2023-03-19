@@ -19,7 +19,9 @@ package security
 
 import (
 	"sync"
+)
 
+import (
 	"github.com/arana-db/arana/pkg/config"
 )
 

@@ -19,12 +19,22 @@ package dal
 import (
 	"context"
 	"strings"
+)
 
-	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/proto/rule"
-	"github.com/arana-db/arana/pkg/runtime/ast"
-	"github.com/arana-db/arana/pkg/runtime/plan"
+import (
 	"github.com/pkg/errors"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/dataset"
+	"github.com/arana-db/arana/pkg/mysql/rows"
+	"github.com/arana-db/arana/pkg/mysql/thead"
+	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/resultx"
+	"github.com/arana-db/arana/pkg/runtime/ast"
+	rcontext "github.com/arana-db/arana/pkg/runtime/context"
+	"github.com/arana-db/arana/pkg/runtime/plan"
+	"github.com/arana-db/arana/pkg/security"
 )
 
 var _ proto.Plan = (*ShowUsers)(nil)
@@ -32,7 +42,6 @@ var _ proto.Plan = (*ShowUsers)(nil)
 type ShowUsers struct {
 	plan.BasePlan
 	Stmt *ast.ShowUsers
-	rule *rule.Rule
 }
 
 // New ShowUsers ...
@@ -42,37 +51,33 @@ func NewShowUsers(stmt *ast.ShowUsers) *ShowUsers {
 	}
 }
 
-func (s *ShowUsers) Type() proto.PlanType {
+func (su *ShowUsers) Type() proto.PlanType {
 	return proto.PlanTypeQuery
 }
 
-func (s *ShowUsers) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+func (su *ShowUsers) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
 	var (
-		sb   strings.Builder
-		args []int
-		res  proto.Result
+		sb      strings.Builder
+		indexes []int
+		err     error
 	)
-	ctx, span := plan.Tracer.Start(ctx, "ShowUsersPlan.ExecIn")
+
+	ctx, span := plan.Tracer.Start(ctx, "ShowUsers.ExecIn")
 	defer span.End()
 
-	if err := s.Stmt.Restore(ast.RestoreDefault, &sb, &args); err != nil {
-		return nil, errors.Wrap(err, "failed to execute SHOW USERS FROM TELNANT")
+	if err = su.Stmt.Restore(ast.RestoreDefault, &sb, &indexes); err != nil {
+		return nil, errors.WithStack(err)
 	}
-	/*
-		tenantManager := security.DefaultTenantManager()
-		tenant := rcontext.Tenant(ctx)
-		users, _ := tenantManager.GetUsers(tenant)
-		for _, v := range users {
-			res = append(res, proto.NewValueString(v.Username))
-		}
-	*/
-	res, err := conn.Query(ctx, "", sb.String(), s.ToArgs(args)...)
-	if err != nil {
-		return nil, err
-	}
-	return res, nil
-}
 
-func (st *ShowUsers) SetRule(rule *rule.Rule) {
-	st.rule = rule
+	columns := thead.Database.ToFields()
+	ds := &dataset.VirtualDataset{
+		Columns: columns,
+	}
+
+	users, _ := security.DefaultTenantManager().GetUsers(rcontext.Tenant(ctx))
+	for _, user := range users {
+		ds.Rows = append(ds.Rows, rows.NewTextVirtualRow(columns, []proto.Value{proto.NewValueString(user.Username)}))
+	}
+
+	return resultx.New(resultx.WithDataset(ds)), nil
 }
