@@ -95,8 +95,8 @@ func NewEtcdV3Registry(serviceAddr, path string, etcdAddrs []string, options *st
 							meta := etcdRegistry.metas[name]
 							etcdRegistry.metasLock.RUnlock()
 
-							ttl := int64(etcdRegistry.UpdateInterval + etcdRegistry.Expired)
-							err = client.Put(context.Background(), nodePath, []byte(meta), ttl)
+							ttl := etcdRegistry.UpdateInterval + etcdRegistry.Expired
+							err = client.Put(context.Background(), nodePath, []byte(meta), int64(ttl.Seconds()))
 							if err != nil {
 								log.Errorf("cannot re-create etcd path %s: %v", nodePath, err)
 							}
