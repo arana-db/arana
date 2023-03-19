@@ -425,6 +425,10 @@ func optimizeJoin(ctx context.Context, o *optimize.Optimizer, stmt *ast.SelectSt
 		alias = tableSource.Alias
 		database = table.Prefix()
 
+		if alias == "" {
+			alias = table.Suffix()
+		}
+
 		shards, err := o.ComputeShards(ctx, table, nil, o.Args)
 		if err != nil {
 			return
@@ -440,9 +444,6 @@ func optimizeJoin(ctx context.Context, o *optimize.Optimizer, stmt *ast.SelectSt
 
 		// table has shard
 		shardsMap = shards
-		if alias == "" {
-			alias = table.Suffix()
-		}
 		return
 	}
 

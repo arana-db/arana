@@ -120,9 +120,12 @@ func (h *HashJoinPlan) probe(ctx context.Context, conn proto.VConn, buildDs prot
 	probeMapFunc := func(row proto.Row, columnName string) proto.Row {
 		keyedRow := row.(proto.KeyedRow)
 		value, _ := keyedRow.Get(columnName)
-		xh := xxhash.New()
-		_, _ = xh.WriteString(value.String())
-		return h.hashArea[base58.Encode(xh.Sum(nil))]
+		if value != nil {
+			xh := xxhash.New()
+			_, _ = xh.WriteString(value.String())
+			return h.hashArea[base58.Encode(xh.Sum(nil))]
+		}
+		return nil
 	}
 
 	cn := h.ProbeKey[0]
