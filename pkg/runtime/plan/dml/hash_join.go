@@ -99,8 +99,10 @@ func (h *HashJoinPlan) build(ctx context.Context, conn proto.VConn) (proto.Datas
 			return nil, errors.WithStack(err)
 		}
 
-		_, _ = xh.WriteString(value.String())
-		h.hashArea[base58.Encode(xh.Sum(nil))] = next
+		if value != nil {
+			_, _ = xh.WriteString(value.String())
+			h.hashArea[base58.Encode(xh.Sum(nil))] = next
+		}
 	}
 
 	return ds, nil
