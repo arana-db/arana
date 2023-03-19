@@ -44,7 +44,6 @@ type ShowUsers struct {
 	Stmt *ast.ShowUsers
 }
 
-// New ShowUsers ...
 func NewShowUsers(stmt *ast.ShowUsers) *ShowUsers {
 	return &ShowUsers{
 		Stmt: stmt,
