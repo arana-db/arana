@@ -527,3 +527,16 @@ func (s *ShowReplicaStatus) Restore(flag RestoreFlag, sb *strings.Builder, args 
 	sb.WriteString("SHOW REPLICA STATUS")
 	return s.baseShow.Restore(flag, sb, args)
 }
+
+type ShowUsers struct {
+	*baseShow
+}
+
+func (s *ShowUsers) Mode() SQLType {
+	return SQLTypeShowUsers
+}
+
+func (s *ShowUsers) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	sb.WriteString("SHOW USERS FROM TENANT")
+	return s.baseShow.Restore(flag, sb, args)
+}

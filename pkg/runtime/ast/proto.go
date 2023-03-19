@@ -60,6 +60,7 @@ const (
 	SQLTypeKill                      // KILL
 	SQLTypeCheckTable                // CHECK TABLE
 	SQLTypeRenameTable               // RENAME TABLE
+	SQLTypeShowUsers                 // SHOW USERS FROM TENANT
 )
 
 var _sqlTypeNames = [...]string{
