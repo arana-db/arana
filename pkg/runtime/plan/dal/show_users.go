@@ -18,11 +18,6 @@ package dal
 
 import (
 	"context"
-	"strings"
-)
-
-import (
-	"github.com/pkg/errors"
 )
 
 import (
@@ -40,11 +35,10 @@ import (
 var _ proto.Plan = (*ShowUsers)(nil)
 
 type ShowUsers struct {
-	plan.BasePlan
 	Stmt *ast.ShowUsers
 }
 
-func NewShowUsers(stmt *ast.ShowUsers) *ShowUsers {
+func NewShowUsersPlan(stmt *ast.ShowUsers) *ShowUsers {
 	return &ShowUsers{
 		Stmt: stmt,
 	}
@@ -55,20 +49,14 @@ func (su *ShowUsers) Type() proto.PlanType {
 }
 
 func (su *ShowUsers) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
-	var (
-		sb      strings.Builder
-		indexes []int
-		err     error
-	)
-
 	ctx, span := plan.Tracer.Start(ctx, "ShowUsers.ExecIn")
 	defer span.End()
-
-	if err = su.Stmt.Restore(ast.RestoreDefault, &sb, &indexes); err != nil {
-		return nil, errors.WithStack(err)
+	tenant := su.Stmt.Tenant
+	if len(tenant) == 0 {
+		tenant = rcontext.Tenant(ctx)
 	}
 
-	columns := thead.Database.ToFields()
+	columns := thead.Users.ToFields()
 	ds := &dataset.VirtualDataset{
 		Columns: columns,
 	}
@@ -77,6 +65,5 @@ func (su *ShowUsers) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result
 	for _, user := range users {
 		ds.Rows = append(ds.Rows, rows.NewTextVirtualRow(columns, []proto.Value{proto.NewValueString(user.Username)}))
 	}
-
 	return resultx.New(resultx.WithDataset(ds)), nil
 }

@@ -32,6 +32,9 @@ var (
 	Database = Thead{
 		Col{Name: "Database", FieldType: consts.FieldTypeVarString},
 	}
+	Users = Thead{
+		Col{Name: "user_name", FieldType: consts.FieldTypeVarString},
+	}
 )
 
 type Col struct {

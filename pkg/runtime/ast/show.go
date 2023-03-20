@@ -529,7 +529,7 @@ func (s *ShowReplicaStatus) Restore(flag RestoreFlag, sb *strings.Builder, args 
 }
 
 type ShowUsers struct {
-	*baseShow
+	Tenant string
 }
 
 func (s *ShowUsers) Mode() SQLType {
@@ -537,6 +537,10 @@ func (s *ShowUsers) Mode() SQLType {
 }
 
 func (s *ShowUsers) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
-	sb.WriteString("SHOW USERS FROM TENANT")
-	return s.baseShow.Restore(flag, sb, args)
+	sb.WriteString("SHOW USERS FROM ")
+
+	if len(s.Tenant) > 0 {
+		WriteID(sb, s.Tenant)
+	}
+	return nil
 }
