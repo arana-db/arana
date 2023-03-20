@@ -61,7 +61,7 @@ func (su *ShowUsers) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result
 		Columns: columns,
 	}
 
-	users, _ := security.DefaultTenantManager().GetUsers(rcontext.Tenant(ctx))
+	users, _ := security.DefaultTenantManager().GetUsers(tenant)
 	for _, user := range users {
 		ds.Rows = append(ds.Rows, rows.NewTextVirtualRow(columns, []proto.Value{proto.NewValueString(user.Username)}))
 	}
