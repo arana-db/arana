@@ -22,10 +22,12 @@ import (
 )
 
 import (
+	"github.com/pkg/errors"
+)
+
+import (
 	"github.com/arana-db/parser/ast"
 	"github.com/arana-db/parser/format"
-
-	"github.com/pkg/errors"
 )
 
 var _ Statement = (*CreateTableStmt)(nil)
