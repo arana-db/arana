@@ -614,6 +614,16 @@ func (s *IntegrationSuite) TestShowCreate() {
 	assert.Equal(t, "student", table)
 }
 
+func (s *IntegrationSuite) TestShowUsers() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	_, err := db.Query("show users from arana")
+	assert.NoErrorf(t, err, "show users error: %v", err)
+}
+
 func (s *IntegrationSuite) TestDropTrigger() {
 	var (
 		db = s.DB()
