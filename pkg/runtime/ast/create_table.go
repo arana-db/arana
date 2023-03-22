@@ -31,7 +31,7 @@ import (
 var _ Statement = (*CreateTableStmt)(nil)
 
 type CreateTableStmt struct {
-	//IfNotExists bool
+	IfNotExists bool
 	//TemporaryKeyword
 	// Meanless when TemporaryKeyword is not TemporaryGlobal.
 	// ON COMMIT DELETE ROWS => true
@@ -51,12 +51,11 @@ func NewCreateTableStmt() *CreateTableStmt {
 	return &CreateTableStmt{}
 }
 
-func (c *CreateTableStmt) CntParams() int {
-	return 1
-}
-
 func (c *CreateTableStmt) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("CREATE TABLE ")
+	if c.IfNotExists {
+		sb.WriteString(" IF NOT EXISTS ")
+	}
 	if err := c.Table.Restore(flag, sb, args); err != nil {
 		return errors.Wrapf(err, "an error occurred while restore AnalyzeTableStatement.Tables[%s]", c.Table)
 	}

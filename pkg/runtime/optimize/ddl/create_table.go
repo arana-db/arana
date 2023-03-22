@@ -42,19 +42,10 @@ func optimizeCreateTable(ctx context.Context, o *optimize.Optimizer) (proto.Plan
 		shards   rule.DatabaseTables
 		fullScan bool
 	)
-	//if len(o.Hints) > 0 {
-	//	if shards, err = optimize.Hints(*stmt.Table, o.Hints, o.Rule); err != nil {
-	//		return nil, errors.Wrap(err, "calculate hints failed")
-	//	}
-	//}
 	vt, ok := o.Rule.VTable(stmt.Table.Suffix()) //TODO
 	fullScan = ok
 
 	log.Debugf("compute shards: result=%s, isFullScan=%v", shards, fullScan)
-	// return error if full-scan is disabled
-	////if fullScan && (!vt.AllowFullScan() && !hint.Contains(hint.TypeFullScan, o.Hints)) {
-	//	return nil, errors.WithStack(optimize.ErrDenyFullScan)
-	//}
 
 	toSingle := func(db, tbl string) (proto.Plan, error) {
 		ret := &ddl.CreateTablePlan{

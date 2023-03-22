@@ -1695,6 +1695,7 @@ func (cc *convCtx) convCreateTableStmt(stmt *ast.CreateTableStmt) Statement {
 	}
 
 	return &CreateTableStmt{
+		IfNotExists: stmt.IfNotExists,
 		Table:       table,
 		ReferTable:  refTable,
 		Cols:        stmt.Cols,
