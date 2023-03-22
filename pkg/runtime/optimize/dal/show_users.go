@@ -15,39 +15,25 @@
  * limitations under the License.
  */
 
-package thead
+package dal
 
 import (
-	consts "github.com/arana-db/arana/pkg/constants/mysql"
-	"github.com/arana-db/arana/pkg/mysql"
+	"context"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/runtime/optimize"
+	"github.com/arana-db/arana/pkg/runtime/plan/dal"
 )
 
-var (
-	Topology = Thead{
-		Col{Name: "id", FieldType: consts.FieldTypeLongLong},
-		Col{Name: "group_name", FieldType: consts.FieldTypeVarString},
-		Col{Name: "table_name", FieldType: consts.FieldTypeVarString},
-	}
-	Database = Thead{
-		Col{Name: "Database", FieldType: consts.FieldTypeVarString},
-	}
-	Users = Thead{
-		Col{Name: "user_name", FieldType: consts.FieldTypeVarString},
-	}
-)
-
-type Col struct {
-	Name      string
-	FieldType consts.FieldType
+func init() {
+	optimize.Register(ast.SQLTypeShowUsers, optimizeShowUsers)
 }
 
-type Thead []Col
-
-func (t Thead) ToFields() []proto.Field {
-	columns := make([]proto.Field, len(t))
-	for i := 0; i < len(t); i++ {
-		columns[i] = mysql.NewField(t[i].Name, t[i].FieldType)
-	}
-	return columns
+func optimizeShowUsers(_ context.Context, o *optimize.Optimizer) (proto.Plan, error) {
+	stmt := o.Stmt.(*ast.ShowUsers)
+	ret := dal.NewShowUsersPlan(stmt)
+	return ret, nil
 }
