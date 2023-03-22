@@ -19,8 +19,9 @@ const (
 	Username       string = "username"
 	Password       string = "password"
 	Server         string = "endpoints"
-	ContextPath    string = "contextPath"
+	ContextPath    string = "context-path"
 	Scheme         string = "scheme"
+	PageSizeKey    string = "page-size"
 
 	PathSplit   string = "::"
 	ServerSplit string = ","

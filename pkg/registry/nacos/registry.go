@@ -19,18 +19,15 @@ package nacos
 
 import (
 	"context"
-	"strings"
 )
 
 import (
-	"github.com/nacos-group/nacos-sdk-go/v2/clients/naming_client"
 	"github.com/nacos-group/nacos-sdk-go/v2/common/logger"
 	"github.com/nacos-group/nacos-sdk-go/v2/vo"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/registry/base"
-	u_conf "github.com/arana-db/arana/pkg/util/config"
 )
 
 const (
@@ -39,23 +36,11 @@ const (
 )
 
 type NacosV2Registry struct {
-	client naming_client.INamingClient
-
-	NamespaceId string
-	Servers     []string // ip+port, like 127.0.0.1:8848
+	client *NacosServiceClient
 }
 
 func NewNacosV2Registry(options map[string]interface{}) (base.Registry, error) {
-	reg := &NacosV2Registry{}
-	if val, ok := options[u_conf.NamespaceIdKey]; ok {
-		reg.NamespaceId = val.(string)
-	}
-
-	if val, ok := options[u_conf.Server]; ok {
-		reg.Servers = strings.Split(val.(string), u_conf.ServerSplit)
-	}
-
-	client, err := u_conf.NewNacosV2NamingClient(options)
+	client, err := NewNacosServiceClient(options)
 	if err != nil {
 		return nil, err
 	}
@@ -106,31 +91,20 @@ func (ng *NacosV2Registry) Unregister(ctx context.Context, name string) error {
 }
 
 func (ng *NacosV2Registry) UnregisterAllService(ctx context.Context) error {
-	// TODO need to deal with cases that the service count is more than pageSize
-	services, err := ng.client.GetAllServicesInfo(vo.GetAllServiceInfoParam{PageNo: 1, PageSize: 10})
-	if err != nil {
-		return err
-	}
-
-	for _, srv := range services.Doms {
-		instances, err := ng.client.SelectAllInstances(vo.SelectAllInstancesParam{ServiceName: srv})
+	instances := ng.client.SelectAllServiceInstances()
+	for _, inst := range instances {
+		flag, err := ng.client.DeregisterInstance(vo.DeregisterInstanceParam{
+			Ip:          inst.Ip,
+			Port:        inst.Port,
+			Cluster:     inst.ClusterName,
+			ServiceName: inst.ServiceName,
+			Ephemeral:   true,
+		})
 		if err != nil {
 			return err
 		}
-		for _, inst := range instances {
-			flag, err := ng.client.DeregisterInstance(vo.DeregisterInstanceParam{
-				Ip:          inst.Ip,
-				Port:        inst.Port,
-				Cluster:     inst.ClusterName,
-				ServiceName: inst.ServiceName,
-				Ephemeral:   true,
-			})
-			if err != nil {
-				return err
-			}
-			if !flag {
-				logger.Infof("Deregister instance %s failed", inst)
-			}
+		if !flag {
+			logger.Infof("Deregister instance %s failed", inst)
 		}
 	}
 	return nil
