@@ -26,12 +26,12 @@ import (
 )
 
 func Test_parseServerConfig(t *testing.T) {
-	// NamespaceIdKey string = "namespace-id"
+	// NamespaceIdKey string = "namespace_id"
 	// GroupKey     string = "group"
 	// Username     string = "username"
 	// Password     string = "password"
 	// Server       string = "endpoints"
-	// ContextPath  string = "context-path"
+	// ContextPath  string = "context_path"
 	// Scheme       string = "scheme"
 
 	options := map[string]interface{}{

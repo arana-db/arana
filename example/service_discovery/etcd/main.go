@@ -32,8 +32,8 @@ func main() {
 	storeType := base.ETCD
 	options := make(map[string]interface{})
 	options["endpoints"] = "http://127.0.0.1:2379"
-	options["rootPath"] = "arana"
-	options["servicePath"] = "service"
+	options["root_path"] = "arana"
+	options["service_path"] = "service"
 
 	etcdDiscovery, err := registry.InitDiscovery(storeType, options)
 	if err != nil {

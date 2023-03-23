@@ -34,8 +34,8 @@ import (
 )
 
 const (
-	_rootPath    = "rootPath"
-	_servicePath = "servicePath"
+	_rootPath    = "root_path"
+	_servicePath = "service_path"
 	_endpoints   = "endpoints"
 
 	_defaultServicePath = "service"

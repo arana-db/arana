@@ -18,11 +18,6 @@
 package main
 
 import (
-	"context"
-)
-
-import (
-	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/registry"
 	"github.com/arana-db/arana/pkg/registry/base"
 	"github.com/arana-db/arana/pkg/util/log"
@@ -36,11 +31,11 @@ func main() {
 	options["username"] = "nacos"
 	options["password"] = "nacos"
 
-	nacosDiscovery, err := registry.InitRegistry(&config.Registry{Options: options, Name: storeType})
+	nacosDiscovery, err := registry.InitDiscovery(base.NACOS, options)
 	if err != nil {
 		log.Fatalf("Init %s discovery err:%v", storeType, err)
 		return
 	}
 
-	nacosDiscovery.UnregisterAllService(context.Background())
+	nacosDiscovery.GetServices()
 }

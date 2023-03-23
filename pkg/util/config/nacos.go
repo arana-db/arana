@@ -31,12 +31,12 @@ import (
 const (
 	DefaultGroupName string = "arana"
 
-	NamespaceIdKey string = "namespace-id"
+	NamespaceIdKey string = "namespace_id"
 	GroupKey       string = "group"
 	Username       string = "username"
 	Password       string = "password"
 	Server         string = "endpoints"
-	ContextPath    string = "context-path"
+	ContextPath    string = "context_path"
 	Scheme         string = "scheme"
 	PageSizeKey    string = "page-size"
 
