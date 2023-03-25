@@ -15,30 +15,25 @@
  * limitations under the License.
  */
 
-package router
+package dal
 
 import (
-	"net/http"
+	"context"
 )
 
 import (
-	"github.com/gin-gonic/gin"
-)
-
-import (
-	"github.com/arana-db/arana/pkg/admin"
+	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/runtime/optimize"
+	"github.com/arana-db/arana/pkg/runtime/plan/dal"
 )
 
 func init() {
-	admin.Register(func(router admin.Router, openRouter admin.Router) {
-		router.GET("/services", GetServices)
-	})
+	optimize.Register(ast.SQLTypeShowUsers, optimizeShowUsers)
 }
 
-func GetServices(c *gin.Context) error {
-	serviceDiscovery := admin.GetServiceDiscovery(c)
-	data := serviceDiscovery.ListServices()
-
-	c.JSON(http.StatusOK, data)
-	return nil
+func optimizeShowUsers(_ context.Context, o *optimize.Optimizer) (proto.Plan, error) {
+	stmt := o.Stmt.(*ast.ShowUsers)
+	ret := dal.NewShowUsersPlan(stmt)
+	return ret, nil
 }

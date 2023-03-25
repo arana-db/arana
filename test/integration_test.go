@@ -614,14 +614,25 @@ func (s *IntegrationSuite) TestShowCreate() {
 	assert.Equal(t, "student", table)
 }
 
+
 func (s *IntegrationSuite) TestShowNodes() {
+  var (
+		db = s.DB()
+		t  = s.T()
+	)
+  
+  _, err := db.Query("show nodes from arana")
+	assert.NoErrorf(t, err, "show nodes error: %v", err)
+}
+
+func (s *IntegrationSuite) TestShowUsers() {
 	var (
 		db = s.DB()
 		t  = s.T()
 	)
 
-	_, err := db.Query("show nodes from arana")
-	assert.NoErrorf(t, err, "show nodes error: %v", err)
+	_, err := db.Query("show users from arana")
+	assert.NoErrorf(t, err, "show users error: %v", err)
 }
 
 func (s *IntegrationSuite) TestDropTrigger() {

@@ -43,6 +43,7 @@ const (
 	SQLTypeShowVariables             // SHOW VARIABLES
 	SQLTypeShowNodes                 // SHOW NODES
 	SQLTypeShowTopology              // SHOW TOPOLOGY
+	SQLTypeShowUsers                 // SHOW USERS
 	SQLTypeDescribe                  // DESCRIBE
 	SQLTypeUnion                     // UNION
 	SQLTypeDropTrigger               // DROP TRIGGER

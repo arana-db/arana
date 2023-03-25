@@ -692,6 +692,8 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 		return &ShowOpenTables{baseShow: toBaseShow()}
 	case ast.ShowNodes:
 		return &ShowNodes{Tenant: node.Tenant}
+	case ast.ShowUsers:
+		return &ShowUsers{Tenant: node.Tenant}
 	case ast.ShowTables:
 		ret := &ShowTables{baseShow: toBaseShow()}
 		if like, ok := toLike(node); ok {
