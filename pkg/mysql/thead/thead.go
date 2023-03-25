@@ -41,6 +41,7 @@ var (
 		Col{Name: "user_name", FieldType: consts.FieldTypeVarString},
 		Col{Name: "weight", FieldType: consts.FieldTypeVarString},
 		Col{Name: "parameters", FieldType: consts.FieldTypeVarString},
+	}
 	Users = Thead{
 		Col{Name: "user_name", FieldType: consts.FieldTypeVarString},
 	}
