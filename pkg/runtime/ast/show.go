@@ -538,10 +538,12 @@ func (s *ShowNodes) Mode() SQLType {
 
 func (s *ShowNodes) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("SHOW NODES FROM ")
-  if len(s.Tenant) > 0 {
+
+	if len(s.Tenant) > 0 {
 		WriteID(sb, s.Tenant)
 	}
-  return nil
+
+	return nil
 }
 
 type ShowUsers struct {
