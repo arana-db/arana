@@ -624,6 +624,16 @@ func (s *IntegrationSuite) TestShowUsers() {
 	assert.NoErrorf(t, err, "show users error: %v", err)
 }
 
+func (s *IntegrationSuite) TestShowCreateSequence() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	_, err := db.Query("show sequence from arana")
+	assert.NoErrorf(t, err, "show sequence error: %v", err)
+}
+
 func (s *IntegrationSuite) TestDropTrigger() {
 	var (
 		db = s.DB()

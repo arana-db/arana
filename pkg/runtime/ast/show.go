@@ -544,3 +544,20 @@ func (s *ShowUsers) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) 
 	}
 	return nil
 }
+
+type ShowCreateSequence struct {
+	Tenant string
+}
+
+func (s *ShowCreateSequence) Mode() SQLType {
+	return SQLTypeShowCreateSequence
+}
+
+func (s *ShowCreateSequence) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	sb.WriteString("SHOW SEQUENCE FROM ")
+
+	if len(s.Tenant) > 0 {
+		WriteID(sb, s.Tenant)
+	}
+	return nil
+}

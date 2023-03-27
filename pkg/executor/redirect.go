@@ -269,7 +269,7 @@ func (executor *RedirectExecutor) doExecutorComQuery(ctx *proto.Context, act ast
 			switch stmt.Tp {
 			case ast.ShowDatabases, ast.ShowVariables, ast.ShowTopology, ast.ShowStatus, ast.ShowTableStatus,
 				ast.ShowWarnings, ast.ShowCharset, ast.ShowMasterStatus, ast.ShowProcessList, ast.ShowReplicas,
-				ast.ShowReplicaStatus, ast.ShowUsers:
+				ast.ShowReplicaStatus, ast.ShowUsers, ast.ShowCreateSequence:
 				return true
 			default:
 				return false
