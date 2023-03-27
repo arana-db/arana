@@ -82,7 +82,7 @@ var _sqlTypeNames = [...]string{
 	SQLTypeShowColumns:        "SHOW COLUMNS",
 	SQLTypeShowCreate:         "SHOW CREATE",
 	SQLTypeShowVariables:      "SHOW VARIABLES",
-	SQLTypeShowCreateSequence: "CREATE SEQUENCE",
+	SQLTypeShowCreateSequence: "SHOW CREATE SEQUENCE",
 	SQLTypeDescribe:           "DESCRIBE",
 	SQLTypeUnion:              "UNION",
 	SQLTypeDropTrigger:        "DROP TRIGGER",
