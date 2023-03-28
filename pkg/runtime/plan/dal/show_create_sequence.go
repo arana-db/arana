@@ -19,6 +19,7 @@ package dal
 
 import (
 	"context"
+	"fmt"
 )
 
 import (
@@ -71,7 +72,7 @@ func (su *ShowCreateSequence) ExecIn(ctx context.Context, conn proto.VConn) (pro
 		}
 		val := seq.CurrentVal()
 		step := seq.GetSequenceConfig().Option["step"]
-		ds.Rows = append(ds.Rows, rows.NewTextVirtualRow(columns, []proto.Value{proto.NewValueString("group"), proto.NewValueString(string(val)), proto.NewValueString(step)}))
+		ds.Rows = append(ds.Rows, rows.NewTextVirtualRow(columns, []proto.Value{proto.NewValueString("group"), proto.NewValueString(fmt.Sprint(val)), proto.NewValueString(step)}))
 	} else if seq.GetSequenceConfig().Type == "snowflake" {
 		columns := thead.SnowflakeSequence.ToFields()
 		ds = &dataset.VirtualDataset{
