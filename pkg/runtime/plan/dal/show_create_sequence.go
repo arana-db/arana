@@ -53,11 +53,12 @@ func (su *ShowCreateSequence) Type() proto.PlanType {
 }
 
 func (su *ShowCreateSequence) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
-	ctx, span := plan.Tracer.Start(ctx, "ShowCreateSequencePlan.ExecIn")
+	_, span := plan.Tracer.Start(ctx, "ShowCreateSequencePlan.ExecIn")
 	defer span.End()
 
 	tenant := su.Stmt.Tenant
 	builder, ok := proto.GetSequenceSupplier(proto.BuildAutoIncrementName(tenant))
+
 	if !ok {
 		return nil, errors.Errorf("[sequence] name=%s not exist", proto.BuildAutoIncrementName(tenant))
 	}
