@@ -20,6 +20,8 @@ package dml
 import (
 	"context"
 
+	"github.com/arana-db/arana/pkg/runtime/logical"
+
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/ast"
@@ -75,30 +77,15 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		slots = make(map[string]map[string][]int) // (db,table,valuesIndex)
 	)
 
-	// reset filter
-	resetFilter := func(column string, value ast.ExpressionNode) ast.ExpressionNode {
-		left := ast.ColumnNameExpressionAtom(make([]string, 1))
-		filter := &ast.PredicateExpressionNode{
-			P: &ast.BinaryComparisonPredicateNode{
-				Left: &ast.AtomPredicateNode{
-					A: left,
-				},
-				Op: cmp.Ceq,
-			},
-		}
-		left[0] = column
-		filter.P.(*ast.BinaryComparisonPredicateNode).Right = value.(*ast.PredicateExpressionNode).P
-		return filter
-	}
-
 	for i, values := range stmt.Values {
 		var (
-			shards  rule.DatabaseTables
-			filters []ast.ExpressionNode
+			shards rule.DatabaseTables
+			filter ast.ExpressionNode
 		)
-		for bingo := range bingoList {
-			value := values[bingo]
-			filters = append(filters, resetFilter(stmt.Columns[bingo], value))
+		if len(bingoList) == 1 {
+			filter = buildFilter(stmt.Columns[bingoList[0]], values[bingoList[0]])
+		} else {
+			filter = buildLogicalFilter(stmt.Columns, values, bingoList)
 		}
 
 		if len(o.Hints) > 0 {
@@ -108,7 +95,7 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		}
 
 		if shards == nil {
-			if shards, err = sharder.SimpleShard(tableName, filters); err != nil {
+			if shards, err = sharder.SimpleShard(tableName, filter); err != nil {
 				return nil, errors.WithStack(err)
 			}
 		}
@@ -283,4 +270,39 @@ func createSequenceIfAbsent(ctx context.Context, vtab *rule.VTable, metadata *pr
 		}
 	}
 	return nil
+}
+
+func buildFilter(column string, value ast.ExpressionNode) ast.ExpressionNode {
+	// reset filter
+	return &ast.PredicateExpressionNode{
+		P: &ast.BinaryComparisonPredicateNode{
+			Left: &ast.AtomPredicateNode{
+				A: ast.ColumnNameExpressionAtom([]string{column}),
+			},
+			Op:    cmp.Ceq,
+			Right: value.(*ast.PredicateExpressionNode).P,
+		},
+	}
+}
+
+func buildLogicalFilter(columns []string, values []ast.ExpressionNode, bingoList []int) ast.ExpressionNode {
+	filter := &ast.LogicalExpressionNode{
+		Op:    logical.Land,
+		Left:  buildFilter(columns[bingoList[0]], values[bingoList[0]]),
+		Right: buildFilter(columns[bingoList[1]], values[bingoList[1]]),
+	}
+	return appendLogicalFilter(columns, values, bingoList, 2, filter)
+}
+
+func appendLogicalFilter(columns []string, values []ast.ExpressionNode, bingoList []int, index int, filter ast.ExpressionNode) ast.ExpressionNode {
+	if index == len(bingoList) {
+		return filter
+	}
+	newFilter := &ast.LogicalExpressionNode{
+		Op:    logical.Land,
+		Left:  filter,
+		Right: buildFilter(columns[bingoList[index]], values[bingoList[index]]),
+	}
+	appendLogicalFilter(columns, values, bingoList, index, newFilter)
+	return filter
 }
