@@ -443,6 +443,12 @@ func (s *ShowWarnings) Restore(flag RestoreFlag, sb *strings.Builder, args *[]in
 	if err := s.baseShow.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
+	if s.Limit != nil {
+		sb.WriteString(" LIMIT ")
+		if err := s.Limit.Restore(flag, sb, args); err != nil {
+			return errors.WithStack(err)
+		}
+	}
 
 	return nil
 }

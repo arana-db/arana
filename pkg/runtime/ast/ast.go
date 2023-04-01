@@ -768,7 +768,11 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 		}
 		return ret
 	case ast.ShowWarnings:
-		return &ShowWarnings{baseShow: toBaseShow()}
+		ret := &ShowWarnings{baseShow: toBaseShow()}
+		if node.Limit != nil {
+			ret.Limit = cc.convLimit(node.Limit)
+		}
+		return ret
 	case ast.ShowCharset:
 		return &ShowCharset{baseShow: toBaseShow()}
 	case ast.ShowProcessList:
