@@ -41,6 +41,7 @@ const (
 	SQLTypeShowColumns               // SHOW COLUMNS
 	SQLTypeShowCreate                // SHOW CREATE
 	SQLTypeShowVariables             // SHOW VARIABLES
+	SQLTypeShowNodes                 // SHOW NODES
 	SQLTypeShowTopology              // SHOW TOPOLOGY
 	SQLTypeShowUsers                 // SHOW USERS
 	SQLTypeDescribe                  // DESCRIBE
