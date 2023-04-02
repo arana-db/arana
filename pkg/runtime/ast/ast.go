@@ -690,6 +690,8 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 		return &ShowTopology{baseShow: toBaseShow()}
 	case ast.ShowOpenTables:
 		return &ShowOpenTables{baseShow: toBaseShow()}
+	case ast.ShowNodes:
+		return &ShowNodes{Tenant: node.Tenant}
 	case ast.ShowUsers:
 		return &ShowUsers{Tenant: node.Tenant}
 	case ast.ShowShardingTable:

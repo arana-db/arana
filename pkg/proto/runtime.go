@@ -68,6 +68,17 @@ type (
 		W int32 // write weight
 	}
 
+	// NodeConn represents the node connection info
+	NodeConn struct {
+		Host       string // connection host
+		Port       int    // connection port
+		UserName   string // connection username
+		Password   string // connection password
+		Database   string // connection database
+		Weight     string // connection weight
+		Parameters string // connection parameters
+	}
+
 	// Callable represents sql caller.
 	Callable interface {
 		// Call executes a sql.
@@ -95,6 +106,9 @@ type (
 
 		// Weight returns the weight.
 		Weight() Weight
+
+		// NodeConn returns the node connection info.
+		NodeConn() NodeConn
 
 		// SetCapacity sets the capacity.
 		SetCapacity(capacity int) error
