@@ -17,15 +17,38 @@
 
 package dataset
 
-import "github.com/arana-db/arana/pkg/proto"
+import (
+	"io"
+	"strings"
+)
+
+import (
+	"github.com/pkg/errors"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/proto"
+)
 
 var _ proto.Dataset = (*SortMergeJoin)(nil)
 
 type SortMergeJoin struct {
 	fields       []proto.Field
-	joinFields   []proto.Field
+	joinColumn   *JoinColumn
 	leftDataset  proto.Dataset
 	rightDataset proto.Dataset
+}
+
+type JoinColumn struct {
+	column string
+}
+
+func (j *JoinColumn) Column() string {
+	if j != nil {
+		return j.column
+	}
+
+	return ""
 }
 
 func (s *SortMergeJoin) Close() error {
@@ -45,5 +68,79 @@ func (s *SortMergeJoin) Next() (proto.Row, error) {
 	//		if left data less than right data , lost left data
 	//		if left data great than right data, lost right data, cursor to right data
 
-	return nil, nil
+	leftRow, err := s.getLeftRow()
+	if err != nil {
+		return nil, err
+	}
+
+	rightRow, err := s.getRightRow()
+	if err != nil {
+		return nil, err
+	}
+
+	var leftValue, rightValue proto.Value
+
+	for {
+		if leftRow == nil || rightRow == nil {
+			return nil, nil
+		}
+
+		leftValue, err = leftRow.(proto.KeyedRow).Get(s.joinColumn.Column())
+		if err != nil {
+			return nil, err
+		}
+
+		rightValue, err = rightRow.(proto.KeyedRow).Get(s.joinColumn.Column())
+		if err != nil {
+			return nil, err
+		}
+
+		if leftValue.String() == "" || rightValue.String() == "" {
+			return nil, nil
+		}
+
+		if strings.Compare(leftValue.String(), rightValue.String()) == 0 {
+			return leftRow, nil
+		}
+
+		if strings.Compare(leftValue.String(), rightValue.String()) < 0 {
+			// get next left data
+			leftRow, err = s.getLeftRow()
+			if err != nil {
+				return nil, nil
+			}
+		}
+
+		if strings.Compare(leftValue.String(), rightValue.String()) > 0 {
+			// get next right data
+			rightRow, err = s.getRightRow()
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+}
+
+func (s *SortMergeJoin) getLeftRow() (proto.Row, error) {
+	leftRow, err := s.leftDataset.Next()
+	if err != nil && errors.Is(err, io.EOF) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return leftRow, nil
+}
+
+func (s *SortMergeJoin) getRightRow() (proto.Row, error) {
+	rightRow, err := s.rightDataset.Next()
+	if err != nil && errors.Is(err, io.EOF) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return rightRow, nil
 }
