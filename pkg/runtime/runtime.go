@@ -21,7 +21,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"sync"
 	"time"
 )
@@ -412,12 +411,6 @@ func (pi *defaultRuntime) Exec(ctx context.Context, db string, query string, arg
 	res, err := pi.call(ctx, db, query, args...)
 	if err != nil {
 		return nil, perrors.WithStack(err)
-	}
-
-	if closer, ok := res.(io.Closer); ok {
-		defer func() {
-			_ = closer.Close()
-		}()
 	}
 	return res, nil
 }
