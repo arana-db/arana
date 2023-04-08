@@ -27,7 +27,9 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime"
 	"github.com/arana-db/arana/testdata"
+
 	"github.com/golang/mock/gomock"
+
 	"github.com/stretchr/testify/assert"
 )
 
