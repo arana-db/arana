@@ -35,8 +35,8 @@ import (
 var _ rule.ShardComputer = (*jsShardComputer)(nil)
 
 const (
-	_jsEntrypoint = "__compute__" // shard method name
-	_jsValueName  = "$value"      // variable name of column in sharding script
+	_jsEntrypoint   = "__compute__" // shard method name
+	_jsVariableName = "$"           // variable name of column in sharding script
 )
 
 type jsShardComputer struct {
@@ -47,8 +47,8 @@ type jsShardComputer struct {
 }
 
 // NewJavascriptShardComputer returns a shard computer which is based on Javascript.
-func NewJavascriptShardComputer(script string) (rule.ShardComputer, error) {
-	script = wrapScript(script)
+func NewJavascriptShardComputer(script string, columns []string) (rule.ShardComputer, error) {
+	script = wrapScript(script, columns)
 
 	vm, err := createVM(script)
 	if err != nil {
@@ -74,8 +74,17 @@ func (j *jsShardComputer) Compute(value interface{}) (int, error) {
 		j.putVM(vm)
 	}()
 
+	params, ok := value.([]interface{})
+	if !ok {
+		return 0, errors.Wrapf(err, "javascript shard computer params type not is []string")
+	}
+	gojaValues := make([]goja.Value, 0, len(params))
+	for _, v := range params {
+		gojaValues = append(gojaValues, vm.ToValue(v))
+	}
+
 	fn, _ := goja.AssertFunction(vm.Get(_jsEntrypoint))
-	res, err := fn(goja.Undefined(), vm.ToValue(value))
+	res, err := fn(goja.Undefined(), gojaValues...)
 	if err != nil {
 		return 0, errors.WithStack(err)
 	}
@@ -99,15 +108,21 @@ func (j *jsShardComputer) putVM(vm *goja.Runtime) {
 	}
 }
 
-func wrapScript(script string) string {
+func wrapScript(script string, columns []string) string {
+	params := make([]string, 0, len(columns))
+	for i := range columns {
+		params = append(params, _jsVariableName+columns[i])
+	}
+	jsFuncParams := strings.Join(params, ",")
+
 	var sb strings.Builder
 
-	sb.Grow(32 + len(_jsEntrypoint) + len(_jsValueName) + len(script))
+	sb.Grow(32 + len(_jsEntrypoint) + len(jsFuncParams) + len(script))
 
 	sb.WriteString("function ")
 	sb.WriteString(_jsEntrypoint)
 	sb.WriteString("(")
-	sb.WriteString(_jsValueName)
+	sb.WriteString(jsFuncParams)
 	sb.WriteString(") {\n")
 
 	if strings.Contains(script, "return ") {
