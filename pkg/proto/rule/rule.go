@@ -86,7 +86,27 @@ type VTable struct {
 	autoIncrement *AutoIncrement
 	topology      *Topology
 	shards        map[string][2]*ShardMetadata // column -> [db shard metadata,table shard metadata]
+	shardsC       []*VShards                   // todo use shardsC replace shards
 	rawShards     *RawShardMetadata
+}
+
+type VShards struct {
+	columns       []string
+	shardMetadata [2]*ShardMetadata
+	key           string
+}
+
+func (vt *VShards) HasColumns(columns []string) []int {
+	var bingoList []int
+	for _, v := range vt.columns {
+		for i, column := range columns {
+			if v != column {
+				return []int{}
+			}
+			bingoList = append(bingoList, i)
+		}
+	}
+	return bingoList
 }
 
 func (vt *VTable) HasColumn(column string) bool {
@@ -317,4 +337,13 @@ func (ru *Rule) Range(f func(table string, vt *VTable) bool) {
 			break
 		}
 	}
+}
+
+func (vt *VTable) GetShardColumnIndex(columns []string) (bingoList []int) {
+	for _, v := range vt.shardsC {
+		if bingoList = v.HasColumns(columns); len(bingoList) > 0 {
+			return bingoList
+		}
+	}
+	return []int{}
 }

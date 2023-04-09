@@ -78,9 +78,10 @@ func makeVTable(tableName string, table *config.Table) (*rule.VTable, error) {
 		if dbSteps == nil {
 			dbSteps = make(map[string]int)
 		}
-		dbSharder[it.Column] = shd
-		keys[it.Column] = struct{}{}
-		dbSteps[it.Column] = it.Step
+		columnKey := it.ColumnKey()
+		dbSharder[columnKey] = shd
+		keys[columnKey] = struct{}{}
+		dbSteps[columnKey] = it.Step
 		dbRules = append(dbRules, toRawShard(it))
 	}
 
@@ -98,9 +99,10 @@ func makeVTable(tableName string, table *config.Table) (*rule.VTable, error) {
 		if tbSteps == nil {
 			tbSteps = make(map[string]int)
 		}
-		tbSharder[it.Column] = shd
-		keys[it.Column] = struct{}{}
-		tbSteps[it.Column] = it.Step
+		columnKey := it.ColumnKey()
+		tbSharder[columnKey] = shd
+		keys[columnKey] = struct{}{}
+		tbSteps[columnKey] = it.Step
 		tblRules = append(tblRules, toRawShard(it))
 	}
 

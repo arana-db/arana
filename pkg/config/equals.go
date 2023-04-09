@@ -75,20 +75,20 @@ func (r Rules) Equals(o Rules) bool {
 	oldTmp := map[string]*Rule{}
 
 	for i := range r {
-		newTmp[r[i].Column] = r[i]
+		newTmp[r[i].ColumnKey()] = r[i]
 	}
 	for i := range o {
-		oldTmp[o[i].Column] = o[i]
+		oldTmp[o[i].ColumnKey()] = o[i]
 	}
 
 	for i := range r {
-		if _, ok := oldTmp[o[i].Column]; !ok {
+		if _, ok := oldTmp[o[i].ColumnKey()]; !ok {
 			newT = append(newT, o[i])
 		}
 	}
 
 	for i := range o {
-		val, ok := newTmp[o[i].Column]
+		val, ok := newTmp[o[i].ColumnKey()]
 		if !ok {
 			deleteT = append(deleteT, o[i])
 			continue

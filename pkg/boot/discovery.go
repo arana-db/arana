@@ -504,7 +504,7 @@ func toSharder(input *config.Rule) (rule.ShardComputer, error) {
 	case rrule.HashCrc32Shard:
 		computer = rrule.NewHashCrc32Shard(mod)
 	case rrule.ScriptExpr:
-		computer, err = rrule.NewJavascriptShardComputer(input.Expr)
+		computer, err = rrule.NewJavascriptShardComputer(input.Expr, input.Columns)
 	default:
 		panic(fmt.Errorf("error config, unsupport shard type: %s", input.Type))
 	}

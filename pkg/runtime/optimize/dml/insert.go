@@ -31,6 +31,7 @@ import (
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
+	"github.com/arana-db/arana/pkg/runtime/logical"
 	"github.com/arana-db/arana/pkg/runtime/optimize"
 	"github.com/arana-db/arana/pkg/runtime/plan/dml"
 )
@@ -57,52 +58,36 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		return ret, nil
 	}
 
-	// TODO: handle multiple shard keys.
+	bingoList := vt.GetShardColumnIndex(stmt.Columns)
 
-	bingo := -1
-	// check existing shard columns
-	for i, col := range stmt.Columns {
-		if _, _, ok = vt.GetShardMetadata(col); ok {
-			bingo = i
-			break
-		}
-	}
-
-	if bingo < 0 {
+	if len(bingoList) == 0 {
 		return nil, errors.Wrap(optimize.ErrNoShardKeyFound, "failed to insert")
 	}
 
 	// check on duplicated key update
 	for _, upd := range stmt.DuplicatedUpdates {
-		if upd.Column.Suffix() == stmt.Columns[bingo] {
-			return nil, errors.New("do not support update sharding key")
+		for bingo := range bingoList {
+			if upd.Column.Suffix() == stmt.Columns[bingo] {
+				return nil, errors.New("do not support update sharding key")
+			}
 		}
 	}
 
 	var (
 		sharder = optimize.NewXSharder(ctx, o.Rule, o.Args)
-		left    = ast.ColumnNameExpressionAtom(make([]string, 1))
-		filter  = &ast.PredicateExpressionNode{
-			P: &ast.BinaryComparisonPredicateNode{
-				Left: &ast.AtomPredicateNode{
-					A: left,
-				},
-				Op: cmp.Ceq,
-			},
-		}
-		slots = make(map[string]map[string][]int) // (db,table,valuesIndex)
+		slots   = make(map[string]map[string][]int) // (db,table,valuesIndex)
 	)
 
-	// reset filter
-	resetFilter := func(column string, value ast.ExpressionNode) {
-		left[0] = column
-		filter.P.(*ast.BinaryComparisonPredicateNode).Right = value.(*ast.PredicateExpressionNode).P
-	}
-
 	for i, values := range stmt.Values {
-		var shards rule.DatabaseTables
-		value := values[bingo]
-		resetFilter(stmt.Columns[bingo], value)
+		var (
+			shards rule.DatabaseTables
+			filter ast.ExpressionNode
+		)
+		if len(bingoList) == 1 {
+			filter = buildFilter(stmt.Columns[bingoList[0]], values[bingoList[0]])
+		} else {
+			filter = buildLogicalFilter(stmt.Columns, values, bingoList)
+		}
 
 		if len(o.Hints) > 0 {
 			if shards, err = optimize.Hints(tableName, o.Hints, o.Rule); err != nil {
@@ -287,4 +272,39 @@ func createSequenceIfAbsent(ctx context.Context, vtab *rule.VTable, metadata *pr
 		}
 	}
 	return nil
+}
+
+func buildFilter(column string, value ast.ExpressionNode) ast.ExpressionNode {
+	// reset filter
+	return &ast.PredicateExpressionNode{
+		P: &ast.BinaryComparisonPredicateNode{
+			Left: &ast.AtomPredicateNode{
+				A: ast.ColumnNameExpressionAtom([]string{column}),
+			},
+			Op:    cmp.Ceq,
+			Right: value.(*ast.PredicateExpressionNode).P,
+		},
+	}
+}
+
+func buildLogicalFilter(columns []string, values []ast.ExpressionNode, bingoList []int) ast.ExpressionNode {
+	filter := &ast.LogicalExpressionNode{
+		Op:    logical.Land,
+		Left:  buildFilter(columns[bingoList[0]], values[bingoList[0]]),
+		Right: buildFilter(columns[bingoList[1]], values[bingoList[1]]),
+	}
+	return appendLogicalFilter(columns, values, bingoList, 2, filter)
+}
+
+func appendLogicalFilter(columns []string, values []ast.ExpressionNode, bingoList []int, index int, filter ast.ExpressionNode) ast.ExpressionNode {
+	if index == len(bingoList) {
+		return filter
+	}
+	newFilter := &ast.LogicalExpressionNode{
+		Op:    logical.Land,
+		Left:  filter,
+		Right: buildFilter(columns[bingoList[index]], values[bingoList[index]]),
+	}
+	appendLogicalFilter(columns, values, bingoList, index, newFilter)
+	return filter
 }
