@@ -103,7 +103,7 @@ func (st *ShowShardingTable) ExecIn(ctx context.Context, conn proto.VConn) (prot
 
 	}
 	if numShardingTable == 0 {
-		return nil, errors.New(fmt.Sprintf("%s do not have %s's sharding table", rcontext.Schema(ctx), dbName))
+		return nil, errors.Errorf("%s do not have %s's sharding table", rcontext.Schema(ctx), dbName)
 	}
 
 	return resultx.New(resultx.WithDataset(ds)), nil

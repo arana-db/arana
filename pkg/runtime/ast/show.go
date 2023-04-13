@@ -580,7 +580,7 @@ func (s *ShowShardingTable) Mode() SQLType {
 func (s *ShowShardingTable) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	val, ok := s.baseShow.filter.(string)
 	if !ok {
-		return errors.New("show sharding table database type error !")
+		return errors.New("show sharding table database type error")
 	}
 	sb.WriteString(val)
 	return nil
