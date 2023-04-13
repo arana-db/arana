@@ -18,6 +18,7 @@
 package misc
 
 import (
+	"io"
 	"regexp"
 	"sync"
 )
@@ -47,4 +48,11 @@ func ParseTable(input string) (db, tbl string, err error) {
 	db = mat[1]
 	tbl = mat[2]
 	return
+}
+
+func TryClose(i interface{}) error {
+	if c, ok := i.(io.Closer); ok {
+		return c.Close()
+	}
+	return nil
 }

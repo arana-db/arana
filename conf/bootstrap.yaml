@@ -34,9 +34,9 @@ registry:
 #    name: nacos
 #    options:
 #      endpoints: "127.0.0.1:8848"
-#      namespace: arana
+#      namespace_id: arana
 #      group: arana
-#      contextPath: /nacos
+#      context_path: /nacos
 #      scheme: http
 #      username: nacos
 #      password: nacos

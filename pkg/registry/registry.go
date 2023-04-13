@@ -32,6 +32,7 @@ import (
 	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/registry/base"
 	"github.com/arana-db/arana/pkg/registry/etcd"
+	"github.com/arana-db/arana/pkg/registry/nacos"
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
@@ -42,15 +43,17 @@ func DoRegistry(ctx context.Context, registryInstance base.Registry, name string
 	if err != nil {
 		return fmt.Errorf("service registry register error because get local host err:%v", err)
 	}
-	for _, listener := range listeners {
-		tmpLister := *listener
-		if tmpLister.SocketAddress.Address == "0.0.0.0" || tmpLister.SocketAddress.Address == "127.0.0.1" {
-			tmpLister.SocketAddress.Address = serverAddr
-		}
-		serviceInstance.Endpoints = append(serviceInstance.Endpoints, &tmpLister)
+	// TODO this will be removed in the future
+	if len(listeners) == 0 {
+		return fmt.Errorf("listeners is not exist")
 	}
+	tmpLister := listeners[0]
+	if tmpLister.SocketAddress.Address == "0.0.0.0" || tmpLister.SocketAddress.Address == "127.0.0.1" {
+		tmpLister.SocketAddress.Address = serverAddr
+	}
+	serviceInstance.Endpoint = tmpLister
 
-	return registryInstance.Register(ctx, name, serviceInstance)
+	return registryInstance.Register(ctx, serviceInstance)
 }
 
 func InitRegistry(registryConf *config.Registry) (base.Registry, error) {
@@ -96,5 +99,5 @@ func initEtcdRegistry(registryConf *config.Registry) (base.Registry, error) {
 }
 
 func initNacosRegistry(registryConf *config.Registry) (base.Registry, error) {
-	return nil, nil
+	return nacos.NewNacosV2Registry(registryConf.Options)
 }
