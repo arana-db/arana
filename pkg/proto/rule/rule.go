@@ -21,7 +21,6 @@ package rule
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"sync"
 )
 
@@ -64,12 +63,11 @@ type (
 	}
 	// RawShardMetadata represents the raw metadata of shards.
 	RawShardMetadata struct {
-		Name          string                 `json:"name,omitempty"`
-		AllowFullScan bool                   `json:"allow_full_scan,omitempty"`
-		SequenceType  string                 `json:"sequence_type,omitempty"`
-		DbRules       []*RawShardRule        `json:"db_rules"`
-		TblRules      []*RawShardRule        `json:"tbl_rules"`
-		Attributes    map[string]interface{} `json:"attributes,omitempty"`
+		Name         string                 `json:"name,omitempty"`
+		SequenceType string                 `json:"sequence_type,omitempty"`
+		DbRules      []*RawShardRule        `json:"db_rules"`
+		TblRules     []*RawShardRule        `json:"tbl_rules"`
+		Attributes   map[string]interface{} `json:"attributes,omitempty"`
 	}
 )
 
@@ -136,7 +134,6 @@ func (vt *VTable) GetShardMetaDataJSON() (map[string]string, error) {
 	)
 
 	res["name"] = vt.rawShards.Name
-	res["allow_full_scan"] = strconv.FormatBool(vt.rawShards.AllowFullScan)
 	res["sequence_type"] = vt.rawShards.SequenceType
 
 	val, err = json.Marshal(vt.rawShards.DbRules)

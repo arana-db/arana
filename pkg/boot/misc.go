@@ -19,6 +19,7 @@ package boot
 
 import (
 	"regexp"
+	"strconv"
 	"sync"
 )
 
@@ -134,7 +135,6 @@ func makeVTable(tableName string, table *config.Table) (*rule.VTable, error) {
 
 		var rawShardMetadata rule.RawShardMetadata
 		rawShardMetadata.Name = table.Name
-		rawShardMetadata.AllowFullScan = table.AllowFullScan
 		rawShardMetadata.SequenceType = table.Sequence.Type
 		rawShardMetadata.DbRules = dbRules
 		rawShardMetadata.TblRules = tblRules
@@ -174,7 +174,8 @@ func makeVTable(tableName string, table *config.Table) (*rule.VTable, error) {
 		}
 	}
 
-	if table.AllowFullScan {
+	allowFullScan, err := strconv.ParseBool(table.Attributes["allow_full_scan"])
+	if err == nil && allowFullScan {
 		vt.SetAllowFullScan(true)
 	}
 	if table.Sequence != nil {

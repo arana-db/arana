@@ -47,7 +47,6 @@ var (
 	}
 	ShardingRule = Thead{
 		Col{Name: "name", FieldType: consts.FieldTypeVarString},
-		Col{Name: "allow_full_scan", FieldType: consts.FieldTypeVarString},
 		Col{Name: "sequence_type", FieldType: consts.FieldTypeVarString},
 		Col{Name: "db_rules", FieldType: consts.FieldTypeVarString},
 		Col{Name: "tbl_rules", FieldType: consts.FieldTypeVarString},

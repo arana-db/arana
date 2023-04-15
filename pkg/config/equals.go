@@ -123,10 +123,6 @@ func (t *Table) Equals(o *Table) bool {
 		return false
 	}
 
-	if t.AllowFullScan == o.AllowFullScan {
-		return false
-	}
-
 	if !reflect.DeepEqual(t.Attributes, o.Attributes) {
 		return false
 	}
