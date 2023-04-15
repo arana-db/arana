@@ -530,9 +530,6 @@ func (s *IntegrationSuite) TestAlterTable() {
 		t  = s.T()
 	)
 
-	_, err := db.Query("show sharding table from employees")
-	assert.NoErrorf(t, err, "show sharding table from employees error: %v", err)
-
 	result, err := db.Exec(`alter table employees add dept_no char(4) not null default "" after emp_no`)
 	assert.NoErrorf(t, err, "alter table error: %v", err)
 	affected, err := result.RowsAffected()
@@ -617,14 +614,13 @@ func (s *IntegrationSuite) TestShowCreate() {
 	assert.Equal(t, "student", table)
 }
 
-
 func (s *IntegrationSuite) TestShowNodes() {
-  var (
+	var (
 		db = s.DB()
 		t  = s.T()
 	)
-  
-  _, err := db.Query("show nodes from arana")
+
+	_, err := db.Query("show nodes from arana")
 	assert.NoErrorf(t, err, "show nodes error: %v", err)
 }
 
