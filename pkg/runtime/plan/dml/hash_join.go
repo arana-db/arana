@@ -20,6 +20,15 @@ package dml
 import (
 	"bytes"
 	"context"
+	"io"
+)
+
+import (
+	"github.com/cespare/xxhash/v2"
+	"github.com/pkg/errors"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/dataset"
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/mysql/rows"
@@ -28,9 +37,6 @@ import (
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/plan"
 	"github.com/arana-db/arana/third_party/base58"
-	"github.com/cespare/xxhash/v2"
-	"github.com/pkg/errors"
-	"io"
 )
 
 type HashJoinPlan struct {
