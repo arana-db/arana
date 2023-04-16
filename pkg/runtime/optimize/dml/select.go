@@ -696,7 +696,7 @@ func optimizeJoin(ctx context.Context, o *optimize.Optimizer, stmt *ast.SelectSt
 	}
 
 	tmpPlan = &dml.RenamePlan{
-		Plan:       hashJoinPlan,
+		Plan:       tmpPlan,
 		RenameList: analysis.normalizedFields,
 	}
 	return tmpPlan, nil
