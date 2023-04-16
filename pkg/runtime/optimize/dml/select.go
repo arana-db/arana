@@ -109,13 +109,14 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		}
 
 	}
+	if stmt.HasJoin() {
+		return optimizeJoin(ctx, o, stmt)
+	}
 
 	// overwrite stmt limit x offset y. eg `select * from student offset 100 limit 5` will be
 	// `select * from student offset 0 limit 100+5`
 	originOffset, newLimit := overwriteLimit(stmt, &o.Args)
-	if stmt.HasJoin() {
-		return optimizeJoin(ctx, o, stmt)
-	}
+
 	flag := getSelectFlag(o.Rule, stmt)
 	if flag&_supported == 0 {
 		return nil, errors.Errorf("unsupported sql: %s", rcontext.SQL(ctx))
@@ -676,14 +677,21 @@ func optimizeJoin(ctx context.Context, o *optimize.Optimizer, stmt *ast.SelectSt
 		}
 	}
 
-	// overwrite stmt limit x offset y. eg `select * from student offset 100 limit 5` will be
-	// `select * from student offset 0 limit 100+5`
-	originOffset, newLimit := overwriteLimit(stmt, &o.Args)
 	if stmt.Limit != nil {
+		// overwrite stmt limit x offset y. eg `select * from student offset 100 limit 5` will be
+		// `select * from student offset 0 limit 100+5`
+		originOffset, newLimit := overwriteLimit(stmt, &o.Args)
 		tmpPlan = &dml.LimitPlan{
 			ParentPlan:     tmpPlan,
 			OriginOffset:   originOffset,
 			OverwriteLimit: newLimit,
+		}
+	}
+
+	if analysis.hasMapping {
+		tmpPlan = &dml.MappingPlan{
+			Plan:   tmpPlan,
+			Fields: stmt.Select,
 		}
 	}
 
