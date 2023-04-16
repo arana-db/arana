@@ -453,14 +453,11 @@ func optimizeJoin(ctx context.Context, o *optimize.Optimizer, stmt *ast.SelectSt
 		return nil, err
 	}
 
-	dbRight, aliasRight, shardsRight, err := compute(from.Joins[0].Target)
+	join := from.Joins[0]
+	dbRight, aliasRight, shardsRight, err := compute(join.Target)
 	if err != nil {
 		return nil, err
 	}
-
-	//if dbLeft != "" && dbRight != "" && dbLeft != dbRight {
-	//	return nil, errors.New("not support more than one db")
-	//}
 
 	// one db
 	if dbLeft == dbRight && len(shardsLeft) == 1 && len(shardsRight) == 1 {
@@ -481,11 +478,34 @@ func optimizeJoin(ctx context.Context, o *optimize.Optimizer, stmt *ast.SelectSt
 	}
 
 	//multiple shards & do hash join
-	hashJoinPlan := &dml.HashJoinPlan{}
+	hashJoinPlan := &dml.HashJoinPlan{
+		Stmt: stmt,
+	}
 
-	//todo small table join large table
+	onExpression, ok := from.Joins[0].On.(*ast.PredicateExpressionNode).P.(*ast.BinaryComparisonPredicateNode)
+	// todo support more 'ON' condition  ast.LogicalExpressionNode
+	if !ok {
+		return nil, errors.New("not support more than one 'ON' condition")
+	}
 
-	rewriteToSingle := func(tableSource ast.TableSourceItem, shards map[string][]string) (proto.Plan, error) {
+	onLeft := onExpression.Left.(*ast.AtomPredicateNode).A.(ast.ColumnNameExpressionAtom)
+	onRight := onExpression.Right.(*ast.AtomPredicateNode).A.(ast.ColumnNameExpressionAtom)
+
+	leftKey := ""
+	if onLeft.Prefix() == aliasLeft {
+		leftKey = onLeft.Suffix()
+	}
+
+	rightKey := ""
+	if onRight.Prefix() == aliasRight {
+		rightKey = onRight.Suffix()
+	}
+
+	if len(leftKey) == 0 || len(rightKey) == 0 {
+		return nil, errors.Errorf("not found buildKey or probeKey")
+	}
+
+	rewriteToSingle := func(tableSource ast.TableSourceItem, shards map[string][]string, onKey string) (proto.Plan, error) {
 		selectStmt := &ast.SelectStatement{
 			Select: stmt.Select,
 			From: ast.FromNode{
@@ -494,9 +514,47 @@ func optimizeJoin(ctx context.Context, o *optimize.Optimizer, stmt *ast.SelectSt
 				},
 			},
 		}
+		table := tableSource.Source.(ast.TableName)
+		actualTb := table.Suffix()
+		aliasTb := tableSource.Alias
+
+		tb0 := actualTb
+		for _, tb := range shards {
+			if len(tb) > 1 {
+				vt := o.Rule.MustVTable(tb0)
+				_, tb0, _ = vt.Topology().Smallest()
+				break
+			}
+		}
+		if _, ok = stmt.Select[0].(*ast.SelectElementAll); ok && len(stmt.Select) == 1 {
+			if err = rewriteSelectStatement(ctx, selectStmt, tb0); err != nil {
+				return nil, err
+			}
+
+			selectStmt.Select = append(selectStmt.Select, ast.NewSelectElementColumn([]string{onKey}, ""))
+		} else {
+			metadata, err := loadMetadataByTable(ctx, tb0)
+			if err != nil {
+				return nil, err
+			}
+
+			selectColumn := selectStmt.Select
+			var selectElements []ast.SelectElement
+			for _, element := range selectColumn {
+				e, ok := element.(*ast.SelectElementColumn)
+				if ok {
+					for _, c := range metadata.ColumnNames {
+						if (aliasTb == e.Prefix() || actualTb == e.Prefix()) && c == e.Suffix() {
+							selectElements = append(selectElements, ast.NewSelectElementColumn([]string{c}, ""))
+						}
+					}
+				}
+			}
+			selectElements = append(selectElements, ast.NewSelectElementColumn([]string{onKey}, ""))
+			selectStmt.Select = selectElements
+		}
 
 		var (
-			err       error
 			optimizer proto.Optimizer
 			plan      proto.Plan
 			sb        strings.Builder
@@ -524,38 +582,116 @@ func optimizeJoin(ctx context.Context, o *optimize.Optimizer, stmt *ast.SelectSt
 		return plan, nil
 	}
 
-	leftPlan, err := rewriteToSingle(from.TableSourceItem, shardsLeft)
+	leftPlan, err := rewriteToSingle(from.TableSourceItem, shardsLeft, leftKey)
 	if err != nil {
 		return nil, err
 	}
-	hashJoinPlan.BuildPlan = leftPlan
 
-	rightPlan, err := rewriteToSingle(*from.Joins[0].Target, shardsRight)
+	rightPlan, err := rewriteToSingle(*from.Joins[0].Target, shardsRight, rightKey)
 	if err != nil {
 		return nil, err
 	}
-	hashJoinPlan.ProbePlan = rightPlan
 
-	onExpression, ok := from.Joins[0].On.(*ast.PredicateExpressionNode).P.(*ast.BinaryComparisonPredicateNode)
-	// todo support more than one 'ON' condition  ast.LogicalExpressionNode
-	if !ok {
-		return nil, errors.New("not support more than one 'ON' condition")
+	setPlan := func(plan *dml.HashJoinPlan, buildPlan, probePlan proto.Plan, buildKey, probeKey string) {
+		plan.BuildKey = buildKey
+		plan.ProbeKey = probeKey
+		plan.BuildPlan = buildPlan
+		plan.ProbePlan = probePlan
 	}
 
-	onLeft := onExpression.Left.(*ast.AtomPredicateNode).A.(ast.ColumnNameExpressionAtom)
-	onRight := onExpression.Right.(*ast.AtomPredicateNode).A.(ast.ColumnNameExpressionAtom)
-
-	if onLeft[0] == aliasLeft {
-		hashJoinPlan.BuildKey = append(hashJoinPlan.BuildKey, onLeft[1])
+	typ := join.Typ
+	if typ.String() == "INNER" {
+		setPlan(hashJoinPlan, leftPlan, rightPlan, leftKey, rightKey)
+		hashJoinPlan.IsFilterProbeRow = true
+	} else {
+		hashJoinPlan.IsFilterProbeRow = false
+		if typ.String() == "LEFT" {
+			setPlan(hashJoinPlan, rightPlan, leftPlan, rightKey, leftKey)
+		} else if typ.String() == "RIGHT" {
+			setPlan(hashJoinPlan, leftPlan, rightPlan, leftKey, rightKey)
+		} else {
+			return nil, errors.New("not support Join Type")
+		}
 	}
 
-	if onRight[0] == aliasRight {
-		hashJoinPlan.ProbeKey = append(hashJoinPlan.ProbeKey, onRight[1])
+	var tmpPlan proto.Plan
+	tmpPlan = hashJoinPlan
+
+	var (
+		analysis  selectResult
+		scanner   = newSelectScanner(stmt, o.Args)
+		tableName = from.Source.(ast.TableName)
+		vt        = o.Rule.MustVTable(tableName.Suffix())
+	)
+
+	_, tb, _ := vt.Topology().Smallest()
+	if err = rewriteSelectStatement(ctx, stmt, tb); err != nil {
+		return nil, errors.WithStack(err)
 	}
 
-	//todo order by, limit, group by, having etc..
+	if err = scanner.scan(&analysis); err != nil {
+		return nil, errors.WithStack(err)
+	}
 
-	return hashJoinPlan, nil
+	// check if order-by exists
+	if len(analysis.orders) > 0 {
+		var (
+			sb           strings.Builder
+			orderByItems = make([]dataset.OrderByItem, 0, len(analysis.orders))
+		)
+
+		for _, it := range analysis.orders {
+			var next dataset.OrderByItem
+			next.Desc = it.Desc
+			if alias := it.Alias(); len(alias) > 0 {
+				next.Column = alias
+			} else {
+				switch prev := it.Prev().(type) {
+				case *ast.SelectElementColumn:
+					next.Column = prev.Suffix()
+				default:
+					if err = it.Restore(ast.RestoreWithoutAlias, &sb, nil); err != nil {
+						return nil, errors.WithStack(err)
+					}
+					next.Column = sb.String()
+					sb.Reset()
+				}
+			}
+			orderByItems = append(orderByItems, next)
+		}
+		tmpPlan = &dml.OrderPlan{
+			ParentPlan:   tmpPlan,
+			OrderByItems: orderByItems,
+		}
+	}
+
+	if stmt.GroupBy != nil {
+		if tmpPlan, err = handleGroupBy(tmpPlan, stmt); err != nil {
+			return nil, errors.WithStack(err)
+		}
+	} else if analysis.hasAggregate {
+		tmpPlan = &dml.AggregatePlan{
+			Plan:   tmpPlan,
+			Fields: stmt.Select,
+		}
+	}
+
+	// overwrite stmt limit x offset y. eg `select * from student offset 100 limit 5` will be
+	// `select * from student offset 0 limit 100+5`
+	originOffset, newLimit := overwriteLimit(stmt, &o.Args)
+	if stmt.Limit != nil {
+		tmpPlan = &dml.LimitPlan{
+			ParentPlan:     tmpPlan,
+			OriginOffset:   originOffset,
+			OverwriteLimit: newLimit,
+		}
+	}
+
+	tmpPlan = &dml.RenamePlan{
+		Plan:       hashJoinPlan,
+		RenameList: analysis.normalizedFields,
+	}
+	return tmpPlan, nil
 }
 
 func getSelectFlag(ru *rule.Rule, stmt *ast.SelectStatement) (flag uint32) {
@@ -660,20 +796,42 @@ func rewriteSelectStatement(ctx context.Context, stmt *ast.SelectStatement, tb s
 	if len(tb) < 1 {
 		tb = stmt.From[0].Source.(ast.TableName).Suffix()
 	}
-	metadatas, err := proto.LoadSchemaLoader().Load(ctx, rcontext.Schema(ctx), []string{tb})
+
+	metadata, err := loadMetadataByTable(ctx, tb)
 	if err != nil {
 		return errors.WithStack(err)
-	}
-	metadata := metadatas[tb]
-	if metadata == nil || len(metadata.ColumnNames) == 0 {
-		return errors.Errorf("optimize: cannot get metadata of `%s`.`%s`", rcontext.Schema(ctx), tb)
 	}
 
 	selectElements := make([]ast.SelectElement, len(metadata.Columns))
 	for i, column := range metadata.ColumnNames {
 		selectElements[i] = ast.NewSelectElementColumn([]string{column}, "")
 	}
-	stmt.Select = selectElements
 
+	if stmt.HasJoin() {
+		joinTable := stmt.From[0].Joins[0].Target.Source.(ast.TableName).Suffix()
+		joinTableMetadata, err := loadMetadataByTable(ctx, joinTable)
+		if err != nil {
+			return errors.WithStack(err)
+		}
+
+		for column := range joinTableMetadata.Columns {
+			selectElements = append(selectElements, ast.NewSelectElementColumn([]string{column}, ""))
+		}
+	}
+
+	stmt.Select = selectElements
 	return nil
+}
+
+func loadMetadataByTable(ctx context.Context, tb string) (*proto.TableMetadata, error) {
+	metadatas, err := proto.LoadSchemaLoader().Load(ctx, rcontext.Schema(ctx), []string{tb})
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	metadata := metadatas[tb]
+	if metadata == nil || len(metadata.ColumnNames) == 0 {
+		return nil, errors.Errorf("optimize: cannot get metadata of `%s`.`%s`", rcontext.Schema(ctx), tb)
+	}
+	return metadata, nil
 }

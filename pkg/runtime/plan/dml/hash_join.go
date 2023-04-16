@@ -25,6 +25,7 @@ import (
 	"github.com/arana-db/arana/pkg/mysql/rows"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/resultx"
+	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/plan"
 	"github.com/arana-db/arana/third_party/base58"
 	"github.com/cespare/xxhash/v2"
@@ -36,9 +37,12 @@ type HashJoinPlan struct {
 	BuildPlan proto.Plan
 	ProbePlan proto.Plan
 
-	BuildKey []string
-	ProbeKey []string
-	hashArea map[string]proto.Row
+	BuildKey         string
+	ProbeKey         string
+	hashArea         map[string]proto.Row
+	IsFilterProbeRow bool
+
+	Stmt *ast.SelectStatement
 }
 
 func (h *HashJoinPlan) Type() proto.PlanType {
@@ -82,7 +86,7 @@ func (h *HashJoinPlan) build(ctx context.Context, conn proto.VConn) (proto.Datas
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	cn := h.BuildKey[0]
+	cn := h.BuildKey
 	xh := xxhash.New()
 	h.hashArea = make(map[string]proto.Row)
 	// build map
@@ -130,19 +134,23 @@ func (h *HashJoinPlan) probe(ctx context.Context, conn proto.VConn, buildDs prot
 		return nil
 	}
 
-	cn := h.ProbeKey[0]
+	cn := h.ProbeKey
 	filterFunc := func(row proto.Row) bool {
 		findRow := probeMapFunc(row, cn)
+		if !h.IsFilterProbeRow {
+			return true
+		}
+
 		return findRow != nil
 	}
 
 	buildFields, _ := buildDs.Fields()
 	// aggregate fields
 	aggregateFieldsFunc := func(fields []proto.Field) []proto.Field {
-		return append(buildFields, fields...)
+		return append(buildFields[:len(buildFields)-1], fields[:len(fields)-1]...)
 	}
 
-	// todo left/right join
+	// todo， 需要注意输出的列的顺序与join表的顺序
 
 	// aggregate row
 	fields, _ := ds.Fields()
@@ -152,10 +160,20 @@ func (h *HashJoinPlan) probe(ctx context.Context, conn proto.VConn, buildDs prot
 
 		matchRow := probeMapFunc(row, cn)
 		buildDest := make([]proto.Value, len(buildFields))
-		_ = matchRow.Scan(buildDest)
+		if matchRow != nil {
+			_ = matchRow.Scan(buildDest)
+		} else {
+			// set null row
+			if row.IsBinary() {
+				matchRow = rows.NewBinaryVirtualRow(buildFields, buildDest)
+			} else {
+				matchRow = rows.NewTextVirtualRow(buildFields, buildDest)
+			}
+		}
 
-		resFields := append(buildFields, fields...)
-		resDest := append(buildDest, dest...)
+		// 去掉最后一个on字段
+		resFields := append(buildFields[:len(buildFields)-1], fields[:len(fields)-1]...)
+		resDest := append(buildDest[:len(buildDest)-1], dest[:len(dest)-1]...)
 
 		var b bytes.Buffer
 		if row.IsBinary() {
