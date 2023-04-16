@@ -133,11 +133,12 @@ func makeVTable(tableName string, table *config.Table) (*rule.VTable, error) {
 		}
 		vt.SetShardMetadata(k, dbMetadata, tbMetadata)
 
-		var rawShardMetadata rule.RawShardMetadata
-		rawShardMetadata.Name = table.Name
-		rawShardMetadata.SequenceType = table.Sequence.Type
-		rawShardMetadata.DbRules = dbRules
-		rawShardMetadata.TblRules = tblRules
+		rawShardMetadata := rule.RawShardMetadata{
+			Name:         table.Name,
+			SequenceType: table.Sequence.Type,
+			DbRules:      dbRules,
+			TblRules:     tblRules,
+		}
 		rawShardMetadata.Attributes = make(map[string]interface{})
 		for k := range table.Attributes {
 			rawShardMetadata.Attributes[k] = table.Attributes[k]
