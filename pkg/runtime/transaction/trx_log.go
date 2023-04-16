@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 )
 
 import (
@@ -68,16 +69,19 @@ CREATE TABLE IF NOT EXISTS __arana_trx_log
 // TxLogManager Transaction log management
 type TxLogManager struct {
 	sysDB proto.DB
+	timer *time.Timer
 }
 
 // init executes create __arana_tx_log table action
-func (gm *TxLogManager) init() error {
+func (gm *TxLogManager) init(delay time.Duration) error {
 	ctx := context.Background()
 	res, _, err := gm.sysDB.Call(ctx, _initTxLog)
 	if err != nil {
 		return err
 	}
 	_, _ = res.RowsAffected()
+
+	gm.timer = time.AfterFunc(delay, gm.runCleanTxLogTask)
 	return nil
 }
 
@@ -179,5 +183,26 @@ func (gm *TxLogManager) ScanTxLog(pageNo, pageSize uint64, conditions []Conditio
 // partition table according to the day level or hour level.
 // the execution of this task requires distributed task preemption based on the metadata DB
 func (gm *TxLogManager) runCleanTxLogTask() {
-
+	var pageNo uint64 = 0
+	var pageSize uint64 = 50
+	cond := Condition{
+		FiledName: "status",
+		Operation: Equal,
+		Value:     runtime.TrxFinish,
+	}
+	conditions := []Condition{cond}
+	var txLogs []TrxLog
+	for {
+		total, logs, err := gm.ScanTxLog(pageNo, pageSize, conditions)
+		if err != nil {
+			break
+		}
+		txLogs = append(txLogs, logs...)
+		if len(txLogs) >= int(total) {
+			break
+		}
+	}
+	for _, l := range txLogs {
+		gm.DeleteTxLog(l)
+	}
 }
