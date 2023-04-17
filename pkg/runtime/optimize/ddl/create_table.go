@@ -42,7 +42,7 @@ func optimizeCreateTable(ctx context.Context, o *optimize.Optimizer) (proto.Plan
 		shards   rule.DatabaseTables
 		fullScan bool
 	)
-	vt, ok := o.Rule.VTable(stmt.Table.Suffix()) //TODO
+	vt, ok := o.Rule.VTable(stmt.Table.Suffix())
 	fullScan = ok
 
 	log.Debugf("compute shards: result=%s, isFullScan=%v", shards, fullScan)

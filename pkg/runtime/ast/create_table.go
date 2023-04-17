@@ -59,7 +59,7 @@ func (c *CreateTableStmt) Restore(flag RestoreFlag, sb *strings.Builder, args *[
 		sb.WriteString(" IF NOT EXISTS ")
 	}
 	if err := c.Table.Restore(flag, sb, args); err != nil {
-		return errors.Wrapf(err, "an error occurred while restore AnalyzeTableStatement.Tables[%s]", c.Table)
+		return errors.Wrapf(err, "An error occurred while restore AnalyzeTableStatement.Tables[%s]", c.Table)
 	}
 
 	if c.ReferTable != nil {
