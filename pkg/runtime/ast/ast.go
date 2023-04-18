@@ -131,6 +131,8 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		return cc.convOptimizeTable(stmt), nil
 	case *ast.CheckTableStmt:
 		return cc.convCheckTableStmt(stmt), nil
+	case *ast.CreateTableStmt:
+		return cc.convCreateTableStmt(stmt), nil
 	case *ast.RenameTableStmt:
 		return cc.convRenameTableStmt(stmt), nil
 	case *ast.KillStmt:
@@ -1685,6 +1687,27 @@ func (cc *convCtx) convCheckTableStmt(stmt *ast.CheckTableStmt) Statement {
 		}
 	}
 	return &CheckTableStmt{Tables: tables}
+}
+
+func (cc *convCtx) convCreateTableStmt(stmt *ast.CreateTableStmt) Statement {
+	table := &TableName{
+		stmt.Table.Name.String(),
+	}
+	var refTable *TableName
+	if stmt.ReferTable != nil {
+		refTable = &TableName{
+			stmt.ReferTable.Name.String(),
+		}
+	}
+
+	return &CreateTableStmt{
+		IfNotExists: stmt.IfNotExists,
+		Table:       table,
+		ReferTable:  refTable,
+		Cols:        stmt.Cols,
+		Constraints: stmt.Constraints,
+		Options:     stmt.Options,
+	}
 }
 
 func (cc *convCtx) convRenameTableStmt(stmt *ast.RenameTableStmt) Statement {
