@@ -76,7 +76,7 @@ type ServiceInstanceDTO struct {
 	// Version is the version of the compiled.
 	Version string `json:"version"`
 	// Endpoint addresses of the service instance.
-	Endpoints []*config.Listener
+	Endpoint *config.Listener
 }
 
 // XConfigWriter represents the mutations of configurations.

@@ -692,6 +692,8 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 		return &ShowTopology{baseShow: toBaseShow()}
 	case ast.ShowOpenTables:
 		return &ShowOpenTables{baseShow: toBaseShow()}
+	case ast.ShowNodes:
+		return &ShowNodes{Tenant: node.Tenant}
 	case ast.ShowUsers:
 		return &ShowUsers{Tenant: node.Tenant}
 	case ast.ShowTables:
@@ -770,7 +772,11 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 		}
 		return ret
 	case ast.ShowWarnings:
-		return &ShowWarnings{baseShow: toBaseShow()}
+		ret := &ShowWarnings{baseShow: toBaseShow()}
+		if node.Limit != nil {
+			ret.Limit = cc.convLimit(node.Limit)
+		}
+		return ret
 	case ast.ShowCharset:
 		return &ShowCharset{baseShow: toBaseShow()}
 	case ast.ShowProcessList:

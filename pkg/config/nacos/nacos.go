@@ -37,20 +37,7 @@ import (
 import (
 	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/util/bytesconv"
-)
-
-const (
-	_defaultGroupName string = "arana"
-
-	_namespaceKey string = "namespace"
-	_groupKey     string = "group"
-	_username     string = "username"
-	_password     string = "password"
-	_server       string = "endpoints"
-	_contextPath  string = "contextPath"
-	_scheme       string = "scheme"
-
-	_pathSplit string = "::"
+	u_conf "github.com/arana-db/arana/pkg/util/config"
 )
 
 var (
@@ -84,13 +71,13 @@ func (s *storeOperate) Init(options map[string]interface{}) error {
 }
 
 func (s *storeOperate) initNacosClient(options map[string]interface{}) error {
-	s.groupName = _defaultGroupName
-	if val, ok := options[_groupKey]; ok {
+	s.groupName = u_conf.DefaultGroupName
+	if val, ok := options[u_conf.GroupKey]; ok {
 		s.groupName = val.(string)
 	}
 
-	clientConfig := parseClientConfig(options)
-	serverConfigs := parseServerConfig(options)
+	clientConfig := u_conf.ParseNacosClientConfig(options)
+	serverConfigs := u_conf.ParseNacosServerConfig(options)
 
 	// a more graceful way to create config client
 	client, err := clients.NewConfigClient(
@@ -110,15 +97,15 @@ func parseServerConfig(options map[string]interface{}) []constant.ServerConfig {
 	cfgs := make([]constant.ServerConfig, 0)
 
 	scheme := "http"
-	if val, ok := options[_scheme]; ok {
+	if val, ok := options[u_conf.Scheme]; ok {
 		scheme = val.(string)
 	}
 	contextPath := "/nacos"
-	if val, ok := options[_contextPath]; ok {
+	if val, ok := options[u_conf.ContextPath]; ok {
 		contextPath = val.(string)
 	}
 
-	if servers, ok := options[_server]; ok {
+	if servers, ok := options[u_conf.Server]; ok {
 		addresses := strings.Split(servers.(string), ",")
 		for i := range addresses {
 			addr := strings.Split(strings.TrimSpace(addresses[i]), ":")
@@ -141,13 +128,13 @@ func parseServerConfig(options map[string]interface{}) []constant.ServerConfig {
 func parseClientConfig(options map[string]interface{}) constant.ClientConfig {
 	cc := constant.ClientConfig{}
 
-	if val, ok := options[_namespaceKey]; ok {
+	if val, ok := options[u_conf.NamespaceIdKey]; ok {
 		cc.NamespaceId = val.(string)
 	}
-	if val, ok := options[_username]; ok {
+	if val, ok := options[u_conf.Username]; ok {
 		cc.Username = val.(string)
 	}
-	if val, ok := options[_password]; ok {
+	if val, ok := options[u_conf.Password]; ok {
 		cc.Password = val.(string)
 	}
 	return cc
@@ -272,9 +259,9 @@ func (w *nacosWatcher) run(ctx context.Context) {
 }
 
 func buildNacosDataId(v string) string {
-	return strings.ReplaceAll(v, "/", _pathSplit)
+	return strings.ReplaceAll(v, "/", u_conf.PathSplit)
 }
 
 func revertNacosDataId(v string) string {
-	return strings.ReplaceAll(v, _pathSplit, "/")
+	return strings.ReplaceAll(v, u_conf.PathSplit, "/")
 }

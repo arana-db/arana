@@ -109,7 +109,8 @@ func NewEtcdV3Registry(serviceAddr, path string, etcdAddrs []string, options *st
 	return etcdRegistry, nil
 }
 
-func (r *EtcdV3Registry) Register(ctx context.Context, name string, serviceInstance *base.ServiceInstance) error {
+func (r *EtcdV3Registry) Register(ctx context.Context, serviceInstance *base.ServiceInstance) error {
+	name := serviceInstance.Name
 	if strings.TrimSpace(name) == "" {
 		return errors.New("Register service `name` can't be empty")
 	}

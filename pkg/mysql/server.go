@@ -246,7 +246,7 @@ func (l *Listener) handshake(c *Conn) error {
 		return err
 	}
 
-	c.recycleReadPacket()
+	defer c.recycleReadPacket()
 
 	handshake, err := l.parseClientHandshakePacket(true, response)
 	if err != nil {
