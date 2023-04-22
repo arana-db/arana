@@ -27,16 +27,19 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/mysql/rows"
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/runtime/ast"
 )
 
 var _ proto.Dataset = (*SortMergeJoin)(nil)
 
 type SortMergeJoin struct {
-	fields       []proto.Field
-	joinColumn   *JoinColumn
-	leftDataset  proto.Dataset
-	rightDataset proto.Dataset
+	fields     []proto.Field
+	joinColumn *JoinColumn
+	joinType   ast.JoinType
+	outer      proto.Dataset
+	inner      proto.Dataset
 }
 
 type JoinColumn struct {
@@ -61,59 +64,44 @@ func (s *SortMergeJoin) Fields() ([]proto.Field, error) {
 
 func (s *SortMergeJoin) Next() (proto.Row, error) {
 	// all data is order
-	// left or right dataset is nil, direct ret
-	// get left dataset data , get right dataset data
-	//	init a cursor with left data
-	// 		if left data join key equal right return data
-	//		if left data less than right data , lost left data
-	//		if left data great than right data, lost right data, cursor to right data
 
-	leftRow, err := s.getLeftRow()
+	outerRow, err := s.getOuterRow()
 	if err != nil {
 		return nil, err
 	}
 
-	rightRow, err := s.getRightRow()
+	innerRow, err := s.getInnerRow()
 	if err != nil {
 		return nil, err
 	}
 
-	var leftValue, rightValue proto.Value
+	var outerValue, innerValue proto.Value
 
 	for {
-		if leftRow == nil || rightRow == nil {
+		if outerRow == nil && innerRow == nil {
 			return nil, nil
 		}
 
-		leftValue, err = leftRow.(proto.KeyedRow).Get(s.joinColumn.Column())
+		outerValue, err = outerRow.(proto.KeyedRow).Get(s.joinColumn.Column())
 		if err != nil {
 			return nil, err
 		}
 
-		rightValue, err = rightRow.(proto.KeyedRow).Get(s.joinColumn.Column())
+		innerValue, err = innerRow.(proto.KeyedRow).Get(s.joinColumn.Column())
 		if err != nil {
 			return nil, err
 		}
 
-		if leftValue.String() == "" || rightValue.String() == "" {
-			return nil, nil
+		if strings.Compare(outerValue.String(), innerValue.String()) == 0 {
+			return s.resGenerate(outerRow, innerRow), nil
 		}
 
-		if strings.Compare(leftValue.String(), rightValue.String()) == 0 {
-			return leftRow, nil
+		if strings.Compare(outerValue.String(), innerValue.String()) < 0 {
+			return s.resGenerate(outerRow, nil), nil
 		}
 
-		if strings.Compare(leftValue.String(), rightValue.String()) < 0 {
-			// get next left data
-			leftRow, err = s.getLeftRow()
-			if err != nil {
-				return nil, nil
-			}
-		}
-
-		if strings.Compare(leftValue.String(), rightValue.String()) > 0 {
-			// get next right data
-			rightRow, err = s.getRightRow()
+		if strings.Compare(outerValue.String(), innerValue.String()) > 0 {
+			innerRow, err = s.getInnerRow()
 			if err != nil {
 				return nil, err
 			}
@@ -121,8 +109,8 @@ func (s *SortMergeJoin) Next() (proto.Row, error) {
 	}
 }
 
-func (s *SortMergeJoin) getLeftRow() (proto.Row, error) {
-	leftRow, err := s.leftDataset.Next()
+func (s *SortMergeJoin) getOuterRow() (proto.Row, error) {
+	leftRow, err := s.outer.Next()
 	if err != nil && errors.Is(err, io.EOF) {
 		return nil, nil
 	}
@@ -133,8 +121,8 @@ func (s *SortMergeJoin) getLeftRow() (proto.Row, error) {
 	return leftRow, nil
 }
 
-func (s *SortMergeJoin) getRightRow() (proto.Row, error) {
-	rightRow, err := s.rightDataset.Next()
+func (s *SortMergeJoin) getInnerRow() (proto.Row, error) {
+	rightRow, err := s.inner.Next()
 	if err != nil && errors.Is(err, io.EOF) {
 		return nil, nil
 	}
@@ -143,4 +131,18 @@ func (s *SortMergeJoin) getRightRow() (proto.Row, error) {
 	}
 
 	return rightRow, nil
+}
+
+func (s *SortMergeJoin) resGenerate(leftRow proto.Row, rightRow proto.Row) proto.Row {
+	res := make([]proto.Value, leftRow.Length()+rightRow.Length())
+	leftValue := make([]proto.Value, leftRow.Length())
+	rightValue := make([]proto.Value, rightRow.Length())
+
+	_ = leftRow.Scan(leftValue)
+	_ = rightRow.Scan(rightValue)
+
+	res = append(res, leftValue...)
+	res = append(res, rightValue...)
+
+	return rows.NewBinaryVirtualRow(s.fields, res)
 }
