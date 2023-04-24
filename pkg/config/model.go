@@ -177,7 +177,6 @@ type (
 	Table struct {
 		Name           string            `validate:"required" yaml:"name" json:"name"`
 		Sequence       *Sequence         `yaml:"sequence" json:"sequence"`
-		AllowFullScan  bool              `yaml:"allow_full_scan" json:"allow_full_scan,omitempty"`
 		DbRules        []*Rule           `yaml:"db_rules" json:"db_rules"`
 		TblRules       []*Rule           `yaml:"tbl_rules" json:"tbl_rules"`
 		Topology       *Topology         `yaml:"topology" json:"topology"`
