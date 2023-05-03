@@ -18,8 +18,10 @@
 package boot
 
 import (
+	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -30,7 +32,56 @@ import (
 import (
 	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/proto/rule"
+	"github.com/arana-db/arana/pkg/util/math"
 )
+
+var (
+	_regexpTopology     *regexp.Regexp
+	_regexpTopologyOnce sync.Once
+)
+
+func getTopologyRegexp() *regexp.Regexp {
+	_regexpTopologyOnce.Do(func() {
+		_regexpTopology = regexp.MustCompile(`\${(?P<begin>\d+)\.{2,}(?P<end>\d+)}`)
+	})
+	return _regexpTopology
+}
+
+func parseTopology(input string) (format string, begin, end int, err error) {
+	mats := getTopologyRegexp().FindAllStringSubmatch(input, -1)
+
+	if len(mats) < 1 {
+		format = input
+		begin = -1
+		end = -1
+		return
+	}
+
+	if len(mats) > 1 {
+		err = errors.Errorf("invalid topology expression: %s", input)
+		return
+	}
+
+	var beginStr, endStr string
+	for i := 1; i < len(mats[0]); i++ {
+		switch getTopologyRegexp().SubexpNames()[i] {
+		case "begin":
+			beginStr = mats[0][i]
+		case "end":
+			endStr = mats[0][i]
+		}
+	}
+
+	if len(beginStr) != len(endStr) {
+		err = errors.Errorf("invalid topology expression: %s", input)
+		return
+	}
+
+	format = getTopologyRegexp().ReplaceAllString(input, fmt.Sprintf(`%%0%dd`, len(beginStr)))
+	begin, _ = strconv.Atoi(strings.TrimLeft(beginStr, "0"))
+	end, _ = strconv.Atoi(strings.TrimLeft(endStr, "0"))
+	return
+}
 
 func makeVTable(tableName string, table *config.Table) (*rule.VTable, error) {
 	var (
@@ -40,7 +91,6 @@ func makeVTable(tableName string, table *config.Table) (*rule.VTable, error) {
 		dbBegin, tbBegin   int
 		dbEnd, tbEnd       int
 		err                error
-		ok                 bool
 	)
 
 	if table.Topology != nil {
@@ -57,124 +107,42 @@ func makeVTable(tableName string, table *config.Table) (*rule.VTable, error) {
 	}
 	topology.SetRender(getRender(dbFormat), getRender(tbFormat))
 
-	var (
-		keys                 map[string]struct{}
-		dbSharder, tbSharder map[string]rule.ShardComputer
-		dbSteps, tbSteps     map[string]int
-		dbRules              []*rule.RawShardRule
-		tblRules             []*rule.RawShardRule
-	)
-	for _, it := range table.DbRules {
-		var shd rule.ShardComputer
-		if shd, err = toSharder(it); err != nil {
-			return nil, err
-		}
-		if dbSharder == nil {
-			dbSharder = make(map[string]rule.ShardComputer)
-		}
-		if keys == nil {
-			keys = make(map[string]struct{})
-		}
-		if dbSteps == nil {
-			dbSteps = make(map[string]int)
-		}
-		columnKey := it.ColumnKey()
-		dbSharder[columnKey] = shd
-		keys[columnKey] = struct{}{}
-		dbSteps[columnKey] = it.Step
-		dbRules = append(dbRules, toRawShard(it))
-	}
+	dbAmount := dbEnd - dbBegin + 1
+	tbAmount := tbEnd - tbBegin + 1
+	tblsPerDB := tbAmount / dbAmount
 
-	for _, it := range table.TblRules {
-		var shd rule.ShardComputer
-		if shd, err = toSharder(it); err != nil {
-			return nil, err
-		}
-		if tbSharder == nil {
-			tbSharder = make(map[string]rule.ShardComputer)
-		}
-		if keys == nil {
-			keys = make(map[string]struct{})
-		}
-		if tbSteps == nil {
-			tbSteps = make(map[string]int)
-		}
-		columnKey := it.ColumnKey()
-		tbSharder[columnKey] = shd
-		keys[columnKey] = struct{}{}
-		tbSteps[columnKey] = it.Step
-		tblRules = append(tblRules, toRawShard(it))
-	}
-
-	for k := range keys {
+	for i := 0; i < dbAmount; i++ {
 		var (
-			shd                    rule.ShardComputer
-			dbMetadata, tbMetadata *rule.ShardMetadata
+			x = dbBegin + i
+			y []int
 		)
-		if shd, ok = dbSharder[k]; ok {
-			dbMetadata = &rule.ShardMetadata{
-				Computer: shd,
-				Stepper:  rule.DefaultNumberStepper,
-			}
-			if s, ok := dbSteps[k]; ok && s > 0 {
-				dbMetadata.Steps = s
-			} else if dbBegin >= 0 && dbEnd >= 0 {
-				dbMetadata.Steps = 1 + dbEnd - dbBegin
-			}
-		}
-		if shd, ok = tbSharder[k]; ok {
-			tbMetadata = &rule.ShardMetadata{
-				Computer: shd,
-				Stepper:  rule.DefaultNumberStepper,
-			}
-			if s, ok := tbSteps[k]; ok && s > 0 {
-				tbMetadata.Steps = s
-			} else if tbBegin >= 0 && tbEnd >= 0 {
-				tbMetadata.Steps = 1 + tbEnd - tbBegin
-			}
-		}
-		vt.SetShardMetadata(k, dbMetadata, tbMetadata)
-
-		rawShardMetadata := rule.RawShardMetadata{
-			Name:         table.Name,
-			SequenceType: table.Sequence.Type,
-			DbRules:      dbRules,
-			TblRules:     tblRules,
-		}
-		rawShardMetadata.Attributes = make(map[string]interface{})
-		for k := range table.Attributes {
-			rawShardMetadata.Attributes[k] = table.Attributes[k]
-		}
-		vt.SetRawShardMetaData(&rawShardMetadata)
-
-		tpRes := make(map[int][]int)
-		step := tbMetadata.Steps
-		if dbMetadata.Steps > step {
-			step = dbMetadata.Steps
-		}
-		rng, _ := tbMetadata.Stepper.Ascend(0, step)
-		for rng.HasNext() {
-			var (
-				seed  = rng.Next()
-				dbIdx = -1
-				tbIdx = -1
-			)
-			if dbMetadata != nil {
-				if dbIdx, err = dbMetadata.Computer.Compute(seed); err != nil {
-					return nil, errors.WithStack(err)
-				}
-			}
-			if tbMetadata != nil {
-				if tbIdx, err = tbMetadata.Computer.Compute(seed); err != nil {
-					return nil, errors.WithStack(err)
-				}
-			}
-			tpRes[dbIdx] = append(tpRes[dbIdx], tbIdx)
+		for j := 0; j < tblsPerDB; j++ {
+			y = append(y, tbBegin+tblsPerDB*i+j)
 		}
 
-		for dbIndex, tbIndexes := range tpRes {
-			topology.SetTopology(dbIndex, tbIndexes...)
+		topology.SetTopology(x, y...)
+	}
+
+	defaultSteps := math.Max(dbAmount, tbAmount)
+
+	dbSm, err := toShardMetadata(table.DbRules, defaultSteps)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot parse db rules")
+	}
+	tbSm, err := toShardMetadata(table.TblRules, defaultSteps)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot parse table rules")
+	}
+
+	for i := 0; i < math.Max(len(dbSm), len(tbSm)); i++ {
+		var vs rule.VShard
+		if i < len(dbSm) {
+			vs.DB = dbSm[i]
 		}
+		if i < len(tbSm) {
+			vs.Table = tbSm[i]
+		}
+		vt.AddVShards(&vs)
 	}
 
 	allowFullScan, err := strconv.ParseBool(table.Attributes["allow_full_scan"])
@@ -216,4 +184,76 @@ func parseDatabaseAndTable(name string) (db, tbl string, err error) {
 		err = errors.Errorf("invalid full table format: %s", name)
 	}
 	return
+}
+
+func toSharder(input *config.Rule) (rule.ShardComputer, error) {
+	columns := make([]string, 0, len(input.Columns))
+	for i := range input.Columns {
+		columns = append(columns, input.Columns[i].Name)
+	}
+	return rule.NewComputer(input.Type, columns, input.Expr)
+}
+
+func getRender(format string) func(int) string {
+	if strings.ContainsRune(format, '%') {
+		return func(i int) string {
+			return fmt.Sprintf(format, i)
+		}
+	}
+	return func(i int) string {
+		return format
+	}
+}
+
+func toShardMetadata(rules []*config.Rule, defaultSteps int) ([]*rule.ShardMetadata, error) {
+	toShardColumn := func(ru *config.ColumnRule, dst *[]*rule.ShardColumn, defaultSteps int) {
+		unit := rule.Unum
+		switch strings.ToLower(ru.Type) {
+		case "string", "str":
+			unit = rule.Ustr
+		case "year":
+			unit = rule.Uyear
+		case "month":
+			unit = rule.Umonth
+		case "week":
+			unit = rule.Uweek
+		case "day":
+			unit = rule.Uday
+		case "hour":
+			unit = rule.Uhour
+		}
+		c := &rule.ShardColumn{
+			Name:  ru.Name,
+			Steps: ru.Step,
+			Stepper: rule.Stepper{
+				N: 1,
+				U: unit,
+			},
+		}
+
+		if c.Steps == 0 {
+			c.Steps = defaultSteps
+		}
+
+		*dst = append(*dst, c)
+	}
+
+	var ret []*rule.ShardMetadata
+	for i := range rules {
+		ru := rules[i]
+		c, err := toSharder(ru)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+
+		var shardColumns []*rule.ShardColumn
+		for _, next := range ru.Columns {
+			toShardColumn(next, &shardColumns, defaultSteps)
+		}
+		ret = append(ret, &rule.ShardMetadata{
+			ShardColumns: shardColumns,
+			Computer:     c,
+		})
+	}
+	return ret, nil
 }

@@ -23,6 +23,8 @@ import (
 
 import (
 	"github.com/pkg/errors"
+
+	"golang.org/x/exp/slices"
 )
 
 import (
@@ -31,7 +33,6 @@ import (
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
-	"github.com/arana-db/arana/pkg/runtime/logical"
 	"github.com/arana-db/arana/pkg/runtime/optimize"
 	"github.com/arana-db/arana/pkg/runtime/plan/dml"
 )
@@ -58,18 +59,28 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		return ret, nil
 	}
 
-	bingoList := vt.GetShardColumnIndex(stmt.Columns)
+	vshards := vt.GetVShards()
+	bingo := slices.IndexFunc(vshards, func(shard *rule.VShard) bool {
+		keys := shard.Variables()
+		for _, key := range keys {
+			if !slices.Contains(stmt.Columns, key) {
+				return false
+			}
+		}
+		return true
+	})
 
-	if len(bingoList) == 0 {
+	if bingo == -1 {
 		return nil, errors.Wrap(optimize.ErrNoShardKeyFound, "failed to insert")
 	}
 
+	vShard := vshards[bingo]
+	keys := vShard.Variables()
+
 	// check on duplicated key update
 	for _, upd := range stmt.DuplicatedUpdates {
-		for bingo := range bingoList {
-			if upd.Column.Suffix() == stmt.Columns[bingo] {
-				return nil, errors.New("do not support update sharding key")
-			}
+		if slices.Contains(keys, upd.Column.Suffix()) {
+			return nil, errors.New("do not support update sharding key")
 		}
 	}
 
@@ -83,10 +94,13 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 			shards rule.DatabaseTables
 			filter ast.ExpressionNode
 		)
-		if len(bingoList) == 1 {
-			filter = buildFilter(stmt.Columns[bingoList[0]], values[bingoList[0]])
+
+		if len(keys) == 1 {
+			key := keys[0]
+			idx := slices.Index(stmt.Columns, key)
+			filter = buildFilter(stmt.Columns[idx], values[idx])
 		} else {
-			filter = buildLogicalFilter(stmt.Columns, values, bingoList)
+			filter = buildLogicalFilter(stmt.Columns, values, keys)
 		}
 
 		if len(o.Hints) > 0 {
@@ -287,24 +301,17 @@ func buildFilter(column string, value ast.ExpressionNode) ast.ExpressionNode {
 	}
 }
 
-func buildLogicalFilter(columns []string, values []ast.ExpressionNode, bingoList []int) ast.ExpressionNode {
-	filter := &ast.LogicalExpressionNode{
-		Op:    logical.Land,
-		Left:  buildFilter(columns[bingoList[0]], values[bingoList[0]]),
-		Right: buildFilter(columns[bingoList[1]], values[bingoList[1]]),
-	}
-	return appendLogicalFilter(columns, values, bingoList, 2, filter)
-}
+func buildLogicalFilter(columns []string, values []ast.ExpressionNode, keys []string) ast.ExpressionNode {
+	idx0 := slices.Index(columns, keys[0])
+	cur := buildFilter(columns[idx0], values[idx0])
+	for i := 1; i < len(keys); i++ {
+		idx := slices.Index(columns, keys[i])
+		next := buildFilter(columns[idx], values[idx])
 
-func appendLogicalFilter(columns []string, values []ast.ExpressionNode, bingoList []int, index int, filter ast.ExpressionNode) ast.ExpressionNode {
-	if index == len(bingoList) {
-		return filter
+		cur = &ast.LogicalExpressionNode{
+			Left:  cur,
+			Right: next,
+		}
 	}
-	newFilter := &ast.LogicalExpressionNode{
-		Op:    logical.Land,
-		Left:  filter,
-		Right: buildFilter(columns[bingoList[index]], values[bingoList[index]]),
-	}
-	appendLogicalFilter(columns, values, bingoList, index, newFilter)
-	return filter
+	return cur
 }

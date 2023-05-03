@@ -15,24 +15,61 @@
  * limitations under the License.
  */
 
-package dal
+package logic
 
-import (
-	"testing"
-)
+var _ Item = (*Bool)(nil)
 
-import (
-	"github.com/arana-db/parser"
+type Bool bool
 
-	"github.com/stretchr/testify/assert"
-)
+func (b Bool) Compare(c Item) int {
+	switch that := c.(type) {
+	case Bool:
+		var x, y int
+		if b {
+			x = 1
+		}
+		if that {
+			y = 1
+		}
+		switch {
+		case x < y:
+			return -1
+		case x > y:
+			return 1
+		default:
+			return 0
+		}
+	default:
+		return -1
+	}
+}
 
-func TestShowDatabaseRulesSQL(t *testing.T) {
-	sql := "SHOW DATABASE RULES FROM student"
+type BoolOperator struct{}
 
-	p := parser.New()
+func (b BoolOperator) AND(first Bool, others ...Bool) (Bool, error) {
+	if !first {
+		return false, nil
+	}
+	for i := range others {
+		if !others[i] {
+			return false, nil
+		}
+	}
+	return true, nil
+}
 
-	stmtNodes, _, err := p.Parse(sql, "", "")
-	assert.Nil(t, err)
-	assert.NotNil(t, stmtNodes)
+func (b BoolOperator) OR(first Bool, others ...Bool) (Bool, error) {
+	if first {
+		return true, nil
+	}
+	for i := range others {
+		if others[i] {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (b BoolOperator) NOT(input Bool) (Bool, error) {
+	return !input, nil
 }

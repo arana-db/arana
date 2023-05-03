@@ -20,6 +20,7 @@ package config
 
 import (
 	"reflect"
+	"strings"
 )
 
 func (u *User) Equals(o *User) bool {
@@ -74,21 +75,33 @@ func (r Rules) Equals(o Rules) bool {
 	newTmp := map[string]*Rule{}
 	oldTmp := map[string]*Rule{}
 
-	for i := range r {
-		newTmp[r[i].ColumnKey()] = r[i]
-	}
-	for i := range o {
-		oldTmp[o[i].ColumnKey()] = o[i]
+	toKey := func(r *Rule) string {
+		var sb strings.Builder
+		if len(r.Columns) > 0 {
+			sb.WriteString(r.Columns[0].Name)
+			for i := 1; i < len(r.Columns); i++ {
+				sb.WriteByte('+')
+				sb.WriteString(r.Columns[i].Name)
+			}
+		}
+		return sb.String()
 	}
 
 	for i := range r {
-		if _, ok := oldTmp[o[i].ColumnKey()]; !ok {
+		newTmp[toKey(r[i])] = r[i]
+	}
+	for i := range o {
+		oldTmp[toKey(o[i])] = o[i]
+	}
+
+	for i := range r {
+		if _, ok := oldTmp[toKey(o[i])]; !ok {
 			newT = append(newT, o[i])
 		}
 	}
 
 	for i := range o {
-		val, ok := newTmp[o[i].ColumnKey()]
+		val, ok := newTmp[toKey(o[i])]
 		if !ok {
 			deleteT = append(deleteT, o[i])
 			continue

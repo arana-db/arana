@@ -24,7 +24,6 @@ import (
 	"io"
 	"os"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -185,7 +184,7 @@ type (
 		Sequence       *Sequence         `yaml:"sequence" json:"sequence"`
 		DbRules        []*Rule           `yaml:"db_rules" json:"db_rules"`
 		TblRules       []*Rule           `yaml:"tbl_rules" json:"tbl_rules"`
-		Topology       *Topology         `yaml:"topology" json:"topology"`
+		Topology       *Topology         `validate:"required" yaml:"topology" json:"topology"`
 		ShadowTopology *Topology         `yaml:"shadow_topology" json:"shadow_topology"`
 		Attributes     map[string]string `yaml:"attributes" json:"attributes"`
 	}
@@ -196,10 +195,15 @@ type (
 	}
 
 	Rule struct {
-		Columns []string `validate:"required" yaml:"columns" json:"columns"`
-		Type    string   `validate:"required" yaml:"type" json:"type"`
-		Expr    string   `validate:"required" yaml:"expr" json:"expr"`
-		Step    int      `yaml:"step" json:"step"`
+		Columns []*ColumnRule `validate:"required" yaml:"columns" json:"columns"`
+		Type    string        `validate:"required" yaml:"type" json:"type"`
+		Expr    string        `validate:"required" yaml:"expr" json:"expr"`
+	}
+
+	ColumnRule struct {
+		Name string `validate:"required" yaml:"name" json:"name"`
+		Type string `yaml:"type" json:"type"`
+		Step int    `yaml:"step" json:"step"`
 	}
 
 	Topology struct {
@@ -432,9 +436,4 @@ func NewEmptyTenant() *Tenant {
 func (l *Listener) String() string {
 	socketAddr := fmt.Sprintf("%s:%d", l.SocketAddress.Address, l.SocketAddress.Port)
 	return fmt.Sprintf("Listener protocol_type:%s, socket_address:%s, server_version:%s", l.ProtocolType, socketAddr, l.ServerVersion)
-}
-
-func (l *Rule) ColumnKey() string {
-	sort.Strings(l.Columns)
-	return strings.Join(l.Columns, ",")
 }

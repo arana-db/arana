@@ -60,7 +60,8 @@ func TestLiker(t *testing.T) {
 			pattern: "[a-z]at",
 			input:   []string{"[a-z]at", "cat", "Cat"},
 			except:  []bool{true, false, false},
-		}, {
+		},
+		{
 			pattern: "[!C]at",
 			input:   []string{"[!C]at", "Bat", "Cat"},
 			except:  []bool{true, false, false},

@@ -20,6 +20,7 @@ package optimize_test
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strconv"
 	"testing"
 )
@@ -57,6 +58,7 @@ func TestShardNG(t *testing.T) {
 		{"select * from student where uid = PI() div 3", nil, []int{1}},
 		{"select * from student where uid = PI() div ?", []interface{}{3}, []int{1}},
 		{"select * from student where 1+2", nil, nil},
+		{"select * from student where uid between 1 and 3", nil, []int{1, 2, 3}},
 	} {
 		t.Run(it.sql, func(t *testing.T) {
 			_, rawStmt := ast.MustParse(it.sql)
@@ -71,9 +73,19 @@ func TestShardNG(t *testing.T) {
 
 			shd := NewXSharder(context.TODO(), fakeRule, args)
 
-			shards, err := stmt.Accept(shd)
+			_, err := stmt.Accept(shd)
 			assert.NoError(t, err)
-			t.Log("shards:", shards)
+
+			t.Log("shard results:", shd.Result())
+
+			res := shd.Result()[0]
+			var actual []int
+			res.R.Each(func(_, tb uint32) bool {
+				actual = append(actual, int(tb))
+				return true
+			})
+			sort.Ints(actual)
+			assert.Equal(t, it.expect, actual)
 		})
 	}
 }
@@ -104,7 +116,7 @@ func makeFakeRule(c *gomock.Controller, mod int) *rule.Rule {
 
 	computer.EXPECT().
 		Compute(gomock.Any()).
-		DoAndReturn(func(value interface{}) (int, error) {
+		DoAndReturn(func(value proto.Value) (int, error) {
 			n, err := strconv.Atoi(fmt.Sprintf("%v", value))
 			if err != nil {
 				return 0, err
@@ -113,11 +125,26 @@ func makeFakeRule(c *gomock.Controller, mod int) *rule.Rule {
 		}).
 		MinTimes(1)
 
-	var sm rule.ShardMetadata
-	sm.Steps = 8
-	sm.Computer = computer
+	computer.EXPECT().Variables().Return([]string{"uid"}).AnyTimes()
 
-	tab.SetShardMetadata("uid", nil, &sm)
+	sm := &rule.ShardMetadata{
+		ShardColumns: []*rule.ShardColumn{
+			{
+				Name:  "uid",
+				Steps: 8,
+				Stepper: rule.Stepper{
+					N: 1,
+					U: rule.Unum,
+				},
+			},
+		},
+		Computer: computer,
+	}
+
+	tab.AddVShards(&rule.VShard{
+		Table: sm,
+	})
+
 	ru.SetVTable("student", &tab)
 	return &ru
 }

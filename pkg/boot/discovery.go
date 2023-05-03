@@ -19,11 +19,6 @@ package boot
 
 import (
 	"context"
-	"fmt"
-	"regexp"
-	"strconv"
-	"strings"
-	"sync"
 )
 
 import (
@@ -37,7 +32,6 @@ import (
 import (
 	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/proto/rule"
-	rrule "github.com/arana-db/arana/pkg/runtime/rule"
 	"github.com/arana-db/arana/pkg/security"
 	"github.com/arana-db/arana/pkg/trace"
 	uconfig "github.com/arana-db/arana/pkg/util/config"
@@ -48,22 +42,10 @@ import (
 var _ Discovery = (*discovery)(nil)
 
 var (
-	_regexpRuleExpr     *regexp.Regexp
-	_regexpRuleExprSync sync.Once
-)
-
-var (
 	ErrorNoTenant            = errors.New("no tenant")
 	ErrorNoDataSourceCluster = errors.New("no datasourceCluster")
 	ErrorNoGroup             = errors.New("no group")
 )
-
-func getRuleExprRegexp() *regexp.Regexp {
-	_regexpRuleExprSync.Do(func() {
-		_regexpRuleExpr = regexp.MustCompile(`([a-zA-Z0-9_]+)\(\s*([0-9]|[1-9][0-9]+)?\s*\)`)
-	})
-	return _regexpRuleExpr
-}
 
 type discovery struct {
 	inited  uatomic.Bool
@@ -433,103 +415,6 @@ func (fp *discovery) loadTables(cluster string, op config.Center) map[string]*co
 
 func (fp *discovery) GetOptions() *config.BootOptions {
 	return fp.options
-}
-
-var (
-	_regexpTopology     *regexp.Regexp
-	_regexpTopologyOnce sync.Once
-)
-
-func getTopologyRegexp() *regexp.Regexp {
-	_regexpTopologyOnce.Do(func() {
-		_regexpTopology = regexp.MustCompile(`\${(?P<begin>\d+)\.{2,}(?P<end>\d+)}`)
-	})
-	return _regexpTopology
-}
-
-func parseTopology(input string) (format string, begin, end int, err error) {
-	mats := getTopologyRegexp().FindAllStringSubmatch(input, -1)
-
-	if len(mats) < 1 {
-		format = input
-		begin = -1
-		end = -1
-		return
-	}
-
-	if len(mats) > 1 {
-		err = errors.Errorf("invalid topology expression: %s", input)
-		return
-	}
-
-	var beginStr, endStr string
-	for i := 1; i < len(mats[0]); i++ {
-		switch getTopologyRegexp().SubexpNames()[i] {
-		case "begin":
-			beginStr = mats[0][i]
-		case "end":
-			endStr = mats[0][i]
-		}
-	}
-
-	if len(beginStr) != len(endStr) {
-		err = errors.Errorf("invalid topology expression: %s", input)
-		return
-	}
-
-	format = getTopologyRegexp().ReplaceAllString(input, fmt.Sprintf(`%%0%dd`, len(beginStr)))
-	begin, _ = strconv.Atoi(strings.TrimLeft(beginStr, "0"))
-	end, _ = strconv.Atoi(strings.TrimLeft(endStr, "0"))
-	return
-}
-
-func toSharder(input *config.Rule) (rule.ShardComputer, error) {
-	var (
-		computer rule.ShardComputer
-		mod      int
-		err      error
-	)
-
-	if mat := getRuleExprRegexp().FindStringSubmatch(input.Expr); len(mat) == 3 {
-		mod, _ = strconv.Atoi(mat[2])
-	}
-
-	switch rrule.ShardType(input.Type) {
-	case rrule.ModShard:
-		computer = rrule.NewModShard(mod)
-	case rrule.HashMd5Shard:
-		computer = rrule.NewHashMd5Shard(mod)
-	case rrule.HashBKDRShard:
-		computer = rrule.NewHashBKDRShard(mod)
-	case rrule.HashCrc32Shard:
-		computer = rrule.NewHashCrc32Shard(mod)
-	case rrule.ScriptExpr:
-		computer, err = rrule.NewJavascriptShardComputer(input.Expr, input.Columns)
-	default:
-		panic(fmt.Errorf("error config, unsupport shard type: %s", input.Type))
-	}
-	return computer, err
-}
-
-func toRawShard(input *config.Rule) *rule.RawShardRule {
-	var res rule.RawShardRule
-	res.Expr = input.Expr
-	res.Type = input.Type
-	res.Column = input.Column
-	if input.Step > 0 {
-		res.Step = input.Step
-	}
-	return &res
-}
-func getRender(format string) func(int) string {
-	if strings.ContainsRune(format, '%') {
-		return func(i int) string {
-			return fmt.Sprintf(format, i)
-		}
-	}
-	return func(i int) string {
-		return format
-	}
 }
 
 func NewDiscovery(path string) Discovery {

@@ -44,6 +44,7 @@ import (
 	errors2 "github.com/arana-db/arana/pkg/mysql/errors"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/hint"
+	_ "github.com/arana-db/arana/pkg/runtime/builtin"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	_ "github.com/arana-db/arana/pkg/runtime/function"
 	"github.com/arana-db/arana/pkg/runtime/namespace"
@@ -93,9 +94,7 @@ func Unload(tenant, schema string) error {
 	return nil
 }
 
-var (
-	_ proto.DB = (*AtomDB)(nil)
-)
+var _ proto.DB = (*AtomDB)(nil)
 
 type AtomDB struct {
 	mu sync.Mutex

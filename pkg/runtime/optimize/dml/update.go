@@ -23,6 +23,8 @@ import (
 
 import (
 	"github.com/pkg/errors"
+
+	"golang.org/x/exp/slices"
 )
 
 import (
@@ -54,9 +56,13 @@ func optimizeUpdate(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 	}
 
 	// check update sharding key
+	vShards := vt.GetVShards()
 	for _, element := range stmt.Updated {
-		if _, _, ok := vt.GetShardMetadata(element.Column.Suffix()); ok {
-			return nil, errors.New("do not support update sharding key")
+		column := element.Column.Suffix()
+		for _, vShard := range vShards {
+			if slices.Index(vShard.Variables(), column) != -1 {
+				return nil, errors.Errorf("your value to be updated is belong to a sharding key '%s'", column)
+			}
 		}
 	}
 
