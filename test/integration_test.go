@@ -614,14 +614,13 @@ func (s *IntegrationSuite) TestShowCreate() {
 	assert.Equal(t, "student", table)
 }
 
-
 func (s *IntegrationSuite) TestShowNodes() {
-  var (
+	var (
 		db = s.DB()
 		t  = s.T()
 	)
-  
-  _, err := db.Query("show nodes from arana")
+
+	_, err := db.Query("show nodes from arana")
 	assert.NoErrorf(t, err, "show nodes error: %v", err)
 }
 
@@ -1123,6 +1122,28 @@ func (s *IntegrationSuite) TestRenameTable() {
 	for _, it := range [...]tt{
 		{"RENAME TABLE student TO student_new"},
 		{"RENAME TABLE student TO student_new, employees TO employees_new"},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			rows, err := db.Query(it.sql)
+			assert.NoError(t, err)
+			defer rows.Close()
+		})
+	}
+}
+
+func (s *IntegrationSuite) TestRepairTable() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql string
+	}
+
+	for _, it := range [...]tt{
+		{"REPAIR TABLE student"},
+		{"REPAIR TABLE student QUICK"},
 	} {
 		t.Run(it.sql, func(t *testing.T) {
 			rows, err := db.Query(it.sql)
