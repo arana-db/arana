@@ -44,6 +44,7 @@ const (
 	SQLTypeShowNodes                 // SHOW NODES
 	SQLTypeShowTopology              // SHOW TOPOLOGY
 	SQLTypeShowUsers                 // SHOW USERS
+	SQLTypeShowShardingTable         // SHOW SHARDING TABLE
 	SQLTypeDescribe                  // DESCRIBE
 	SQLTypeUnion                     // UNION
 	SQLTypeDropTrigger               // DROP TRIGGER
@@ -63,6 +64,7 @@ const (
 	SQLTypeCheckTable                // CHECK TABLE
 	SQLTypeRenameTable               // RENAME TABLE
 	SQLTypeRepairTable               // REPAIR TABLE
+	SQLTypeCreateTable               // CREATE TABLE
 )
 
 var _sqlTypeNames = [...]string{
@@ -99,6 +101,7 @@ var _sqlTypeNames = [...]string{
 	SQLTypeCheckTable:        "CHECK TABLE",
 	SQLTypeRenameTable:       "RENAME TABLE",
 	SQLTypeRepairTable:       "REPAIR TABLE",
+	SQLTypeCreateTable:       "CREATE TABLE",
 }
 
 // SQLType represents the type of SQL.

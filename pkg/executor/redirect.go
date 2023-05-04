@@ -268,7 +268,7 @@ func (executor *RedirectExecutor) doExecutorComQuery(ctx *proto.Context, act ast
 		allowSchemaless := func(stmt *ast.ShowStmt) bool {
 			switch stmt.Tp {
 			case ast.ShowDatabases, ast.ShowVariables, ast.ShowTopology, ast.ShowStatus, ast.ShowTableStatus,
-				ast.ShowWarnings, ast.ShowCharset, ast.ShowMasterStatus, ast.ShowProcessList, ast.ShowReplicas,
+				ast.ShowWarnings, ast.ShowCharset, ast.ShowMasterStatus, ast.ShowProcessList, ast.ShowReplicas, ast.ShowShardingTable,
 				ast.ShowReplicaStatus, ast.ShowNodes, ast.ShowUsers:
 				return true
 			default:
@@ -282,7 +282,8 @@ func (executor *RedirectExecutor) doExecutorComQuery(ctx *proto.Context, act ast
 			err = errNoDatabaseSelected
 		}
 	case *ast.TruncateTableStmt, *ast.DropTableStmt, *ast.ExplainStmt, *ast.DropIndexStmt, *ast.CreateIndexStmt,
-		*ast.AnalyzeTableStmt, *ast.OptimizeTableStmt, *ast.CheckTableStmt, *ast.RenameTableStmt, *ast.RepairTableStmt:
+		*ast.AnalyzeTableStmt, *ast.OptimizeTableStmt, *ast.CheckTableStmt, *ast.RenameTableStmt, *ast.CreateTableStmt,
+    *ast.RepairTableStmt:
 		res, warn, err = executeStmt(ctx, schemaless, rt)
 	case *ast.DropTriggerStmt, *ast.SetStmt, *ast.KillStmt:
 		res, warn, err = rt.Execute(ctx)

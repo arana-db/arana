@@ -245,6 +245,7 @@ func TestParse_ShowStatement(t *testing.T) {
 		{"show table status from foo where name='bar'", (*ShowTableStatus)(nil), "SHOW TABLE STATUS FROM `foo` WHERE `name` = 'bar'"},
 		{"show nodes from arana", (*ShowNodes)(nil), "SHOW NODES FROM `arana`"},
 		{"show users from arana", (*ShowUsers)(nil), "SHOW USERS FROM `arana`"},
+		{"show sharding table from employees", (*ShowShardingTable)(nil), "employees"},
 	} {
 		t.Run(it.input, func(t *testing.T) {
 			_, stmt, err := Parse(it.input)

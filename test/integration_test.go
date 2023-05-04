@@ -634,6 +634,16 @@ func (s *IntegrationSuite) TestShowUsers() {
 	assert.NoErrorf(t, err, "show users error: %v", err)
 }
 
+func (s *IntegrationSuite) TestShowShardingTable() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	_, err := db.Query("show sharding table from employees")
+	assert.NoErrorf(t, err, "show sharding table from employees error: %v", err)
+}
+
 func (s *IntegrationSuite) TestDropTrigger() {
 	var (
 		db = s.DB()

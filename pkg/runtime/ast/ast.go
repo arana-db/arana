@@ -131,6 +131,8 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		return cc.convOptimizeTable(stmt), nil
 	case *ast.CheckTableStmt:
 		return cc.convCheckTableStmt(stmt), nil
+	case *ast.CreateTableStmt:
+		return cc.convCreateTableStmt(stmt), nil
 	case *ast.RenameTableStmt:
 		return cc.convRenameTableStmt(stmt), nil
 	case *ast.RepairTableStmt:
@@ -696,6 +698,8 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 		return &ShowNodes{Tenant: node.Tenant}
 	case ast.ShowUsers:
 		return &ShowUsers{Tenant: node.Tenant}
+	case ast.ShowShardingTable:
+		return &ShowShardingTable{baseShow: toBaseShow()}
 	case ast.ShowTables:
 		ret := &ShowTables{baseShow: toBaseShow()}
 		if like, ok := toLike(node); ok {
@@ -1687,6 +1691,27 @@ func (cc *convCtx) convCheckTableStmt(stmt *ast.CheckTableStmt) Statement {
 		}
 	}
 	return &CheckTableStmt{Tables: tables}
+}
+
+func (cc *convCtx) convCreateTableStmt(stmt *ast.CreateTableStmt) Statement {
+	table := &TableName{
+		stmt.Table.Name.String(),
+	}
+	var refTable *TableName
+	if stmt.ReferTable != nil {
+		refTable = &TableName{
+			stmt.ReferTable.Name.String(),
+		}
+	}
+
+	return &CreateTableStmt{
+		IfNotExists: stmt.IfNotExists,
+		Table:       table,
+		ReferTable:  refTable,
+		Cols:        stmt.Cols,
+		Constraints: stmt.Constraints,
+		Options:     stmt.Options,
+	}
 }
 
 func (cc *convCtx) convRenameTableStmt(stmt *ast.RenameTableStmt) Statement {
