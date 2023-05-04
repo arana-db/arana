@@ -554,7 +554,7 @@ func (s *ShowCreateSequence) Mode() SQLType {
 }
 
 func (s *ShowCreateSequence) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
-	sb.WriteString("SHOW SEQUENCE FROM ")
+	sb.WriteString("SHOW CREATE SEQUENCE ")
 
 	if len(s.Tenant) > 0 {
 		WriteID(sb, s.Tenant)

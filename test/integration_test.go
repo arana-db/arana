@@ -630,8 +630,8 @@ func (s *IntegrationSuite) TestShowCreateSequence() {
 		t  = s.T()
 	)
 
-	_, err := db.Query("show sequence from arana")
-	assert.NoErrorf(t, err, "show sequence error: %v", err)
+	_, err := db.Query("show create sequence arana")
+	assert.NoErrorf(t, err, "show create sequence error: %v", err)
 }
 
 func (s *IntegrationSuite) TestDropTrigger() {
