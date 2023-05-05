@@ -35,13 +35,6 @@ var (
 	Users = Thead{
 		Col{Name: "user_name", FieldType: consts.FieldTypeVarString},
 	}
-	ShardingRule = Thead{
-		Col{Name: "name", FieldType: consts.FieldTypeVarString},
-		Col{Name: "sequence_type", FieldType: consts.FieldTypeVarString},
-		Col{Name: "db_rules", FieldType: consts.FieldTypeVarString},
-		Col{Name: "tbl_rules", FieldType: consts.FieldTypeVarString},
-		Col{Name: "attributes", FieldType: consts.FieldTypeVarString},
-	}
 	GroupSequence = Thead{
 		Col{Name: "type", FieldType: consts.FieldTypeVarString},
 		Col{Name: "seq_val", FieldType: consts.FieldTypeVarString},
@@ -51,6 +44,13 @@ var (
 		Col{Name: "type", FieldType: consts.FieldTypeVarString},
 		Col{Name: "work_id", FieldType: consts.FieldTypeVarString},
 		Col{Name: "node_id", FieldType: consts.FieldTypeVarString},
+	}
+	ShardingRule = Thead{
+		Col{Name: "name", FieldType: consts.FieldTypeVarString},
+		Col{Name: "sequence_type", FieldType: consts.FieldTypeVarString},
+		Col{Name: "db_rules", FieldType: consts.FieldTypeVarString},
+		Col{Name: "tbl_rules", FieldType: consts.FieldTypeVarString},
+		Col{Name: "attributes", FieldType: consts.FieldTypeVarString},
 	}
 )
 
