@@ -652,11 +652,11 @@ func (h *HintNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) e
 		sb.WriteString("/*+ ")
 		for _, hintItem := range h.Items {
 			switch hintItem.TP {
-			case AranaSelfHint:
-				continue
 			case MysqlHint:
 				sb.WriteString(hintItem.HintExpr)
 				sb.WriteString(" ")
+			default:
+				continue
 			}
 		}
 		sb.WriteString("*/")
