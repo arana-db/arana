@@ -1780,7 +1780,7 @@ func (cc *convCtx) convTableHint(stmt []*ast.TableOptimizerHint) *HintNode {
 		// restore by parser
 		err := hintStmt.Restore(format.NewRestoreCtx(format.DefaultRestoreFlags, &sb))
 		if err != nil {
-			return nil
+			continue
 		}
 		if isIgnore(hintStmt.HintName.String()) {
 			continue
