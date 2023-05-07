@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -68,21 +69,25 @@ CREATE TABLE IF NOT EXISTS __arana_trx_log
 
 // TxLogManager Transaction log management
 type TxLogManager struct {
-	sysDB proto.DB
-	timer *time.Timer
+	sysDB    proto.DB
+	timer    *time.Timer
+	initOnce sync.Once
 }
 
 // init executes create __arana_tx_log table action
-func (gm *TxLogManager) init(delay time.Duration) error {
-	ctx := context.Background()
-	res, _, err := gm.sysDB.Call(ctx, _initTxLog)
-	if err != nil {
-		return err
-	}
-	_, _ = res.RowsAffected()
+func (gm *TxLogManager) Init(delay time.Duration) error {
+	var err error
+	gm.initOnce.Do(func() {
+		ctx := context.Background()
+		res, _, err := gm.sysDB.Call(ctx, _initTxLog)
+		if err != nil {
+			return
+		}
+		_, _ = res.RowsAffected()
 
-	gm.timer = time.AfterFunc(delay, gm.runCleanTxLogTask)
-	return nil
+		gm.timer = time.AfterFunc(delay, gm.runCleanTxLogTask)
+	})
+	return err
 }
 
 // AddOrUpdateTxLog Add or update transaction log

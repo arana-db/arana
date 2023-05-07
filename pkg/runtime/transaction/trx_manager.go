@@ -20,6 +20,7 @@ package transaction
 import (
 	"errors"
 	"sync"
+	"time"
 )
 
 import (
@@ -28,6 +29,7 @@ import (
 
 var (
 	ErrorTrxManagerNotInitialize = errors.New("TrxManager not initialize")
+	DefaultCleanLogDelay         = 1 * time.Hour
 )
 
 var (
@@ -50,6 +52,11 @@ func CreateTrxManager(tenant string) error {
 	}
 
 	trxLog := &TxLogManager{sysDB: sysDB}
+	err = trxLog.Init(DefaultCleanLogDelay)
+	if err == nil {
+		return err
+	}
+
 	trxBottomMaker := &TxFaultDecisionExecutor{tm: trxLog}
 
 	trxMgrs[tenant] = &TrxManager{
