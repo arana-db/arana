@@ -645,21 +645,21 @@ type HintItem struct {
 
 /*
 1. Only restore mysql optimizer hints by default
-2. Other domain hints can be supported by flags
+2. Other domain hints can be supported by flag
 */
 func (h *HintNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	if flag == RestoreDefault {
+		sb.WriteString("/*+ ")
 		for _, hintItem := range h.Items {
 			switch hintItem.TP {
 			case AranaSelfHint:
-				return nil
+				continue
 			case MysqlHint:
-				sb.WriteString("/*+ ")
 				sb.WriteString(hintItem.HintExpr)
 				sb.WriteString(" ")
-				sb.WriteString("*/")
 			}
 		}
+		sb.WriteString("*/")
 	}
 	return nil
 }
