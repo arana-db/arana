@@ -1232,3 +1232,38 @@ func (s *IntegrationSuite) TestOptimizeLocalCompute() {
 		})
 	}
 }
+
+func (s *IntegrationSuite) TestMysqlOptimizerHints() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sqlHint string
+		sql     string
+		same    bool
+	}
+
+	for _, it := range [...]tt{
+		{
+			"SELECT /*+ MRR(student) */ * from student where uid=1",
+			"SELECT * from student where uid=1",
+			true,
+		},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			// select with mysql hints
+			rows, err := db.Query(it.sqlHint)
+			assert.NoError(t, err, "should query with mysql hints successfully")
+			defer rows.Close()
+			data, _ := utils.PrintTable(rows)
+
+			rows, err = db.Query(it.sql)
+			assert.NoError(t, err, "should query without mysql hints successfully")
+			defer rows.Close()
+			data2, _ := utils.PrintTable(rows)
+			assert.Equal(t, it.same, len(data) == len(data2))
+		})
+	}
+}
