@@ -183,14 +183,17 @@ func (gm *TxLogManager) ScanTxLog(pageNo, pageSize uint64, conditions []Conditio
 // partition table according to the day level or hour level.
 // the execution of this task requires distributed task preemption based on the metadata DB
 func (gm *TxLogManager) runCleanTxLogTask() {
-	var pageNo uint64 = 0
-	var pageSize uint64 = 50
-	cond := Condition{
-		FiledName: "status",
-		Operation: Equal,
-		Value:     runtime.TrxFinish,
-	}
-	conditions := []Condition{cond}
+	var (
+		pageNo     uint64
+		pageSize   uint64 = 50
+		conditions        = []Condition{
+			{
+				FiledName: "status",
+				Operation: Equal,
+				Value:     runtime.TrxFinish,
+			},
+		}
+	)
 	var txLogs []TrxLog
 	for {
 		total, logs, err := gm.ScanTxLog(pageNo, pageSize, conditions)
