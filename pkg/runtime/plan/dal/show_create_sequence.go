@@ -66,7 +66,8 @@ func (su *ShowCreateSequence) ExecIn(ctx context.Context, conn proto.VConn) (pro
 
 	var ds *dataset.VirtualDataset
 
-	if seq.GetSequenceConfig().Type == "group" {
+	switch seq.GetSequenceConfig().Type {
+	case "group":
 		columns := thead.GroupSequence.ToFields()
 		ds = &dataset.VirtualDataset{
 			Columns: columns,
@@ -74,7 +75,7 @@ func (su *ShowCreateSequence) ExecIn(ctx context.Context, conn proto.VConn) (pro
 		val := seq.CurrentVal()
 		step := seq.GetSequenceConfig().Option["step"]
 		ds.Rows = append(ds.Rows, rows.NewTextVirtualRow(columns, []proto.Value{proto.NewValueString("group"), proto.NewValueString(fmt.Sprint(val)), proto.NewValueString(step)}))
-	} else if seq.GetSequenceConfig().Type == "snowflake" {
+	case "snowflake":
 		columns := thead.SnowflakeSequence.ToFields()
 		ds = &dataset.VirtualDataset{
 			Columns: columns,
