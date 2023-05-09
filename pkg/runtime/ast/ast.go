@@ -49,6 +49,11 @@ var _opcode2comparison = map[opcode.Op]cmp.Comparison{
 	opcode.GE: cmp.Cgte,
 }
 
+// ignoreHintsMap contains hints should be ignored in arana
+var ignoreHintsMap = map[string]string{
+	"TIDB_HJ": "tidb hj hints",
+}
+
 const (
 	_ccHasSubQuery        uint32 = 1 << iota // 存在子查询
 	_ccHasJoin                               // 存在 JOIN
@@ -558,6 +563,9 @@ func (cc *convCtx) convInsertStmt(stmt *ast.InsertStmt) Statement {
 
 	// extract table
 	bi.Table = cc.convFrom(stmt.Table)[0].Source.(TableName)
+
+	// handle hints
+	bi.Hint = cc.convTableHint(stmt.TableHints)
 
 	if stmt.IgnoreErr {
 		bi.enableIgnore()
@@ -1763,17 +1771,6 @@ func (cc *convCtx) convKill(stmt *ast.KillStmt) Statement {
 // Convert mysql optimizer hints
 // Include https://dev.mysql.com/doc/refman/8.0/en/optimizer-hints.html#optimizer-hints-index-level
 func (cc *convCtx) convTableHint(stmt []*ast.TableOptimizerHint) *HintNode {
-	// ignore hints filter
-	var isIgnore = func(hintName string) bool {
-		ignoreMap := map[string]string{
-			"TIDB_HJ": "tidb hj hints",
-		}
-		if _, ok := ignoreMap[hintName]; ok {
-			return true
-		}
-		return false
-	}
-
 	hints := make([]HintItem, 0, len(stmt))
 	for _, hintStmt := range stmt {
 		sb := strings.Builder{}
@@ -1782,7 +1779,8 @@ func (cc *convCtx) convTableHint(stmt []*ast.TableOptimizerHint) *HintNode {
 		if err != nil {
 			continue
 		}
-		if isIgnore(hintStmt.HintName.String()) {
+		// ignore hints filter
+		if IsHintIgnore(hintStmt.HintName.String()) {
 			continue
 		}
 		hintItem := HintItem{
@@ -1799,4 +1797,10 @@ func (cc *convCtx) convTableHint(stmt []*ast.TableOptimizerHint) *HintNode {
 	return &HintNode{
 		Items: hints,
 	}
+}
+
+// IsHintIgnore check input hint if ignored in arana
+func IsHintIgnore(hintName string) bool {
+	_, ok := ignoreHintsMap[hintName]
+	return ok
 }

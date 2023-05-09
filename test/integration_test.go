@@ -1251,6 +1251,16 @@ func (s *IntegrationSuite) TestMysqlOptimizerHints() {
 			"SELECT * from student where uid=1",
 			true,
 		},
+		//{
+		//	"EXPLAIN SELECT * from student where uid=1",
+		//	"EXPLAIN SELECT /*+ MRR(student) */ * from student where uid=1",
+		//	true,
+		//},
+		{
+			"INSERT /*+ SET_VAR(foreign_key_checks=OFF) */ INTO student(uid,name) values(2,'fake_name')",
+			"INSERT INTO student(uid,name) values(1,'fake_name')",
+			true,
+		},
 	} {
 		t.Run(it.sql, func(t *testing.T) {
 			// select with mysql hints
