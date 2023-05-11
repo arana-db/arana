@@ -26,6 +26,7 @@ import (
 import (
 	"github.com/arana-db/parser"
 	"github.com/arana-db/parser/ast"
+	"github.com/arana-db/parser/format"
 	"github.com/arana-db/parser/mysql"
 	"github.com/arana-db/parser/opcode"
 	"github.com/arana-db/parser/test_driver"
@@ -46,6 +47,11 @@ var _opcode2comparison = map[opcode.Op]cmp.Comparison{
 	opcode.GT: cmp.Cgt,
 	opcode.LE: cmp.Clte,
 	opcode.GE: cmp.Cgte,
+}
+
+// ignoreHintsMap contains hints should be ignored in arana
+var ignoreHintsMap = map[string]string{
+	"TIDB_HJ": "tidb hj hints",
 }
 
 const (
@@ -501,6 +507,7 @@ func (cc *convCtx) convSelectStmt(stmt *ast.SelectStmt) *SelectStatement {
 	ret.Having = cc.convHaving(stmt.Having)
 	ret.OrderBy = cc.convOrderBy(stmt.OrderBy)
 	ret.Limit = cc.convLimit(stmt.Limit)
+	ret.Hint = cc.convTableHint(stmt.TableHints)
 
 	if stmt.LockInfo != nil {
 		switch stmt.LockInfo.LockType {
@@ -556,6 +563,9 @@ func (cc *convCtx) convInsertStmt(stmt *ast.InsertStmt) Statement {
 
 	// extract table
 	bi.Table = cc.convFrom(stmt.Table)[0].Source.(TableName)
+
+	// handle hints
+	bi.Hint = cc.convTableHint(stmt.TableHints)
 
 	if stmt.IgnoreErr {
 		bi.enableIgnore()
@@ -1756,4 +1766,41 @@ func (cc *convCtx) convKill(stmt *ast.KillStmt) Statement {
 		Query:        stmt.Query,
 		ConnectionID: stmt.ConnectionID,
 	}
+}
+
+// Convert mysql optimizer hints
+// Include https://dev.mysql.com/doc/refman/8.0/en/optimizer-hints.html#optimizer-hints-index-level
+func (cc *convCtx) convTableHint(stmt []*ast.TableOptimizerHint) *HintNode {
+	hints := make([]HintItem, 0, len(stmt))
+	for _, hintStmt := range stmt {
+		sb := strings.Builder{}
+		// restore by parser
+		err := hintStmt.Restore(format.NewRestoreCtx(format.DefaultRestoreFlags, &sb))
+		if err != nil {
+			continue
+		}
+		// ignore hints filter
+		if IsHintIgnore(hintStmt.HintName.String()) {
+			continue
+		}
+		hintItem := HintItem{
+			TP:       MysqlHint,
+			HintExpr: sb.String(),
+		}
+		hints = append(hints, hintItem)
+	}
+
+	if len(hints) == 0 {
+		return nil
+	}
+
+	return &HintNode{
+		Items: hints,
+	}
+}
+
+// IsHintIgnore check input hint if ignored in arana
+func IsHintIgnore(hintName string) bool {
+	_, ok := ignoreHintsMap[hintName]
+	return ok
 }
