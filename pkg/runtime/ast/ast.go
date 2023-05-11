@@ -433,6 +433,7 @@ func (cc *convCtx) convUpdateStmt(stmt *ast.UpdateStmt) *UpdateStatement {
 		panic("no table name found")
 	}
 	ret.Table = tableName
+	ret.Hint = cc.convTableHint(stmt.TableHints)
 
 	var updated []*UpdateElement
 	for _, it := range stmt.List {
@@ -539,6 +540,7 @@ func (cc *convCtx) convDeleteStmt(stmt *ast.DeleteStmt) Statement {
 
 	// TODO: Now only support single table delete clause, need to fill flag OrderBy field
 	ret.Table = cc.convFrom(stmt.TableRefs)[0].Source.(TableName)
+	ret.Hint = cc.convTableHint(stmt.TableHints) // index hint for delete
 
 	if stmt.Where != nil {
 		ret.Where = toExpressionNode(cc.convExpr(stmt.Where))

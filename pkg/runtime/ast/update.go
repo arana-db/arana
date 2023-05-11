@@ -32,6 +32,7 @@ var _ Statement = (*UpdateStatement)(nil)
 type UpdateStatement struct {
 	flag       uint8
 	Table      TableName
+	Hint       *HintNode
 	TableAlias string
 	Updated    []*UpdateElement
 	Where      ExpressionNode
@@ -53,6 +54,11 @@ func (u *UpdateStatement) ResetTable(table string) *UpdateStatement {
 
 func (u *UpdateStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("UPDATE ")
+
+	if u.Hint != nil {
+		u.Hint.Restore(flag, sb, args)
+	}
+
 	if u.IsEnableLowPriority() {
 		sb.WriteString("LOW_PRIORITY ")
 	}

@@ -50,6 +50,7 @@ func (sl SelectLock) String() string {
 
 type SelectStatement struct {
 	Select   SelectNode
+	Hint     *HintNode
 	From     FromNode
 	Where    ExpressionNode
 	GroupBy  *GroupByNode
