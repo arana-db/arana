@@ -72,6 +72,14 @@ func Register(t rast.SQLType, h Processor) {
 	_handlers[t] = h
 }
 
+func GetProcessor(t rast.SQLType) (Processor, error) {
+	h, ok := _handlers[t]
+	if !ok {
+		return nil, perrors.Errorf("optimize: no handler found for '%s'", t)
+	}
+	return h, nil
+}
+
 type Processor = func(ctx context.Context, o *Optimizer) (proto.Plan, error)
 
 type Optimizer struct {

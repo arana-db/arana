@@ -88,7 +88,7 @@ func (s *SimpleQueryPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 		rf |= ast.RestoreCompat80
 	}
 
-	if err = s.generate(rf, &sb, &indexes); err != nil {
+	if err = s.Generate(rf, &sb, &indexes); err != nil {
 		return nil, errors.Wrap(err, "failed to generate sql")
 	}
 
@@ -150,7 +150,7 @@ func (s *SimpleQueryPlan) resetTable(tgt *ast.SelectStatement, table string) err
 	return nil
 }
 
-func (s *SimpleQueryPlan) generate(rf ast.RestoreFlag, sb *strings.Builder, args *[]int) error {
+func (s *SimpleQueryPlan) Generate(rf ast.RestoreFlag, sb *strings.Builder, args *[]int) error {
 	switch len(s.Tables) {
 	case 0:
 		// no table reset

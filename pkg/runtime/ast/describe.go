@@ -68,5 +68,5 @@ func (e *ExplainStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *
 }
 
 func (e *ExplainStatement) Mode() SQLType {
-	return SQLTypeSelect
+	return SQLTypeExplain
 }

@@ -46,6 +46,7 @@ const (
 	SQLTypeShowUsers                 // SHOW USERS
 	SQLTypeShowShardingTable         // SHOW SHARDING TABLE
 	SQLTypeDescribe                  // DESCRIBE
+	SQLTypeExplain                   // EXPLAIN
 	SQLTypeUnion                     // UNION
 	SQLTypeDropTrigger               // DROP TRIGGER
 	SQLTypeCreateIndex               // CREATE INDEX

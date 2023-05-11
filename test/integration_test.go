@@ -23,6 +23,7 @@ package test
 import (
 	"database/sql"
 	"fmt"
+	"github.com/stretchr/testify/suite"
 	"sort"
 	"strconv"
 	"strings"
@@ -36,7 +37,6 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/suite"
 )
 
 import (
@@ -45,6 +45,10 @@ import (
 )
 
 type IntegrationSuite struct {
+	*MySuite
+}
+
+type SingleIntegrationSuite struct {
 	*MySuite
 }
 
@@ -1224,6 +1228,27 @@ func (s *IntegrationSuite) TestOptimizeLocalCompute() {
 		{"SELECT 1+1;"},
 		{"SELECT ABS(-1)+1;"},
 		{"SELECT ABS(-1)+RAND()+1,1;"},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			rows, err := db.Query(it.sql)
+			assert.NoError(t, err)
+			defer rows.Close()
+		})
+	}
+}
+
+func (s *SingleIntegrationSuite) TestExplain() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql string
+	}
+
+	for _, it := range [...]tt{
+		{"explain select * from student where uid = 1;"},
 	} {
 		t.Run(it.sql, func(t *testing.T) {
 			rows, err := db.Query(it.sql)
