@@ -143,6 +143,7 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 			newborn := ast.NewInsertStatement(ast.TableName{table}, stmt.Columns)
 			newborn.SetFlag(stmt.Flag())
 			newborn.DuplicatedUpdates = stmt.DuplicatedUpdates
+			newborn.Hint = stmt.Hint
 
 			// collect values with same table
 			values := make([][]ast.ExpressionNode, 0, len(indexes))
