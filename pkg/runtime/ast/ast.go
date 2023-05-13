@@ -26,6 +26,7 @@ import (
 import (
 	"github.com/arana-db/parser"
 	"github.com/arana-db/parser/ast"
+	"github.com/arana-db/parser/format"
 	"github.com/arana-db/parser/mysql"
 	"github.com/arana-db/parser/opcode"
 	"github.com/arana-db/parser/test_driver"
@@ -46,6 +47,11 @@ var _opcode2comparison = map[opcode.Op]cmp.Comparison{
 	opcode.GT: cmp.Cgt,
 	opcode.LE: cmp.Clte,
 	opcode.GE: cmp.Cgte,
+}
+
+// ignoreHintsMap contains hints should be ignored in arana
+var ignoreHintsMap = map[string]string{
+	"TIDB_HJ": "tidb hj hints",
 }
 
 const (
@@ -131,6 +137,8 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		return cc.convOptimizeTable(stmt), nil
 	case *ast.CheckTableStmt:
 		return cc.convCheckTableStmt(stmt), nil
+	case *ast.CreateTableStmt:
+		return cc.convCreateTableStmt(stmt), nil
 	case *ast.RenameTableStmt:
 		return cc.convRenameTableStmt(stmt), nil
 	case *ast.KillStmt:
@@ -499,6 +507,7 @@ func (cc *convCtx) convSelectStmt(stmt *ast.SelectStmt) *SelectStatement {
 	ret.Having = cc.convHaving(stmt.Having)
 	ret.OrderBy = cc.convOrderBy(stmt.OrderBy)
 	ret.Limit = cc.convLimit(stmt.Limit)
+	ret.Hint = cc.convTableHint(stmt.TableHints)
 
 	if stmt.LockInfo != nil {
 		switch stmt.LockInfo.LockType {
@@ -554,6 +563,9 @@ func (cc *convCtx) convInsertStmt(stmt *ast.InsertStmt) Statement {
 
 	// extract table
 	bi.Table = cc.convFrom(stmt.Table)[0].Source.(TableName)
+
+	// handle hints
+	bi.Hint = cc.convTableHint(stmt.TableHints)
 
 	if stmt.IgnoreErr {
 		bi.enableIgnore()
@@ -694,6 +706,8 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 		return &ShowNodes{Tenant: node.Tenant}
 	case ast.ShowUsers:
 		return &ShowUsers{Tenant: node.Tenant}
+	case ast.ShowShardingTable:
+		return &ShowShardingTable{baseShow: toBaseShow()}
 	case ast.ShowTables:
 		ret := &ShowTables{baseShow: toBaseShow()}
 		if like, ok := toLike(node); ok {
@@ -1687,6 +1701,27 @@ func (cc *convCtx) convCheckTableStmt(stmt *ast.CheckTableStmt) Statement {
 	return &CheckTableStmt{Tables: tables}
 }
 
+func (cc *convCtx) convCreateTableStmt(stmt *ast.CreateTableStmt) Statement {
+	table := &TableName{
+		stmt.Table.Name.String(),
+	}
+	var refTable *TableName
+	if stmt.ReferTable != nil {
+		refTable = &TableName{
+			stmt.ReferTable.Name.String(),
+		}
+	}
+
+	return &CreateTableStmt{
+		IfNotExists: stmt.IfNotExists,
+		Table:       table,
+		ReferTable:  refTable,
+		Cols:        stmt.Cols,
+		Constraints: stmt.Constraints,
+		Options:     stmt.Options,
+	}
+}
+
 func (cc *convCtx) convRenameTableStmt(stmt *ast.RenameTableStmt) Statement {
 	tableToTables := make([]*TableToTable, len(stmt.TableToTables))
 	for i, tableToTable := range stmt.TableToTables {
@@ -1731,4 +1766,41 @@ func (cc *convCtx) convKill(stmt *ast.KillStmt) Statement {
 		Query:        stmt.Query,
 		ConnectionID: stmt.ConnectionID,
 	}
+}
+
+// Convert mysql optimizer hints
+// Include https://dev.mysql.com/doc/refman/8.0/en/optimizer-hints.html#optimizer-hints-index-level
+func (cc *convCtx) convTableHint(stmt []*ast.TableOptimizerHint) *HintNode {
+	hints := make([]HintItem, 0, len(stmt))
+	for _, hintStmt := range stmt {
+		sb := strings.Builder{}
+		// restore by parser
+		err := hintStmt.Restore(format.NewRestoreCtx(format.DefaultRestoreFlags, &sb))
+		if err != nil {
+			continue
+		}
+		// ignore hints filter
+		if IsHintIgnore(hintStmt.HintName.String()) {
+			continue
+		}
+		hintItem := HintItem{
+			TP:       MysqlHint,
+			HintExpr: sb.String(),
+		}
+		hints = append(hints, hintItem)
+	}
+
+	if len(hints) == 0 {
+		return nil
+	}
+
+	return &HintNode{
+		Items: hints,
+	}
+}
+
+// IsHintIgnore check input hint if ignored in arana
+func IsHintIgnore(hintName string) bool {
+	_, ok := ignoreHintsMap[hintName]
+	return ok
 }
