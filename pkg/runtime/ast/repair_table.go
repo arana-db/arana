@@ -40,9 +40,9 @@ func (r *RepairTableStmt) CntParams() int {
 }
 
 func (r *RepairTableStmt) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
-	sb.WriteString("REPAIR TABLE")
+	sb.WriteString("REPAIR TABLE ")
 	if err := r.Table.Restore(flag, sb, args); err != nil {
-		return errors.Wrapf(err, "an error occurred while restore RepairTableStatement.")
+		return errors.Wrapf(err, "an error occurred while restore RepairTableStatement")
 	}
 	return nil
 }
