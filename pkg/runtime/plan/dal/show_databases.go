@@ -48,14 +48,17 @@ func (s *ShowDatabasesPlan) ExecIn(ctx context.Context, _ proto.VConn) (proto.Re
 	ctx, span := plan.Tracer.Start(ctx, "ShowDatabasesPlan.ExecIn")
 	defer span.End()
 
-	columns := thead.Database.ToFields()
-	ds := &dataset.VirtualDataset{
-		Columns: columns,
-	}
+	var (
+		columns = thead.Database.ToFields()
+		ds      = &dataset.VirtualDataset{
+			Columns: columns,
+		}
+	)
 
 	for _, cluster := range security.DefaultTenantManager().GetClusters(rcontext.Tenant(ctx)) {
 		ds.Rows = append(ds.Rows, rows.NewTextVirtualRow(columns, []proto.Value{proto.NewValueString(cluster)}))
 	}
 
-	return resultx.New(resultx.WithDataset(ds)), nil
+	newDs := dataset.Pipe(ds, dataset.Filter(s.Stmt.Filter()))
+	return resultx.New(resultx.WithDataset(newDs)), nil
 }

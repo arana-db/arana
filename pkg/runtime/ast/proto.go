@@ -131,9 +131,3 @@ func MustRestoreToString(flag RestoreFlag, r Restorer) string {
 	}
 	return s
 }
-
-type Null struct{}
-
-func (n Null) String() string {
-	return "NULL"
-}
