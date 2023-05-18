@@ -986,6 +986,7 @@ func (conn *BackendConnection) writeHandshakeResponse41(capabilities uint32, scr
 
 	// Sanity-check the length.
 	if pos != len(data) {
+		conn.c.recycleWritePacket()
 		return err2.NewSQLError(mysql.CRMalformedPacket, mysql.SSUnknownSQLState, "writeHandshakeResponse41: only packed %v bytes, out of %v allocated", pos, len(data))
 	}
 

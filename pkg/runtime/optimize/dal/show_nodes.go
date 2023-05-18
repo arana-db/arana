@@ -15,44 +15,25 @@
  * limitations under the License.
  */
 
-package misc
+package dal
 
 import (
-	"io"
-	"regexp"
-	"sync"
+	"context"
 )
 
 import (
-	"github.com/pkg/errors"
+	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/runtime/optimize"
+	"github.com/arana-db/arana/pkg/runtime/plan/dal"
 )
 
-var (
-	_regexpTable     *regexp.Regexp
-	_regexpTableOnce sync.Once
-)
-
-func getTableRegexp() *regexp.Regexp {
-	_regexpTableOnce.Do(func() {
-		_regexpTable = regexp.MustCompile(`([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_-]+)`)
-	})
-	return _regexpTable
+func init() {
+	optimize.Register(ast.SQLTypeShowNodes, optimizeShowNodes)
 }
 
-func ParseTable(input string) (db, tbl string, err error) {
-	mat := getTableRegexp().FindStringSubmatch(input)
-	if len(mat) < 1 {
-		err = errors.Errorf("invalid table name: %s", input)
-		return
-	}
-	db = mat[1]
-	tbl = mat[2]
-	return
-}
-
-func TryClose(i interface{}) error {
-	if c, ok := i.(io.Closer); ok {
-		return c.Close()
-	}
-	return nil
+func optimizeShowNodes(_ context.Context, o *optimize.Optimizer) (proto.Plan, error) {
+	stmt := o.Stmt.(*ast.ShowNodes)
+	ret := dal.NewShowNodesPlan(stmt)
+	return ret, nil
 }

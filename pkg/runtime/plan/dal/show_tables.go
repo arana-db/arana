@@ -36,7 +36,6 @@ import (
 	"github.com/arana-db/arana/pkg/resultx"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
-	"github.com/arana-db/arana/pkg/runtime/misc"
 	"github.com/arana-db/arana/pkg/runtime/plan"
 )
 
@@ -63,7 +62,6 @@ func (st *ShowTablesPlan) Type() proto.PlanType {
 func (st *ShowTablesPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
 	var (
 		sb      strings.Builder
-		liker   misc.Liker
 		indexes []int
 		res     proto.Result
 		err     error
@@ -95,10 +93,6 @@ func (st *ShowTablesPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 
 	// filter duplicates
 	duplicates := make(map[string]struct{})
-
-	if pattern, ok := st.Stmt.Like(); ok {
-		liker = misc.NewLiker(pattern)
-	}
 
 	// 1. convert to logical table name
 	// 2. filter duplicated table name
@@ -140,19 +134,7 @@ func (st *ShowTablesPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 			duplicates[tableName] = struct{}{}
 			return true
 		}, systemTablePrefix),
-		dataset.Filter(func(row proto.Row) bool {
-			if liker == nil {
-				return true
-			}
-			dest := make([]proto.Value, len(fields))
-			if row.Scan(dest) != nil {
-				return false
-			}
-			var tableName sql.NullString
-			_ = tableName.Scan(dest[0])
-			ok := liker.Like(tableName.String)
-			return ok
-		}),
+		dataset.Filter(st.Stmt.Filter()),
 	)
 
 	return resultx.New(resultx.WithDataset(ds)), nil

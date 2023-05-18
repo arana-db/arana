@@ -35,6 +35,7 @@ import (
 	"github.com/arana-db/arana/pkg/security"
 	"github.com/arana-db/arana/pkg/trace"
 	"github.com/arana-db/arana/pkg/util/log"
+	"github.com/arana-db/arana/pkg/util/misc"
 )
 
 func (l *Listener) handleInitDB(c *Conn, ctx *proto.Context) error {
@@ -116,6 +117,8 @@ func (l *Listener) handleQuery(c *Conn, ctx *proto.Context) error {
 			if hasMore {
 				statusFlag |= mysql.ServerMoreResultsExists
 			}
+
+			_ = misc.TryClose(result)
 
 			if err := c.writeOKPacket(affected, insertId, statusFlag, warn); err != nil {
 				log.Errorf("failed to write OK packet into client %v: %v", ctx.C.ID(), err)
