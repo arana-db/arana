@@ -641,7 +641,7 @@ func (s *IntegrationSuite) TestShowCreateSequence() {
 	)
 
 	_, err := db.Query("show create sequence arana")
-	assert.NoErrorf(t, err, "show create sequence error: %v", err)
+	assert.NoErrorf(t, err, "show create sequence arana error: %v", err)
 }
 
 func (s *IntegrationSuite) TestShowShardingTable() {

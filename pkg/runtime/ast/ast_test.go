@@ -246,7 +246,7 @@ func TestParse_ShowStatement(t *testing.T) {
 		{"show nodes from arana", (*ShowNodes)(nil), "SHOW NODES FROM `arana`"},
 		{"show users from arana", (*ShowUsers)(nil), "SHOW USERS FROM `arana`"},
 		{"show sharding table from employees", (*ShowShardingTable)(nil), "employees"},
-		{"show create sequence test", (*ShowCreateSequence)(nil), "SHOW CREATE SEQUENCE `test`"},
+		{"show create sequence arana", (*ShowCreateSequence)(nil), "SHOW CREATE SEQUENCE `arana`"},
 	} {
 		t.Run(it.input, func(t *testing.T) {
 			_, stmt, err := Parse(it.input)
