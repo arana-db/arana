@@ -249,7 +249,6 @@ func (cs *myConfigService) ListTables(ctx context.Context, tenant, cluster strin
 		ret = append(ret, &TableDTO{
 			Name:           tbl,
 			Sequence:       next.Sequence,
-			AllowFullScan:  next.AllowFullScan,
 			DbRules:        next.DbRules,
 			TblRules:       next.TblRules,
 			Topology:       next.Topology,
@@ -630,7 +629,6 @@ func (cs *myConfigService) UpsertTable(ctx context.Context, tenant, cluster, tab
 		}
 		if db == cluster && tb == table {
 			tableCfg.Sequence = body.Sequence
-			tableCfg.AllowFullScan = body.AllowFullScan
 			tableCfg.DbRules = body.DbRules
 			tableCfg.TblRules = body.TblRules
 			tableCfg.Topology = body.Topology
@@ -644,7 +642,6 @@ func (cs *myConfigService) UpsertTable(ctx context.Context, tenant, cluster, tab
 		newTable := &config.Table{
 			Name:           cluster + "." + table,
 			Sequence:       body.Sequence,
-			AllowFullScan:  body.AllowFullScan,
 			DbRules:        body.DbRules,
 			TblRules:       body.TblRules,
 			Topology:       body.Topology,

@@ -46,7 +46,6 @@ data:
       sharding_rule:
         tables:
           - name: employees.student
-            allow_full_scan: true
             sequence:
               type: snowflake
               option:
@@ -62,6 +61,7 @@ data:
               db_pattern: employees_0000
               tbl_pattern: student_${0000..0031}
             attributes:
+              allow_full_scan: true
               sqlMaxLimit: -1
       nodes:
         node0:
