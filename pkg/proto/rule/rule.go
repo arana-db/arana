@@ -19,6 +19,7 @@
 package rule
 
 import (
+	"encoding/json"
 	"fmt"
 	"sync"
 )
@@ -52,6 +53,32 @@ const (
 	attrAllowFullScan byte = 0x01
 )
 
+type (
+	// RawShardRule represents the raw database_rule and table_rule of shards.
+	RawShardRule struct {
+		Column string `json:"column"`
+		Type   string `json:"type"`
+		Expr   string `json:"expr"`
+		Step   int    `json:"step,omitempty"`
+	}
+	// RawShardMetadata represents the raw metadata of shards.
+	RawShardMetadata struct {
+		Name         string                 `json:"name,omitempty"`
+		SequenceType string                 `json:"sequence_type,omitempty"`
+		DbRules      []*RawShardRule        `json:"db_rules"`
+		TblRules     []*RawShardRule        `json:"tbl_rules"`
+		Attributes   map[string]interface{} `json:"attributes,omitempty"`
+	}
+)
+
+func (r RawShardMetadata) JSONMarshal() (string, error) {
+	jsons, errs := json.Marshal(r)
+	if errs != nil {
+		return "", errors.Errorf("cannot marshal the shard metadata to json")
+	}
+	return string(jsons), nil
+}
+
 // VTable represents a virtual/logical table.
 type VTable struct {
 	attributes
@@ -59,6 +86,7 @@ type VTable struct {
 	autoIncrement *AutoIncrement
 	topology      *Topology
 	shards        map[string][2]*ShardMetadata // column -> [db shard metadata,table shard metadata]
+	rawShards     *RawShardMetadata
 }
 
 func (vt *VTable) HasColumn(column string) bool {
@@ -93,6 +121,40 @@ func (vt *VTable) GetShardKeys() []string {
 		keys = append(keys, k)
 	}
 	return keys
+}
+func (vt *VTable) SetRawShardMetaData(rawData *RawShardMetadata) {
+	vt.rawShards = rawData
+}
+
+func (vt *VTable) GetShardMetaDataJSON() (map[string]string, error) {
+	res := make(map[string]string)
+	var (
+		val []byte
+		err error
+	)
+
+	res["name"] = vt.rawShards.Name
+	res["sequence_type"] = vt.rawShards.SequenceType
+
+	val, err = json.Marshal(vt.rawShards.DbRules)
+	if err != nil {
+		return res, err
+	}
+	res["db_rules"] = string(val)
+
+	val, err = json.Marshal(vt.rawShards.TblRules)
+	if err != nil {
+		return res, err
+	}
+	res["tbl_rules"] = string(val)
+
+	val, err = json.Marshal(vt.rawShards.Attributes)
+	if err != nil {
+		return res, err
+	}
+	res["attributes"] = string(val)
+
+	return res, nil
 }
 
 // Topology returns the topology of VTable.

@@ -511,6 +511,16 @@ func toSharder(input *config.Rule) (rule.ShardComputer, error) {
 	return computer, err
 }
 
+func toRawShard(input *config.Rule) *rule.RawShardRule {
+	var res rule.RawShardRule
+	res.Expr = input.Expr
+	res.Type = input.Type
+	res.Column = input.Column
+	if input.Step > 0 {
+		res.Step = input.Step
+	}
+	return &res
+}
 func getRender(format string) func(int) string {
 	if strings.ContainsRune(format, '%') {
 		return func(i int) string {

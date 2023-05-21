@@ -41,8 +41,10 @@ const (
 	SQLTypeShowColumns               // SHOW COLUMNS
 	SQLTypeShowCreate                // SHOW CREATE
 	SQLTypeShowVariables             // SHOW VARIABLES
+	SQLTypeShowNodes                 // SHOW NODES
 	SQLTypeShowTopology              // SHOW TOPOLOGY
 	SQLTypeShowUsers                 // SHOW USERS
+	SQLTypeShowShardingTable         // SHOW SHARDING TABLE
 	SQLTypeDescribe                  // DESCRIBE
 	SQLTypeUnion                     // UNION
 	SQLTypeDropTrigger               // DROP TRIGGER
@@ -128,10 +130,4 @@ func MustRestoreToString(flag RestoreFlag, r Restorer) string {
 		panic(err.Error())
 	}
 	return s
-}
-
-type Null struct{}
-
-func (n Null) String() string {
-	return "NULL"
 }

@@ -625,3 +625,47 @@ func (c *Constraint) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int)
 	sb.WriteString(")")
 	return nil
 }
+
+type HintType = uint8
+
+const (
+	_ HintType = iota
+	AranaSelfHint
+	MysqlHint
+)
+
+type HintNode struct {
+	Items []HintItem
+}
+
+type HintItem struct {
+	TP       HintType
+	HintExpr string
+}
+
+/*
+1. Only restore mysql optimizer hints by default
+2. Other domain hints can be supported by flag
+*/
+func (h *HintNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	// for extension
+	//if flag.Has("SpecialHintFlag"){
+	//	restore other domain hints
+	//	return nil
+	//}
+
+	// restore mysql hints by default
+	sb.WriteString("/*+ ")
+	for _, hintItem := range h.Items {
+		switch hintItem.TP {
+		case MysqlHint:
+			sb.WriteString(hintItem.HintExpr)
+			sb.WriteString(" ")
+		default:
+			continue
+		}
+	}
+	sb.WriteString("*/")
+
+	return nil
+}

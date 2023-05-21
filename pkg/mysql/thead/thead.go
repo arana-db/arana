@@ -32,8 +32,25 @@ var (
 	Database = Thead{
 		Col{Name: "Database", FieldType: consts.FieldTypeVarString},
 	}
+	Nodes = Thead{
+		Col{Name: "node", FieldType: consts.FieldTypeVarString},
+		Col{Name: "cluster", FieldType: consts.FieldTypeVarString},
+		Col{Name: "database", FieldType: consts.FieldTypeVarString},
+		Col{Name: "host", FieldType: consts.FieldTypeVarString},
+		Col{Name: "port", FieldType: consts.FieldTypeLong},
+		Col{Name: "user_name", FieldType: consts.FieldTypeVarString},
+		Col{Name: "weight", FieldType: consts.FieldTypeVarString},
+		Col{Name: "parameters", FieldType: consts.FieldTypeVarString},
+	}
 	Users = Thead{
 		Col{Name: "user_name", FieldType: consts.FieldTypeVarString},
+	}
+	ShardingRule = Thead{
+		Col{Name: "name", FieldType: consts.FieldTypeVarString},
+		Col{Name: "sequence_type", FieldType: consts.FieldTypeVarString},
+		Col{Name: "db_rules", FieldType: consts.FieldTypeVarString},
+		Col{Name: "tbl_rules", FieldType: consts.FieldTypeVarString},
+		Col{Name: "attributes", FieldType: consts.FieldTypeVarString},
 	}
 )
 
