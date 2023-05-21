@@ -29,18 +29,18 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
-// FuncCumeDist is  https://dev.mysql.com/doc/refman/8.0/en/window-function-descriptions.html
-const FuncCumeDist = "CUME_DIST"
+// FuncPercentRank is  https://dev.mysql.com/doc/refman/8.0/en/window-function-descriptions.html
+const FuncPercentRank = "PERCENT_RANK"
 
-var _ proto.Func = (*cumedistFunc)(nil)
+var _ proto.Func = (*percentrankFunc)(nil)
 
 func init() {
-	proto.RegisterFunc(FuncCumeDist, cumedistFunc{})
+	proto.RegisterFunc(FuncPercentRank, percentrankFunc{})
 }
 
-type cumedistFunc struct{}
+type percentrankFunc struct{}
 
-func (a cumedistFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
+func (a percentrankFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
 	first, err := inputs[0].Value(ctx)
 	if first == nil || err != nil {
 		return nil, errors.Wrapf(err, "cannot eval %s", FuncCumeDist)
@@ -51,22 +51,22 @@ func (a cumedistFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.
 	for _, it := range inputs[1:] {
 		val, err := it.Value(ctx)
 		if val == nil || err != nil {
-			return nil, errors.Wrapf(err, "cannot eval %s", FuncCumeDist)
+			return nil, errors.Wrapf(err, "cannot eval %s", FuncPercentRank)
 		}
 		valDec, _ := val.Float64()
 
-		if valDec <= firstDec {
+		if valDec < firstDec {
 			firstNum++
 		}
 	}
 
 	r := 0.0
-	if len(inputs) > 1 {
-		r = float64(firstNum) / float64(len(inputs)-1)
+	if len(inputs) > 2 {
+		r = float64(firstNum) / float64(len(inputs)-2)
 	}
 	return proto.NewValueFloat64(r), nil
 }
 
-func (a cumedistFunc) NumInput() int {
+func (a percentrankFunc) NumInput() int {
 	return 0
 }
