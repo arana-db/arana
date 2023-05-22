@@ -258,6 +258,7 @@ func buildNamespace(ctx context.Context, tenant string, provider Discovery, clus
 		}
 		ru.SetVTable(table, vt)
 	}
+
 	initCmds = append(initCmds, namespace.UpdateRule(&ru))
 
 	return namespace.New(clusterName, initCmds...)

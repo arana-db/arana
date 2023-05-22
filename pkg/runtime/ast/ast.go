@@ -741,6 +741,8 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 			pattern.String = like
 		}
 		return &ShowDatabases{BaseShowWithSingleColumn: &BaseShowWithSingleColumn{toBaseShow(), pattern}}
+	case ast.ShowDatabaseRules:
+		return &ShowDatabaseRule{BaseShow: toBaseShow(), Database: node.DBName, TableName: node.Table.Name.String()}
 	case ast.ShowCollation:
 		return &ShowCollation{BaseShow: toBaseShow()}
 	case ast.ShowCreateTable:
