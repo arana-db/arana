@@ -705,6 +705,10 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 	}
 
 	switch node.Tp {
+	case ast.ShowCreateSequence:
+		return &ShowCreateSequence{
+			Tenant: node.Table.Name.O,
+		}
 	case ast.ShowTopology:
 		return &ShowTopology{BaseShow: toBaseShow()}
 	case ast.ShowOpenTables:

@@ -634,3 +634,20 @@ func (s *ShowShardingTable) Restore(flag RestoreFlag, sb *strings.Builder, args 
 	sb.WriteString(val)
 	return nil
 }
+
+type ShowCreateSequence struct {
+	Tenant string
+}
+
+func (s *ShowCreateSequence) Mode() SQLType {
+	return SQLTypeShowCreateSequence
+}
+
+func (s *ShowCreateSequence) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	sb.WriteString("SHOW CREATE SEQUENCE ")
+
+	if len(s.Tenant) > 0 {
+		WriteID(sb, s.Tenant)
+	}
+	return nil
+}

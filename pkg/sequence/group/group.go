@@ -263,3 +263,12 @@ func (seq *groupSequence) Stop() error {
 func (seq *groupSequence) CurrentVal() int64 {
 	return seq.currentVal
 }
+
+func (seq *groupSequence) GetSequenceConfig() proto.SequenceConfig {
+	return proto.SequenceConfig{
+		Name: seq.tableName,
+		Option: map[string]string{
+			_stepKey: strconv.FormatInt(seq.step, 10),
+		},
+	}
+}
