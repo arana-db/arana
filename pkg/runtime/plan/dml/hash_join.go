@@ -156,8 +156,6 @@ func (h *HashJoinPlan) probe(ctx context.Context, conn proto.VConn, buildDs prot
 		return append(buildFields[:len(buildFields)-1], fields[:len(fields)-1]...)
 	}
 
-	// todo， 需要注意输出的列的顺序与join表的顺序
-
 	// aggregate row
 	fields, _ := ds.Fields()
 	transformFunc := func(row proto.Row) (proto.Row, error) {
@@ -177,7 +175,7 @@ func (h *HashJoinPlan) probe(ctx context.Context, conn proto.VConn, buildDs prot
 			}
 		}
 
-		// 去掉最后一个on字段
+		// remove 'ON' column
 		resFields := append(buildFields[:len(buildFields)-1], fields[:len(fields)-1]...)
 		resDest := append(buildDest[:len(buildDest)-1], dest[:len(dest)-1]...)
 
@@ -189,7 +187,7 @@ func (h *HashJoinPlan) probe(ctx context.Context, conn proto.VConn, buildDs prot
 				return nil, err
 			}
 
-			br := mysql.NewBinaryRow(fields, b.Bytes())
+			br := mysql.NewBinaryRow(resFields, b.Bytes())
 			return br, nil
 		} else {
 			newRow := rows.NewTextVirtualRow(resFields, resDest)
@@ -198,7 +196,7 @@ func (h *HashJoinPlan) probe(ctx context.Context, conn proto.VConn, buildDs prot
 				return nil, err
 			}
 
-			return mysql.NewTextRow(fields, b.Bytes()), nil
+			return mysql.NewTextRow(resFields, b.Bytes()), nil
 		}
 	}
 

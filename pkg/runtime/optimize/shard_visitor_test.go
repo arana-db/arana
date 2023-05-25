@@ -44,7 +44,7 @@ func TestShardNG(t *testing.T) {
 	defer ctrl.Finish()
 
 	// test rule: student, uid % 8
-	fakeRule := makeFakeRule(ctrl, 8)
+	fakeRule := makeFakeRule(ctrl, "student", 8, nil)
 
 	type tt struct {
 		sql    string
@@ -78,17 +78,20 @@ func TestShardNG(t *testing.T) {
 	}
 }
 
-func makeFakeRule(c *gomock.Controller, mod int) *rule.Rule {
+func makeFakeRule(c *gomock.Controller, table string, mod int, ru *rule.Rule) *rule.Rule {
 	var (
-		ru   rule.Rule
 		tab  rule.VTable
 		topo rule.Topology
 	)
 
+	if ru == nil {
+		ru = &rule.Rule{}
+	}
+
 	topo.SetRender(func(_ int) string {
 		return "fake_db"
 	}, func(i int) string {
-		return fmt.Sprintf("student_%04d", i)
+		return fmt.Sprintf("%s_%04d", table, i)
 	})
 
 	tables := make([]int, 0, mod)
@@ -98,7 +101,7 @@ func makeFakeRule(c *gomock.Controller, mod int) *rule.Rule {
 	topo.SetTopology(0, tables...)
 
 	tab.SetTopology(&topo)
-	tab.SetName("student")
+	tab.SetName(table)
 
 	computer := testdata.NewMockShardComputer(c)
 
@@ -118,6 +121,6 @@ func makeFakeRule(c *gomock.Controller, mod int) *rule.Rule {
 	sm.Computer = computer
 
 	tab.SetShardMetadata("uid", nil, &sm)
-	ru.SetVTable("student", &tab)
-	return &ru
+	ru.SetVTable(table, &tab)
+	return ru
 }

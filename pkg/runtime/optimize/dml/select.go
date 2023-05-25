@@ -19,7 +19,6 @@ package dml
 
 import (
 	"context"
-	"github.com/arana-db/parser"
 	"strings"
 )
 
@@ -40,6 +39,7 @@ import (
 	"github.com/arana-db/arana/pkg/runtime/optimize/dml/ext"
 	"github.com/arana-db/arana/pkg/runtime/plan/dml"
 	"github.com/arana-db/arana/pkg/util/log"
+	"github.com/arana-db/parser"
 )
 
 const (
@@ -544,10 +544,10 @@ func optimizeJoin(ctx context.Context, o *optimize.Optimizer, stmt *ast.SelectSt
 			for _, element := range selectColumn {
 				e, ok := element.(*ast.SelectElementColumn)
 				if ok {
-					for _, c := range metadata.ColumnNames {
-						if (aliasTb == e.Prefix() || actualTb == e.Prefix()) && c == e.Suffix() {
-							selectElements = append(selectElements, ast.NewSelectElementColumn([]string{c}, ""))
-						}
+					columnsMap := metadata.Columns
+					ColumnMeta, exist := columnsMap[e.Suffix()]
+					if (aliasTb == e.Prefix() || actualTb == e.Prefix()) && exist {
+						selectElements = append(selectElements, ast.NewSelectElementColumn([]string{ColumnMeta.Name}, ""))
 					}
 				}
 			}
@@ -571,7 +571,7 @@ func optimizeJoin(ctx context.Context, o *optimize.Optimizer, stmt *ast.SelectSt
 			return nil, err
 		}
 
-		optimizer, err = optimize.NewOptimizer(o.Rule, o.Hints, stmtNode, o.Args)
+		optimizer, err = optimize.NewOptimizer(o.Rule, nil, stmtNode, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -600,15 +600,14 @@ func optimizeJoin(ctx context.Context, o *optimize.Optimizer, stmt *ast.SelectSt
 		plan.ProbePlan = probePlan
 	}
 
-	typ := join.Typ
-	if typ.String() == "INNER" {
+	if join.Typ == ast.InnerJoin {
 		setPlan(hashJoinPlan, leftPlan, rightPlan, leftKey, rightKey)
 		hashJoinPlan.IsFilterProbeRow = true
 	} else {
 		hashJoinPlan.IsFilterProbeRow = false
-		if typ.String() == "LEFT" {
+		if join.Typ == ast.LeftJoin {
 			setPlan(hashJoinPlan, rightPlan, leftPlan, rightKey, leftKey)
-		} else if typ.String() == "RIGHT" {
+		} else if join.Typ == ast.RightJoin {
 			setPlan(hashJoinPlan, leftPlan, rightPlan, leftKey, rightKey)
 		} else {
 			return nil, errors.New("not support Join Type")
