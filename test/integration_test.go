@@ -1271,20 +1271,36 @@ func (s *IntegrationSuite) TestMysqlOptimizerHints() {
 
 	for _, it := range [...]tt{
 		{
-			"SELECT /*+ MRR(student) */ * from student where uid=1",
-			"SELECT * from student where uid=1",
+			"SELECT /*+ MRR(student) */ * FROM student WHERE uid=1",
+			"SELECT * FROM student WHERE uid=1",
 			true,
 		},
-		//{
-		//	"EXPLAIN SELECT * from student where uid=1",
-		//	"EXPLAIN SELECT /*+ MRR(student) */ * from student where uid=1",
-		//	true,
-		//},
 		{
 			"INSERT /*+ SET_VAR(foreign_key_checks=OFF) */ INTO student(uid,name) values(2,'fake_name')",
 			"INSERT INTO student(uid,name) values(1,'fake_name')",
 			true,
 		},
+		{
+			"DELETE /*+ RESOURCE_GROUP(USR_default) */ FROM student WHERE uid = 1",
+			"DELETE FROM student WHERE uid = 1",
+			true,
+		},
+		{
+			"UPDATE /*+ BNL(student) */ student SET score= 100.0 WHERE uid = 2",
+			"UPDATE student SET score= 100.0 WHERE uid = 2",
+			true,
+		},
+		// TODO: support EXPLAIN, REPLACE statement
+		//{
+		//	"EXPLAIN SELECT /*+ MRR(student) */ * from student where uid=1",
+		//	"EXPLAIN SELECT * from student where uid=1",
+		//	true,
+		//},
+		//{
+		//	"REPLACE /*+ RESOURCE_GROUP(USR_default) */ INTO student(uid,name) values(2,'fake_name')",
+		//	"REPLACE INTO student(uid,name) values(1,'fake_name')",
+		//	true,
+		//},
 	} {
 		t.Run(it.sql, func(t *testing.T) {
 			// select with mysql hints

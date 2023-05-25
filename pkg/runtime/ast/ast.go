@@ -18,6 +18,7 @@
 package ast
 
 import (
+	"database/sql"
 	"fmt"
 	"strconv"
 	"strings"
@@ -35,6 +36,7 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/hint"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
 	"github.com/arana-db/arana/pkg/runtime/logical"
@@ -435,6 +437,7 @@ func (cc *convCtx) convUpdateStmt(stmt *ast.UpdateStmt) *UpdateStatement {
 		panic("no table name found")
 	}
 	ret.Table = tableName
+	ret.Hint = cc.convTableHint(stmt.TableHints)
 
 	var updated []*UpdateElement
 	for _, it := range stmt.List {
@@ -541,6 +544,7 @@ func (cc *convCtx) convDeleteStmt(stmt *ast.DeleteStmt) Statement {
 
 	// TODO: Now only support single table delete clause, need to fill flag OrderBy field
 	ret.Table = cc.convFrom(stmt.TableRefs)[0].Source.(TableName)
+	ret.Hint = cc.convTableHint(stmt.TableHints)
 
 	if stmt.Where != nil {
 		ret.Where = toExpressionNode(cc.convExpr(stmt.Where))
@@ -679,14 +683,17 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 		return cc.convPatternLikeExpr(node.Pattern), true
 	}
 	toLike := func(node *ast.ShowStmt) (string, bool) {
-		if node.Pattern == nil {
-			return "", false
+		if node.Pattern != nil {
+			return node.Pattern.Pattern.(ast.ValueExpr).GetValue().(string), true
+		} else if like, ok := node.Where.(*ast.PatternLikeExpr); ok {
+			// parse where clause of `show databases where name like 'em%'
+			return like.Pattern.(ast.ValueExpr).GetValue().(string), true
 		}
-		return node.Pattern.Pattern.(ast.ValueExpr).GetValue().(string), true
+		return "", false
 	}
 
-	toBaseShow := func() *baseShow {
-		var bs baseShow
+	toBaseShow := func() *BaseShow {
+		var bs BaseShow
 		if like, ok := toShowLike(node); ok {
 			bs.filter = like
 		} else if where, ok := toWhere(node); ok {
@@ -700,32 +707,42 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 	}
 
 	switch node.Tp {
+	case ast.ShowCreateSequence:
+		return &ShowCreateSequence{
+			Tenant: node.Table.Name.O,
+		}
 	case ast.ShowTopology:
-		return &ShowTopology{baseShow: toBaseShow()}
+		return &ShowTopology{BaseShow: toBaseShow()}
 	case ast.ShowOpenTables:
-		return &ShowOpenTables{baseShow: toBaseShow()}
+		return &ShowOpenTables{BaseShow: toBaseShow()}
 	case ast.ShowNodes:
 		return &ShowNodes{Tenant: node.Tenant}
 	case ast.ShowUsers:
 		return &ShowUsers{Tenant: node.Tenant}
 	case ast.ShowShardingTable:
-		return &ShowShardingTable{baseShow: toBaseShow()}
+		return &ShowShardingTable{BaseShow: toBaseShow()}
 	case ast.ShowTables:
-		ret := &ShowTables{baseShow: toBaseShow()}
+		var pattern sql.NullString
 		if like, ok := toLike(node); ok {
-			ret.like.Valid, ret.like.String = true, like
+			pattern.Valid = true
+			pattern.String = like
 		}
-		return ret
+		return &ShowTables{BaseShowWithSingleColumn: &BaseShowWithSingleColumn{toBaseShow(), pattern}}
 	case ast.ShowReplicas:
-		return &ShowReplicas{baseShow: toBaseShow()}
+		return &ShowReplicas{BaseShow: toBaseShow()}
 	case ast.ShowMasterStatus:
-		return &ShowMasterStatus{baseShow: toBaseShow()}
+		return &ShowMasterStatus{BaseShow: toBaseShow()}
 	case ast.ShowReplicaStatus:
-		return &ShowReplicaStatus{baseShow: toBaseShow()}
+		return &ShowReplicaStatus{BaseShow: toBaseShow()}
 	case ast.ShowDatabases:
-		return &ShowDatabases{baseShow: toBaseShow()}
+		var pattern sql.NullString
+		if like, ok := toLike(node); ok {
+			pattern.Valid = true
+			pattern.String = like
+		}
+		return &ShowDatabases{BaseShowWithSingleColumn: &BaseShowWithSingleColumn{toBaseShow(), pattern}}
 	case ast.ShowCollation:
-		return &ShowCollation{baseShow: toBaseShow()}
+		return &ShowCollation{BaseShow: toBaseShow()}
 	case ast.ShowCreateTable:
 		return &ShowCreate{
 			typ: ShowCreateTypeTable,
@@ -768,33 +785,33 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 		return ret
 	case ast.ShowStatus:
 		ret := &ShowStatus{
-			baseShow: toBaseShow(),
+			BaseShow: toBaseShow(),
 			global:   node.GlobalScope,
 		}
 		return ret
 	case ast.ShowTableStatus:
 		ret := &ShowTableStatus{
-			baseShow: &baseShow{},
+			BaseShow: &BaseShow{},
 			Database: node.DBName,
 		}
 
 		if where, ok := toWhere(node); ok {
-			ret.baseShow.filter = where
+			ret.BaseShow.filter = where
 		}
 		if like, ok := toLike(node); ok {
-			ret.baseShow.filter = like
+			ret.BaseShow.filter = like
 		}
 		return ret
 	case ast.ShowWarnings:
-		ret := &ShowWarnings{baseShow: toBaseShow()}
+		ret := &ShowWarnings{BaseShow: toBaseShow()}
 		if node.Limit != nil {
 			ret.Limit = cc.convLimit(node.Limit)
 		}
 		return ret
 	case ast.ShowCharset:
-		return &ShowCharset{baseShow: toBaseShow()}
+		return &ShowCharset{BaseShow: toBaseShow()}
 	case ast.ShowProcessList:
-		return &ShowProcessList{baseShow: toBaseShow()}
+		return &ShowProcessList{BaseShow: toBaseShow()}
 	default:
 		panic(fmt.Sprintf("unimplement: show type %v!", node.Tp))
 	}
@@ -1462,7 +1479,7 @@ func (cc *convCtx) convValueExpr(expr ast.ValueExpr) PredicateNode {
 			atom = &ConstantExpressionAtom{Inner: f}
 		default:
 			if val == nil {
-				atom = &ConstantExpressionAtom{Inner: Null{}}
+				atom = &ConstantExpressionAtom{Inner: proto.Null{}}
 			} else {
 				atom = &ConstantExpressionAtom{Inner: val}
 			}
@@ -1500,7 +1517,7 @@ func (cc *convCtx) convIsNullExpr(node *ast.IsNullExpr) PredicateNode {
 	var (
 		left  = cc.convExpr(node.Expr)
 		right = &ConstantExpressionAtom{
-			Inner: Null{},
+			Inner: proto.Null{},
 		}
 	)
 
