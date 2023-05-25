@@ -1742,8 +1742,13 @@ func (cc *convCtx) convRenameTableStmt(stmt *ast.RenameTableStmt) Statement {
 }
 
 func (cc *convCtx) convRepairTableStmt(stmt *ast.RepairTableStmt) Statement {
-	table := &TableName{stmt.Table.Name.String()}
-	return &RepairTableStmt{Table: table}
+	tables := make([]*TableName, len(stmt.Tables))
+	for i, table := range stmt.Tables {
+		tables[i] = &TableName{
+			table.Name.String(),
+		}
+	}
+	return &RepairTableStmt{Tables: tables}
 }
 
 func (cc *convCtx) convAnalyzeTable(stmt *ast.AnalyzeTableStmt) Statement {

@@ -28,7 +28,7 @@ import (
 var _ Statement = (*RepairTableStmt)(nil)
 
 type RepairTableStmt struct {
-	Table *TableName
+	Tables []*TableName
 }
 
 func NewRepairTableStmt() *RepairTableStmt {
@@ -41,8 +41,13 @@ func (r *RepairTableStmt) CntParams() int {
 
 func (r *RepairTableStmt) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("REPAIR TABLE ")
-	if err := r.Table.Restore(flag, sb, args); err != nil {
-		return errors.Wrapf(err, "an error occurred while restore RepairTableStatement")
+	for index, table := range r.Tables {
+		if index != 0 {
+			sb.WriteString(", ")
+		}
+		if err := table.Restore(flag, sb, args); err != nil {
+			return errors.Wrapf(err, "an error occurred while restore RepairTableStatement.Tables[%d]", index)
+		}
 	}
 	return nil
 }

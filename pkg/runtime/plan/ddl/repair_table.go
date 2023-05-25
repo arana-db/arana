@@ -143,11 +143,12 @@ func (c *RepairTablePlan) tableReplace(tb string) {
 
 	stmt := ast.NewRepairTableStmt()
 
-	table := c.Stmt.Table
-	if strings.Trim(table.String(), "`") == logicTb {
-		stmt.Table = &ast.TableName{tb}
-	} else {
-		stmt.Table = table
+	for _, table := range c.Stmt.Tables {
+		if strings.Trim(table.String(), "`") == logicTb {
+			stmt.Tables = append(stmt.Tables, &ast.TableName{tb})
+		} else {
+			stmt.Tables = append(stmt.Tables, table)
+		}
 	}
 
 	c.Stmt = stmt
