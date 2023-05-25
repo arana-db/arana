@@ -1154,6 +1154,8 @@ func (s *IntegrationSuite) TestRepairTable() {
 	for _, it := range [...]tt{
 		{"REPAIR TABLE student"},
 		{"REPAIR TABLE student QUICK"},
+		{"REPAIR TABLE student, departments"},
+		{"REPAIR TABLE student, departments QUICK"},
 	} {
 		t.Run(it.sql, func(t *testing.T) {
 			rows, err := db.Query(it.sql)
