@@ -39,7 +39,6 @@ import (
 	"github.com/arana-db/arana/pkg/runtime/optimize/dml/ext"
 	"github.com/arana-db/arana/pkg/runtime/plan/dml"
 	"github.com/arana-db/arana/pkg/util/log"
-	"github.com/arana-db/parser"
 )
 
 const (
@@ -124,7 +123,7 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 
 	if flag&_bypass != 0 {
 		if len(stmt.From) > 0 {
-			err := rewriteSelectStatement(ctx, stmt, stmt.From[0].Source.(ast.TableName).Suffix())
+			err := rewriteSelectStatement(ctx, stmt, o)
 			if err != nil {
 				return nil, err
 			}
@@ -173,8 +172,7 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 	}
 
 	toSingle := func(db, tbl string) (proto.Plan, error) {
-		_, tb0, _ := vt.Topology().Smallest()
-		if err := rewriteSelectStatement(ctx, stmt, tb0); err != nil {
+		if err := rewriteSelectStatement(ctx, stmt, o); err != nil {
 			return nil, err
 		}
 		ret := &dml.SimpleQueryPlan{
@@ -220,8 +218,7 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		return toSingle(db, tbl)
 	}
 
-	_, tb, _ := vt.Topology().Smallest()
-	if err = rewriteSelectStatement(ctx, stmt, tb); err != nil {
+	if err = rewriteSelectStatement(ctx, stmt, o); err != nil {
 		return nil, errors.WithStack(err)
 	}
 
@@ -417,8 +414,8 @@ func handleGroupBy(parentPlan proto.Plan, stmt *ast.SelectStatement) (proto.Plan
 // optimizeJoin ony support  a join b in one db.
 // DEPRECATED: reimplement in the future
 func optimizeJoin(ctx context.Context, o *optimize.Optimizer, stmt *ast.SelectStatement) (proto.Plan, error) {
-	compute := func(tableSource *ast.TableSourceItem) (database, alias string, shardsMap map[string][]string, err error) {
-		table := tableSource.Source.(ast.TableName)
+	compute := func(tableSource *ast.TableSourceItem) (database, alias string, table ast.TableName, shards rule.DatabaseTables, err error) {
+		table = tableSource.Source.(ast.TableName)
 		if table == nil {
 			err = errors.New("must table, not statement or join node")
 			return
@@ -430,46 +427,35 @@ func optimizeJoin(ctx context.Context, o *optimize.Optimizer, stmt *ast.SelectSt
 			alias = table.Suffix()
 		}
 
-		shards, err := o.ComputeShards(ctx, table, nil, o.Args)
+		shards, err = o.ComputeShards(ctx, table, nil, o.Args)
 		if err != nil {
 			return
 		}
-
-		shardsMap = make(map[string][]string, len(shards))
-
-		// table no shard
-		if shards == nil {
-			shardsMap[database] = append(shardsMap[database], table.Suffix())
-			return
-		}
-
-		// table has shard
-		shardsMap = shards
 		return
 	}
 
 	from := stmt.From[0]
-	dbLeft, aliasLeft, shardsLeft, err := compute(&from.TableSourceItem)
+	dbLeft, aliasLeft, tableLeft, shardsLeft, err := compute(&from.TableSourceItem)
 	if err != nil {
 		return nil, err
 	}
 
 	join := from.Joins[0]
-	dbRight, aliasRight, shardsRight, err := compute(join.Target)
+	dbRight, aliasRight, tableRight, shardsRight, err := compute(join.Target)
 	if err != nil {
 		return nil, err
 	}
 
 	// one db
-	if dbLeft == dbRight && len(shardsLeft) == 1 && len(shardsRight) == 1 {
+	if dbLeft == dbRight && shardsLeft == nil && shardsRight == nil {
 		joinPan := &dml.SimpleJoinPlan{
 			Left: &dml.JoinTable{
-				Tables: shardsLeft[dbLeft],
+				Tables: tableLeft,
 				Alias:  aliasLeft,
 			},
 			Join: from.Joins[0],
 			Right: &dml.JoinTable{
-				Tables: shardsRight[dbRight],
+				Tables: tableRight,
 				Alias:  aliasRight,
 			},
 			Stmt: o.Stmt.(*ast.SelectStatement),
@@ -515,25 +501,17 @@ func optimizeJoin(ctx context.Context, o *optimize.Optimizer, stmt *ast.SelectSt
 				},
 			},
 		}
-		table := tableSource.Source.(ast.TableName)
-		actualTb := table.Suffix()
-		aliasTb := tableSource.Alias
 
-		tb0 := actualTb
-		for _, tb := range shards {
-			if len(tb) > 1 {
+		if _, ok = stmt.Select[0].(*ast.SelectElementAll); !ok && len(stmt.Select) > 1 {
+			table := tableSource.Source.(ast.TableName)
+			actualTb := table.Suffix()
+			aliasTb := tableSource.Alias
+
+			tb0 := actualTb
+			if shards != nil {
 				vt := o.Rule.MustVTable(tb0)
 				_, tb0, _ = vt.Topology().Smallest()
-				break
 			}
-		}
-		if _, ok = stmt.Select[0].(*ast.SelectElementAll); ok && len(stmt.Select) == 1 {
-			if err = rewriteSelectStatement(ctx, selectStmt, tb0); err != nil {
-				return nil, err
-			}
-
-			selectStmt.Select = append(selectStmt.Select, ast.NewSelectElementColumn([]string{onKey}, ""))
-		} else {
 			metadata, err := loadMetadataByTable(ctx, tb0)
 			if err != nil {
 				return nil, err
@@ -555,28 +533,19 @@ func optimizeJoin(ctx context.Context, o *optimize.Optimizer, stmt *ast.SelectSt
 			selectStmt.Select = selectElements
 		}
 
-		var (
-			optimizer proto.Optimizer
-			plan      proto.Plan
-			sb        strings.Builder
-		)
-		err = selectStmt.Restore(ast.RestoreDefault, &sb, nil)
-		if err != nil {
-			return nil, err
+		optimizer := &optimize.Optimizer{
+			Rule: o.Rule,
+			Stmt: selectStmt,
+		}
+		if _, ok = selectStmt.Select[0].(*ast.SelectElementAll); ok && len(selectStmt.Select) == 1 {
+			if err = rewriteSelectStatement(ctx, selectStmt, optimizer); err != nil {
+				return nil, err
+			}
+
+			selectStmt.Select = append(selectStmt.Select, ast.NewSelectElementColumn([]string{onKey}, ""))
 		}
 
-		p := parser.New()
-		stmtNode, err := p.ParseOneStmt(sb.String(), "", "")
-		if err != nil {
-			return nil, err
-		}
-
-		optimizer, err = optimize.NewOptimizer(o.Rule, nil, stmtNode, nil)
-		if err != nil {
-			return nil, err
-		}
-
-		plan, err = optimizeSelect(ctx, optimizer.(*optimize.Optimizer))
+		plan, err := optimizeSelect(ctx, optimizer)
 		if err != nil {
 			return nil, err
 		}
@@ -618,14 +587,11 @@ func optimizeJoin(ctx context.Context, o *optimize.Optimizer, stmt *ast.SelectSt
 	tmpPlan = hashJoinPlan
 
 	var (
-		analysis  selectResult
-		scanner   = newSelectScanner(stmt, o.Args)
-		tableName = from.Source.(ast.TableName)
-		vt        = o.Rule.MustVTable(tableName.Suffix())
+		analysis selectResult
+		scanner  = newSelectScanner(stmt, o.Args)
 	)
 
-	_, tb, _ := vt.Topology().Smallest()
-	if err = rewriteSelectStatement(ctx, stmt, tb); err != nil {
+	if err = rewriteSelectStatement(ctx, stmt, o); err != nil {
 		return nil, errors.WithStack(err)
 	}
 
@@ -787,7 +753,7 @@ func overwriteLimit(stmt *ast.SelectStatement, args *[]proto.Value) (originOffse
 	return
 }
 
-func rewriteSelectStatement(ctx context.Context, stmt *ast.SelectStatement, tb string) error {
+func rewriteSelectStatement(ctx context.Context, stmt *ast.SelectStatement, o *optimize.Optimizer) error {
 	// todo db 计算逻辑&tb shard 的计算逻辑
 	starExpand := false
 	if len(stmt.Select) == 1 {
@@ -800,33 +766,35 @@ func rewriteSelectStatement(ctx context.Context, stmt *ast.SelectStatement, tb s
 		return nil
 	}
 
-	if len(tb) < 1 {
-		tb = stmt.From[0].Source.(ast.TableName).Suffix()
+	tbs := []ast.TableName{stmt.From[0].Source.(ast.TableName)}
+	for _, join := range stmt.From[0].Joins {
+		joinTable := join.Target.Source.(ast.TableName)
+		tbs = append(tbs, joinTable)
 	}
 
-	metadata, err := loadMetadataByTable(ctx, tb)
-	if err != nil {
-		return errors.WithStack(err)
-	}
-
-	selectElements := make([]ast.SelectElement, len(metadata.Columns))
-	for i, column := range metadata.ColumnNames {
-		selectElements[i] = ast.NewSelectElementColumn([]string{column}, "")
-	}
-
-	if stmt.HasJoin() {
-		joinTable := stmt.From[0].Joins[0].Target.Source.(ast.TableName).Suffix()
-		joinTableMetadata, err := loadMetadataByTable(ctx, joinTable)
+	selectExpandElements := make([]ast.SelectElement, 0)
+	for _, t := range tbs {
+		shards, err := o.ComputeShards(ctx, t, nil, o.Args)
 		if err != nil {
 			return errors.WithStack(err)
 		}
 
-		for column := range joinTableMetadata.Columns {
-			selectElements = append(selectElements, ast.NewSelectElementColumn([]string{column}, ""))
+		tb0 := t.Suffix()
+		if shards != nil {
+			vt := o.Rule.MustVTable(tb0)
+			_, tb0, _ = vt.Topology().Smallest()
+		}
+
+		metadata, err := loadMetadataByTable(ctx, tb0)
+		if err != nil {
+			return errors.WithStack(err)
+		}
+
+		for _, column := range metadata.ColumnNames {
+			selectExpandElements = append(selectExpandElements, ast.NewSelectElementColumn([]string{column}, ""))
 		}
 	}
-
-	stmt.Select = selectElements
+	stmt.Select = selectExpandElements
 	return nil
 }
 

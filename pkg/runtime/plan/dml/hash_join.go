@@ -118,7 +118,7 @@ func (h *HashJoinPlan) build(ctx context.Context, conn proto.VConn) (proto.Datas
 	return ds, nil
 }
 
-func (h *HashJoinPlan) probe(ctx context.Context, conn proto.VConn, buildDs proto.Dataset) (proto.Dataset, error) {
+func (h *HashJoinPlan) probe(ctx context.Context, conn proto.VConn, buildDataset proto.Dataset) (proto.Dataset, error) {
 	res, err := h.queryAggregate(ctx, conn, h.ProbePlan)
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -150,14 +150,20 @@ func (h *HashJoinPlan) probe(ctx context.Context, conn proto.VConn, buildDs prot
 		return findRow != nil
 	}
 
-	buildFields, _ := buildDs.Fields()
+	buildFields, err := buildDataset.Fields()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
 	// aggregate fields
 	aggregateFieldsFunc := func(fields []proto.Field) []proto.Field {
 		return append(buildFields[:len(buildFields)-1], fields[:len(fields)-1]...)
 	}
 
 	// aggregate row
-	fields, _ := ds.Fields()
+	fields, err := ds.Fields()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
 	transformFunc := func(row proto.Row) (proto.Row, error) {
 		dest := make([]proto.Value, len(fields))
 		_ = row.Scan(dest)

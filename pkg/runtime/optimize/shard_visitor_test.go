@@ -114,7 +114,7 @@ func makeFakeRule(c *gomock.Controller, table string, mod int, ru *rule.Rule) *r
 			}
 			return n % mod, nil
 		}).
-		MinTimes(1)
+		AnyTimes()
 
 	var sm rule.ShardMetadata
 	sm.Steps = 8

@@ -91,12 +91,10 @@ func TestOptimizer_OptimizeHashJoin(t *testing.T) {
 
 	studentFields := []proto.Field{
 		mysql.NewField("uid", consts.FieldTypeLongLong),
-		mysql.NewField("name", consts.FieldTypeString),
 	}
 
 	salariesFields := []proto.Field{
-		mysql.NewField("emp_no", consts.FieldTypeLongLong),
-		mysql.NewField("name", consts.FieldTypeString),
+		mysql.NewField("uid", consts.FieldTypeLongLong),
 	}
 
 	conn := testdata.NewMockVConn(ctrl)
@@ -112,18 +110,16 @@ func TestOptimizer_OptimizeHashJoin(t *testing.T) {
 				for i := int64(0); i < 8; i++ {
 					fakeData.Rows = append(fakeData.Rows, rows.NewTextVirtualRow(fakeData.Columns, []proto.Value{
 						proto.NewValueInt64(i),
-						proto.NewValueString(fmt.Sprintf("fake-student-name-%d", i)),
 						proto.NewValueInt64(i),
 					}))
 				}
 				result.EXPECT().Dataset().Return(fakeData, nil).AnyTimes()
 				buildPlan = false
 			} else {
-				fakeData.Columns = append(salariesFields, mysql.NewField("emp_no", consts.FieldTypeLongLong))
+				fakeData.Columns = append(salariesFields, mysql.NewField("uid", consts.FieldTypeLongLong))
 				for i := int64(10); i > 3; i-- {
 					fakeData.Rows = append(fakeData.Rows, rows.NewTextVirtualRow(fakeData.Columns, []proto.Value{
 						proto.NewValueInt64(i),
-						proto.NewValueString(fmt.Sprintf("fake-salaries-name-%d", i)),
 						proto.NewValueInt64(i),
 					}))
 				}
@@ -134,8 +130,28 @@ func TestOptimizer_OptimizeHashJoin(t *testing.T) {
 		}).
 		AnyTimes()
 
+	fakeData := make(map[string]*proto.TableMetadata)
+	// fake data
+	fakeData["student_0000"] = &proto.TableMetadata{
+		Name:        "student_0000",
+		Columns:     map[string]*proto.ColumnMetadata{"uid": {}},
+		ColumnNames: []string{"uid"},
+	}
+
+	fakeData["salaries_0000"] = &proto.TableMetadata{
+		Name:        "salaries_0000",
+		Columns:     map[string]*proto.ColumnMetadata{"uid": {}},
+		ColumnNames: []string{"uid"},
+	}
+	loader := testdata.NewMockSchemaLoader(ctrl)
+	loader.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any()).Return(fakeData, nil).AnyTimes()
+
+	oldLoader := proto.LoadSchemaLoader()
+	proto.RegisterSchemaLoader(loader)
+	defer proto.RegisterSchemaLoader(oldLoader)
+
 	var (
-		sql = "select * from student join salaries on uid = emp_no"
+		sql = "select * from student join salaries on student.uid = salaries.uid"
 		ctx = context.WithValue(context.Background(), proto.ContextKeyEnableLocalComputation{}, true)
 		ru  = makeFakeRule(ctrl, "student", 8, nil)
 	)
