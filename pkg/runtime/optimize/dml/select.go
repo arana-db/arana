@@ -575,6 +575,7 @@ func optimizeJoin(ctx context.Context, o *optimize.Optimizer, stmt *ast.SelectSt
 	} else {
 		hashJoinPlan.IsFilterProbeRow = false
 		if join.Typ == ast.LeftJoin {
+			hashJoinPlan.IsReversedColumn = true
 			setPlan(hashJoinPlan, rightPlan, leftPlan, rightKey, leftKey)
 		} else if join.Typ == ast.RightJoin {
 			setPlan(hashJoinPlan, leftPlan, rightPlan, leftKey, rightKey)

@@ -47,6 +47,7 @@ type HashJoinPlan struct {
 	ProbeKey         string
 	hashArea         map[string]proto.Row
 	IsFilterProbeRow bool
+	IsReversedColumn bool
 
 	Stmt *ast.SelectStatement
 }
@@ -156,6 +157,10 @@ func (h *HashJoinPlan) probe(ctx context.Context, conn proto.VConn, buildDataset
 	}
 	// aggregate fields
 	aggregateFieldsFunc := func(fields []proto.Field) []proto.Field {
+		if h.IsReversedColumn {
+			return append(fields[:len(fields)-1], buildFields[:len(buildFields)-1]...)
+		}
+
 		return append(buildFields[:len(buildFields)-1], fields[:len(fields)-1]...)
 	}
 
@@ -181,9 +186,19 @@ func (h *HashJoinPlan) probe(ctx context.Context, conn proto.VConn, buildDataset
 			}
 		}
 
+		var (
+			resFields []proto.Field
+			resDest   []proto.Value
+		)
+
 		// remove 'ON' column
-		resFields := append(buildFields[:len(buildFields)-1], fields[:len(fields)-1]...)
-		resDest := append(buildDest[:len(buildDest)-1], dest[:len(dest)-1]...)
+		if h.IsReversedColumn {
+			resFields = append(fields[:len(fields)-1], buildFields[:len(buildFields)-1]...)
+			resDest = append(dest[:len(dest)-1], buildDest[:len(buildDest)-1]...)
+		} else {
+			resFields = append(buildFields[:len(buildFields)-1], fields[:len(fields)-1]...)
+			resDest = append(buildDest[:len(buildDest)-1], dest[:len(dest)-1]...)
+		}
 
 		var b bytes.Buffer
 		if row.IsBinary() {

@@ -133,9 +133,8 @@ func TestHashJoinPlan(t *testing.T) {
 		if err == io.EOF {
 			break
 		}
-		row := next.(proto.Row)
 		dest := make([]proto.Value, len(f))
-		_ = row.Scan(dest)
+		_ = next.Scan(dest)
 
 		// expected value:  uid = emp_no
 		assert.Equal(t, dest[0], dest[2])
