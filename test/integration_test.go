@@ -1141,6 +1141,30 @@ func (s *IntegrationSuite) TestRenameTable() {
 	}
 }
 
+func (s *IntegrationSuite) TestRepairTable() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql string
+	}
+
+	for _, it := range [...]tt{
+		{"REPAIR TABLE student"},
+		{"REPAIR TABLE student QUICK"},
+		{"REPAIR TABLE student, departments"},
+		{"REPAIR TABLE student, departments QUICK"},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			rows, err := db.Query(it.sql)
+			assert.NoError(t, err)
+			defer rows.Close()
+		})
+	}
+}
+
 func (s *IntegrationSuite) TestCompat80() {
 	var (
 		db = s.DB()

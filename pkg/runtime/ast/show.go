@@ -90,8 +90,8 @@ func (bs *BaseShow) Filter() func(proto.Row) bool {
 	return TruePredicate
 }
 
-//BaseShowWithSingleColumn for `show databases` and `show tables` clause which only have one column.
-//Get result and do filter locally
+// BaseShowWithSingleColumn for `show databases` and `show tables` clause which only have one column.
+// Get result and do filter locally
 type BaseShowWithSingleColumn struct {
 	*BaseShow
 	like sql.NullString
