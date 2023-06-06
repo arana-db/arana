@@ -20,7 +20,6 @@ package dataset
 import (
 	"go.uber.org/atomic"
 	"io"
-	"strings"
 	"sync"
 )
 
@@ -49,10 +48,12 @@ type SortMergeJoin struct {
 	fields     []proto.Field
 	joinColumn *JoinColumn
 	// joinType inner join, left join, right join
-	joinType  ast.JoinType
-	outer     proto.Dataset
-	inner     proto.Dataset
-	beforeRow proto.Row
+	joinType     ast.JoinType
+	outer        proto.Dataset
+	inner        proto.Dataset
+	lastRow      proto.Row
+	lastInnerRow proto.Row
+	nextOuterRow proto.Row
 	// equalValue when outer value equal inner value, set this value use to generate descartes product
 	equalValue map[string][]proto.Row
 	// equalIndex record the index of equalValue visited position
@@ -77,6 +78,10 @@ func NewSortMergeJoin(joinType ast.JoinType, joinColumn *JoinColumn, outer proto
 	fields = append(fields, outerFields...)
 	fields = append(fields, innerFields...)
 
+	if joinType == ast.RightJoin {
+		outer, inner = inner, outer
+	}
+
 	return &SortMergeJoin{
 		fields:     fields,
 		joinColumn: joinColumn,
@@ -88,23 +93,63 @@ func NewSortMergeJoin(joinType ast.JoinType, joinColumn *JoinColumn, outer proto
 	}, nil
 }
 
-func (s *SortMergeJoin) SetBeforeRow(v proto.Row) {
+func (s *SortMergeJoin) SetLastRow(v proto.Row) {
 	if s != nil {
-		s.beforeRow = v
+		s.lastRow = v
 	}
 }
 
-func (s *SortMergeJoin) BeforeRow() proto.Row {
+func (s *SortMergeJoin) LastRow() proto.Row {
 	if s != nil {
-		return s.beforeRow
+		return s.lastRow
 	}
 
 	return nil
 }
 
-func (s *SortMergeJoin) CleanBeforeRow() {
+func (s *SortMergeJoin) ResetLastRow() {
 	if s != nil {
-		s.beforeRow = nil
+		s.lastRow = nil
+	}
+}
+
+func (s *SortMergeJoin) SetLastInnerRow(v proto.Row) {
+	if s != nil {
+		s.lastInnerRow = v
+	}
+}
+
+func (s *SortMergeJoin) LastInnerRow() proto.Row {
+	if s != nil {
+		return s.lastInnerRow
+	}
+
+	return nil
+}
+
+func (s *SortMergeJoin) ResetLastInnerRow() {
+	if s != nil {
+		s.lastInnerRow = nil
+	}
+}
+
+func (s *SortMergeJoin) SetNextOuterRow(v proto.Row) {
+	if s != nil {
+		s.nextOuterRow = v
+	}
+}
+
+func (s *SortMergeJoin) NextOuterRow() proto.Row {
+	if s != nil {
+		return s.nextOuterRow
+	}
+
+	return nil
+}
+
+func (s *SortMergeJoin) ResetNextOuterRow() {
+	if s != nil {
+		s.nextOuterRow = nil
 	}
 }
 
@@ -216,8 +261,8 @@ func (s *SortMergeJoin) Next() (proto.Row, error) {
 		outerRow, innerRow proto.Row
 	)
 
-	if s.BeforeRow() != nil {
-		outerRow = s.BeforeRow()
+	if s.LastRow() != nil {
+		outerRow = s.LastRow()
 	} else {
 		outerRow, err = s.getOuterRow()
 		if err != nil {
@@ -236,7 +281,7 @@ func (s *SortMergeJoin) Next() (proto.Row, error) {
 	case ast.LeftJoin:
 		return s.leftJoin(outerRow, innerRow)
 	case ast.RightJoin:
-		return s.rightJoin()
+		return s.rightJoin(outerRow, innerRow)
 	default:
 		return nil, errors.New("not support join type")
 	}
@@ -269,27 +314,15 @@ func (s *SortMergeJoin) innerJoin(outerRow proto.Row, innerRow proto.Row) (proto
 			// example : 1,2,2 => 2,2,3
 			// first left 2 match right first 2
 			// next still need left 2  match next second 2
-			s.SetBeforeRow(outerRow)
-			if s.DescartesFlag() {
-				index := s.EqualIndex(outerValue.String())
-				if index == 0 {
-					nextOuterRow, err := s.getOuterRow()
-					if err != nil {
-						return nil, err
-					}
-					s.SetBeforeRow(nextOuterRow)
-				}
+			if res, err := s.equalCompare(outerRow, innerRow, outerValue); err != nil {
+				return nil, err
+			} else {
+				return res, nil
 			}
-
-			if !s.DescartesFlag() {
-				s.SetEqualValue(cast.ToString(outerValue), innerRow)
-			}
-
-			return s.resGenerate(outerRow, innerRow), nil
 		}
 
 		if proto.CompareValue(outerValue, innerValue) < 0 {
-			s.CleanBeforeRow()
+			s.ResetLastRow()
 			outerRow, err = s.getOuterRow()
 			if err != nil {
 				return nil, err
@@ -313,141 +346,13 @@ func (s *SortMergeJoin) innerJoin(outerRow proto.Row, innerRow proto.Row) (proto
 		}
 
 		if proto.CompareValue(outerValue, innerValue) > 0 {
-			s.CleanBeforeRow()
-			// if outer row equal last row, do descartes match
-			outerValue, err = outerRow.(proto.KeyedRow).Get(s.joinColumn.Column())
-			if err != nil {
-				return nil, err
-			}
-
+			outerRow, innerRow, err = s.greaterCompare(outerRow)
 			if outerRow == nil {
 				return nil, io.EOF
-			}
-
-			if s.isDescartes(outerValue.String()) {
-				s.setDescartesFlag(IsDescartes)
-				innerRow = s.EqualValue(outerValue.String())
-			} else {
-				s.setDescartesFlag(NotDescartes)
-				innerRow, err = s.getInnerRow(outerRow)
-				if err != nil {
-					return nil, err
-				}
 			}
 		}
 	}
 }
-
-/*func (s *SortMergeJoin) innerJoin() (proto.Row, error) {
-	var (
-		err                error
-		outerRow, innerRow proto.Row
-	)
-
-	if s.BeforeRow() != nil {
-		outerRow = s.BeforeRow()
-	} else {
-		outerRow, err = s.getOuterRow()
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	innerRow, err = s.getInnerRow(outerRow)
-	if err != nil {
-		return nil, err
-	}
-
-	var outerValue, innerValue proto.Value
-
-	for {
-		if outerRow == nil || innerRow == nil {
-			return nil, io.EOF
-		}
-
-		outerValue, err = outerRow.(proto.KeyedRow).Get(s.joinColumn.Column())
-		if err != nil {
-			return nil, err
-		}
-
-		innerValue, err = innerRow.(proto.KeyedRow).Get(s.joinColumn.Column())
-		if err != nil {
-			return nil, err
-		}
-
-		if proto.CompareValue(outerValue, innerValue) == 0 {
-			// restore last value
-			// example : 1,2,2 => 2,2,3
-			// first left 2 match right first 2
-			// next still need left 2  match next second 2
-			s.SetBeforeRow(outerRow)
-			if s.DescartesFlag() {
-				index := s.EqualIndex(outerValue.String())
-				if index == 0 {
-					nextOuterRow, err := s.getOuterRow()
-					if err != nil {
-						return nil, err
-					}
-					s.SetBeforeRow(nextOuterRow)
-				}
-			}
-
-			if !s.DescartesFlag() {
-				s.SetEqualValue(cast.ToString(outerValue), innerRow)
-			}
-
-			return s.resGenerate(outerRow, innerRow), nil
-		}
-
-		if proto.CompareValue(outerValue, innerValue) < 0 {
-			s.CleanBeforeRow()
-			outerRow, err = s.getOuterRow()
-			if err != nil {
-				return nil, err
-			}
-
-			if outerRow == nil {
-				return nil, io.EOF
-			}
-
-			// if outer row equal last row, do descartes match
-			outerValue, err = outerRow.(proto.KeyedRow).Get(s.joinColumn.Column())
-			if err != nil {
-				return nil, err
-			}
-
-			s.setDescartesFlag(NotDescartes)
-			if s.isDescartes(cast.ToString(outerValue)) {
-				s.setDescartesFlag(IsDescartes)
-				innerRow = s.EqualValue(cast.ToString(outerValue))
-			}
-		}
-
-		if proto.CompareValue(outerValue, innerValue) > 0 {
-			s.CleanBeforeRow()
-			// if outer row equal last row, do descartes match
-			outerValue, err = outerRow.(proto.KeyedRow).Get(s.joinColumn.Column())
-			if err != nil {
-				return nil, err
-			}
-
-			if outerRow == nil {
-				return nil, io.EOF
-			}
-
-			if s.isDescartes(cast.ToString(outerValue)) {
-				s.setDescartesFlag(IsDescartes)
-				innerRow = s.EqualValue(cast.ToString(outerValue))
-			} else {
-				s.setDescartesFlag(NotDescartes)
-				innerRow, err = s.getInnerRow(outerRow)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-}*/
 
 func (s *SortMergeJoin) leftJoin(outerRow proto.Row, innerRow proto.Row) (proto.Row, error) {
 	var (
@@ -456,8 +361,26 @@ func (s *SortMergeJoin) leftJoin(outerRow proto.Row, innerRow proto.Row) (proto.
 	)
 
 	for {
-		if outerRow == nil || innerRow == nil {
+		if outerRow == nil {
 			return nil, io.EOF
+		}
+
+		if innerRow == nil {
+			s.ResetLastRow()
+			outerValue, err = outerRow.(proto.KeyedRow).Get(s.joinColumn.Column())
+			if err != nil {
+				return nil, err
+			}
+
+			if s.isDescartes(outerValue.String()) {
+				outerRow, err = s.getOuterRow()
+				if err != nil {
+					return nil, err
+				}
+				continue
+			}
+
+			return s.resGenerate(outerRow, nil), nil
 		}
 
 		outerValue, err = outerRow.(proto.KeyedRow).Get(s.joinColumn.Column())
@@ -471,189 +394,75 @@ func (s *SortMergeJoin) leftJoin(outerRow proto.Row, innerRow proto.Row) (proto.
 		}
 
 		if proto.CompareValue(outerValue, innerValue) == 0 {
-			// restore last value
-			// example : 1,2,2 => 2,2,3
-			// first left 2 match right first 2
-			// next still need left 2  match next second 2
-			s.SetBeforeRow(outerRow)
-			if s.DescartesFlag() {
-				index := s.EqualIndex(outerValue.String())
-				if index == 0 {
-					nextOuterRow, err := s.getOuterRow()
-					if err != nil {
-						return nil, err
-					}
-					s.SetBeforeRow(nextOuterRow)
-				}
+			if res, err := s.equalCompare(outerRow, innerRow, outerValue); err != nil {
+				return nil, err
+			} else {
+				return res, nil
 			}
-
-			if !s.DescartesFlag() {
-				s.SetEqualValue(cast.ToString(outerValue), innerRow)
-			}
-
-			return s.resGenerate(outerRow, innerRow), nil
 		}
 
 		if proto.CompareValue(outerValue, innerValue) < 0 {
-			s.CleanBeforeRow()
-			outerRow, err = s.getOuterRow()
+			s.ResetLastRow()
+			nextOuterRow, err := s.getOuterRow()
 			if err != nil {
 				return nil, err
 			}
 
-			if outerRow == nil {
-				return nil, io.EOF
-			}
+			if nextOuterRow != nil {
+				// if outer row equal last row, do descartes match
+				nextOuterValue, err := nextOuterRow.(proto.KeyedRow).Get(s.joinColumn.Column())
+				if err != nil {
+					return nil, err
+				}
 
-			// if outer row equal last row, do descartes match
-			outerValue, err = outerRow.(proto.KeyedRow).Get(s.joinColumn.Column())
-			if err != nil {
-				return nil, err
-			}
-
-			s.setDescartesFlag(NotDescartes)
-			if s.isDescartes(outerValue.String()) {
-				s.setDescartesFlag(IsDescartes)
-				innerRow = s.EqualValue(outerValue.String())
+				s.setDescartesFlag(NotDescartes)
+				// record last inner row
+				s.SetLastInnerRow(innerRow)
+				if s.isDescartes(nextOuterValue.String()) {
+					s.setDescartesFlag(IsDescartes)
+					innerRow = s.EqualValue(nextOuterValue.String())
+					outerRow = nextOuterRow
+				} else {
+					if s.isDescartes(outerValue.String()) {
+						if proto.CompareValue(nextOuterValue, innerValue) == 0 {
+							s.ResetLastInnerRow()
+							outerRow = nextOuterRow
+						} else {
+							return s.resGenerate(nextOuterRow, nil), nil
+						}
+					} else {
+						s.SetNextOuterRow(nextOuterRow)
+						return s.resGenerate(outerRow, nil), nil
+					}
+				}
 			} else {
-				return s.resGenerate(outerRow, nil), nil
+				if !s.isDescartes(outerValue.String()) {
+					return s.resGenerate(outerRow, nil), nil
+				}
+				return nil, nil
 			}
 		}
 
 		if proto.CompareValue(outerValue, innerValue) > 0 {
-			s.CleanBeforeRow()
-			// if outer row equal last row, do descartes match
-			outerValue, err = outerRow.(proto.KeyedRow).Get(s.joinColumn.Column())
-			if err != nil {
-				return nil, err
-			}
-
+			outerRow, innerRow, err = s.greaterCompare(outerRow)
 			if outerRow == nil {
 				return nil, io.EOF
 			}
-
-			if s.isDescartes(outerValue.String()) {
-				s.setDescartesFlag(IsDescartes)
-				innerRow = s.EqualValue(outerValue.String())
-			} else {
-				s.setDescartesFlag(NotDescartes)
-				return s.resGenerate(outerRow, nil), nil
-				/*innerRow, err = s.getInnerRow(outerRow)
-				if err != nil {
-					return nil, err
-				}*/
-			}
 		}
 	}
 }
 
-// leftJoin
-/*func (s *SortMergeJoin) leftJoin(outerRow proto.Row, innerRow proto.Row) (proto.Row, error) {
-	var (
-		err                    error
-		outerValue, innerValue proto.Value
-	)
-
-	for {
-		if outerRow == nil && innerRow == nil {
-			return nil, nil
-		}
-
-		outerValue, err = outerRow.(proto.KeyedRow).Get(s.joinColumn.Column())
-		if err != nil {
-			return nil, err
-		}
-
-		innerValue, err = innerRow.(proto.KeyedRow).Get(s.joinColumn.Column())
-		if err != nil {
-			return nil, err
-		}
-
-		if strings.Compare(outerValue.String(), innerValue.String()) == 0 {
-			// restore last value
-			// example : 1,2,2 => 2,2,3
-			// first left 2 match right first 2
-			// next still need left 2  match next second 2
-			s.SetBeforeRow(outerRow)
-			return s.resGenerate(outerRow, innerRow), nil
-		}
-
-		if strings.Compare(outerValue.String(), innerValue.String()) < 0 {
-			s.SetBeforeRow(innerRow)
-			// return left row + null
-			return s.resGenerate(outerRow, nil), nil
-		}
-
-		if strings.Compare(outerValue.String(), innerValue.String()) > 0 {
-			s.SetBeforeRow(outerRow)
-			// return right row + null
-			return s.resGenerate(outerRow, nil), nil
-		}
-	}
-}*/
-
-func (s *SortMergeJoin) rightJoin() (proto.Row, error) {
-	var (
-		err                error
-		outerRow, innerRow proto.Row
-	)
-
-	// all data is order
-	if s.BeforeRow() != nil {
-		outerRow = s.BeforeRow()
-	} else {
-		outerRow, err = s.getOuterRow()
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	innerRow, err = s.getInnerRow(outerRow)
-	if err != nil {
-		return nil, err
-	}
-
-	var outerValue, innerValue proto.Value
-
-	for {
-		if outerRow == nil && innerRow == nil {
-			return nil, nil
-		}
-
-		outerValue, err = outerRow.(proto.KeyedRow).Get(s.joinColumn.Column())
-		if err != nil {
-			return nil, err
-		}
-
-		innerValue, err = innerRow.(proto.KeyedRow).Get(s.joinColumn.Column())
-		if err != nil {
-			return nil, err
-		}
-
-		if strings.Compare(outerValue.String(), innerValue.String()) == 0 {
-			// restore last value
-			// example : 1,2,2 => 2,2,3
-			// first left 2 match right first 2
-			// next still need left 2  match next second 2
-			s.SetBeforeRow(outerRow)
-			return s.resGenerate(outerRow, innerRow), nil
-		}
-
-		if strings.Compare(outerValue.String(), innerValue.String()) < 0 {
-			s.SetBeforeRow(innerRow)
-			// return left row + null
-			return s.resGenerate(outerRow, nil), nil
-		}
-
-		if strings.Compare(outerValue.String(), innerValue.String()) > 0 {
-			s.SetBeforeRow(outerRow)
-			// return right row + null
-			return s.resGenerate(innerRow, nil), nil
-		}
-	}
+func (s *SortMergeJoin) rightJoin(outerRow proto.Row, innerRow proto.Row) (proto.Row, error) {
+	return s.leftJoin(outerRow, innerRow)
 }
 
 func (s *SortMergeJoin) getOuterRow() (proto.Row, error) {
+	nextOuterRow := s.NextOuterRow()
+	if nextOuterRow != nil {
+		s.ResetNextOuterRow()
+		return nextOuterRow, nil
+	}
+
 	leftRow, err := s.outer.Next()
 	if err != nil && errors.Is(err, io.EOF) {
 		return nil, nil
@@ -666,13 +475,24 @@ func (s *SortMergeJoin) getOuterRow() (proto.Row, error) {
 }
 
 func (s *SortMergeJoin) getInnerRow(outerRow proto.Row) (proto.Row, error) {
-	outerValue, err := outerRow.(proto.KeyedRow).Get(s.joinColumn.Column())
-	if err != nil {
-		return nil, err
+	if outerRow != nil {
+		outerValue, err := outerRow.(proto.KeyedRow).Get(s.joinColumn.Column())
+		if err != nil {
+			return nil, err
+		}
+
+		if s.DescartesFlag() {
+			innerRow := s.EqualValue(outerValue.String())
+			if innerRow != nil {
+				return innerRow, nil
+			}
+		}
 	}
 
-	if s.DescartesFlag() {
-		return s.EqualValue(outerValue.String()), nil
+	lastInnerRow := s.LastInnerRow()
+	if lastInnerRow != nil {
+		s.ResetLastInnerRow()
+		return lastInnerRow, nil
 	}
 
 	rightRow, err := s.inner.Next()
@@ -736,6 +556,57 @@ func (s *SortMergeJoin) resGenerate(leftRow proto.Row, rightRow proto.Row) proto
 	return rows.NewBinaryVirtualRow(fields, res)
 }
 
-/*func (s *SortMergeJoin) getDescartesRow() proto.Row {
+func (s *SortMergeJoin) equalCompare(outerRow proto.Row, innerRow proto.Row, outerValue proto.Value) (proto.Row, error) {
+	if err := s.updateLastRow(outerRow, outerValue); err != nil {
+		return nil, err
+	}
 
-}*/
+	if !s.DescartesFlag() {
+		s.SetEqualValue(cast.ToString(outerValue), innerRow)
+	}
+
+	return s.resGenerate(outerRow, innerRow), nil
+}
+
+func (s *SortMergeJoin) updateLastRow(outerRow proto.Row, outerValue proto.Value) error {
+	s.SetLastRow(outerRow)
+	if s.DescartesFlag() {
+		index := s.EqualIndex(outerValue.String())
+		if index == 0 {
+			nextOuterRow, err := s.getOuterRow()
+			if err != nil {
+				return err
+			}
+			s.SetLastRow(nextOuterRow)
+		}
+	}
+
+	return nil
+}
+
+func (s *SortMergeJoin) greaterCompare(outerRow proto.Row) (proto.Row, proto.Row, error) {
+	s.ResetLastRow()
+	// if outer row equal last row, do descartes match
+	outerValue, err := outerRow.(proto.KeyedRow).Get(s.joinColumn.Column())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if outerRow == nil {
+		return nil, nil, nil
+	}
+
+	var innerRow proto.Row
+	if s.isDescartes(outerValue.String()) {
+		s.setDescartesFlag(IsDescartes)
+		innerRow = s.EqualValue(outerValue.String())
+	} else {
+		s.setDescartesFlag(NotDescartes)
+		innerRow, err = s.getInnerRow(outerRow)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	return outerRow, innerRow, nil
+}
