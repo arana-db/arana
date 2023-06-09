@@ -19,7 +19,6 @@ package dml
 
 import (
 	"context"
-	"github.com/arana-db/arana/pkg/runtime/cmp"
 	"strings"
 )
 
@@ -34,6 +33,7 @@ import (
 	"github.com/arana-db/arana/pkg/proto/hint"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/runtime/cmp"
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/runtime/misc/extvalue"
 	"github.com/arana-db/arana/pkg/runtime/optimize"

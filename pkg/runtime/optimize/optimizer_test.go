@@ -20,10 +20,6 @@ package optimize_test
 import (
 	"context"
 	"fmt"
-	consts "github.com/arana-db/arana/pkg/constants/mysql"
-	"github.com/arana-db/arana/pkg/dataset"
-	"github.com/arana-db/arana/pkg/mysql"
-	"github.com/arana-db/arana/pkg/mysql/rows"
 	"strings"
 	"testing"
 )
@@ -37,6 +33,10 @@ import (
 )
 
 import (
+	consts "github.com/arana-db/arana/pkg/constants/mysql"
+	"github.com/arana-db/arana/pkg/dataset"
+	"github.com/arana-db/arana/pkg/mysql"
+	"github.com/arana-db/arana/pkg/mysql/rows"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/resultx"
