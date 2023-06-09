@@ -53,7 +53,7 @@ func CreateTrxManager(tenant string) error {
 
 	trxLog := &TxLogManager{sysDB: sysDB}
 	err = trxLog.Init(DefaultCleanLogDelay)
-	if err == nil {
+	if err != nil {
 		return err
 	}
 
