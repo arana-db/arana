@@ -19,6 +19,7 @@ package dml
 
 import (
 	"context"
+	"github.com/arana-db/arana/pkg/runtime/cmp"
 	"strings"
 )
 
@@ -501,17 +502,16 @@ func optimizeJoin(ctx context.Context, o *optimize.Optimizer, stmt *ast.SelectSt
 				},
 			},
 		}
+		table := tableSource.Source.(ast.TableName)
+		actualTb := table.Suffix()
+		aliasTb := tableSource.Alias
 
+		tb0 := actualTb
+		if shards != nil {
+			vt := o.Rule.MustVTable(tb0)
+			_, tb0, _ = vt.Topology().Smallest()
+		}
 		if _, ok = stmt.Select[0].(*ast.SelectElementAll); !ok && len(stmt.Select) > 1 {
-			table := tableSource.Source.(ast.TableName)
-			actualTb := table.Suffix()
-			aliasTb := tableSource.Alias
-
-			tb0 := actualTb
-			if shards != nil {
-				vt := o.Rule.MustVTable(tb0)
-				_, tb0, _ = vt.Topology().Smallest()
-			}
 			metadata, err := loadMetadataByTable(ctx, tb0)
 			if err != nil {
 				return nil, err
@@ -531,6 +531,14 @@ func optimizeJoin(ctx context.Context, o *optimize.Optimizer, stmt *ast.SelectSt
 			}
 			selectElements = append(selectElements, ast.NewSelectElementColumn([]string{onKey}, ""))
 			selectStmt.Select = selectElements
+		}
+
+		if stmt.Where != nil {
+			selectStmt.Where = stmt.Where.Clone()
+			err := filterWhereByTable(ctx, selectStmt.Where, tb0, aliasTb)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		optimizer := &optimize.Optimizer{
@@ -810,4 +818,150 @@ func loadMetadataByTable(ctx context.Context, tb string) (*proto.TableMetadata, 
 		return nil, errors.Errorf("optimize: cannot get metadata of `%s`.`%s`", rcontext.Schema(ctx), tb)
 	}
 	return metadata, nil
+}
+
+func filterWhereByTable(ctx context.Context, where ast.ExpressionNode, table string, alis string) error {
+	metadata, err := loadMetadataByTable(ctx, table)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	if err = filterNodeByTable(where, metadata, alis); err != nil {
+		return errors.WithStack(err)
+	}
+
+	return nil
+}
+
+var replaceNode = &ast.BinaryComparisonPredicateNode{
+	Left:  &ast.AtomPredicateNode{A: &ast.ConstantExpressionAtom{Inner: 1}},
+	Right: &ast.AtomPredicateNode{A: &ast.ConstantExpressionAtom{Inner: 1}},
+	Op:    cmp.Ceq,
+}
+
+func filterNodeByTable(expNode ast.ExpressionNode, metadata *proto.TableMetadata, alis string) error {
+	predicateNode, ok := expNode.(*ast.PredicateExpressionNode)
+	if ok {
+		bcpn, bcOk := predicateNode.P.(*ast.BinaryComparisonPredicateNode)
+		if bcOk {
+			columnNode, ok := bcpn.Left.(*ast.AtomPredicateNode).A.(ast.ColumnNameExpressionAtom)
+			if !ok {
+				return errors.New("invalid node")
+			}
+			if columnNode.Prefix() != "" {
+				if columnNode.Prefix() != metadata.Name && columnNode.Prefix() != alis {
+					predicateNode.P = replaceNode
+				}
+			} else {
+				_, ok := metadata.Columns[columnNode.Suffix()]
+				if !ok {
+					predicateNode.P = replaceNode
+				}
+			}
+			rightColumn, ok := bcpn.Right.(*ast.AtomPredicateNode).A.(ast.ColumnNameExpressionAtom)
+			if ok {
+				if rightColumn.Prefix() != "" {
+					if rightColumn.Prefix() != metadata.Name && rightColumn.Prefix() != alis {
+						return errors.New("not support node")
+					}
+				} else {
+					_, ok := metadata.Columns[rightColumn.Suffix()]
+					if !ok {
+						return errors.New("not support node")
+					}
+				}
+			}
+			return nil
+		}
+
+		lpn, likeOk := predicateNode.P.(*ast.LikePredicateNode)
+		if likeOk {
+			columnNode := lpn.Left.(*ast.AtomPredicateNode).A.(ast.ColumnNameExpressionAtom)
+			if columnNode.Prefix() != "" {
+				if columnNode.Prefix() != metadata.Name && columnNode.Prefix() != alis {
+					predicateNode.P = replaceNode
+				}
+			} else {
+				_, ok := metadata.Columns[columnNode.Suffix()]
+				if !ok {
+					predicateNode.P = replaceNode
+				}
+			}
+			return nil
+		}
+
+		ipn, inOk := predicateNode.P.(*ast.InPredicateNode)
+		if inOk {
+			columnNode, ok := ipn.P.(*ast.AtomPredicateNode).A.(ast.ColumnNameExpressionAtom)
+			if !ok {
+				return errors.New("invalid node")
+			}
+			if columnNode.Prefix() != "" {
+				if columnNode.Prefix() != metadata.Name && columnNode.Prefix() != alis {
+					predicateNode.P = replaceNode
+				}
+			} else {
+				_, ok := metadata.Columns[columnNode.Suffix()]
+				if !ok {
+					predicateNode.P = replaceNode
+				}
+			}
+			return nil
+		}
+
+		bpn, betweenOk := predicateNode.P.(*ast.BetweenPredicateNode)
+		if betweenOk {
+			columnNode, ok := bpn.Key.(*ast.AtomPredicateNode).A.(ast.ColumnNameExpressionAtom)
+			if !ok {
+				return errors.New("invalid node")
+			}
+			if columnNode.Prefix() != "" {
+				if columnNode.Prefix() != metadata.Name && columnNode.Prefix() != alis {
+					predicateNode.P = replaceNode
+				}
+			} else {
+				_, ok := metadata.Columns[columnNode.Suffix()]
+				if !ok {
+					predicateNode.P = replaceNode
+				}
+			}
+
+			//columnNode := bpn.Right.(*ast.AtomPredicateNode).A.(ast.ColumnNameExpressionAtom)
+			return nil
+		}
+
+		rpn, regexpOk := predicateNode.P.(*ast.RegexpPredicationNode)
+		if regexpOk {
+			columnNode, ok := rpn.Left.(*ast.AtomPredicateNode).A.(ast.ColumnNameExpressionAtom)
+			if !ok {
+				return errors.New("invalid node")
+			}
+			if columnNode.Prefix() != "" {
+				if columnNode.Prefix() != metadata.Name && columnNode.Prefix() != alis {
+					predicateNode.P = replaceNode
+				}
+			} else {
+				_, ok := metadata.Columns[columnNode.Suffix()]
+				if !ok {
+					predicateNode.P = replaceNode
+				}
+			}
+			return nil
+		}
+
+		return errors.New("invalid node")
+	}
+
+	node, ok := expNode.(*ast.LogicalExpressionNode)
+	if !ok {
+		return errors.New("invalid node")
+	}
+
+	if err := filterNodeByTable(node.Left, metadata, alis); err != nil {
+		return err
+	}
+	if err := filterNodeByTable(node.Right, metadata, alis); err != nil {
+		return err
+	}
+	return nil
 }
