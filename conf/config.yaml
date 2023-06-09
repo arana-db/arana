@@ -29,6 +29,8 @@ data:
         password: "123456"
         # TODO It is recommended that the initialization of the subsequent system library be handled by arana internally
         database: __arana_sys
+        weight: r10w10
+        parameters:
       users:
         - username: root
           password: "123456"

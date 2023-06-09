@@ -56,7 +56,7 @@ func LoadSysDB(tenant string) (proto.DB, error) {
 	defer lock.RUnlock()
 
 	val, ok := _tenantSysDB[tenant]
-	if ok {
+	if !ok {
 		return nil, fmt.Errorf("cannot load sysdb: tenant=%s", tenant)
 	}
 

@@ -47,7 +47,7 @@ func CreateTrxManager(tenant string) error {
 	}
 
 	sysDB, err := aranatenant.LoadSysDB(tenant)
-	if err == nil {
+	if err != nil {
 		return err
 	}
 

@@ -42,6 +42,8 @@ var (
 		"start_time":  {},
 		"update_time": {},
 	}
+	_initTxLogOnce   sync.Once
+	_txLogCleanTimer *time.Timer
 )
 
 const (
@@ -69,23 +71,20 @@ CREATE TABLE IF NOT EXISTS __arana_trx_log
 
 // TxLogManager Transaction log management
 type TxLogManager struct {
-	sysDB    proto.DB
-	timer    *time.Timer
-	initOnce sync.Once
+	sysDB proto.DB
 }
 
 // init executes create __arana_tx_log table action
 func (gm *TxLogManager) Init(delay time.Duration) error {
 	var err error
-	gm.initOnce.Do(func() {
+	_initTxLogOnce.Do(func() {
 		ctx := context.Background()
 		res, _, err := gm.sysDB.Call(ctx, _initTxLog)
 		if err != nil {
 			return
 		}
 		_, _ = res.RowsAffected()
-
-		gm.timer = time.AfterFunc(delay, gm.runCleanTxLogTask)
+		_txLogCleanTimer = time.AfterFunc(delay, gm.runCleanTxLogTask)
 	})
 	return err
 }
