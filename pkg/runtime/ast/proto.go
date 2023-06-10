@@ -66,6 +66,7 @@ const (
 	SQLTypeRenameTable                // RENAME TABLE
 	SQLTypeRepairTable                // REPAIR TABLE
 	SQLTypeCreateTable                // CREATE TABLE
+	SQLTypeShowDatabaseRules          // SHOW DATABASE RULES
 )
 
 var _sqlTypeNames = [...]string{
@@ -104,6 +105,7 @@ var _sqlTypeNames = [...]string{
 	SQLTypeRenameTable:        "RENAME TABLE",
 	SQLTypeRepairTable:        "REPAIR TABLE",
 	SQLTypeCreateTable:        "CREATE TABLE",
+	SQLTypeShowDatabaseRules:  "SHOW DATABASE RULES",
 }
 
 // SQLType represents the type of SQL.

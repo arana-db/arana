@@ -62,6 +62,14 @@ var (
 		Col{Name: "tbl_rules", FieldType: consts.FieldTypeVarString},
 		Col{Name: "attributes", FieldType: consts.FieldTypeVarString},
 	}
+
+	DBRule = Thead{
+		Col{Name: "table_name", FieldType: consts.FieldTypeVarString},
+		Col{Name: "column", FieldType: consts.FieldTypeVarString},
+		Col{Name: "type", FieldType: consts.FieldTypeVarString},
+		Col{Name: "expr", FieldType: consts.FieldTypeVarString},
+		Col{Name: "step", FieldType: consts.FieldTypeInt24},
+	}
 )
 
 type Col struct {
