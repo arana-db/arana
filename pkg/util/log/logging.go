@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 )
 
 import (
@@ -54,23 +53,16 @@ const (
 	FatalLevel = LogLevel(zapcore.FatalLevel)
 )
 
-const (
-	logNameEnv = "ARANA_LOG_NAME"
-	// log path
-	logPathEnv = "ARANA_LOG_PATH"
-	// log level
-	logLevelEnv = "ARANA_LOG_LEVEL"
-	// the maximum size in megabytes of the log file before it gets rotated
-	logMaxSizeEnv = "ARANA_LOG_MAX_SIZE"
-	// the maximum number of old log files to retain
-	logMaxBackupsEnv = "ARANA_LOG_MAX_BACKUPS"
-	// the maximum number of days to retain old log files
-	logMaxAgeEnv = "ARANA_LOG_MAX_AGE"
-	// determines if the rotated log files should be compressed using gzip
-	logCompress = "ARANA_LOG_COMPRESS"
-	// default log name
-	defaultLogName = "arana.log"
-)
+type LoggingConfig struct {
+	LogName        string `yaml:"log_name" json:"log_name"`
+	LogPath        string `yaml:"log_path" json:"log_path"`
+	LogLevel       int    `yaml:"log_level" json:"log_level"`
+	LogMaxSize     int    `yaml:"log_max_size" json:"log_max_size"`
+	LogMaxBackups  int    `yaml:"log_max_backups" json:"log_max_backups"`
+	LogMaxAge      int    `yaml:"log_max_age" json:"log_max_age"`
+	LogCompress    bool   `yaml:"log_compress" json:"log_compress"`
+	DefaultLogName string ` yaml:"default_log_name" json:"default_log_name"`
+}
 
 func (l *LogLevel) UnmarshalText(text []byte) error {
 	if l == nil {
@@ -142,56 +134,43 @@ func init() {
 	log = zapLogger.Sugar()
 }
 
-func Init(logPath string, level LogLevel) { log = NewLogger(logPath, level) }
+func Init(logPath string, level LogLevel, cfg *LoggingConfig) {
+	log = NewLogger(logPath, level, cfg)
+}
 
-func NewLogger(logPath string, level LogLevel) *zap.SugaredLogger {
-	syncer := zapcore.NewMultiWriteSyncer(zapcore.AddSync(buildLumberJack(logPath)), zapcore.AddSync(os.Stdout))
+func NewLogger(logPath string, level LogLevel, cfg *LoggingConfig) *zap.SugaredLogger {
+	syncer := zapcore.NewMultiWriteSyncer(zapcore.AddSync(buildLumberJack(logPath, cfg)), zapcore.AddSync(os.Stdout))
 
 	encoderConfig := zap.NewProductionEncoderConfig()
 	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
 
 	encoder := zapcore.NewConsoleEncoder(encoderConfig)
-	core := zapcore.NewCore(encoder, syncer, zap.NewAtomicLevelAt(zapcore.Level(getEnvValueInt(logLevelEnv, int(level)))))
+	core := zapcore.NewCore(encoder, syncer, zap.NewAtomicLevelAt(zapcore.Level(getValueInt(cfg.LogLevel, int(level)))))
 	zapLogger = zap.New(core, zap.AddCaller(), zap.AddCallerSkip(1))
 	return zapLogger.Sugar()
 }
 
-func buildLumberJack(logPath string) *lumberjack.Logger {
-	if logPath = getEnvValue(logPathEnv, logPath); logPath == "" {
+//nolint:staticcheck
+//lint:ignore SA4009 left logPath for future use
+func buildLumberJack(logPath string, cfg *LoggingConfig) *lumberjack.Logger {
+	if logPath = cfg.LogPath; logPath == "" {
 		logPath = currentPath()
 	}
 	return &lumberjack.Logger{
-		Filename:   logPath + string(os.PathSeparator) + getEnvValue(logNameEnv, defaultLogName),
-		MaxSize:    getEnvValueInt(logMaxSizeEnv, 10),
-		MaxBackups: getEnvValueInt(logMaxBackupsEnv, 5),
-		MaxAge:     getEnvValueInt(logMaxAgeEnv, 30),
-		Compress:   getEnvValueBool(logCompress, false),
+		Filename:   logPath + string(os.PathSeparator) + cfg.LogPath,
+		MaxSize:    cfg.LogMaxSize,
+		MaxBackups: cfg.LogMaxBackups,
+		MaxAge:     cfg.LogMaxAge,
+		Compress:   cfg.LogCompress,
 	}
 }
 
-func getEnvValue(key, defaultVal string) string {
-	if value := os.Getenv(key); value == "" {
-		return defaultVal
-	} else {
-		return value
-	}
-}
-
-func getEnvValueInt(key string, defaultVal int) int {
-	value, err := strconv.Atoi(os.Getenv(key))
-	if err != nil || value <= 0 {
+func getValueInt(key int, defaultVal int) int {
+	if key < 0 {
 		return defaultVal
 	}
-	return value
-}
-
-func getEnvValueBool(key string, defaultVal bool) bool {
-	if value, err := strconv.ParseBool(os.Getenv(key)); err != nil {
-		return defaultVal
-	} else {
-		return value
-	}
+	return key
 }
 
 func currentPath() string {
