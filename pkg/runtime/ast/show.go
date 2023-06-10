@@ -90,8 +90,8 @@ func (bs *BaseShow) Filter() func(proto.Row) bool {
 	return TruePredicate
 }
 
-//BaseShowWithSingleColumn for `show databases` and `show tables` clause which only have one column.
-//Get result and do filter locally
+// BaseShowWithSingleColumn for `show databases` and `show tables` clause which only have one column.
+// Get result and do filter locally
 type BaseShowWithSingleColumn struct {
 	*BaseShow
 	like sql.NullString
@@ -632,5 +632,22 @@ func (s *ShowShardingTable) Restore(flag RestoreFlag, sb *strings.Builder, args 
 		return errors.New("show sharding table database type error")
 	}
 	sb.WriteString(val)
+	return nil
+}
+
+type ShowCreateSequence struct {
+	Tenant string
+}
+
+func (s *ShowCreateSequence) Mode() SQLType {
+	return SQLTypeShowCreateSequence
+}
+
+func (s *ShowCreateSequence) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	sb.WriteString("SHOW CREATE SEQUENCE ")
+
+	if len(s.Tenant) > 0 {
+		WriteID(sb, s.Tenant)
+	}
 	return nil
 }
