@@ -76,6 +76,8 @@ type (
 		CurrentVal() int64
 		// Stop stops sequence.
 		Stop() error
+		// GetSequenceConfig get sequence config.
+		GetSequenceConfig() SequenceConfig
 	}
 
 	// SequenceManager represents the factory to create a Sequence by table name.

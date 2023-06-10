@@ -143,6 +143,8 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		return cc.convCreateTableStmt(stmt), nil
 	case *ast.RenameTableStmt:
 		return cc.convRenameTableStmt(stmt), nil
+	case *ast.RepairTableStmt:
+		return cc.convRepairTableStmt(stmt), nil
 	case *ast.KillStmt:
 		return cc.convKill(stmt), nil
 	default:
@@ -705,6 +707,10 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 	}
 
 	switch node.Tp {
+	case ast.ShowCreateSequence:
+		return &ShowCreateSequence{
+			Tenant: node.Table.Name.O,
+		}
 	case ast.ShowTopology:
 		return &ShowTopology{BaseShow: toBaseShow()}
 	case ast.ShowOpenTables:
@@ -1750,6 +1756,16 @@ func (cc *convCtx) convRenameTableStmt(stmt *ast.RenameTableStmt) Statement {
 	return &RenameTableStatement{
 		TableToTables: tableToTables,
 	}
+}
+
+func (cc *convCtx) convRepairTableStmt(stmt *ast.RepairTableStmt) Statement {
+	tables := make([]*TableName, len(stmt.Tables))
+	for i, table := range stmt.Tables {
+		tables[i] = &TableName{
+			table.Name.String(),
+		}
+	}
+	return &RepairTableStmt{Tables: tables}
 }
 
 func (cc *convCtx) convAnalyzeTable(stmt *ast.AnalyzeTableStmt) Statement {
