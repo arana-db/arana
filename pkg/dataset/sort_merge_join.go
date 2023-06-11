@@ -350,7 +350,7 @@ func (s *SortMergeJoin) innerJoin(outerRow proto.Row, innerRow proto.Row) (proto
 			if err != nil {
 				return nil, err
 			}
-			
+
 			if outerRow == nil {
 				return nil, io.EOF
 			}
@@ -358,6 +358,7 @@ func (s *SortMergeJoin) innerJoin(outerRow proto.Row, innerRow proto.Row) (proto
 	}
 }
 
+// leftJoin
 func (s *SortMergeJoin) leftJoin(outerRow proto.Row, innerRow proto.Row) (proto.Row, error) {
 	var (
 		err                    error
@@ -460,6 +461,7 @@ func (s *SortMergeJoin) leftJoin(outerRow proto.Row, innerRow proto.Row) (proto.
 	}
 }
 
+// rightJoin
 func (s *SortMergeJoin) rightJoin(outerRow proto.Row, innerRow proto.Row) (proto.Row, error) {
 	return s.leftJoin(outerRow, innerRow)
 }
