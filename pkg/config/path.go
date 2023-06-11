@@ -65,14 +65,14 @@ func NewPathInfo(tenant string) *PathInfo {
 		p.DefaultConfigSpecPath: func(cfg *Tenant) interface{} {
 			return &cfg.Spec
 		},
+		p.DefaultConfigSysDBPath: func(cfg *Tenant) interface{} {
+			return &cfg.SysDB
+		},
 		p.DefaultConfigDataUsersPath: func(cfg *Tenant) interface{} {
 			return &cfg.Users
 		},
 		p.DefaultConfigDataSourceClustersPath: func(cfg *Tenant) interface{} {
 			return &cfg.DataSourceClusters
-		},
-		p.DefaultConfigSysDBPath: func(cfg *Tenant) interface{} {
-			return &cfg.SysDB
 		},
 		p.DefaultConfigDataNodesPath: func(cfg *Tenant) interface{} {
 			return &cfg.Nodes
