@@ -347,6 +347,10 @@ func (s *SortMergeJoin) innerJoin(outerRow proto.Row, innerRow proto.Row) (proto
 
 		if proto.CompareValue(outerValue, innerValue) > 0 {
 			outerRow, innerRow, err = s.greaterCompare(outerRow)
+			if err != nil {
+				return nil, err
+			}
+			
 			if outerRow == nil {
 				return nil, io.EOF
 			}
@@ -445,6 +449,10 @@ func (s *SortMergeJoin) leftJoin(outerRow proto.Row, innerRow proto.Row) (proto.
 
 		if proto.CompareValue(outerValue, innerValue) > 0 {
 			outerRow, innerRow, err = s.greaterCompare(outerRow)
+			if err != nil {
+				return nil, err
+			}
+
 			if outerRow == nil {
 				return nil, io.EOF
 			}
