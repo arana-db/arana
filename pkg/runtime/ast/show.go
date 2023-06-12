@@ -43,6 +43,7 @@ var (
 	_ Statement = (*ShowWarnings)(nil)
 	_ Statement = (*ShowMasterStatus)(nil)
 	_ Statement = (*ShowReplicaStatus)(nil)
+	_ Statement = (*ShowDatabaseRule)(nil)
 )
 
 var TruePredicate = func(row proto.Row) bool { return true }
@@ -50,6 +51,12 @@ var TruePredicate = func(row proto.Row) bool { return true }
 type FromTable string
 
 func (f FromTable) String() string {
+	return string(f)
+}
+
+type FromDatabase string
+
+func (f FromDatabase) String() string {
 	return string(f)
 }
 
@@ -64,6 +71,10 @@ func (bs *BaseShow) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) 
 		WriteID(sb, val)
 		return nil
 	case FromTable:
+		sb.WriteString(val.String())
+		return nil
+	case FromDatabase:
+		sb.WriteString(" FROM ")
 		sb.WriteString(val.String())
 		return nil
 	case PredicateNode:
@@ -90,8 +101,8 @@ func (bs *BaseShow) Filter() func(proto.Row) bool {
 	return TruePredicate
 }
 
-//BaseShowWithSingleColumn for `show databases` and `show tables` clause which only have one column.
-//Get result and do filter locally
+// BaseShowWithSingleColumn for `show databases` and `show tables` clause which only have one column.
+// Get result and do filter locally
 type BaseShowWithSingleColumn struct {
 	*BaseShow
 	like sql.NullString
@@ -648,6 +659,24 @@ func (s *ShowCreateSequence) Restore(flag RestoreFlag, sb *strings.Builder, args
 
 	if len(s.Tenant) > 0 {
 		WriteID(sb, s.Tenant)
+	}
+	return nil
+}
+
+type ShowDatabaseRule struct {
+	*BaseShow
+	Database  string
+	TableName string
+}
+
+func (s ShowDatabaseRule) Mode() SQLType {
+	return SQLTypeShowDatabaseRules
+}
+
+func (s ShowDatabaseRule) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	sb.WriteString("SHOW DATABASE RULES ")
+	if err := s.BaseShow.Restore(flag, sb, args); err != nil {
+		return errors.WithStack(err)
 	}
 	return nil
 }

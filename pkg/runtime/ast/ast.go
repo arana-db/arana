@@ -143,6 +143,8 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		return cc.convCreateTableStmt(stmt), nil
 	case *ast.RenameTableStmt:
 		return cc.convRenameTableStmt(stmt), nil
+	case *ast.RepairTableStmt:
+		return cc.convRepairTableStmt(stmt), nil
 	case *ast.KillStmt:
 		return cc.convKill(stmt), nil
 	default:
@@ -739,6 +741,8 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 			pattern.String = like
 		}
 		return &ShowDatabases{BaseShowWithSingleColumn: &BaseShowWithSingleColumn{toBaseShow(), pattern}}
+	case ast.ShowDatabaseRules:
+		return &ShowDatabaseRule{BaseShow: toBaseShow(), Database: node.DBName, TableName: node.Table.Name.String()}
 	case ast.ShowCollation:
 		return &ShowCollation{BaseShow: toBaseShow()}
 	case ast.ShowCreateTable:
@@ -1754,6 +1758,16 @@ func (cc *convCtx) convRenameTableStmt(stmt *ast.RenameTableStmt) Statement {
 	return &RenameTableStatement{
 		TableToTables: tableToTables,
 	}
+}
+
+func (cc *convCtx) convRepairTableStmt(stmt *ast.RepairTableStmt) Statement {
+	tables := make([]*TableName, len(stmt.Tables))
+	for i, table := range stmt.Tables {
+		tables[i] = &TableName{
+			table.Name.String(),
+		}
+	}
+	return &RepairTableStmt{Tables: tables}
 }
 
 func (cc *convCtx) convAnalyzeTable(stmt *ast.AnalyzeTableStmt) Statement {

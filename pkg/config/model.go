@@ -41,6 +41,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+import (
+	"github.com/arana-db/arana/pkg/util/log"
+)
+
 type (
 	DataRevision interface {
 		Revision() string
@@ -77,12 +81,13 @@ type (
 	}
 
 	BootOptions struct {
-		Spec       `yaml:",inline"`
-		Config     *Options    `yaml:"config" json:"config"`
-		Listeners  []*Listener `validate:"required,dive" yaml:"listeners" json:"listeners"`
-		Registry   *Registry   `yaml:"registry" json:"registry"`
-		Trace      *Trace      `yaml:"trace" json:"trace"`
-		Supervisor *User       `validate:"required,dive" yaml:"supervisor" json:"supervisor"`
+		Spec          `yaml:",inline"`
+		Config        *Options           `yaml:"config" json:"config"`
+		Listeners     []*Listener        `validate:"required,dive" yaml:"listeners" json:"listeners"`
+		Registry      *Registry          `yaml:"registry" json:"registry"`
+		Trace         *Trace             `yaml:"trace" json:"trace"`
+		Supervisor    *User              `validate:"required,dive" yaml:"supervisor" json:"supervisor"`
+		LoggingConfig *log.LoggingConfig `validate:"required,dive" yaml:"logging_config" json:"loggingconfig"`
 	}
 
 	// Configuration represents an Arana configuration.
