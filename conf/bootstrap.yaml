@@ -65,3 +65,13 @@ config:
 supervisor:
   username: root
   password: root
+
+logging_config:
+  log_name: arana_log
+  log_path: ./
+  log_level: 7 #KERN_DEBUG
+  log_max_size: 10
+  log_max_backups: 5
+  log_max_age: 30
+  log_compress: false
+  default_log_name: "arana.log"

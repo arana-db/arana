@@ -218,7 +218,7 @@ func buildNamespace(ctx context.Context, tenant string, provider Discovery, clus
 	}
 
 	initCmds := []namespace.Command{
-		namespace.UpdateSlowLogger(provider.GetOptions().SlowLogPath),
+		namespace.UpdateSlowLogger(provider.GetOptions().SlowLogPath, provider.GetOptions().LoggingConfig),
 		namespace.UpdateParameters(cluster.Parameters),
 		namespace.UpdateSlowThreshold(),
 	}
@@ -258,6 +258,7 @@ func buildNamespace(ctx context.Context, tenant string, provider Discovery, clus
 		}
 		ru.SetVTable(table, vt)
 	}
+
 	initCmds = append(initCmds, namespace.UpdateRule(&ru))
 
 	return namespace.New(clusterName, initCmds...)
