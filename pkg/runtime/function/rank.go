@@ -43,7 +43,7 @@ type rankFunc struct{}
 func (a rankFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
 	first, err := inputs[0].Value(ctx)
 	if first == nil || err != nil {
-		return nil, errors.Wrapf(err, "cannot eval %s", FuncCumeDist)
+		return nil, errors.Wrapf(err, "cannot eval %s", FuncRank)
 	}
 	firstDec, _ := first.Float64()
 	firstNum := 0
@@ -51,7 +51,7 @@ func (a rankFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Valu
 	for _, it := range inputs[1:] {
 		val, err := it.Value(ctx)
 		if val == nil || err != nil {
-			return nil, errors.Wrapf(err, "cannot eval %s", FuncCumeDist)
+			return nil, errors.Wrapf(err, "cannot eval %s", FuncRank)
 		}
 		valDec, _ := val.Float64()
 

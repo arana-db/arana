@@ -43,7 +43,7 @@ type percentrankFunc struct{}
 func (a percentrankFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
 	first, err := inputs[0].Value(ctx)
 	if first == nil || err != nil {
-		return nil, errors.Wrapf(err, "cannot eval %s", FuncCumeDist)
+		return nil, errors.Wrapf(err, "cannot eval %s", FuncPercentRank)
 	}
 	firstDec, _ := first.Float64()
 	firstNum := 0

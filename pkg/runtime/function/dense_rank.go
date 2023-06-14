@@ -43,7 +43,7 @@ type denserankFunc struct{}
 func (a denserankFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
 	first, err := inputs[0].Value(ctx)
 	if first == nil || err != nil {
-		return nil, errors.Wrapf(err, "cannot eval %s", FuncCumeDist)
+		return nil, errors.Wrapf(err, "cannot eval %s", FuncDenseRank)
 	}
 	firstDec, _ := first.Float64()
 	secondDec := firstDec
@@ -52,7 +52,7 @@ func (a denserankFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto
 	for _, it := range inputs[1:] {
 		val, err := it.Value(ctx)
 		if val == nil || err != nil {
-			return nil, errors.Wrapf(err, "cannot eval %s", FuncCumeDist)
+			return nil, errors.Wrapf(err, "cannot eval %s", FuncDenseRank)
 		}
 		valDec, _ := val.Float64()
 
