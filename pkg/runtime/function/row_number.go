@@ -105,5 +105,5 @@ func (a rownumberFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto
 }
 
 func (a rownumberFunc) NumInput() int {
-	return 1
+	return 0
 }

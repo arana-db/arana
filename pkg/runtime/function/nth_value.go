@@ -49,25 +49,25 @@ func (a nthvalueFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.
 	// nth
 	nth, err := inputs[0].Value(ctx)
 	if nth == nil || err != nil {
-		return nil, errors.Wrapf(err, "cannot eval %s", FuncNtile)
+		return nil, errors.Wrapf(err, "cannot eval %s", FuncNthValue)
 	}
 	nthInt, _ := nth.Int64()
 	// order by this column
 	firstOrderColumn, err := inputs[1].Value(ctx)
 	if firstOrderColumn == nil || err != nil {
-		return nil, errors.Wrapf(err, "cannot eval %s", FuncNtile)
+		return nil, errors.Wrapf(err, "cannot eval %s", FuncNthValue)
 	}
 	firstOrderColumnStr := firstOrderColumn.String()
 	// partition by this column
 	firstPartitionColumn, err := inputs[2].Value(ctx)
 	if firstPartitionColumn == nil || err != nil {
-		return nil, errors.Wrapf(err, "cannot eval %s", FuncFirstValue)
+		return nil, errors.Wrapf(err, "cannot eval %s", FuncNthValue)
 	}
 	firstPartitionColumnStr := firstPartitionColumn.String()
 	// output by this volumn
 	firstValueColumn, err := inputs[3].Value(ctx)
 	if firstValueColumn == nil || err != nil {
-		return nil, errors.Wrapf(err, "cannot eval %s", FuncNtile)
+		return nil, errors.Wrapf(err, "cannot eval %s", FuncNthValue)
 	}
 	firstValueColumnDec, _ := firstValueColumn.Float64()
 	nthIndex := int64(0)
@@ -77,17 +77,17 @@ func (a nthvalueFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.
 	for {
 		orderColumn, err := inputs[startOffset].Value(ctx)
 		if orderColumn == nil || err != nil {
-			return nil, errors.Wrapf(err, "cannot eval %s", FuncNtile)
+			return nil, errors.Wrapf(err, "cannot eval %s", FuncNthValue)
 		}
 		orderColumnStr := orderColumn.String()
 		partitionColumn, err := inputs[startOffset+1].Value(ctx)
 		if partitionColumn == nil || err != nil {
-			return nil, errors.Wrapf(err, "cannot eval %s", FuncFirstValue)
+			return nil, errors.Wrapf(err, "cannot eval %s", FuncNthValue)
 		}
 		partitionColumnStr := partitionColumn.String()
 		valueColumn, err := inputs[startOffset+2].Value(ctx)
 		if valueColumn == nil || err != nil {
-			return nil, errors.Wrapf(err, "cannot eval %s", FuncFirstValue)
+			return nil, errors.Wrapf(err, "cannot eval %s", FuncNthValue)
 		}
 		valueColumnDec, _ := valueColumn.Float64()
 

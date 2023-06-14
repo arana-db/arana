@@ -41,6 +41,7 @@ func TestFuncLead(t *testing.T) {
 		{
 			[][]proto.Value{
 				//order column, partition column, value column
+				{proto.NewValueInt64(1)},
 				{proto.NewValueString("12:00:00"), proto.NewValueString(""), proto.NewValueFloat64(100)},
 				{proto.NewValueString("12:00:00"), proto.NewValueString(""), proto.NewValueFloat64(100)},
 				{proto.NewValueString("13:00:00"), proto.NewValueString(""), proto.NewValueFloat64(125)},
@@ -55,6 +56,7 @@ func TestFuncLead(t *testing.T) {
 		{
 			[][]proto.Value{
 				//order column, partition column, value column
+				{proto.NewValueInt64(1)},
 				{proto.NewValueString("13:00:00"), proto.NewValueString(""), proto.NewValueFloat64(125)},
 				{proto.NewValueString("12:00:00"), proto.NewValueString(""), proto.NewValueFloat64(100)},
 				{proto.NewValueString("13:00:00"), proto.NewValueString(""), proto.NewValueFloat64(125)},
@@ -69,6 +71,7 @@ func TestFuncLead(t *testing.T) {
 		{
 			[][]proto.Value{
 				//order column, partition column, value column
+				{proto.NewValueInt64(1)},
 				{proto.NewValueString("14:00:00"), proto.NewValueString(""), proto.NewValueFloat64(132)},
 				{proto.NewValueString("12:00:00"), proto.NewValueString(""), proto.NewValueFloat64(100)},
 				{proto.NewValueString("13:00:00"), proto.NewValueString(""), proto.NewValueFloat64(125)},
@@ -83,6 +86,7 @@ func TestFuncLead(t *testing.T) {
 		{
 			[][]proto.Value{
 				//order column, partition column, value column
+				{proto.NewValueInt64(1)},
 				{proto.NewValueString("15:00:00"), proto.NewValueString(""), proto.NewValueFloat64(145)},
 				{proto.NewValueString("12:00:00"), proto.NewValueString(""), proto.NewValueFloat64(100)},
 				{proto.NewValueString("13:00:00"), proto.NewValueString(""), proto.NewValueFloat64(125)},
@@ -97,6 +101,7 @@ func TestFuncLead(t *testing.T) {
 		{
 			[][]proto.Value{
 				//order column, partition column, value column
+				{proto.NewValueInt64(1)},
 				{proto.NewValueString("16:00:00"), proto.NewValueString(""), proto.NewValueFloat64(140)},
 				{proto.NewValueString("12:00:00"), proto.NewValueString(""), proto.NewValueFloat64(100)},
 				{proto.NewValueString("13:00:00"), proto.NewValueString(""), proto.NewValueFloat64(125)},
@@ -111,6 +116,7 @@ func TestFuncLead(t *testing.T) {
 		{
 			[][]proto.Value{
 				//order column, partition column, value column
+				{proto.NewValueInt64(1)},
 				{proto.NewValueString("17:00:00"), proto.NewValueString(""), proto.NewValueFloat64(150)},
 				{proto.NewValueString("12:00:00"), proto.NewValueString(""), proto.NewValueFloat64(100)},
 				{proto.NewValueString("13:00:00"), proto.NewValueString(""), proto.NewValueFloat64(125)},
@@ -125,6 +131,7 @@ func TestFuncLead(t *testing.T) {
 		{
 			[][]proto.Value{
 				//order column, partition column, value column
+				{proto.NewValueInt64(1)},
 				{proto.NewValueString("18:00:00"), proto.NewValueString(""), proto.NewValueFloat64(200)},
 				{proto.NewValueString("12:00:00"), proto.NewValueString(""), proto.NewValueFloat64(100)},
 				{proto.NewValueString("13:00:00"), proto.NewValueString(""), proto.NewValueFloat64(125)},

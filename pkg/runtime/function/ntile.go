@@ -52,6 +52,9 @@ func (a ntileFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Val
 		return nil, errors.Wrapf(err, "cannot eval %s", FuncNtile)
 	}
 	bucketNumInt, _ := bucketNum.Int64()
+	if bucketNumInt <= 0 {
+		return proto.NewValueString(""), nil
+	}
 	// order by this column
 	firstOrderColumn, err := inputs[1].Value(ctx)
 	if firstOrderColumn == nil || err != nil {

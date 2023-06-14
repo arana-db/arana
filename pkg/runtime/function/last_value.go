@@ -104,5 +104,5 @@ func (a lastvalueFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto
 }
 
 func (a lastvalueFunc) NumInput() int {
-	return 1
+	return 0
 }

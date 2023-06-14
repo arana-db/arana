@@ -42,31 +42,37 @@ func init() {
 type leadFunc struct{}
 
 func (a leadFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Value, error) {
-	if len(inputs) < 6 {
+	if len(inputs) < 7 {
 		return proto.NewValueString(""), nil
 	}
 
+	// lag number
+	leadNum, err := inputs[0].Value(ctx)
+	if leadNum == nil || err != nil {
+		return nil, errors.Wrapf(err, "cannot eval %s", FuncLead)
+	}
+	leadNumInt, _ := leadNum.Int64()
 	// order by this column
-	firstOrderColumn, err := inputs[0].Value(ctx)
+	firstOrderColumn, err := inputs[1].Value(ctx)
 	if firstOrderColumn == nil || err != nil {
 		return nil, errors.Wrapf(err, "cannot eval %s", FuncLead)
 	}
 	firstOrderColumnStr := firstOrderColumn.String()
 	// partition by this column
-	firstPartitionColumn, err := inputs[1].Value(ctx)
+	firstPartitionColumn, err := inputs[2].Value(ctx)
 	if firstPartitionColumn == nil || err != nil {
 		return nil, errors.Wrapf(err, "cannot eval %s", FuncLead)
 	}
 	firstPartitionColumnStr := firstPartitionColumn.String()
 	// output by this volumn
-	firstValueColumn, err := inputs[2].Value(ctx)
+	firstValueColumn, err := inputs[3].Value(ctx)
 	if firstValueColumn == nil || err != nil {
 		return nil, errors.Wrapf(err, "cannot eval %s", FuncLead)
 	}
 	firstValueColumnDec, _ := firstValueColumn.Float64()
 	lagValue := 0.0
-	lagIndex := -1
-	startOffset := 3
+	lagIndex := int64(-1)
+	startOffset := int64(4)
 
 	for {
 		orderColumn, err := inputs[startOffset].Value(ctx)
@@ -87,8 +93,8 @@ func (a leadFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Valu
 		if strings.Compare(firstOrderColumnStr, orderColumnStr) == 0 &&
 			strings.Compare(firstPartitionColumnStr, partitionColumnStr) == 0 &&
 			firstValueColumnDec == valueColumnDec {
-			if startOffset+6 <= len(inputs) {
-				lagValueColumn, err := inputs[startOffset+5].Value(ctx)
+			if startOffset+2+3*leadNumInt < int64(len(inputs)) {
+				lagValueColumn, err := inputs[startOffset+2+3*leadNumInt].Value(ctx)
 				if lagValueColumn == nil || err != nil {
 					return nil, errors.Wrapf(err, "cannot eval %s", FuncLead)
 				}
@@ -100,7 +106,7 @@ func (a leadFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (proto.Valu
 		}
 
 		startOffset += 3
-		if startOffset >= len(inputs) {
+		if startOffset >= int64(len(inputs)) {
 			break
 		}
 	}

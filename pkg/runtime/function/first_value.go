@@ -91,5 +91,5 @@ func (a firstvalueFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (prot
 }
 
 func (a firstvalueFunc) NumInput() int {
-	return 1
+	return 0
 }
