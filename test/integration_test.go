@@ -644,6 +644,39 @@ func (s *IntegrationSuite) TestShowShardingTable() {
 	assert.NoErrorf(t, err, "show sharding table from employees error: %v", err)
 }
 
+func (s *IntegrationSuite) TestShowDatabaseRules() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	tests := []struct {
+		name      string
+		sql       string
+		expectNum int
+	}{
+		{
+			name:      "show database rules from employees",
+			sql:       "show database rules from employees",
+			expectNum: 0,
+		},
+		{
+			name:      "show database rules from student",
+			sql:       "show database rules from student",
+			expectNum: 1,
+		},
+	}
+
+	for _, v := range tests {
+		rows, err := db.Query(v.sql)
+		defer rows.Close()
+		assert.NoErrorf(t, err, "show database rules error: %v", err)
+		results, err := utils.PrintTable(rows)
+		assert.NoErrorf(t, err, "show database rules error: %v", err)
+		assert.Equal(t, len(results), v.expectNum)
+	}
+}
+
 func (s *IntegrationSuite) TestDropTrigger() {
 	var (
 		db = s.DB()
