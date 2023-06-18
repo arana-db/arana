@@ -21,6 +21,7 @@ name: CodeQL
 
 on:
   pull_request:
+    # The branches below must be a subset of the branches above
     branches: "*"
 
 permissions:
@@ -29,9 +30,9 @@ permissions:
 jobs:
   analyse:
     permissions:
-      actions: read
-      contents: read
-      security-events: write
+      actions: read # for github/codeql-action/init to get workflow details
+      contents: read  # for actions/checkout to fetch code
+      security-events: write  # for github/codeql-action/autobuild to send a status report
     name: Analyse
     runs-on: ubuntu-latest
 
@@ -39,16 +40,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
+          # We must fetch at least the immediate parents so that if this is
+          # a pull request then we can checkout the head.
           fetch-depth: 2
 
+      # If this run was triggered by a pull request event, then checkout
+      # the head of the pull request instead of the merge commit.
       - run: git checkout HEAD^2
         if: ${{ github.event_name == 'pull_request' }}
 
+      # Initializes the CodeQL tools for scanning.
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v2
 
+        # Autobuild attempts to build any compiled languages  (C/C++, C#, or Java).
+        # If this step fails, then you should remove it and run the build manually (see below)
       - name: Autobuild
         uses: github/codeql-action/autobuild@v2
 
+      # Analysis
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v2
