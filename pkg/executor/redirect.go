@@ -312,7 +312,7 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context, h func(re
 		return h(nil, 0, errEmptyQuery)
 	}
 
-	log.Debugf("ComQuery: '%s'", query)
+	log.DebugfWithLogType(log.LogicalSqlLog, "ComQuery: '%s'", query)
 
 	charset, collation := getCharsetCollation(ctx.C.CharacterSet())
 

@@ -393,7 +393,7 @@ func (pi *defaultRuntime) Begin(ctx context.Context, hooks ...TxHook) (proto.Tx,
 	defer span.End()
 
 	tx := newCompositeTx(ctx, pi, hooks...)
-	log.Debugf("begin transaction: %s", tx)
+	log.DebugfWithLogType(log.TxLog, "begin transaction: %s", tx)
 	return tx, nil
 }
 
