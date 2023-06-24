@@ -22,6 +22,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
+	"time"
 )
 
 import (
@@ -40,6 +42,8 @@ var (
 		"start_time":  {},
 		"update_time": {},
 	}
+	_initTxLogOnce   sync.Once
+	_txLogCleanTimer *time.Timer
 )
 
 const (
@@ -71,14 +75,18 @@ type TxLogManager struct {
 }
 
 // init executes create __arana_tx_log table action
-func (gm *TxLogManager) init() error {
-	ctx := context.Background()
-	res, _, err := gm.sysDB.Call(ctx, _initTxLog)
-	if err != nil {
-		return err
-	}
-	_, _ = res.RowsAffected()
-	return nil
+func (gm *TxLogManager) Init(delay time.Duration) error {
+	var err error
+	_initTxLogOnce.Do(func() {
+		ctx := context.Background()
+		res, _, err := gm.sysDB.Call(ctx, _initTxLog)
+		if err != nil {
+			return
+		}
+		_, _ = res.RowsAffected()
+		_txLogCleanTimer = time.AfterFunc(delay, gm.runCleanTxLogTask)
+	})
+	return err
 }
 
 // AddOrUpdateTxLog Add or update transaction log
@@ -179,5 +187,29 @@ func (gm *TxLogManager) ScanTxLog(pageNo, pageSize uint64, conditions []Conditio
 // partition table according to the day level or hour level.
 // the execution of this task requires distributed task preemption based on the metadata DB
 func (gm *TxLogManager) runCleanTxLogTask() {
-
+	var (
+		pageNo     uint64
+		pageSize   uint64 = 50
+		conditions        = []Condition{
+			{
+				FiledName: "status",
+				Operation: Equal,
+				Value:     runtime.TrxFinish,
+			},
+		}
+	)
+	var txLogs []TrxLog
+	for {
+		total, logs, err := gm.ScanTxLog(pageNo, pageSize, conditions)
+		if err != nil {
+			break
+		}
+		txLogs = append(txLogs, logs...)
+		if len(txLogs) >= int(total) {
+			break
+		}
+	}
+	for _, l := range txLogs {
+		gm.DeleteTxLog(l)
+	}
 }

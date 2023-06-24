@@ -419,6 +419,7 @@ func NewEmptyTenant() *Tenant {
 		Spec: Spec{
 			Metadata: map[string]interface{}{},
 		},
+		SysDB:              nil,
 		Users:              make([]*User, 0, 1),
 		DataSourceClusters: make([]*DataSourceCluster, 0, 1),
 		ShardingRule:       new(ShardingRule),
