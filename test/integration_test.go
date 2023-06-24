@@ -1277,3 +1277,27 @@ func (s *IntegrationSuite) TestMysqlOptimizerHints() {
 		})
 	}
 }
+
+func (s *IntegrationSuite) TestExplain() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql string
+	}
+
+	for _, it := range [...]tt{
+		{"explain select * from student where uid = 1;"},
+		{"explain delete from student where uid = 1"},
+		{"explain INSERT INTO student(uid,name) values(1,'name_1'),(2,'name_2'), (9,'name_3')"},
+		{"explain update student set score=100.0 where uid = 1"},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			rows, err := db.Query(it.sql)
+			assert.NoError(t, err)
+			defer rows.Close()
+		})
+	}
+}
