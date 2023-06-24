@@ -644,6 +644,39 @@ func (s *IntegrationSuite) TestShowShardingTable() {
 	assert.NoErrorf(t, err, "show sharding table from employees error: %v", err)
 }
 
+func (s *IntegrationSuite) TestShowDatabaseRules() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	tests := []struct {
+		name      string
+		sql       string
+		expectNum int
+	}{
+		{
+			name:      "show database rules from employees",
+			sql:       "show database rules from employees",
+			expectNum: 0,
+		},
+		{
+			name:      "show database rules from student",
+			sql:       "show database rules from student",
+			expectNum: 1,
+		},
+	}
+
+	for _, v := range tests {
+		rows, err := db.Query(v.sql)
+		defer rows.Close()
+		assert.NoErrorf(t, err, "show database rules error: %v", err)
+		results, err := utils.PrintTable(rows)
+		assert.NoErrorf(t, err, "show database rules error: %v", err)
+		assert.Equal(t, len(results), v.expectNum)
+	}
+}
+
 func (s *IntegrationSuite) TestDropTrigger() {
 	var (
 		db = s.DB()
@@ -1141,6 +1174,30 @@ func (s *IntegrationSuite) TestRenameTable() {
 	}
 }
 
+func (s *IntegrationSuite) TestRepairTable() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	type tt struct {
+		sql string
+	}
+
+	for _, it := range [...]tt{
+		{"REPAIR TABLE student"},
+		{"REPAIR TABLE student QUICK"},
+		{"REPAIR TABLE student, departments"},
+		{"REPAIR TABLE student, departments QUICK"},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			rows, err := db.Query(it.sql)
+			assert.NoError(t, err)
+			defer rows.Close()
+		})
+	}
+}
+
 func (s *IntegrationSuite) TestCompat80() {
 	var (
 		db = s.DB()
@@ -1247,20 +1304,36 @@ func (s *IntegrationSuite) TestMysqlOptimizerHints() {
 
 	for _, it := range [...]tt{
 		{
-			"SELECT /*+ MRR(student) */ * from student where uid=1",
-			"SELECT * from student where uid=1",
+			"SELECT /*+ MRR(student) */ * FROM student WHERE uid=1",
+			"SELECT * FROM student WHERE uid=1",
 			true,
 		},
-		//{
-		//	"EXPLAIN SELECT * from student where uid=1",
-		//	"EXPLAIN SELECT /*+ MRR(student) */ * from student where uid=1",
-		//	true,
-		//},
 		{
 			"INSERT /*+ SET_VAR(foreign_key_checks=OFF) */ INTO student(uid,name) values(2,'fake_name')",
 			"INSERT INTO student(uid,name) values(1,'fake_name')",
 			true,
 		},
+		{
+			"DELETE /*+ RESOURCE_GROUP(USR_default) */ FROM student WHERE uid = 1",
+			"DELETE FROM student WHERE uid = 1",
+			true,
+		},
+		{
+			"UPDATE /*+ BNL(student) */ student SET score= 100.0 WHERE uid = 2",
+			"UPDATE student SET score= 100.0 WHERE uid = 2",
+			true,
+		},
+		// TODO: support EXPLAIN, REPLACE statement
+		//{
+		//	"EXPLAIN SELECT /*+ MRR(student) */ * from student where uid=1",
+		//	"EXPLAIN SELECT * from student where uid=1",
+		//	true,
+		//},
+		//{
+		//	"REPLACE /*+ RESOURCE_GROUP(USR_default) */ INTO student(uid,name) values(2,'fake_name')",
+		//	"REPLACE INTO student(uid,name) values(1,'fake_name')",
+		//	true,
+		//},
 	} {
 		t.Run(it.sql, func(t *testing.T) {
 			// select with mysql hints

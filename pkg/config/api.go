@@ -69,6 +69,7 @@ const (
 
 const (
 	ConfigItemSpec         = "spec"
+	ConfigItemSysDB        = "sys_db"
 	ConfigItemUsers        = "users"
 	ConfigItemClusters     = "clusters"
 	ConfigItemShardingRule = "sharding_rule"

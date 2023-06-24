@@ -287,6 +287,17 @@ func (ru *Rule) VTables() map[string]*VTable {
 	return ru.vtabs
 }
 
+// DBRule returns all the database rule
+func (ru *Rule) DBRule() map[string][]*RawShardRule {
+	ru.mu.RLock()
+	defer ru.mu.RUnlock()
+	allDBRule := make(map[string][]*RawShardRule, 10)
+	for _, tb := range ru.vtabs {
+		allDBRule[tb.name] = tb.rawShards.DbRules
+	}
+	return allDBRule
+}
+
 // MustVTable returns the VTable with given table name, panic if not exist.
 func (ru *Rule) MustVTable(name string) *VTable {
 	v, ok := ru.VTable(name)

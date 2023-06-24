@@ -20,6 +20,7 @@ package snowflake
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -236,6 +237,15 @@ func (seq *snowflakeSequence) Stop() error {
 // CurrentVal get this sequence current val
 func (seq *snowflakeSequence) CurrentVal() int64 {
 	return atomic.LoadInt64(&seq.currentVal)
+}
+
+func (seq *snowflakeSequence) GetSequenceConfig() proto.SequenceConfig {
+	return proto.SequenceConfig{
+		Option: map[string]string{
+			"work_id": strconv.FormatInt(seq.workId, 10),
+			"node_id": strconv.Quote(_nodeId),
+		},
+	}
 }
 
 func (seq *snowflakeSequence) findWorkID(ctx context.Context, tx proto.Tx, seqName string) (int64, error) {

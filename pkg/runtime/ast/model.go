@@ -648,6 +648,13 @@ type HintItem struct {
 2. Other domain hints can be supported by flag
 */
 func (h *HintNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	// for extension
+	//if flag.Has("SpecialHintFlag"){
+	//	restore other domain hints
+	//	return nil
+	//}
+
+	// restore mysql hints by default
 	sb.WriteString("/*+ ")
 	for _, hintItem := range h.Items {
 		switch hintItem.TP {
