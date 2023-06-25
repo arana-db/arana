@@ -312,7 +312,7 @@ func (tx *compositeTx) Commit(ctx context.Context) (proto.Result, uint16, error)
 	if err := tx.doCommit(ctx); err != nil {
 		return nil, 0, err
 	}
-	log.Debugf("commit %s success: total=%d", tx, len(tx.txs))
+	log.DebugfWithLogType(log.TxLog, "commit %s success: total=%d", tx, len(tx.txs))
 	return resultx.New(), 0, nil
 }
 
@@ -324,7 +324,7 @@ func (tx *compositeTx) doPrepareCommit(ctx context.Context) error {
 		k, v := k, v
 		g.Go(func() error {
 			if err := v.Prepare(ctx); err != nil {
-				log.Errorf("prepare commit %s for group %s failed: %v", tx, k, err)
+				log.ErrorfWithLogType(log.TxLog, "prepare commit %s for group %s failed: %v", tx, k, err)
 				return err
 			}
 			return nil
@@ -347,7 +347,7 @@ func (tx *compositeTx) doCommit(ctx context.Context) error {
 		k, v := k, v
 		g.Go(func() error {
 			if _, _, err := v.Commit(ctx); err != nil {
-				log.Errorf("commit %s for group %s failed: %v", tx, k, err)
+				log.ErrorfWithLogType(log.TxLog, "commit %s for group %s failed: %v", tx, k, err)
 				return err
 			}
 			return nil
@@ -381,7 +381,7 @@ func (tx *compositeTx) Rollback(ctx context.Context) (proto.Result, uint16, erro
 		return nil, 0, err
 	}
 
-	log.Debugf("rollback %s success: total=%d", tx, len(tx.txs))
+	log.DebugfWithLogType(log.TxLog, "rollback %s success: total=%d", tx, len(tx.txs))
 	return resultx.New(), 0, nil
 }
 
@@ -393,7 +393,7 @@ func (tx *compositeTx) doPrepareRollback(ctx context.Context) error {
 		k, v := k, v
 		g.Go(func() error {
 			if err := v.Prepare(ctx); err != nil {
-				log.Errorf("prepare rollback %s for group %s failed: %v", tx, k, err)
+				log.ErrorfWithLogType(log.TxLog, "prepare rollback %s for group %s failed: %v", tx, k, err)
 				return err
 			}
 			return nil
@@ -416,7 +416,7 @@ func (tx *compositeTx) doRollback(ctx context.Context) error {
 		k, v := k, v
 		g.Go(func() error {
 			if _, _, err := v.Rollback(ctx); err != nil {
-				log.Errorf("rollback %s for group %s failed: %v", tx, k, err)
+				log.ErrorfWithLogType(log.TxLog, "rollback %s for group %s failed: %v", tx, k, err)
 				return err
 			}
 			return nil
@@ -445,7 +445,7 @@ func (tx *compositeTx) setTxState(ctx context.Context, state TxState) {
 	tx.txState = state
 	for i := range tx.hooks {
 		if err := tx.hooks[i].OnTxStateChange(ctx, state, tx); err != nil {
-			log.Errorf("[TX] %s trigger trx state change fail : %+v", tx, err)
+			log.ErrorfWithLogType(log.TxLog, "[TX] %s trigger trx state change fail : %+v", tx, err)
 		}
 	}
 }

@@ -32,8 +32,12 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// LogLevel represents the level of logging.
-type LogLevel int8
+type (
+	// LogLevel represents the level of logging.
+	LogLevel int8
+	// LogType represents the type of logging
+	LogType string
+)
 
 const (
 	// DebugLevel logs are typically voluminous, and are usually disabled in
@@ -51,17 +55,31 @@ const (
 	PanicLevel = LogLevel(zapcore.PanicLevel)
 	// FatalLevel logs a message, then calls os.Exit(1).
 	FatalLevel = LogLevel(zapcore.FatalLevel)
+
+	_minLevel = DebugLevel
+	_maxLevel = FatalLevel
+
+	MainLog        = LogType("main")
+	LogicalSqlLog  = LogType("logical sql")
+	PhysicalSqlLog = LogType("physical sql")
+	TxLog          = LogType("tx")
+
+	defaultLoggerLevel = InfoLevel
 )
 
 type LoggingConfig struct {
-	LogName        string `yaml:"log_name" json:"log_name"`
-	LogPath        string `yaml:"log_path" json:"log_path"`
-	LogLevel       int    `yaml:"log_level" json:"log_level"`
-	LogMaxSize     int    `yaml:"log_max_size" json:"log_max_size"`
-	LogMaxBackups  int    `yaml:"log_max_backups" json:"log_max_backups"`
-	LogMaxAge      int    `yaml:"log_max_age" json:"log_max_age"`
-	LogCompress    bool   `yaml:"log_compress" json:"log_compress"`
-	DefaultLogName string ` yaml:"default_log_name" json:"default_log_name"`
+	LogName            string `yaml:"log_name" json:"log_name"`
+	LogPath            string `yaml:"log_path" json:"log_path"`
+	LogLevel           int    `yaml:"log_level" json:"log_level"`
+	LogMaxSize         int    `yaml:"log_max_size" json:"log_max_size"`
+	LogMaxBackups      int    `yaml:"log_max_backups" json:"log_max_backups"`
+	LogMaxAge          int    `yaml:"log_max_age" json:"log_max_age"`
+	LogCompress        bool   `yaml:"log_compress" json:"log_compress"`
+	DefaultLogName     string `yaml:"default_log_name" json:"default_log_name"`
+	TxLogName          string `yaml:"tx_log_name" json:"tx_log_name"`
+	SqlLogEnabled      bool   `yaml:"sql_log_enabled" json:"sql_log_enabled"`
+	SqlLogName         string `yaml:"sql_log_name" json:"sql_log_name"`
+	PhysicalSqlLogName string `yaml:"physical_sql_log_name" json:"physical_sql_log_name"`
 }
 
 func (l *LogLevel) UnmarshalText(text []byte) error {
@@ -110,7 +128,12 @@ type Logger interface {
 }
 
 var (
-	log       Logger
+	mainLog        Logger
+	logicalSqlLog  Logger
+	physicalSqlLog Logger
+	txLog          Logger
+
+	loggerCfg *LoggingConfig
 	zapLogger *zap.Logger
 
 	zapLoggerConfig        = zap.NewDevelopmentConfig()
@@ -131,34 +154,67 @@ var (
 func init() {
 	zapLoggerConfig.EncoderConfig = zapLoggerEncoderConfig
 	zapLogger, _ = zapLoggerConfig.Build(zap.AddCallerSkip(1))
-	log = zapLogger.Sugar()
+	mainLog = zapLogger.Sugar()
 }
 
-func Init(logPath string, level LogLevel, cfg *LoggingConfig) {
-	log = NewLogger(logPath, level, cfg)
+func Init(cfg *LoggingConfig) {
+	loggerCfg = cfg
+	mainLog = NewLogger(MainLog, cfg)
+	logicalSqlLog = NewLogger(LogicalSqlLog, cfg)
+	physicalSqlLog = NewLogger(PhysicalSqlLog, cfg)
+	txLog = NewLogger(TxLog, cfg)
 }
 
-func NewLogger(logPath string, level LogLevel, cfg *LoggingConfig) *zap.SugaredLogger {
-	syncer := zapcore.NewMultiWriteSyncer(zapcore.AddSync(buildLumberJack(logPath, cfg)), zapcore.AddSync(os.Stdout))
+func NewLogger(logType LogType, cfg *LoggingConfig) *zap.SugaredLogger {
+	syncer := zapcore.NewMultiWriteSyncer(zapcore.AddSync(buildLumberJack(cfg.LogPath, logType, cfg)), zapcore.AddSync(os.Stdout))
 
 	encoderConfig := zap.NewProductionEncoderConfig()
 	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
 
 	encoder := zapcore.NewConsoleEncoder(encoderConfig)
-	core := zapcore.NewCore(encoder, syncer, zap.NewAtomicLevelAt(zapcore.Level(getValueInt(cfg.LogLevel, int(level)))))
-	zapLogger = zap.New(core, zap.AddCaller(), zap.AddCallerSkip(1))
-	return zapLogger.Sugar()
+	level := zap.DebugLevel
+	if logType == MainLog {
+		level = getLoggerLevel(cfg.LogLevel)
+	}
+	core := zapcore.NewCore(encoder, syncer, zap.NewAtomicLevelAt(level))
+	return zap.New(core, zap.AddCaller(), zap.AddCallerSkip(1)).Sugar()
 }
 
 //nolint:staticcheck
-//lint:ignore SA4009 left logPath for future use
-func buildLumberJack(logPath string, cfg *LoggingConfig) *lumberjack.Logger {
-	if logPath = cfg.LogPath; logPath == "" {
+func NewSlowLogger(logPath string, cfg *LoggingConfig) *zap.SugaredLogger {
+	syncer := zapcore.NewMultiWriteSyncer(zapcore.AddSync(buildLumberJack(logPath, MainLog, cfg)), zapcore.AddSync(os.Stdout))
+
+	encoderConfig := zap.NewProductionEncoderConfig()
+	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
+
+	encoder := zapcore.NewConsoleEncoder(encoderConfig)
+	core := zapcore.NewCore(encoder, syncer, zap.NewAtomicLevelAt(zap.WarnLevel))
+	return zap.New(core, zap.AddCaller(), zap.AddCallerSkip(1)).Sugar()
+}
+
+//nolint:staticcheck
+func buildLumberJack(logPath string, logType LogType, cfg *LoggingConfig) *lumberjack.Logger {
+	var logName string
+
+	if logPath == "" {
 		logPath = currentPath()
 	}
+
+	switch logType {
+	case MainLog:
+		logName = cfg.LogName
+	case LogicalSqlLog:
+		logName = cfg.SqlLogName
+	case PhysicalSqlLog:
+		logName = cfg.PhysicalSqlLogName
+	case TxLog:
+		logName = cfg.TxLogName
+	}
+
 	return &lumberjack.Logger{
-		Filename:   logPath + string(os.PathSeparator) + cfg.LogPath,
+		Filename:   logPath + string(os.PathSeparator) + logName,
 		MaxSize:    cfg.LogMaxSize,
 		MaxBackups: cfg.LogMaxBackups,
 		MaxAge:     cfg.LogMaxAge,
@@ -166,87 +222,178 @@ func buildLumberJack(logPath string, cfg *LoggingConfig) *lumberjack.Logger {
 	}
 }
 
-func getValueInt(key int, defaultVal int) int {
-	if key < 0 {
-		return defaultVal
+func getLoggerLevel(level int) zapcore.Level {
+	logLevel := LogLevel(level)
+	if logLevel < _minLevel || logLevel > _maxLevel {
+		return zapcore.Level(defaultLoggerLevel)
 	}
-	return key
+	return zapcore.Level(logLevel)
 }
 
 func currentPath() string {
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err != nil {
-		log.Error("can not get current path")
+		mainLog.Error("can not get current path")
 	}
 	return dir
 }
 
 // SetLogger customize yourself logger.
 func SetLogger(logger Logger) {
-	log = logger
+	mainLog = logger
 }
 
 // GetLogger get logger
 func GetLogger() Logger {
-	return log
+	return mainLog
 }
 
 // Debug ...
 func Debug(v ...interface{}) {
-	log.Debug(v...)
+	mainLog.Debug(v...)
 }
 
 // Debugf ...
 func Debugf(format string, v ...interface{}) {
-	log.Debugf(format, v...)
+	mainLog.Debugf(format, v...)
+}
+
+// DebugfWithLogType ...
+func DebugfWithLogType(logType LogType, format string, v ...interface{}) {
+	mainLog.Debugf(format, v...)
+	switch logType {
+	case LogicalSqlLog:
+		logicalSqlLog.Debugf(format, v)
+	case PhysicalSqlLog:
+		physicalSqlLog.Debugf(format, v)
+	case TxLog:
+		txLog.Debugf(format, v)
+	case MainLog:
+		break
+	}
 }
 
 // Info ...
 func Info(v ...interface{}) {
-	log.Info(v...)
+	mainLog.Info(v...)
 }
 
 // Infof ...
 func Infof(format string, v ...interface{}) {
-	log.Infof(format, v...)
+	mainLog.Infof(format, v...)
+}
+
+// InfofWithLogType ...
+func InfofWithLogType(logType LogType, format string, v ...interface{}) {
+	mainLog.Infof(format, v...)
+	switch logType {
+	case LogicalSqlLog:
+		logicalSqlLog.Infof(format, v)
+	case PhysicalSqlLog:
+		physicalSqlLog.Infof(format, v)
+	case TxLog:
+		txLog.Infof(format, v)
+	case MainLog:
+		break
+	}
 }
 
 // Warn ...
 func Warn(v ...interface{}) {
-	log.Warn(v...)
+	mainLog.Warn(v...)
 }
 
 // Warnf ...
 func Warnf(format string, v ...interface{}) {
-	log.Warnf(format, v...)
+	mainLog.Warnf(format, v...)
+}
+
+// WarnfWithLogType ...
+func WarnfWithLogType(logType LogType, format string, v ...interface{}) {
+	mainLog.Warnf(format, v...)
+	switch logType {
+	case LogicalSqlLog:
+		logicalSqlLog.Warnf(format, v)
+	case PhysicalSqlLog:
+		physicalSqlLog.Warnf(format, v)
+	case TxLog:
+		txLog.Warnf(format, v)
+	case MainLog:
+		break
+	}
 }
 
 // Error ...
 func Error(v ...interface{}) {
-	log.Error(v...)
+	mainLog.Error(v...)
 }
 
 // Errorf ...
 func Errorf(format string, v ...interface{}) {
-	log.Errorf(format, v...)
+	mainLog.Errorf(format, v...)
+}
+
+// ErrorfWithLogType ...
+func ErrorfWithLogType(logType LogType, format string, v ...interface{}) {
+	mainLog.Errorf(format, v...)
+	switch logType {
+	case LogicalSqlLog:
+		logicalSqlLog.Errorf(format, v)
+	case PhysicalSqlLog:
+		physicalSqlLog.Errorf(format, v)
+	case TxLog:
+		txLog.Errorf(format, v)
+	case MainLog:
+		break
+	}
 }
 
 // Panic ...
 func Panic(v ...interface{}) {
-	log.Panic(v...)
+	mainLog.Panic(v...)
 }
 
 // Panicf ...
 func Panicf(format string, v ...interface{}) {
-	log.Panicf(format, v...)
+	mainLog.Panicf(format, v...)
+}
+
+// ErrorfWithLogType ...
+func PanicfWithLogType(logType LogType, format string, v ...interface{}) {
+	mainLog.Panicf(format, v...)
+	switch logType {
+	case LogicalSqlLog:
+		logicalSqlLog.Panicf(format, v)
+	case PhysicalSqlLog:
+		physicalSqlLog.Panicf(format, v)
+	case TxLog:
+		txLog.Panicf(format, v)
+	case MainLog:
+		break
+	}
 }
 
 // Fatal ...
 func Fatal(v ...interface{}) {
-	log.Fatal(v...)
+	mainLog.Fatal(v...)
 }
 
 // Fatalf ...
 func Fatalf(format string, v ...interface{}) {
-	log.Fatalf(format, v...)
+	mainLog.Fatalf(format, v...)
+}
+
+// FatalfWithLogType ...
+func FatalfWithLogType(logType LogType, format string, v ...interface{}) {
+	mainLog.Fatalf(format, v...)
+	switch logType {
+	case LogicalSqlLog:
+		logicalSqlLog.Fatalf(format, v)
+	case PhysicalSqlLog:
+		physicalSqlLog.Fatalf(format, v)
+	case TxLog:
+		txLog.Fatalf(format, v)
+	case MainLog:
+		break
+	}
 }
