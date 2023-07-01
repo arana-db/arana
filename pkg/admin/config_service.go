@@ -58,7 +58,10 @@ func (cs *myConfigService) RemoveUser(ctx context.Context, tenant string, userna
 	return cs.tenantOp.RemoveTenantUser(tenant, username)
 }
 
-func (cs *myConfigService) UpsertUser(ctx context.Context, tenant string, user *config.User) error {
+func (cs *myConfigService) UpsertUser(ctx context.Context, tenant string, user *config.User, username string) error {
+	if username != "" && username != user.Username {
+		return cs.tenantOp.UpdateTenantUser(tenant, user.Username, user.Password, username)
+	}
 	return cs.tenantOp.CreateTenantUser(tenant, user.Username, user.Password)
 }
 
@@ -208,8 +211,9 @@ func (cs *myConfigService) ListDBGroups(ctx context.Context, tenant, cluster str
 	ret := make([]*GroupDTO, 0, len(d.Groups))
 	for i := range d.Groups {
 		ret = append(ret, &GroupDTO{
-			Name:  d.Groups[i].Name,
-			Nodes: d.Groups[i].Nodes,
+			ClusterName: cluster,
+			Name:        d.Groups[i].Name,
+			Nodes:       d.Groups[i].Nodes,
 		})
 	}
 
@@ -245,7 +249,6 @@ func (cs *myConfigService) ListTables(ctx context.Context, tenant, cluster strin
 		ret = append(ret, &TableDTO{
 			Name:           tbl,
 			Sequence:       next.Sequence,
-			AllowFullScan:  next.AllowFullScan,
 			DbRules:        next.DbRules,
 			TblRules:       next.TblRules,
 			Topology:       next.Topology,
@@ -262,6 +265,10 @@ func (cs *myConfigService) ListTables(ctx context.Context, tenant, cluster strin
 }
 
 func (cs *myConfigService) UpsertTenant(ctx context.Context, tenant string, body *TenantDTO) error {
+	if tenant != body.Name {
+		cs.tenantOp.UpdateTenant(tenant, body.Name)
+		return nil
+	}
 	if err := cs.tenantOp.CreateTenant(tenant); err != nil {
 		return perrors.Wrapf(err, "failed to create tenant '%s'", tenant)
 	}
@@ -298,10 +305,12 @@ func (cs *myConfigService) UpsertCluster(ctx context.Context, tenant, cluster st
 		exist       = false
 	)
 
-	_ = reflect.Copy(reflect.ValueOf(newClusters), reflect.ValueOf(cfg.DataSourceClusters))
+	newClusters = append(newClusters, cfg.DataSourceClusters...)
+
 	for _, newCluster := range newClusters {
 		if newCluster.Name == cluster {
 			exist = true
+			newCluster.Name = body.Name
 			newCluster.Type = body.Type
 			newCluster.Parameters = body.Parameters
 			newCluster.SqlMaxLimit = body.SqlMaxLimit
@@ -366,6 +375,9 @@ func (cs *myConfigService) UpsertNode(ctx context.Context, tenant, node string, 
 	}
 
 	if old, ok := c.Nodes[node]; ok {
+		delete(c.Nodes, node)
+		c.Nodes[body.Name] = old
+		old.Name = body.Name
 		old.Host = body.Host
 		old.Port = body.Port
 		old.Username = body.Username
@@ -617,7 +629,6 @@ func (cs *myConfigService) UpsertTable(ctx context.Context, tenant, cluster, tab
 		}
 		if db == cluster && tb == table {
 			tableCfg.Sequence = body.Sequence
-			tableCfg.AllowFullScan = body.AllowFullScan
 			tableCfg.DbRules = body.DbRules
 			tableCfg.TblRules = body.TblRules
 			tableCfg.Topology = body.Topology
@@ -631,7 +642,6 @@ func (cs *myConfigService) UpsertTable(ctx context.Context, tenant, cluster, tab
 		newTable := &config.Table{
 			Name:           cluster + "." + table,
 			Sequence:       body.Sequence,
-			AllowFullScan:  body.AllowFullScan,
 			DbRules:        body.DbRules,
 			TblRules:       body.TblRules,
 			Topology:       body.Topology,

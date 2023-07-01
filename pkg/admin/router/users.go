@@ -32,7 +32,7 @@ import (
 )
 
 func init() {
-	admin.Register(func(router admin.Router) {
+	admin.Register(func(router admin.Router, openRouter admin.Router) {
 		router.GET("/tenants/:tenant/users", ListUser)
 		router.POST("/tenants/:tenant/users", CreateUser)
 		router.PUT("/tenants/:tenant/users/:user", UpdateUser)
@@ -88,13 +88,12 @@ func UpdateUser(c *gin.Context) error {
 	if err := c.ShouldBindJSON(&user); err != nil {
 		return exception.Wrap(exception.CodeInvalidParams, err)
 	}
-	user.Username = username
 
 	if !validatePassword(user.Password) {
 		return exception.New(exception.CodeInvalidParams, "bad password format")
 	}
 
-	if err := admin.GetService(c).UpsertUser(c, tenant, &user); err != nil {
+	if err := admin.GetService(c).UpsertUser(c, tenant, &user, username); err != nil {
 		return err
 	}
 
@@ -135,7 +134,7 @@ func CreateUser(c *gin.Context) error {
 		}
 	}
 
-	if err := admin.GetService(c).UpsertUser(c, tenant, &user); err != nil {
+	if err := admin.GetService(c).UpsertUser(c, tenant, &user, user.Username); err != nil {
 		return err
 	}
 

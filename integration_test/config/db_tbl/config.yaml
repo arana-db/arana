@@ -34,6 +34,8 @@ data:
         password: "123456"
         # TODO It is recommended that the initialization of the subsequent system library be handled by arana internally
         database: __arana_sys
+        weight: r10w10
+        parameters:
       clusters:
         - name: employees
           type: mysql
@@ -56,7 +58,6 @@ data:
       sharding_rule:
         tables:
           - name: employees.student
-            allow_full_scan: true
             sequence:
               type: snowflake
               option:
@@ -72,6 +73,7 @@ data:
               db_pattern: employees_${0000..0003}
               tbl_pattern: student_${0000..0031}
             attributes:
+              allow_full_scan: true
               sqlMaxLimit: -1
       nodes:
         node0:

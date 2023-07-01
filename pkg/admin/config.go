@@ -26,8 +26,9 @@ import (
 )
 
 type GroupDTO struct {
-	Name  string   `json:"name,omitempty"`
-	Nodes []string `json:"nodes,omitempty"`
+	ClusterName string   `json:"clusterName,omitempty"`
+	Name        string   `json:"name,omitempty"`
+	Nodes       []string `json:"nodes,omitempty"`
 }
 
 type TableDTO struct {
@@ -75,7 +76,7 @@ type ServiceInstanceDTO struct {
 	// Version is the version of the compiled.
 	Version string `json:"version"`
 	// Endpoint addresses of the service instance.
-	Endpoints []*config.Listener
+	Endpoint *config.Listener
 }
 
 // XConfigWriter represents the mutations of configurations.
@@ -143,7 +144,7 @@ type configWriter interface {
 	RemoveTable(ctx context.Context, tenant, cluster, table string) error
 
 	// UpsertUser upserts a user.
-	UpsertUser(ctx context.Context, tenant string, user *config.User) error
+	UpsertUser(ctx context.Context, tenant string, user *config.User, username string) error
 
 	// RemoveUser removes a user.
 	RemoveUser(ctx context.Context, tenant string, username string) error

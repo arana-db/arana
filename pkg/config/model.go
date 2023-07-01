@@ -41,6 +41,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+import (
+	"github.com/arana-db/arana/pkg/util/log"
+)
+
 type (
 	DataRevision interface {
 		Revision() string
@@ -77,12 +81,13 @@ type (
 	}
 
 	BootOptions struct {
-		Spec       `yaml:",inline"`
-		Config     *Options    `yaml:"config" json:"config"`
-		Listeners  []*Listener `validate:"required,dive" yaml:"listeners" json:"listeners"`
-		Registry   *Registry   `yaml:"registry" json:"registry"`
-		Trace      *Trace      `yaml:"trace" json:"trace"`
-		Supervisor *User       `validate:"required,dive" yaml:"supervisor" json:"supervisor"`
+		Spec          `yaml:",inline"`
+		Config        *Options           `yaml:"config" json:"config"`
+		Listeners     []*Listener        `validate:"required,dive" yaml:"listeners" json:"listeners"`
+		Registry      *Registry          `yaml:"registry" json:"registry"`
+		Trace         *Trace             `yaml:"trace" json:"trace"`
+		Supervisor    *User              `validate:"required,dive" yaml:"supervisor" json:"supervisor"`
+		LoggingConfig *log.LoggingConfig `validate:"required,dive" yaml:"logging_config" json:"loggingconfig"`
 	}
 
 	// Configuration represents an Arana configuration.
@@ -177,7 +182,6 @@ type (
 	Table struct {
 		Name           string            `validate:"required" yaml:"name" json:"name"`
 		Sequence       *Sequence         `yaml:"sequence" json:"sequence"`
-		AllowFullScan  bool              `yaml:"allow_full_scan" json:"allow_full_scan,omitempty"`
 		DbRules        []*Rule           `yaml:"db_rules" json:"db_rules"`
 		TblRules       []*Rule           `yaml:"tbl_rules" json:"tbl_rules"`
 		Topology       *Topology         `yaml:"topology" json:"topology"`
@@ -415,6 +419,7 @@ func NewEmptyTenant() *Tenant {
 		Spec: Spec{
 			Metadata: map[string]interface{}{},
 		},
+		SysDB:              nil,
 		Users:              make([]*User, 0, 1),
 		DataSourceClusters: make([]*DataSourceCluster, 0, 1),
 		ShardingRule:       new(ShardingRule),

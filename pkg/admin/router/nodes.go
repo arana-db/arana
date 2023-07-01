@@ -33,7 +33,7 @@ import (
 )
 
 func init() {
-	admin.Register(func(router admin.Router) {
+	admin.Register(func(router admin.Router, openRouter admin.Router) {
 		router.GET("/tenants/:tenant/nodes", ListNodes)
 		router.POST("/tenants/:tenant/nodes", CreateNode)
 		router.GET("/tenants/:tenant/nodes/:node", GetNode)

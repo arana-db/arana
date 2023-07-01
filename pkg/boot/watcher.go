@@ -343,6 +343,7 @@ func (d *watcher) onClusterAdd(ctx context.Context, cluster *config.DataSourceCl
 			if err != nil {
 				return errors.WithStack(err)
 			}
+
 			clonedNode := *node
 			nodeParams := make(config.ParametersMap)
 			nodeParams.Merge(node.Parameters)
@@ -542,7 +543,6 @@ func (d *watcher) onTableAdd(_ context.Context, table *config.Table) error {
 	}
 
 	ns.Rule().SetVTable(tbl, vtab)
-
 	return nil
 }
 

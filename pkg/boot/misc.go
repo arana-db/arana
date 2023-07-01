@@ -19,6 +19,7 @@ package boot
 
 import (
 	"regexp"
+	"strconv"
 	"sync"
 )
 
@@ -60,6 +61,8 @@ func makeVTable(tableName string, table *config.Table) (*rule.VTable, error) {
 		keys                 map[string]struct{}
 		dbSharder, tbSharder map[string]rule.ShardComputer
 		dbSteps, tbSteps     map[string]int
+		dbRules              []*rule.RawShardRule
+		tblRules             []*rule.RawShardRule
 	)
 	for _, it := range table.DbRules {
 		var shd rule.ShardComputer
@@ -78,6 +81,7 @@ func makeVTable(tableName string, table *config.Table) (*rule.VTable, error) {
 		dbSharder[it.Column] = shd
 		keys[it.Column] = struct{}{}
 		dbSteps[it.Column] = it.Step
+		dbRules = append(dbRules, toRawShard(it))
 	}
 
 	for _, it := range table.TblRules {
@@ -97,6 +101,7 @@ func makeVTable(tableName string, table *config.Table) (*rule.VTable, error) {
 		tbSharder[it.Column] = shd
 		keys[it.Column] = struct{}{}
 		tbSteps[it.Column] = it.Step
+		tblRules = append(tblRules, toRawShard(it))
 	}
 
 	for k := range keys {
@@ -128,6 +133,18 @@ func makeVTable(tableName string, table *config.Table) (*rule.VTable, error) {
 		}
 		vt.SetShardMetadata(k, dbMetadata, tbMetadata)
 
+		rawShardMetadata := rule.RawShardMetadata{
+			Name:         table.Name,
+			SequenceType: table.Sequence.Type,
+			DbRules:      dbRules,
+			TblRules:     tblRules,
+		}
+		rawShardMetadata.Attributes = make(map[string]interface{})
+		for k := range table.Attributes {
+			rawShardMetadata.Attributes[k] = table.Attributes[k]
+		}
+		vt.SetRawShardMetaData(&rawShardMetadata)
+
 		tpRes := make(map[int][]int)
 		step := tbMetadata.Steps
 		if dbMetadata.Steps > step {
@@ -158,7 +175,8 @@ func makeVTable(tableName string, table *config.Table) (*rule.VTable, error) {
 		}
 	}
 
-	if table.AllowFullScan {
+	allowFullScan, err := strconv.ParseBool(table.Attributes["allow_full_scan"])
+	if err == nil && allowFullScan {
 		vt.SetAllowFullScan(true)
 	}
 	if table.Sequence != nil {
