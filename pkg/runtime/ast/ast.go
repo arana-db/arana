@@ -39,7 +39,6 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/hint"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
-	"github.com/arana-db/arana/pkg/runtime/logical"
 )
 
 var _opcode2comparison = map[opcode.Op]cmp.Comparison{
@@ -1594,13 +1593,12 @@ func (cc *convCtx) convBinaryOperationExpr(expr *ast.BinaryOperationExpr) interf
 		}
 	case opcode.LogicAnd:
 		return &LogicalExpressionNode{
-			Op:    logical.Land,
 			Left:  toExpressionNode(left),
 			Right: toExpressionNode(right),
 		}
 	case opcode.LogicOr:
 		return &LogicalExpressionNode{
-			Op:    logical.Lor,
+			Or:    true,
 			Left:  toExpressionNode(left),
 			Right: toExpressionNode(right),
 		}

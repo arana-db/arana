@@ -45,7 +45,7 @@ type NacosServiceClient struct {
 }
 
 func NewNacosServiceClient(options map[string]interface{}) (*NacosServiceClient, error) {
-	var nsc = &NacosServiceClient{}
+	nsc := &NacosServiceClient{}
 
 	if val, ok := options[u_conf.NamespaceIdKey]; ok {
 		nsc.NamespaceId = val.(string)

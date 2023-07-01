@@ -15,14 +15,26 @@
  * limitations under the License.
  */
 
-package main
+package math
 
 import (
-	"github.com/arana-db/arana/cmd/start"
-	"github.com/arana-db/arana/testdata"
+	"golang.org/x/exp/constraints"
 )
 
-func main() {
-	bootstrap := testdata.Path("../conf/bootstrap.yaml")
-	start.Run(bootstrap)
+type Number interface {
+	constraints.Integer | constraints.Float
+}
+
+func Max[T Number](a, b T) T {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func Min[T Number](a, b T) T {
+	if a < b {
+		return a
+	}
+	return b
 }

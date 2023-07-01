@@ -65,17 +65,36 @@ data:
               type: snowflake
               option:
             db_rules:
-              - column: uid
-                type: scriptExpr
-                expr: parseInt($value % 32 / 8)
+              - columns:
+                  - name: uid
+                expr: parseInt($0 % 32 / 8)
             tbl_rules:
-              - column: uid
-                type: scriptExpr
-                expr: $value % 32
-                step: 32
+              - columns:
+                  - name: uid
+                expr: $0 % 32
             topology:
               db_pattern: employees_${0000..0003}
               tbl_pattern: student_${0000..0031}
+            attributes:
+              allow_full_scan: true
+              sqlMaxLimit: -1
+          - name: employees.friendship
+            sequence:
+              type: snowflake
+              option:
+            db_rules:
+              - columns:
+                  - name: uid
+                  - name: friend_id
+                expr: parseInt(($0*31+$1) % 32 / 8)
+            tbl_rules:
+              - columns:
+                  - name: uid
+                  - name: friend_id
+                expr: ($0*31+$1) % 32
+            topology:
+              db_pattern: employees_${0000..0003}
+              tbl_pattern: friendship_${0000..0031}
             attributes:
               allow_full_scan: true
               sqlMaxLimit: -1

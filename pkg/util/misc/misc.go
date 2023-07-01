@@ -56,3 +56,39 @@ func TryClose(i interface{}) error {
 	}
 	return nil
 }
+
+func ReverseSlice[T any](input []T) {
+	if len(input) < 2 {
+		return
+	}
+	for i, j := 0, len(input)-1; i < j; {
+		input[i], input[j] = input[j], input[i]
+		i++
+		j--
+	}
+}
+
+// CartesianProduct compute cartesian product.
+func CartesianProduct[T any](inputs [][]T) [][]T {
+	var (
+		res [][]T
+		rec []T
+	)
+	cartesianProductHelper[T](inputs, &res, &rec, 0)
+	return res
+}
+
+func cartesianProductHelper[T any](input [][]T, res *[][]T, rec *[]T, index int) {
+	if index < len(input) {
+		for _, v := range input[index] {
+			*rec = append(*rec, v)
+			cartesianProductHelper(input, res, rec, index+1)
+			*rec = (*rec)[:index]
+		}
+		return
+	}
+	tmp := make([]T, len(input))
+	copy(tmp, *rec)
+	*res = append(*res, tmp)
+	*rec = (*rec)[:index]
+}
