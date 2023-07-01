@@ -48,6 +48,7 @@ type ExpressionNode interface {
 	Node
 	Restorer
 	Mode() ExpressionMode
+	Clone() ExpressionNode
 }
 
 type LogicalExpressionNode struct {
@@ -85,6 +86,14 @@ func (l *LogicalExpressionNode) Mode() ExpressionMode {
 	return EmLogical
 }
 
+func (l *LogicalExpressionNode) Clone() ExpressionNode {
+	return &LogicalExpressionNode{
+		Op:    l.Op,
+		Left:  l.Left.Clone(),
+		Right: l.Right.Clone(),
+	}
+}
+
 type NotExpressionNode struct {
 	E ExpressionNode
 }
@@ -105,6 +114,12 @@ func (n *NotExpressionNode) Mode() ExpressionMode {
 	return EmNot
 }
 
+func (n *NotExpressionNode) Clone() ExpressionNode {
+	return &NotExpressionNode{
+		E: n.E.Clone(),
+	}
+}
+
 type PredicateExpressionNode struct {
 	P PredicateNode
 }
@@ -122,4 +137,10 @@ func (a *PredicateExpressionNode) Restore(flag RestoreFlag, sb *strings.Builder,
 
 func (a *PredicateExpressionNode) Mode() ExpressionMode {
 	return EmPredicate
+}
+
+func (a *PredicateExpressionNode) Clone() ExpressionNode {
+	return &PredicateExpressionNode{
+		P: a.P.Clone(),
+	}
 }

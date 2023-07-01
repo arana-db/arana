@@ -61,6 +61,7 @@ type ExpressionAtom interface {
 	Node
 	Restorer
 	phantom() expressionAtomPhantom
+	Clone() ExpressionAtom
 }
 
 type IntervalExpressionAtom struct {
@@ -102,6 +103,13 @@ func (ie *IntervalExpressionAtom) Restore(flag RestoreFlag, sb *strings.Builder,
 
 func (ie *IntervalExpressionAtom) phantom() expressionAtomPhantom {
 	return expressionAtomPhantom{}
+}
+
+func (ie *IntervalExpressionAtom) Clone() ExpressionAtom {
+	return &IntervalExpressionAtom{
+		Unit:  ie.Unit,
+		Value: ie.Value.Clone(),
+	}
 }
 
 type SystemVariableExpressionAtom struct {
@@ -146,6 +154,14 @@ func (sy *SystemVariableExpressionAtom) phantom() expressionAtomPhantom {
 	return expressionAtomPhantom{}
 }
 
+func (sy *SystemVariableExpressionAtom) Clone() ExpressionAtom {
+	return &SystemVariableExpressionAtom{
+		Name:   sy.Name,
+		System: sy.System,
+		Global: sy.Global,
+	}
+}
+
 type UnaryExpressionAtom struct {
 	Operator string
 	Inner    Node // ExpressionAtom or *BinaryComparisonPredicateNode
@@ -185,6 +201,10 @@ func (u *UnaryExpressionAtom) phantom() expressionAtomPhantom {
 	return expressionAtomPhantom{}
 }
 
+func (u *UnaryExpressionAtom) Clone() ExpressionAtom {
+	panic("implement me")
+}
+
 type ConstantExpressionAtom struct {
 	Inner interface{}
 }
@@ -200,6 +220,12 @@ func (c *ConstantExpressionAtom) Restore(flag RestoreFlag, sb *strings.Builder, 
 
 func (c *ConstantExpressionAtom) phantom() expressionAtomPhantom {
 	return expressionAtomPhantom{}
+}
+
+func (c *ConstantExpressionAtom) Clone() ExpressionAtom {
+	return &ConstantExpressionAtom{
+		Inner: c.Inner,
+	}
 }
 
 func constant2string(value interface{}) string {
@@ -300,6 +326,12 @@ func (c ColumnNameExpressionAtom) phantom() expressionAtomPhantom {
 	return expressionAtomPhantom{}
 }
 
+func (c ColumnNameExpressionAtom) Clone() ExpressionAtom {
+	res := make(ColumnNameExpressionAtom, len(c))
+	copy(res, c)
+	return res
+}
+
 type VariableExpressionAtom int
 
 func (v VariableExpressionAtom) Accept(visitor Visitor) (interface{}, error) {
@@ -322,6 +354,10 @@ func (v VariableExpressionAtom) N() int {
 
 func (v VariableExpressionAtom) phantom() expressionAtomPhantom {
 	return expressionAtomPhantom{}
+}
+
+func (v VariableExpressionAtom) Clone() ExpressionAtom {
+	return v
 }
 
 type MathExpressionAtom struct {
@@ -358,6 +394,14 @@ func (m *MathExpressionAtom) phantom() expressionAtomPhantom {
 	return expressionAtomPhantom{}
 }
 
+func (m *MathExpressionAtom) Clone() ExpressionAtom {
+	return &MathExpressionAtom{
+		Left:     m.Left.Clone(),
+		Operator: m.Operator,
+		Right:    m.Right.Clone(),
+	}
+}
+
 type NestedExpressionAtom struct {
 	First ExpressionNode
 }
@@ -378,6 +422,12 @@ func (n *NestedExpressionAtom) Restore(flag RestoreFlag, sb *strings.Builder, ar
 
 func (n *NestedExpressionAtom) phantom() expressionAtomPhantom {
 	return expressionAtomPhantom{}
+}
+
+func (n *NestedExpressionAtom) Clone() ExpressionAtom {
+	return &NestedExpressionAtom{
+		First: n.First.Clone(),
+	}
 }
 
 type FunctionCallExpressionAtom struct {
@@ -412,4 +462,8 @@ func (f *FunctionCallExpressionAtom) Restore(flag RestoreFlag, sb *strings.Build
 
 func (f *FunctionCallExpressionAtom) phantom() expressionAtomPhantom {
 	return expressionAtomPhantom{}
+}
+
+func (f *FunctionCallExpressionAtom) Clone() ExpressionAtom {
+	panic("implement me")
 }
