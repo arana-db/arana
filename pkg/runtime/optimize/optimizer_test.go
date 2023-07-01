@@ -36,7 +36,6 @@ import (
 	consts "github.com/arana-db/arana/pkg/constants/mysql"
 	"github.com/arana-db/arana/pkg/dataset"
 	"github.com/arana-db/arana/pkg/mysql"
-	"github.com/arana-db/arana/pkg/mysql/rows"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/resultx"
@@ -107,28 +106,15 @@ func TestOptimizer_OptimizeHashJoin(t *testing.T) {
 			fakeData := &dataset.VirtualDataset{}
 			if buildPlan {
 				fakeData.Columns = append(studentFields, mysql.NewField("uid", consts.FieldTypeLongLong))
-				for i := int64(0); i < 8; i++ {
-					fakeData.Rows = append(fakeData.Rows, rows.NewTextVirtualRow(fakeData.Columns, []proto.Value{
-						proto.NewValueInt64(i),
-						proto.NewValueInt64(i),
-					}))
-				}
 				result.EXPECT().Dataset().Return(fakeData, nil).AnyTimes()
 				buildPlan = false
 			} else {
 				fakeData.Columns = append(salariesFields, mysql.NewField("uid", consts.FieldTypeLongLong))
-				for i := int64(10); i > 3; i-- {
-					fakeData.Rows = append(fakeData.Rows, rows.NewTextVirtualRow(fakeData.Columns, []proto.Value{
-						proto.NewValueInt64(i),
-						proto.NewValueInt64(i),
-					}))
-				}
 				result.EXPECT().Dataset().Return(fakeData, nil).AnyTimes()
 			}
 
 			return result, nil
-		}).
-		AnyTimes()
+		}).MinTimes(2)
 
 	fakeData := make(map[string]*proto.TableMetadata)
 	// fake data
