@@ -33,10 +33,6 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-import (
-	"github.com/arana-db/arana/pkg/runtime/ast"
-)
-
 const (
 	_ ValueFamily = iota
 	ValueFamilyString
@@ -61,6 +57,12 @@ var _valueFamilyNames = [...]struct {
 	ValueFamilyBool:     {"BOOL", true},
 	ValueFamilyTime:     {"TIME", false},
 	ValueFamilyDuration: {"DURATION", false},
+}
+
+type Null struct{}
+
+func (n Null) String() string {
+	return "NULL"
 }
 
 type ValueFamily uint8
@@ -101,7 +103,7 @@ func NewValue(input interface{}) (Value, error) {
 		return nil, nil
 	}
 	switch v := input.(type) {
-	case ast.Null, *ast.Null:
+	case Null, *Null:
 		return nil, nil
 	case int8:
 		return NewValueInt64(int64(v)), nil

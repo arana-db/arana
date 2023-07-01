@@ -18,7 +18,6 @@
 package admin
 
 import (
-	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/registry/base"
 )
 
@@ -36,13 +35,11 @@ func (mysds *myServiceDiscovery) ListServices() []*ServiceInstanceDTO {
 		srvDTOs  = make([]*ServiceInstanceDTO, 0, len(services))
 	)
 	for _, srv := range services {
-		endpoints := make([]*config.Listener, len(srv.Endpoints))
-		copy(endpoints, srv.Endpoints)
 		srvDTOs = append(srvDTOs, &ServiceInstanceDTO{
-			ID:        srv.ID,
-			Name:      srv.Name,
-			Version:   srv.Version,
-			Endpoints: endpoints,
+			ID:       srv.ID,
+			Name:     srv.Name,
+			Version:  srv.Version,
+			Endpoint: srv.Endpoint,
 		})
 	}
 	return srvDTOs

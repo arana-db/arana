@@ -36,7 +36,7 @@ import (
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
-// EtcdV3Discovery is a etcd service discovery.
+// EtcdV3Discovery is an etcd service discovery.
 // It always returns the registered servers in etcd.
 type EtcdV3Discovery struct {
 	BasePath string

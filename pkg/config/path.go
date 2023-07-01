@@ -28,6 +28,7 @@ import (
 type PathInfo struct {
 	DefaultConfigSpecPath               PathKey
 	DefaultTenantBaseConfigPath         PathKey
+	DefaultConfigSysDBPath              PathKey
 	DefaultConfigDataNodesPath          PathKey
 	DefaultConfigDataUsersPath          PathKey
 	DefaultConfigDataSourceClustersPath PathKey
@@ -45,6 +46,7 @@ func NewPathInfo(tenant string) *PathInfo {
 
 	p.DefaultTenantBaseConfigPath = PathKey(filepath.Join(string(DefaultRootPath), fmt.Sprintf("tenants/%s", tenant)))
 	p.DefaultConfigSpecPath = PathKey(filepath.Join(string(p.DefaultTenantBaseConfigPath), "spec"))
+	p.DefaultConfigSysDBPath = PathKey(filepath.Join(string(p.DefaultTenantBaseConfigPath), "sys_db"))
 	p.DefaultConfigDataNodesPath = PathKey(filepath.Join(string(p.DefaultTenantBaseConfigPath), "nodes"))
 	p.DefaultConfigDataUsersPath = PathKey(filepath.Join(string(p.DefaultTenantBaseConfigPath), "users"))
 	p.DefaultConfigDataSourceClustersPath = PathKey(filepath.Join(string(p.DefaultTenantBaseConfigPath), "dataSourceClusters"))
@@ -62,6 +64,9 @@ func NewPathInfo(tenant string) *PathInfo {
 	p.ConfigValSupplier = map[PathKey]func(cfg *Tenant) interface{}{
 		p.DefaultConfigSpecPath: func(cfg *Tenant) interface{} {
 			return &cfg.Spec
+		},
+		p.DefaultConfigSysDBPath: func(cfg *Tenant) interface{} {
+			return &cfg.SysDB
 		},
 		p.DefaultConfigDataUsersPath: func(cfg *Tenant) interface{} {
 			return &cfg.Users
@@ -82,6 +87,7 @@ func NewPathInfo(tenant string) *PathInfo {
 
 	p.ConfigKeyMapping = map[PathKey]string{
 		p.DefaultConfigSpecPath:               ConfigItemSpec,
+		p.DefaultConfigSysDBPath:              ConfigItemSysDB,
 		p.DefaultConfigDataUsersPath:          ConfigItemUsers,
 		p.DefaultConfigDataSourceClustersPath: ConfigItemClusters,
 		p.DefaultConfigDataShardingRulePath:   ConfigItemShardingRule,

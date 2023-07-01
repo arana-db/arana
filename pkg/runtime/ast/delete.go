@@ -37,6 +37,7 @@ const (
 type DeleteStatement struct {
 	flag    uint8
 	Table   TableName
+	Hint    *HintNode
 	Where   ExpressionNode
 	OrderBy OrderByNode
 	Limit   *LimitNode
@@ -45,6 +46,13 @@ type DeleteStatement struct {
 // Restore implements Restorer.
 func (ds *DeleteStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("DELETE ")
+
+	if ds.Hint != nil {
+		if err := ds.Hint.Restore(flag, sb, args); err != nil {
+			return errors.WithStack(err)
+		}
+		sb.WriteString(" ")
+	}
 
 	if ds.IsLowPriority() {
 		sb.WriteString("LOW_PRIORITY ")

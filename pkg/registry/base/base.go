@@ -41,15 +41,15 @@ type ServiceInstance struct {
 	// Version is the version of the compiled.
 	Version string `json:"version"`
 	// Endpoint addresses of the service instance.
-	Endpoints []*config.Listener
+	Endpoint *config.Listener
 }
 
 func (p ServiceInstance) String() string {
-	return fmt.Sprintf("Service instance: id:%s, name:%s, version:%s, endpoints:%s", p.ID, p.Name, p.Version, p.Endpoints)
+	return fmt.Sprintf("Service instance: id:%s, name:%s, version:%s, endpoints:%s", p.ID, p.Name, p.Version, p.Endpoint)
 }
 
 type Registry interface {
-	Register(ctx context.Context, name string, serviceInstance *ServiceInstance) error
+	Register(ctx context.Context, serviceInstance *ServiceInstance) error
 	Unregister(ctx context.Context, name string) error
 	UnregisterAllService(ctx context.Context) error
 }

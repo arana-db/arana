@@ -299,6 +299,7 @@ func Test_configReader_LoadAll(t *testing.T) {
 		}
 
 		data, _ := yaml.Marshal(nodes)
+		sysdb, _ := yaml.Marshal(config.NewEmptyTenant().SysDB)
 		users, _ := yaml.Marshal(config.NewEmptyTenant().Users)
 		shadow, _ := yaml.Marshal(config.NewEmptyTenant().ShadowRule)
 		sharding, _ := yaml.Marshal(config.NewEmptyTenant().ShardingRule)
@@ -311,6 +312,9 @@ func Test_configReader_LoadAll(t *testing.T) {
 			Do(func(interface{}) {
 				atomic.AddInt32(&callCnt, 1)
 			})
+		mockStoreOperator.EXPECT().Get(config.NewPathInfo("arana").DefaultConfigSysDBPath).
+			AnyTimes().
+			Return(sysdb, nil)
 		mockStoreOperator.EXPECT().Get(config.NewPathInfo("arana").DefaultConfigDataUsersPath).
 			AnyTimes().
 			Return(users, nil)
@@ -357,6 +361,7 @@ func Test_configReader_LoadAll(t *testing.T) {
 		mockStoreOperator.EXPECT().Watch(gomock.Any()).AnyTimes().Return(shareCh, nil)
 
 		nodes, _ := yaml.Marshal(config.NewEmptyTenant().Nodes)
+		sysdb, _ := yaml.Marshal(config.NewEmptyTenant().SysDB)
 		users, _ := yaml.Marshal(config.NewEmptyTenant().Users)
 		shadow, _ := yaml.Marshal(config.NewEmptyTenant().ShadowRule)
 		sharding, _ := yaml.Marshal(config.NewEmptyTenant().ShardingRule)
@@ -366,6 +371,9 @@ func Test_configReader_LoadAll(t *testing.T) {
 		mockStoreOperator.EXPECT().Get(config.NewPathInfo("arana").DefaultConfigDataNodesPath).
 			AnyTimes().
 			Return(nodes, nil)
+		mockStoreOperator.EXPECT().Get(config.NewPathInfo("arana").DefaultConfigSysDBPath).
+			AnyTimes().
+			Return(sysdb, nil)
 		mockStoreOperator.EXPECT().Get(config.NewPathInfo("arana").DefaultConfigDataUsersPath).
 			AnyTimes().
 			Return(users, nil)

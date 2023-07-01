@@ -21,7 +21,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"sync"
 	"time"
 )
@@ -103,8 +102,9 @@ type AtomDB struct {
 
 	id string
 
-	weight proto.Weight
-	pool   *pools.ResourcePool
+	weight     proto.Weight
+	connection proto.NodeConn
+	pool       *pools.ResourcePool
 
 	closed atomic.Bool
 
@@ -121,10 +121,20 @@ func NewAtomDB(node *config.Node) *AtomDB {
 	if err != nil {
 		return nil
 	}
+	connection := proto.NodeConn{
+		Host:       node.Host,
+		Port:       node.Port,
+		UserName:   node.Username,
+		Password:   node.Password,
+		Database:   node.Database,
+		Weight:     node.Weight,
+		Parameters: node.Parameters.String(),
+	}
 	db := &AtomDB{
-		id:     node.Name,
-		weight: proto.Weight{R: int32(r), W: int32(w)},
-		node:   node,
+		id:         node.Name,
+		weight:     proto.Weight{R: int32(r), W: int32(w)},
+		node:       node,
+		connection: connection,
 	}
 
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?%s", node.Username, node.Password, node.Host, node.Port, node.Database, node.Parameters.String())
@@ -322,6 +332,10 @@ func (db *AtomDB) Weight() proto.Weight {
 	return db.weight
 }
 
+func (db *AtomDB) NodeConn() proto.NodeConn {
+	return db.connection
+}
+
 func (db *AtomDB) SetCapacity(capacity int) error {
 	return db.pool.SetCapacity(capacity)
 }
@@ -379,7 +393,7 @@ func (pi *defaultRuntime) Begin(ctx context.Context, hooks ...TxHook) (proto.Tx,
 	defer span.End()
 
 	tx := newCompositeTx(ctx, pi, hooks...)
-	log.Debugf("begin transaction: %s", tx)
+	log.DebugfWithLogType(log.TxLog, "begin transaction: %s", tx)
 	return tx, nil
 }
 
@@ -397,12 +411,6 @@ func (pi *defaultRuntime) Exec(ctx context.Context, db string, query string, arg
 	res, err := pi.call(ctx, db, query, args...)
 	if err != nil {
 		return nil, perrors.WithStack(err)
-	}
-
-	if closer, ok := res.(io.Closer); ok {
-		defer func() {
-			_ = closer.Close()
-		}()
 	}
 	return res, nil
 }

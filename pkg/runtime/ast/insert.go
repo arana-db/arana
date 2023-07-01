@@ -44,6 +44,7 @@ type baseInsertStatement struct {
 	flag    uint8
 	Table   TableName
 	Columns []string
+	Hint    *HintNode
 }
 
 func (b *baseInsertStatement) IsSetSyntax() bool {
@@ -140,6 +141,13 @@ func NewInsertStatement(table TableName, columns []string) *InsertStatement {
 
 func (is *InsertStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("INSERT ")
+
+	if is.Hint != nil {
+		if err := is.Hint.Restore(flag, sb, args); err != nil {
+			return errors.WithStack(err)
+		}
+		sb.WriteString(" ")
+	}
 
 	// write priority
 	if is.IsLowPriority() {
@@ -275,6 +283,13 @@ type InsertSelectStatement struct {
 
 func (is *InsertSelectStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("INSERT ")
+
+	if is.Hint != nil {
+		if err := is.Hint.Restore(flag, sb, args); err != nil {
+			return errors.WithStack(err)
+		}
+		sb.WriteString(" ")
+	}
 
 	// write priority
 	if is.IsLowPriority() {

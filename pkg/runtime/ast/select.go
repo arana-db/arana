@@ -58,6 +58,7 @@ type SelectStatement struct {
 	Limit    *LimitNode
 	Lock     SelectLock
 	Distinct bool
+	Hint     *HintNode
 }
 
 func (ss *SelectStatement) Accept(visitor Visitor) (interface{}, error) {
@@ -66,6 +67,13 @@ func (ss *SelectStatement) Accept(visitor Visitor) (interface{}, error) {
 
 func (ss *SelectStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("SELECT ")
+
+	if ss.Hint != nil {
+		if err := ss.Hint.Restore(flag, sb, args); err != nil {
+			return errors.WithStack(err)
+		}
+		sb.WriteString(" ")
+	}
 
 	if ss.Distinct {
 		sb.WriteString(Distinct)

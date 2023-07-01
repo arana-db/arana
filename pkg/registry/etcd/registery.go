@@ -95,8 +95,8 @@ func NewEtcdV3Registry(serviceAddr, path string, etcdAddrs []string, options *st
 							meta := etcdRegistry.metas[name]
 							etcdRegistry.metasLock.RUnlock()
 
-							ttl := int64(etcdRegistry.UpdateInterval + etcdRegistry.Expired)
-							err = client.Put(context.Background(), nodePath, []byte(meta), ttl)
+							ttl := etcdRegistry.UpdateInterval + etcdRegistry.Expired
+							err = client.Put(context.Background(), nodePath, []byte(meta), int64(ttl.Seconds()))
 							if err != nil {
 								log.Errorf("cannot re-create etcd path %s: %v", nodePath, err)
 							}
@@ -109,7 +109,8 @@ func NewEtcdV3Registry(serviceAddr, path string, etcdAddrs []string, options *st
 	return etcdRegistry, nil
 }
 
-func (r *EtcdV3Registry) Register(ctx context.Context, name string, serviceInstance *base.ServiceInstance) error {
+func (r *EtcdV3Registry) Register(ctx context.Context, serviceInstance *base.ServiceInstance) error {
+	name := serviceInstance.Name
 	if strings.TrimSpace(name) == "" {
 		return errors.New("Register service `name` can't be empty")
 	}

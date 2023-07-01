@@ -589,6 +589,9 @@ const (
 	// SSNoDatabaseSelected is ER_NO_DB
 	SSNoDatabaseSelected = "3D000"
 
+	// SSNoTableSelected is ER_NO_SUCH_TABLE
+	SSNoTableSelected = "42S02"
+
 	SS42000 = "42000"
 )
 

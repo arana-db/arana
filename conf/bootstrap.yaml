@@ -34,9 +34,9 @@ registry:
 #    name: nacos
 #    options:
 #      endpoints: "127.0.0.1:8848"
-#      namespace: arana
+#      namespace_id: arana
 #      group: arana
-#      contextPath: /nacos
+#      context_path: /nacos
 #      scheme: http
 #      username: nacos
 #      password: nacos
@@ -65,3 +65,17 @@ config:
 supervisor:
   username: root
   password: root
+
+logging_config:
+  log_name: arana_log
+  log_path: log
+  log_level: 7 #KERN_DEBUG
+  log_max_size: 10
+  log_max_backups: 5
+  log_max_age: 30
+  log_compress: false
+  default_log_name: arana.log
+  tx_log_name: tx.log
+  sql_log_enabled: false
+  sql_log_name: sql.log
+  physical_sql_log_name: physql.log

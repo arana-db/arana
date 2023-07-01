@@ -69,6 +69,7 @@ const (
 
 const (
 	ConfigItemSpec         = "spec"
+	ConfigItemSysDB        = "sys_db"
 	ConfigItemUsers        = "users"
 	ConfigItemClusters     = "clusters"
 	ConfigItemShardingRule = "sharding_rule"
@@ -123,6 +124,9 @@ type (
 		// CreateTenant creates tenant.
 		CreateTenant(string) error
 
+		// UpdateTenant update tenant.
+		UpdateTenant(tenant string, newTenant string) error
+
 		// RemoveTenant removes tenant.
 		RemoveTenant(string) error
 
@@ -131,6 +135,9 @@ type (
 
 		// CreateTenantUser creates a user.
 		CreateTenantUser(tenant, username, password string) error
+
+		// UpdateTenantUser update user by username.
+		UpdateTenantUser(tenant, newUsername, password, oldUsername string) error
 
 		// UpsertNode creates a node, or updates a node.
 		UpsertNode(tenant, node, name, host string, port int, username, password, database, weight string) error

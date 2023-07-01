@@ -32,6 +32,7 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime/misc"
 )
 
@@ -229,7 +230,7 @@ func (c *ConstantExpressionAtom) Clone() ExpressionAtom {
 
 func constant2string(value interface{}) string {
 	switch v := value.(type) {
-	case Null:
+	case proto.Null:
 		return v.String()
 	case int:
 		return strconv.FormatInt(int64(v), 10)
@@ -278,7 +279,7 @@ func (c *ConstantExpressionAtom) String() string {
 }
 
 func (c *ConstantExpressionAtom) IsNull() bool {
-	_, ok := c.Value().(Null)
+	_, ok := c.Value().(proto.Null)
 	return ok
 }
 

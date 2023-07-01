@@ -337,6 +337,7 @@ func (c *Conn) readEphemeralPacket() ([]byte, error) {
 	if length < mysql.MaxPacketSize {
 		c.currentEphemeralBuffer = bufPool.Get(length)
 		if _, err := io.ReadFull(r, *c.currentEphemeralBuffer); err != nil {
+			defer c.recycleReadPacket()
 			return nil, errors.Wrapf(err, "io.ReadFull(packet body of length %v) failed", length)
 		}
 		return *c.currentEphemeralBuffer, nil
@@ -371,12 +372,12 @@ func (c *Conn) readEphemeralPacket() ([]byte, error) {
 
 // readEphemeralPacketDirect attempts to read a packet from the socket directly.
 // It needs to be used for the first handshake packet the server receives,
-// so we do't buffer the SSL negotiation packet. As a shortcut, only
+// so we don't buffer the SSL negotiation packet. As a shortcut, only
 // packets smaller than MaxPacketSize can be read here.
 // This function usually shouldn't be used - use readEphemeralPacket.
 func (c *Conn) readEphemeralPacketDirect() ([]byte, error) {
 	if c.currentEphemeralPolicy != ephemeralUnused {
-		panic(errors.Errorf("readEphemeralPacketDirect: unexpected currentEphemeralPolicy: %v", c.currentEphemeralPolicy))
+		panic(fmt.Sprintf("readEphemeralPacketDirect: unexpected currentEphemeralPolicy: %v!", c.currentEphemeralPolicy))
 	}
 
 	var r io.Reader = c.conn
@@ -396,6 +397,7 @@ func (c *Conn) readEphemeralPacketDirect() ([]byte, error) {
 	if length < mysql.MaxPacketSize {
 		c.currentEphemeralBuffer = bufPool.Get(length)
 		if _, err := io.ReadFull(r, *c.currentEphemeralBuffer); err != nil {
+			defer c.recycleReadPacket()
 			return nil, errors.Wrapf(err, "io.ReadFull(packet body of length %v) failed", length)
 		}
 		return *c.currentEphemeralBuffer, nil
@@ -409,7 +411,7 @@ func (c *Conn) readEphemeralPacketDirect() ([]byte, error) {
 func (c *Conn) recycleReadPacket() {
 	if c.currentEphemeralPolicy != ephemeralRead {
 		// Programming error.
-		panic(errors.Errorf("trying to call recycleReadPacket while currentEphemeralPolicy is %d", c.currentEphemeralPolicy))
+		panic(fmt.Sprintf("trying to call recycleReadPacket while currentEphemeralPolicy is %d!", c.currentEphemeralPolicy))
 	}
 	if c.currentEphemeralBuffer != nil {
 		// We are using the pool, put the buffer back in.
@@ -603,7 +605,7 @@ func (c *Conn) writePacket(data []byte) error {
 
 func (c *Conn) startEphemeralPacket(length int) []byte {
 	if c.currentEphemeralPolicy != ephemeralUnused {
-		panic("startEphemeralPacket cannot be used while a packet is already started.")
+		panic(fmt.Sprintf("startEphemeralPacket cannot be used while a packet is already started, actual is %v!", c.currentEphemeralPolicy))
 	}
 
 	c.currentEphemeralPolicy = ephemeralWrite
@@ -620,11 +622,11 @@ func (c *Conn) writeEphemeralPacket() error {
 	switch c.currentEphemeralPolicy {
 	case ephemeralWrite:
 		if err := c.writePacket(*c.currentEphemeralBuffer); err != nil {
-			return errors.WithStack(errors.Wrapf(err, "conn %v", c.ID()))
+			return errors.Wrapf(err, "conn %v", c.ID())
 		}
 	case ephemeralUnused, ephemeralRead:
 		// Programming error.
-		panic(errors.Errorf("conn %v: trying to call writeEphemeralPacket while currentEphemeralPolicy is %v", c.ID(), c.currentEphemeralPolicy))
+		panic(fmt.Sprintf("conn %v: trying to call writeEphemeralPacket while currentEphemeralPolicy is %v!", c.ID(), c.currentEphemeralPolicy))
 	}
 
 	return nil
@@ -635,7 +637,7 @@ func (c *Conn) writeEphemeralPacket() error {
 func (c *Conn) recycleWritePacket() {
 	if c.currentEphemeralPolicy != ephemeralWrite {
 		// Programming error.
-		panic(errors.Errorf("trying to call recycleWritePacket while currentEphemeralPolicy is %d", c.currentEphemeralPolicy))
+		panic(fmt.Sprintf("trying to call recycleWritePacket while currentEphemeralPolicy is %d!", c.currentEphemeralPolicy))
 	}
 	// Release our reference so the buffer can be gced
 	bufPool.Put(c.currentEphemeralBuffer)
@@ -772,7 +774,7 @@ func (c *Conn) writeErrorPacket(errorCode uint16, sqlState string, format string
 		sqlState = mysql.SSUnknownSQLState
 	}
 	if len(sqlState) != 5 {
-		panic("sqlState has to be 5 characters long")
+		panic(fmt.Sprintf("sqlState has to be 5 characters long, actual is %d!", len(sqlState)))
 	}
 	pos = writeEOFString(data, pos, sqlState)
 	_ = writeEOFString(data, pos, errorMessage)

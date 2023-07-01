@@ -90,7 +90,6 @@ func TestShardingRuleConf(t *testing.T) {
 	assert.Equal(t, 1, len(conf.Data.Tenants[0].ShardingRule.Tables))
 	table := conf.Data.Tenants[0].ShardingRule.Tables[0]
 	assert.Equal(t, "employees.student", table.Name)
-	assert.Equal(t, true, table.AllowFullScan)
 
 	assert.Len(t, table.DbRules, 1)
 	assert.Equal(t, "uid", table.DbRules[0].Column)
@@ -104,7 +103,9 @@ func TestShardingRuleConf(t *testing.T) {
 	assert.Equal(t, "student_${0000..0031}", table.Topology.TblPattern)
 	// assert.Equal(t, "employee_0000", table.ShadowTopology.DbPattern)
 	// assert.Equal(t, "__test_student_${0000...0007}", table.ShadowTopology.TblPattern)
-	assert.Len(t, table.Attributes, 1)
+	assert.Len(t, table.Attributes, 2)
+	assert.Equal(t, "true", table.Attributes["allow_full_scan"])
+
 }
 
 func TestUnmarshalTextForProtocolTypeNil(t *testing.T) {
