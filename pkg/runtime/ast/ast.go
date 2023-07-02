@@ -18,6 +18,7 @@
 package ast
 
 import (
+	"database/sql"
 	"fmt"
 	"strconv"
 	"strings"
@@ -26,6 +27,7 @@ import (
 import (
 	"github.com/arana-db/parser"
 	"github.com/arana-db/parser/ast"
+	"github.com/arana-db/parser/format"
 	"github.com/arana-db/parser/mysql"
 	"github.com/arana-db/parser/opcode"
 	"github.com/arana-db/parser/test_driver"
@@ -34,9 +36,9 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/hint"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
-	"github.com/arana-db/arana/pkg/runtime/logical"
 )
 
 var _opcode2comparison = map[opcode.Op]cmp.Comparison{
@@ -47,6 +49,21 @@ var _opcode2comparison = map[opcode.Op]cmp.Comparison{
 	opcode.LE: cmp.Clte,
 	opcode.GE: cmp.Cgte,
 }
+
+// ignoreHintsMap contains hints should be ignored in arana
+var ignoreHintsMap = map[string]string{
+	"TIDB_HJ": "tidb hj hints",
+}
+
+const (
+	_ccHasSubQuery        uint32 = 1 << iota // 存在子查询
+	_ccHasJoin                               // 存在 JOIN
+	_ccHasInSelect                           // 存在 xxx in (select xxx from ...)
+	_ccHasAggregate                          // 存在聚合
+	_ccMultiTables                           // 多表
+	_ccHasRand                               // 有随机函数
+	_ccHasComplexSubQuery                    // 复杂子查询, 位置出现在COMPARISON/IN/EXISTS等
+)
 
 type (
 	parseOption struct {
@@ -121,8 +138,12 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		return cc.convOptimizeTable(stmt), nil
 	case *ast.CheckTableStmt:
 		return cc.convCheckTableStmt(stmt), nil
+	case *ast.CreateTableStmt:
+		return cc.convCreateTableStmt(stmt), nil
 	case *ast.RenameTableStmt:
 		return cc.convRenameTableStmt(stmt), nil
+	case *ast.RepairTableStmt:
+		return cc.convRepairTableStmt(stmt), nil
 	case *ast.KillStmt:
 		return cc.convKill(stmt), nil
 	default:
@@ -415,6 +436,7 @@ func (cc *convCtx) convUpdateStmt(stmt *ast.UpdateStmt) *UpdateStatement {
 		panic("no table name found")
 	}
 	ret.Table = tableName
+	ret.Hint = cc.convTableHint(stmt.TableHints)
 
 	var updated []*UpdateElement
 	for _, it := range stmt.List {
@@ -479,10 +501,7 @@ func (cc *convCtx) convUnionStmt(stmt *ast.SetOprStmt) *UnionSelectStatement {
 func (cc *convCtx) convSelectStmt(stmt *ast.SelectStmt) *SelectStatement {
 	var ret SelectStatement
 
-	if stmt.Distinct {
-		ret.enableDistinct()
-	}
-
+	ret.Distinct = stmt.Distinct
 	ret.Select = cc.convFieldList(stmt.Fields)
 	ret.From = cc.convFrom(stmt.From)
 	if stmt.Where != nil {
@@ -492,13 +511,14 @@ func (cc *convCtx) convSelectStmt(stmt *ast.SelectStmt) *SelectStatement {
 	ret.Having = cc.convHaving(stmt.Having)
 	ret.OrderBy = cc.convOrderBy(stmt.OrderBy)
 	ret.Limit = cc.convLimit(stmt.Limit)
+	ret.Hint = cc.convTableHint(stmt.TableHints)
 
 	if stmt.LockInfo != nil {
 		switch stmt.LockInfo.LockType {
 		case ast.SelectLockForUpdate:
-			ret.enableForUpdate()
+			ret.Lock = SelectLockForUpdate
 		case ast.SelectLockForShare:
-			ret.enableLockInShareMode()
+			ret.Lock = SelectLockInShardMode
 		}
 	}
 
@@ -522,7 +542,8 @@ func (cc *convCtx) convDeleteStmt(stmt *ast.DeleteStmt) Statement {
 	}
 
 	// TODO: Now only support single table delete clause, need to fill flag OrderBy field
-	ret.Table = cc.convFrom(stmt.TableRefs)[0].TableName()
+	ret.Table = cc.convFrom(stmt.TableRefs)[0].Source.(TableName)
+	ret.Hint = cc.convTableHint(stmt.TableHints)
 
 	if stmt.Where != nil {
 		ret.Where = toExpressionNode(cc.convExpr(stmt.Where))
@@ -546,7 +567,10 @@ func (cc *convCtx) convInsertStmt(stmt *ast.InsertStmt) Statement {
 	)
 
 	// extract table
-	bi.Table = cc.convFrom(stmt.Table)[0].TableName()
+	bi.Table = cc.convFrom(stmt.Table)[0].Source.(TableName)
+
+	// handle hints
+	bi.Hint = cc.convTableHint(stmt.TableHints)
 
 	if stmt.IgnoreErr {
 		bi.enableIgnore()
@@ -658,14 +682,17 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 		return cc.convPatternLikeExpr(node.Pattern), true
 	}
 	toLike := func(node *ast.ShowStmt) (string, bool) {
-		if node.Pattern == nil {
-			return "", false
+		if node.Pattern != nil {
+			return node.Pattern.Pattern.(ast.ValueExpr).GetValue().(string), true
+		} else if like, ok := node.Where.(*ast.PatternLikeExpr); ok {
+			// parse where clause of `show databases where name like 'em%'
+			return like.Pattern.(ast.ValueExpr).GetValue().(string), true
 		}
-		return node.Pattern.Pattern.(ast.ValueExpr).GetValue().(string), true
+		return "", false
 	}
 
-	toBaseShow := func() *baseShow {
-		var bs baseShow
+	toBaseShow := func() *BaseShow {
+		var bs BaseShow
 		if like, ok := toShowLike(node); ok {
 			bs.filter = like
 		} else if where, ok := toWhere(node); ok {
@@ -679,26 +706,44 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 	}
 
 	switch node.Tp {
-	case ast.ShowTopology:
-		return &ShowTopology{baseShow: toBaseShow()}
-	case ast.ShowOpenTables:
-		return &ShowOpenTables{baseShow: toBaseShow()}
-	case ast.ShowTables:
-		ret := &ShowTables{baseShow: toBaseShow()}
-		if like, ok := toLike(node); ok {
-			ret.like.Valid, ret.like.String = true, like
+	case ast.ShowCreateSequence:
+		return &ShowCreateSequence{
+			Tenant: node.Table.Name.O,
 		}
-		return ret
+	case ast.ShowTopology:
+		return &ShowTopology{BaseShow: toBaseShow()}
+	case ast.ShowOpenTables:
+		return &ShowOpenTables{BaseShow: toBaseShow()}
+	case ast.ShowNodes:
+		return &ShowNodes{Tenant: node.Tenant}
+	case ast.ShowUsers:
+		return &ShowUsers{Tenant: node.Tenant}
+	case ast.ShowShardingTable:
+		return &ShowShardingTable{BaseShow: toBaseShow()}
+	case ast.ShowTables:
+		var pattern sql.NullString
+		if like, ok := toLike(node); ok {
+			pattern.Valid = true
+			pattern.String = like
+		}
+		return &ShowTables{BaseShowWithSingleColumn: &BaseShowWithSingleColumn{toBaseShow(), pattern}}
 	case ast.ShowReplicas:
-		return &ShowReplicas{baseShow: toBaseShow()}
+		return &ShowReplicas{BaseShow: toBaseShow()}
 	case ast.ShowMasterStatus:
-		return &ShowMasterStatus{baseShow: toBaseShow()}
+		return &ShowMasterStatus{BaseShow: toBaseShow()}
 	case ast.ShowReplicaStatus:
-		return &ShowReplicaStatus{baseShow: toBaseShow()}
+		return &ShowReplicaStatus{BaseShow: toBaseShow()}
 	case ast.ShowDatabases:
-		return &ShowDatabases{baseShow: toBaseShow()}
+		var pattern sql.NullString
+		if like, ok := toLike(node); ok {
+			pattern.Valid = true
+			pattern.String = like
+		}
+		return &ShowDatabases{BaseShowWithSingleColumn: &BaseShowWithSingleColumn{toBaseShow(), pattern}}
+	case ast.ShowDatabaseRules:
+		return &ShowDatabaseRule{BaseShow: toBaseShow(), Database: node.DBName, TableName: node.Table.Name.String()}
 	case ast.ShowCollation:
-		return &ShowCollation{baseShow: toBaseShow()}
+		return &ShowCollation{BaseShow: toBaseShow()}
 	case ast.ShowCreateTable:
 		return &ShowCreate{
 			typ: ShowCreateTypeTable,
@@ -741,29 +786,33 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 		return ret
 	case ast.ShowStatus:
 		ret := &ShowStatus{
-			baseShow: toBaseShow(),
+			BaseShow: toBaseShow(),
 			global:   node.GlobalScope,
 		}
 		return ret
 	case ast.ShowTableStatus:
 		ret := &ShowTableStatus{
-			baseShow: &baseShow{},
+			BaseShow: &BaseShow{},
 			Database: node.DBName,
 		}
 
 		if where, ok := toWhere(node); ok {
-			ret.baseShow.filter = where
+			ret.BaseShow.filter = where
 		}
 		if like, ok := toLike(node); ok {
-			ret.baseShow.filter = like
+			ret.BaseShow.filter = like
 		}
 		return ret
 	case ast.ShowWarnings:
-		return &ShowWarnings{baseShow: toBaseShow()}
+		ret := &ShowWarnings{BaseShow: toBaseShow()}
+		if node.Limit != nil {
+			ret.Limit = cc.convLimit(node.Limit)
+		}
+		return ret
 	case ast.ShowCharset:
-		return &ShowCharset{baseShow: toBaseShow()}
+		return &ShowCharset{BaseShow: toBaseShow()}
 	case ast.ShowProcessList:
-		return &ShowProcessList{baseShow: toBaseShow()}
+		return &ShowProcessList{BaseShow: toBaseShow()}
 	default:
 		panic(fmt.Sprintf("unimplement: show type %v!", node.Tp))
 	}
@@ -837,59 +886,56 @@ func MustParse(sql string) ([]*hint.Hint, Statement) {
 	return hints, stmt
 }
 
-type convCtx struct{}
+type convCtx struct {
+	flag   uint32
+	tables []string
+}
 
-func (cc *convCtx) convFrom(from *ast.TableRefsClause) (ret []*TableSourceNode) {
-	if from == nil {
+func (cc *convCtx) convTableSource(input *ast.TableSource) *TableSourceNode {
+	var target TableSourceNode
+	target.Alias = input.AsName.O
+	switch source := input.Source.(type) {
+	case *ast.TableName:
+		cc.convTableName(source, &target)
+	case *ast.SelectStmt:
+		target.Source = cc.convSelectStmt(source)
+		cc.flag |= _ccHasSubQuery
+	case *ast.SetOprStmt:
+		target.Source = cc.convUnionStmt(source)
+		cc.flag |= _ccHasSubQuery
+	default:
+		panic(fmt.Sprintf("unimplement: table source %T!", source))
+	}
+	return &target
+}
+
+func (cc *convCtx) convJoins(node *ast.Join, roots *[]*TableSourceNode, dest *[]*JoinNode) {
+	switch left := node.Left.(type) {
+	case *ast.TableSource:
+		*roots = append(*roots, cc.convTableSource(left))
+	case *ast.Join:
+		cc.convJoins(left, roots, dest)
+	}
+
+	if node.Right == nil {
 		return
 	}
 
-	transform := func(input ast.ResultSetNode) *TableSourceNode {
-		if input == nil {
-			return nil
-		}
-		switch val := input.(type) {
-		case *ast.TableSource:
-			var target TableSourceNode
-			target.Alias = val.AsName.O
-			switch source := val.Source.(type) {
-			case *ast.TableName:
-				cc.convTableName(source, &target)
-			case *ast.SelectStmt:
-				target.source = cc.convSelectStmt(source)
-			case *ast.SetOprStmt:
-				target.source = cc.convUnionStmt(source)
-			default:
-				panic(fmt.Sprintf("unimplement: table source %T!", source))
-			}
-			return &target
-		default:
-			panic(fmt.Sprintf("unimplement: table refs %T!", val))
-		}
-	}
+	right := cc.convTableSource(node.Right.(*ast.TableSource))
 
-	var (
-		left  = transform(from.TableRefs.Left)
-		right = transform(from.TableRefs.Right)
-	)
-
-	var on ExpressionNode
-	if from.TableRefs.On != nil {
-		on = toExpressionNode(cc.convExpr(from.TableRefs.On.Expr))
-	}
-
-	if on == nil {
-		ret = append(ret, left)
+	if node.On == nil {
+		*roots = append(*roots, right)
 		return
 	}
 
-	var jn JoinNode
+	on := toExpressionNode(cc.convExpr(node.On.Expr))
 
-	jn.Left = left
-	jn.Right = right
-	jn.On = on
+	jn := &JoinNode{
+		Target: &right.TableSourceItem,
+		On:     on,
+	}
 
-	switch from.TableRefs.Tp {
+	switch node.Tp {
 	case ast.LeftJoin:
 		jn.Typ = LeftJoin
 	case ast.RightJoin:
@@ -898,13 +944,33 @@ func (cc *convCtx) convFrom(from *ast.TableRefsClause) (ret []*TableSourceNode) 
 		jn.Typ = InnerJoin
 	}
 
-	if from.TableRefs.NaturalJoin {
-		jn.natural = true
+	if node.NaturalJoin {
+		jn.Natural = true
 	}
 
-	ret = append(ret, &TableSourceNode{source: &jn})
+	*dest = append(*dest, jn)
+}
 
-	return
+func (cc *convCtx) convFrom(from *ast.TableRefsClause) []*TableSourceNode {
+	if from == nil {
+		return nil
+	}
+
+	var (
+		roots []*TableSourceNode
+		joins []*JoinNode
+	)
+
+	cc.convJoins(from.TableRefs, &roots, &joins)
+
+	if len(joins) > 0 {
+		if len(roots) != 1 {
+			panic("unreachable")
+		}
+		roots[0].Joins = joins
+	}
+
+	return roots
 }
 
 func (cc *convCtx) convGroupBy(by *ast.GroupByClause) *GroupByNode {
@@ -1414,7 +1480,7 @@ func (cc *convCtx) convValueExpr(expr ast.ValueExpr) PredicateNode {
 			atom = &ConstantExpressionAtom{Inner: f}
 		default:
 			if val == nil {
-				atom = &ConstantExpressionAtom{Inner: Null{}}
+				atom = &ConstantExpressionAtom{Inner: proto.Null{}}
 			} else {
 				atom = &ConstantExpressionAtom{Inner: val}
 			}
@@ -1452,7 +1518,7 @@ func (cc *convCtx) convIsNullExpr(node *ast.IsNullExpr) PredicateNode {
 	var (
 		left  = cc.convExpr(node.Expr)
 		right = &ConstantExpressionAtom{
-			Inner: Null{},
+			Inner: proto.Null{},
 		}
 	)
 
@@ -1527,13 +1593,12 @@ func (cc *convCtx) convBinaryOperationExpr(expr *ast.BinaryOperationExpr) interf
 		}
 	case opcode.LogicAnd:
 		return &LogicalExpressionNode{
-			Op:    logical.Land,
 			Left:  toExpressionNode(left),
 			Right: toExpressionNode(right),
 		}
 	case opcode.LogicOr:
 		return &LogicalExpressionNode{
-			Op:    logical.Lor,
+			Or:    true,
 			Left:  toExpressionNode(left),
 			Right: toExpressionNode(right),
 		}
@@ -1597,7 +1662,7 @@ func (cc *convCtx) convTableName(val *ast.TableName, tgt *TableSourceNode) {
 		indexHints = append(indexHints, &next)
 	}
 
-	tgt.source = tableName
+	tgt.Source = tableName
 	tgt.IndexHints = indexHints
 	tgt.Partitions = partitions
 }
@@ -1655,6 +1720,27 @@ func (cc *convCtx) convCheckTableStmt(stmt *ast.CheckTableStmt) Statement {
 	return &CheckTableStmt{Tables: tables}
 }
 
+func (cc *convCtx) convCreateTableStmt(stmt *ast.CreateTableStmt) Statement {
+	table := &TableName{
+		stmt.Table.Name.String(),
+	}
+	var refTable *TableName
+	if stmt.ReferTable != nil {
+		refTable = &TableName{
+			stmt.ReferTable.Name.String(),
+		}
+	}
+
+	return &CreateTableStmt{
+		IfNotExists: stmt.IfNotExists,
+		Table:       table,
+		ReferTable:  refTable,
+		Cols:        stmt.Cols,
+		Constraints: stmt.Constraints,
+		Options:     stmt.Options,
+	}
+}
+
 func (cc *convCtx) convRenameTableStmt(stmt *ast.RenameTableStmt) Statement {
 	tableToTables := make([]*TableToTable, len(stmt.TableToTables))
 	for i, tableToTable := range stmt.TableToTables {
@@ -1670,6 +1756,16 @@ func (cc *convCtx) convRenameTableStmt(stmt *ast.RenameTableStmt) Statement {
 	return &RenameTableStatement{
 		TableToTables: tableToTables,
 	}
+}
+
+func (cc *convCtx) convRepairTableStmt(stmt *ast.RepairTableStmt) Statement {
+	tables := make([]*TableName, len(stmt.Tables))
+	for i, table := range stmt.Tables {
+		tables[i] = &TableName{
+			table.Name.String(),
+		}
+	}
+	return &RepairTableStmt{Tables: tables}
 }
 
 func (cc *convCtx) convAnalyzeTable(stmt *ast.AnalyzeTableStmt) Statement {
@@ -1699,4 +1795,41 @@ func (cc *convCtx) convKill(stmt *ast.KillStmt) Statement {
 		Query:        stmt.Query,
 		ConnectionID: stmt.ConnectionID,
 	}
+}
+
+// Convert mysql optimizer hints
+// Include https://dev.mysql.com/doc/refman/8.0/en/optimizer-hints.html#optimizer-hints-index-level
+func (cc *convCtx) convTableHint(stmt []*ast.TableOptimizerHint) *HintNode {
+	hints := make([]HintItem, 0, len(stmt))
+	for _, hintStmt := range stmt {
+		sb := strings.Builder{}
+		// restore by parser
+		err := hintStmt.Restore(format.NewRestoreCtx(format.DefaultRestoreFlags, &sb))
+		if err != nil {
+			continue
+		}
+		// ignore hints filter
+		if IsHintIgnore(hintStmt.HintName.String()) {
+			continue
+		}
+		hintItem := HintItem{
+			TP:       MysqlHint,
+			HintExpr: sb.String(),
+		}
+		hints = append(hints, hintItem)
+	}
+
+	if len(hints) == 0 {
+		return nil
+	}
+
+	return &HintNode{
+		Items: hints,
+	}
+}
+
+// IsHintIgnore check input hint if ignored in arana
+func IsHintIgnore(hintName string) bool {
+	_, ok := ignoreHintsMap[hintName]
+	return ok
 }

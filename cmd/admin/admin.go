@@ -85,7 +85,7 @@ func Run(bootstrapPath string, addr string) error {
 	}
 
 	registryConf := discovery.GetServiceRegistry(context.Background())
-	serviceDiscovery, err := registry.InitDiscovery(registryConf.Name, registryConf.RootPath, "service", registryConf.Options)
+	serviceDiscovery, err := registry.InitDiscovery(registryConf.Name, registryConf.Options)
 	if err != nil {
 		log.Fatal("init service discovert failed: %v", err)
 		return err

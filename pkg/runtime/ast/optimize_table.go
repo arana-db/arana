@@ -35,10 +35,6 @@ func NewOptimizeTableStatement() *OptimizeTableStatement {
 	return &OptimizeTableStatement{}
 }
 
-func (a *OptimizeTableStatement) CntParams() int {
-	return 0
-}
-
 func (a *OptimizeTableStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("OPTIMIZE TABLE ")
 	for index, table := range a.Tables {

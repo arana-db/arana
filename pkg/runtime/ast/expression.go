@@ -25,10 +25,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-import (
-	"github.com/arana-db/arana/pkg/runtime/logical"
-)
-
 const (
 	_ ExpressionMode = iota
 	EmLogical
@@ -47,12 +43,11 @@ type ExpressionMode uint8
 type ExpressionNode interface {
 	Node
 	Restorer
-	paramsCounter
 	Mode() ExpressionMode
 }
 
 type LogicalExpressionNode struct {
-	Op    logical.Op
+	Or    bool
 	Left  ExpressionNode
 	Right ExpressionNode
 }
@@ -66,13 +61,10 @@ func (l *LogicalExpressionNode) Restore(flag RestoreFlag, sb *strings.Builder, a
 		return errors.WithStack(err)
 	}
 
-	switch l.Op {
-	case logical.Land:
-		sb.WriteString(" AND ")
-	case logical.Lor:
+	if l.Or {
 		sb.WriteString(" OR ")
-	default:
-		panic("unreachable")
+	} else {
+		sb.WriteString(" AND ")
 	}
 
 	if err := l.Right.Restore(flag, sb, args); err != nil {
@@ -80,10 +72,6 @@ func (l *LogicalExpressionNode) Restore(flag RestoreFlag, sb *strings.Builder, a
 	}
 
 	return nil
-}
-
-func (l *LogicalExpressionNode) CntParams() int {
-	return l.Left.CntParams() + l.Right.CntParams()
 }
 
 func (l *LogicalExpressionNode) Mode() ExpressionMode {
@@ -106,10 +94,6 @@ func (n *NotExpressionNode) Restore(flag RestoreFlag, sb *strings.Builder, args 
 	return nil
 }
 
-func (n *NotExpressionNode) CntParams() int {
-	return n.E.CntParams()
-}
-
 func (n *NotExpressionNode) Mode() ExpressionMode {
 	return EmNot
 }
@@ -127,10 +111,6 @@ func (a *PredicateExpressionNode) Restore(flag RestoreFlag, sb *strings.Builder,
 		return errors.WithStack(err)
 	}
 	return nil
-}
-
-func (a *PredicateExpressionNode) CntParams() int {
-	return a.P.CntParams()
 }
 
 func (a *PredicateExpressionNode) Mode() ExpressionMode {

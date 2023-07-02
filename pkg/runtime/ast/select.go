@@ -25,28 +25,40 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	_selectForUpdate uint8 = 1 << iota
-	_selectLockInShareMode
-	_selectDistinct
+var (
+	_ Statement = (*SelectStatement)(nil)
+	_ Node      = (*SelectStatement)(nil)
+	_ Restorer  = (*SelectStatement)(nil)
 )
 
-var (
-	_ Statement     = (*SelectStatement)(nil)
-	_ Node          = (*SelectStatement)(nil)
-	_ paramsCounter = (*SelectStatement)(nil)
-	_ Restorer      = (*SelectStatement)(nil)
+const (
+	_ SelectLock = 1 << iota
+	SelectLockForUpdate
+	SelectLockInShardMode
 )
+
+var _selectLockNames = [...]string{
+	SelectLockForUpdate:   "FOR UPDATE",
+	SelectLockInShardMode: "LOCK IN SHARE MODE",
+}
+
+type SelectLock uint8
+
+func (sl SelectLock) String() string {
+	return _selectLockNames[sl]
+}
 
 type SelectStatement struct {
-	flag    uint8
-	Select  SelectNode
-	From    FromNode
-	Where   ExpressionNode
-	GroupBy *GroupByNode
-	Having  ExpressionNode
-	OrderBy OrderByNode
-	Limit   *LimitNode
+	Select   SelectNode
+	From     FromNode
+	Where    ExpressionNode
+	GroupBy  *GroupByNode
+	Having   ExpressionNode
+	OrderBy  OrderByNode
+	Limit    *LimitNode
+	Lock     SelectLock
+	Distinct bool
+	Hint     *HintNode
 }
 
 func (ss *SelectStatement) Accept(visitor Visitor) (interface{}, error) {
@@ -56,7 +68,14 @@ func (ss *SelectStatement) Accept(visitor Visitor) (interface{}, error) {
 func (ss *SelectStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("SELECT ")
 
-	if ss.IsDistinct() {
+	if ss.Hint != nil {
+		if err := ss.Hint.Restore(flag, sb, args); err != nil {
+			return errors.WithStack(err)
+		}
+		sb.WriteString(" ")
+	}
+
+	if ss.Distinct {
 		sb.WriteString(Distinct)
 		sb.WriteString(" ")
 	}
@@ -137,25 +156,12 @@ func (ss *SelectStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *
 		}
 	}
 
-	if ss.IsForUpdate() {
-		sb.WriteString(" FOR UPDATE")
-	} else if ss.IsLockInShardMode() {
-		sb.WriteString(" LOCK IN SHARE MODE")
+	if ss.Lock != 0 {
+		sb.WriteByte(' ')
+		sb.WriteString(ss.Lock.String())
 	}
 
 	return nil
-}
-
-func (ss *SelectStatement) IsDistinct() bool {
-	return ss.flag&_selectDistinct != 0
-}
-
-func (ss *SelectStatement) IsLockInShardMode() bool {
-	return ss.flag&_selectLockInShareMode != 0
-}
-
-func (ss *SelectStatement) IsForUpdate() bool {
-	return ss.flag&_selectForUpdate != 0
 }
 
 func (ss *SelectStatement) HasJoin() bool {
@@ -163,29 +169,22 @@ func (ss *SelectStatement) HasJoin() bool {
 	case 0:
 		return false
 	case 1:
-		if _, ok := ss.From[0].Join(); ok {
+		if len(ss.From[0].Joins) > 0 {
 			return true
 		}
-
-		if sub := ss.From[0].SubQuery(); sub != nil {
-			switch it := sub.(type) {
-			case *SelectStatement:
-				return it.HasJoin()
-			case *UnionSelectStatement:
-				if it.First.HasJoin() {
+		switch it := ss.From[0].Source.(type) {
+		case *SelectStatement:
+			return it.HasJoin()
+		case *UnionSelectStatement:
+			if it.First.HasJoin() {
+				return true
+			}
+			for _, next := range it.UnionStatementItems {
+				if next.Stmt.HasJoin() {
 					return true
 				}
-				for _, next := range it.UnionStatementItems {
-					if next.Stmt.HasJoin() {
-						return true
-					}
-				}
-			}
-			if stmt, ok := sub.(*SelectStatement); ok {
-				return stmt.HasJoin()
 			}
 		}
-
 		return false
 	default:
 		return true
@@ -194,7 +193,8 @@ func (ss *SelectStatement) HasJoin() bool {
 
 func (ss *SelectStatement) HasSubQuery() bool {
 	for _, it := range ss.From {
-		if it.SubQuery() != nil {
+		switch it.Source.(type) {
+		case *SelectStatement, *UnionSelectStatement:
 			return true
 		}
 	}
@@ -203,56 +203,4 @@ func (ss *SelectStatement) HasSubQuery() bool {
 
 func (ss *SelectStatement) Mode() SQLType {
 	return SQLTypeSelect
-}
-
-func (ss *SelectStatement) CntParams() int {
-	var cnt int
-
-	for _, it := range ss.From {
-		if sq := it.SubQuery(); sq != nil {
-			cnt += sq.CntParams()
-		}
-	}
-
-	if ss.Where != nil {
-		cnt += ss.Where.CntParams()
-	}
-
-	if ss.GroupBy != nil {
-		for _, it := range ss.GroupBy.Items {
-			cnt += it.Expr().CntParams()
-		}
-	}
-
-	if ss.Having != nil {
-		cnt += ss.Having.CntParams()
-	}
-
-	if len(ss.OrderBy) > 0 {
-		for _, it := range ss.OrderBy {
-			cnt += it.Expr.CntParams()
-		}
-	}
-
-	if ss.Limit != nil {
-		if ss.Limit.IsLimitVar() {
-			cnt += 1
-		}
-		if ss.Limit.IsOffsetVar() {
-			cnt += 1
-		}
-	}
-	return cnt
-}
-
-func (ss *SelectStatement) enableDistinct() {
-	ss.flag |= _selectDistinct
-}
-
-func (ss *SelectStatement) enableForUpdate() {
-	ss.flag |= _selectForUpdate
-}
-
-func (ss *SelectStatement) enableLockInShareMode() {
-	ss.flag |= _selectLockInShareMode
 }

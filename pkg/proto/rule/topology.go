@@ -23,6 +23,10 @@ import (
 	"sync"
 )
 
+import (
+	"golang.org/x/exp/slices"
+)
+
 // Topology represents the topology of databases and tables.
 type Topology struct {
 	mu                 sync.RWMutex
@@ -102,6 +106,16 @@ func (to *Topology) Enumerate() DatabaseTables {
 	})
 
 	return dt
+}
+
+func (to *Topology) Exists(dbIdx, tbIdx int) bool {
+	exist, ok := to.idx.Load(dbIdx)
+	if !ok {
+		return false
+	}
+
+	_, ok = slices.BinarySearch(exist.([]int), tbIdx)
+	return ok
 }
 
 // Each enumerates items in current Topology.

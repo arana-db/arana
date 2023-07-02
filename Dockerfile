@@ -36,7 +36,7 @@ FROM node:16-alpine as FE
 RUN apk add --no-cache git
 
 # specify git revision for arana-db/arana-ui repo
-ARG UI_REVISION="3d46401"
+ARG UI_REVISION="6ec7d61"
 
 WORKDIR /arana-ui
 

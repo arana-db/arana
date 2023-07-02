@@ -34,7 +34,6 @@ import (
 import (
 	_ "github.com/arana-db/parser/test_driver"
 
-	uconfig "github.com/arana-db/arana/pkg/util/config"
 	perrors "github.com/pkg/errors"
 
 	"go.uber.org/atomic"
@@ -46,6 +45,7 @@ import (
 	"github.com/arana-db/arana/pkg/mysql/errors"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/security"
+	uconfig "github.com/arana-db/arana/pkg/util/config"
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
@@ -246,7 +246,7 @@ func (l *Listener) handshake(c *Conn) error {
 		return err
 	}
 
-	c.recycleReadPacket()
+	defer c.recycleReadPacket()
 
 	handshake, err := l.parseClientHandshakePacket(true, response)
 	if err != nil {

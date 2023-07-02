@@ -31,7 +31,7 @@ import (
 )
 
 func init() {
-	admin.Register(func(router admin.Router) {
+	admin.Register(func(router admin.Router, openRouter admin.Router) {
 		router.GET("/tenants/:tenant/clusters", ListClusters)
 		router.POST("/tenants/:tenant/clusters", CreateCluster)
 		router.GET("/tenants/:tenant/clusters/:cluster", GetCluster)

@@ -55,6 +55,7 @@ import (
 var (
 	errMissingTx          = stdErrors.New("no transaction found")
 	errNoDatabaseSelected = mysqlErrors.NewSQLError(mConstants.ERNoDb, mConstants.SSNoDatabaseSelected, "No database selected")
+	errEmptyQuery         = mysqlErrors.NewSQLError(mConstants.EREmptyQuery, mConstants.SS42000, "Query was empty")
 )
 
 var (
@@ -267,8 +268,8 @@ func (executor *RedirectExecutor) doExecutorComQuery(ctx *proto.Context, act ast
 		allowSchemaless := func(stmt *ast.ShowStmt) bool {
 			switch stmt.Tp {
 			case ast.ShowDatabases, ast.ShowVariables, ast.ShowTopology, ast.ShowStatus, ast.ShowTableStatus,
-				ast.ShowWarnings, ast.ShowCharset, ast.ShowMasterStatus, ast.ShowProcessList, ast.ShowReplicas,
-				ast.ShowReplicaStatus:
+				ast.ShowWarnings, ast.ShowCharset, ast.ShowMasterStatus, ast.ShowProcessList, ast.ShowReplicas, ast.ShowShardingTable,
+				ast.ShowReplicaStatus, ast.ShowNodes, ast.ShowUsers, ast.ShowCreateSequence, ast.ShowDatabaseRules:
 				return true
 			default:
 				return false
@@ -281,7 +282,8 @@ func (executor *RedirectExecutor) doExecutorComQuery(ctx *proto.Context, act ast
 			err = errNoDatabaseSelected
 		}
 	case *ast.TruncateTableStmt, *ast.DropTableStmt, *ast.ExplainStmt, *ast.DropIndexStmt, *ast.CreateIndexStmt,
-		*ast.AnalyzeTableStmt, *ast.OptimizeTableStmt, *ast.CheckTableStmt, *ast.RenameTableStmt:
+		*ast.AnalyzeTableStmt, *ast.OptimizeTableStmt, *ast.CheckTableStmt, *ast.RenameTableStmt, *ast.RepairTableStmt,
+		*ast.CreateTableStmt:
 		res, warn, err = executeStmt(ctx, schemaless, rt)
 	case *ast.DropTriggerStmt, *ast.SetStmt, *ast.KillStmt:
 		res, warn, err = rt.Execute(ctx)
@@ -305,7 +307,12 @@ func (executor *RedirectExecutor) doExecutorComQuery(ctx *proto.Context, act ast
 func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context, h func(result proto.Result, warns uint16, failure error) error) error {
 	p := parser.New()
 	query := ctx.GetQuery()
-	log.Debugf("ComQuery: %s", query)
+
+	if len(query) < 1 {
+		return h(nil, 0, errEmptyQuery)
+	}
+
+	log.DebugfWithLogType(log.LogicalSqlLog, "ComQuery: '%s'", query)
 
 	charset, collation := getCharsetCollation(ctx.C.CharacterSet())
 

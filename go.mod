@@ -4,19 +4,19 @@ go 1.18
 
 require (
 	github.com/appleboy/gin-jwt/v2 v2.9.1
-	github.com/arana-db/parser v0.2.11
+	github.com/arana-db/parser v0.2.16
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/cespare/xxhash/v2 v2.1.2
 	github.com/creasty/defaults v1.6.0
 	github.com/docker/go-units v0.4.0
-	github.com/dop251/goja v0.0.0-20220422102209-3faab1d8f20e
+	github.com/dop251/goja v0.0.0-20230427124612-428fc442ff5f
 	github.com/dubbogo/gost v1.12.3
 	github.com/gin-gonic/gin v1.8.1
 	github.com/go-playground/validator/v10 v10.11.1
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/golang/mock v1.5.0
-	github.com/google/btree v1.0.0
+	github.com/google/btree v1.1.2
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/nacos-group/nacos-sdk-go/v2 v2.0.1
@@ -43,7 +43,7 @@ require (
 	golang.org/x/exp v0.0.0-20220613132600-b0d781184e0d
 	golang.org/x/net v0.4.0
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
-	golang.org/x/text v0.5.0
+	golang.org/x/text v0.9.0
 	google.golang.org/grpc v1.42.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -61,7 +61,7 @@ require (
 	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.3.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/dlclark/regexp2 v1.4.1-0.20201116162257-a2a8dda75c91 // indirect
+	github.com/dlclark/regexp2 v1.9.0 // indirect
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v20.10.11+incompatible // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
@@ -79,6 +79,7 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.4.3 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
+	github.com/google/pprof v0.0.0-20230429030804-905365eefe3e // indirect
 	github.com/gopherjs/gopherjs v0.0.0-20190910122728-9d188e94fb99 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.2 // indirect
@@ -124,7 +125,7 @@ require (
 	go.etcd.io/etcd/raft/v3 v3.5.0-alpha.0 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	golang.org/x/crypto v0.4.0 // indirect
-	golang.org/x/sys v0.3.0 // indirect
+	golang.org/x/sys v0.5.0 // indirect
 	golang.org/x/time v0.0.0-20201208040808-7e3f01d25324 // indirect
 	google.golang.org/genproto v0.0.0-20211104193956-4c6863e31247 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect

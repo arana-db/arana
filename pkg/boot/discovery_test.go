@@ -29,6 +29,7 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/constants"
+	_ "github.com/arana-db/arana/pkg/runtime/builtin"
 	"github.com/arana-db/arana/testdata"
 )
 

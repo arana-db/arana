@@ -172,6 +172,12 @@ func (c *configReader) compositeConfiguration(loadFilter map[PathKey]string) *Te
 		}
 	}
 
+	if _, ok := loadFilter[c.pathInfo.DefaultConfigSysDBPath]; ok {
+		if val := c.holders[c.pathInfo.DefaultConfigSysDBPath].Load(); val != nil {
+			conf.SysDB = val.(*Tenant).SysDB
+		}
+	}
+
 	if _, ok := loadFilter[c.pathInfo.DefaultConfigDataNodesPath]; ok {
 		if val := c.holders[c.pathInfo.DefaultConfigDataNodesPath].Load(); val != nil {
 			conf.Nodes = val.(*Tenant).Nodes

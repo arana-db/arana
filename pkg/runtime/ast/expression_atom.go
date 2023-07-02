@@ -32,6 +32,7 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime/misc"
 )
 
@@ -59,7 +60,6 @@ type expressionAtomPhantom struct{}
 type ExpressionAtom interface {
 	Node
 	Restorer
-	paramsCounter
 	phantom() expressionAtomPhantom
 }
 
@@ -98,10 +98,6 @@ func (ie *IntervalExpressionAtom) Restore(flag RestoreFlag, sb *strings.Builder,
 	sb.WriteString(ie.Unit.String())
 
 	return nil
-}
-
-func (ie *IntervalExpressionAtom) CntParams() int {
-	return ie.Value.CntParams()
 }
 
 func (ie *IntervalExpressionAtom) phantom() expressionAtomPhantom {
@@ -146,10 +142,6 @@ func (sy *SystemVariableExpressionAtom) Restore(rf RestoreFlag, sb *strings.Buil
 	return nil
 }
 
-func (sy *SystemVariableExpressionAtom) CntParams() int {
-	return 0
-}
-
 func (sy *SystemVariableExpressionAtom) phantom() expressionAtomPhantom {
 	return expressionAtomPhantom{}
 }
@@ -189,17 +181,6 @@ func (u *UnaryExpressionAtom) Restore(flag RestoreFlag, sb *strings.Builder, arg
 	return nil
 }
 
-func (u *UnaryExpressionAtom) CntParams() int {
-	switch val := u.Inner.(type) {
-	case ExpressionAtom:
-		return val.CntParams()
-	case *BinaryComparisonPredicateNode:
-		return val.CntParams()
-	default:
-		panic("unreachable")
-	}
-}
-
 func (u *UnaryExpressionAtom) phantom() expressionAtomPhantom {
 	return expressionAtomPhantom{}
 }
@@ -223,7 +204,7 @@ func (c *ConstantExpressionAtom) phantom() expressionAtomPhantom {
 
 func constant2string(value interface{}) string {
 	switch v := value.(type) {
-	case Null:
+	case proto.Null:
 		return v.String()
 	case int:
 		return strconv.FormatInt(int64(v), 10)
@@ -272,16 +253,12 @@ func (c *ConstantExpressionAtom) String() string {
 }
 
 func (c *ConstantExpressionAtom) IsNull() bool {
-	_, ok := c.Value().(Null)
+	_, ok := c.Value().(proto.Null)
 	return ok
 }
 
 func (c *ConstantExpressionAtom) Value() interface{} {
 	return c.Inner
-}
-
-func (c *ConstantExpressionAtom) CntParams() int {
-	return 0
 }
 
 type ColumnNameExpressionAtom []string
@@ -319,10 +296,6 @@ func (c ColumnNameExpressionAtom) String() string {
 	return MustRestoreToString(RestoreDefault, c)
 }
 
-func (c ColumnNameExpressionAtom) CntParams() int {
-	return 0
-}
-
 func (c ColumnNameExpressionAtom) phantom() expressionAtomPhantom {
 	return expressionAtomPhantom{}
 }
@@ -345,10 +318,6 @@ func (v VariableExpressionAtom) Restore(flag RestoreFlag, sb *strings.Builder, a
 
 func (v VariableExpressionAtom) N() int {
 	return int(v)
-}
-
-func (v VariableExpressionAtom) CntParams() int {
-	return 1
 }
 
 func (v VariableExpressionAtom) phantom() expressionAtomPhantom {
@@ -385,10 +354,6 @@ func (m *MathExpressionAtom) Restore(flag RestoreFlag, sb *strings.Builder, args
 	return nil
 }
 
-func (m *MathExpressionAtom) CntParams() int {
-	return m.Left.CntParams() + m.Right.CntParams()
-}
-
 func (m *MathExpressionAtom) phantom() expressionAtomPhantom {
 	return expressionAtomPhantom{}
 }
@@ -409,10 +374,6 @@ func (n *NestedExpressionAtom) Restore(flag RestoreFlag, sb *strings.Builder, ar
 	sb.WriteByte(')')
 
 	return nil
-}
-
-func (n *NestedExpressionAtom) CntParams() (ret int) {
-	return n.First.CntParams()
 }
 
 func (n *NestedExpressionAtom) phantom() expressionAtomPhantom {
@@ -447,21 +408,6 @@ func (f *FunctionCallExpressionAtom) Restore(flag RestoreFlag, sb *strings.Build
 	}
 
 	return nil
-}
-
-func (f *FunctionCallExpressionAtom) CntParams() int {
-	switch v := f.F.(type) {
-	case *Function:
-		return v.CntParams()
-	case *AggrFunction:
-		return 0
-	case *CastFunction:
-		return v.CntParams()
-	case *CaseWhenElseFunction:
-		return v.CntParams()
-	default:
-		panic("unreachable")
-	}
 }
 
 func (f *FunctionCallExpressionAtom) phantom() expressionAtomPhantom {

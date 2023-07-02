@@ -26,8 +26,8 @@ import (
 )
 
 var (
-	_ paramsCounter = (*JoinNode)(nil)
-	_ Restorer      = (*JoinNode)(nil)
+	_ Node     = (*JoinNode)(nil)
+	_ Restorer = (*JoinNode)(nil)
 )
 
 const (
@@ -37,39 +37,40 @@ const (
 	InnerJoin
 )
 
+var _joinTypeNames = [...]string{
+	LeftJoin:  "LEFT",
+	RightJoin: "RIGHT",
+	InnerJoin: "INNER",
+}
+
 type JoinType uint8
 
+func (j JoinType) String() string {
+	return _joinTypeNames[j]
+}
+
 type JoinNode struct {
-	natural bool
-	Left    *TableSourceNode
-	Right   *TableSourceNode
-	Typ     JoinType
+	Target  *TableSourceItem
 	On      ExpressionNode
+	Typ     JoinType
+	Natural bool
+}
+
+func (jn *JoinNode) Accept(visitor Visitor) (interface{}, error) {
+	return visitor.VisitJoin(jn)
 }
 
 func (jn *JoinNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
-	if err := jn.Left.Restore(flag, sb, args); err != nil {
-		return errors.WithStack(err)
-	}
-
-	if jn.natural {
+	if jn.Natural {
 		sb.WriteString(" NATURAL")
 	}
 
 	sb.WriteByte(' ')
-
-	switch jn.Typ {
-	case LeftJoin:
-		sb.WriteString("LEFT")
-	case RightJoin:
-		sb.WriteString("RIGHT")
-	case InnerJoin:
-		sb.WriteString("INNER")
-	}
+	sb.WriteString(jn.Typ.String())
 
 	sb.WriteString(" JOIN ")
 
-	if err := jn.Right.Restore(flag, sb, args); err != nil {
+	if err := jn.Target.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
 
@@ -80,15 +81,4 @@ func (jn *JoinNode) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) 
 	}
 
 	return nil
-}
-
-func (jn *JoinNode) CntParams() (n int) {
-	if pc, ok := jn.Left.source.(paramsCounter); ok {
-		n += pc.CntParams()
-	}
-	if pc, ok := jn.Right.source.(paramsCounter); ok {
-		n += pc.CntParams()
-	}
-	n += jn.On.CntParams()
-	return
 }

@@ -15,45 +15,24 @@
  * limitations under the License.
  */
 
-package logical
+package dal
 
 import (
 	"testing"
 )
 
 import (
+	"github.com/arana-db/parser"
+
 	"github.com/stretchr/testify/assert"
 )
 
-func TestLogicalAndOr(t *testing.T) {
-	for _, it := range []Logical{
-		New("A").And(New("B")).And(New("C")),
-		New("A").And(New("B").And(New("C"))),
-		New("A").And(New("A")),
-		New("A").Or(New("A")),
-		New("A").And(New("A").Or(New("B"))),
-		New("A").And(New("B")).Or(New("A")),
-		New("A").Or(New("B")).And(New("C").Or(New("D"))),
-		New("A").And(New("B")).And(New("C").And(New("D"))),
-		New("A").Or(New("B")).And(New("C").Or(New("A"))),
-		New("A").Or(New("B")).And(New("A").Or(New("B"))),
-		New("A").And(New("B")).And(New("C").Or(New("A"))),
-	} {
-		t.Log(it)
-	}
-}
+func TestShowDatabaseRulesSQL(t *testing.T) {
+	sql := "SHOW DATABASE RULES FROM student"
 
-func TestNot(t *testing.T) {
-	for _, it := range []Logical{
-		New("A").And(New("B")).Not(),
-	} {
-		t.Log(it)
-	}
-}
+	p := parser.New()
 
-func TestEval(t *testing.T) {
-	l := New("A", WithValue(true)).And(New("B", WithValue(false)))
-	result, err := EvalBool(l)
-	assert.NoError(t, err)
-	t.Logf("%s = %v\n", l, result)
+	stmtNodes, _, err := p.Parse(sql, "", "")
+	assert.Nil(t, err)
+	assert.NotNil(t, stmtNodes)
 }

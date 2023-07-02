@@ -31,7 +31,7 @@ import (
 )
 
 func init() {
-	admin.Register(func(router admin.Router) {
+	admin.Register(func(router admin.Router, openRouter admin.Router) {
 		router.GET("/tables", ListAllTables)
 		router.GET("/tenants/:tenant/clusters/:cluster/tables", ListTables)
 		router.POST("/tenants/:tenant/clusters/:cluster/tables", CreateTable)
@@ -42,9 +42,7 @@ func init() {
 }
 
 func ListAllTables(c *gin.Context) error {
-	var (
-		result = make([]*admin.TableDTO, 0)
-	)
+	result := make([]*admin.TableDTO, 0)
 	service := admin.GetService(c)
 
 	tenants, err := service.ListTenants(c)

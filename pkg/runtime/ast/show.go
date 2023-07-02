@@ -26,6 +26,11 @@ import (
 	"github.com/pkg/errors"
 )
 
+import (
+	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/runtime/misc"
+)
+
 var (
 	_ Statement = (*ShowTables)(nil)
 	_ Statement = (*ShowOpenTables)(nil)
@@ -38,7 +43,10 @@ var (
 	_ Statement = (*ShowWarnings)(nil)
 	_ Statement = (*ShowMasterStatus)(nil)
 	_ Statement = (*ShowReplicaStatus)(nil)
+	_ Statement = (*ShowDatabaseRule)(nil)
 )
+
+var TruePredicate = func(row proto.Row) bool { return true }
 
 type FromTable string
 
@@ -46,17 +54,27 @@ func (f FromTable) String() string {
 	return string(f)
 }
 
-type baseShow struct {
+type FromDatabase string
+
+func (f FromDatabase) String() string {
+	return string(f)
+}
+
+type BaseShow struct {
 	filter interface{} // ExpressionNode or string
 }
 
-func (bs *baseShow) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+func (bs *BaseShow) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	switch val := bs.filter.(type) {
 	case string:
 		sb.WriteString(" IN ")
 		WriteID(sb, val)
 		return nil
 	case FromTable:
+		sb.WriteString(val.String())
+		return nil
+	case FromDatabase:
+		sb.WriteString(" FROM ")
 		sb.WriteString(val.String())
 		return nil
 	case PredicateNode:
@@ -69,22 +87,68 @@ func (bs *baseShow) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) 
 	}
 }
 
-func (bs *baseShow) Like() (string, bool) {
+func (bs *BaseShow) Like() (string, bool) {
 	v, ok := bs.filter.(string)
 	return v, ok
 }
 
-func (bs *baseShow) Where() (ExpressionNode, bool) {
+func (bs *BaseShow) Where() (ExpressionNode, bool) {
 	v, ok := bs.filter.(ExpressionNode)
 	return v, ok
 }
 
-func (bs *baseShow) CntParams() int {
-	return 0
+func (bs *BaseShow) Filter() func(proto.Row) bool {
+	return TruePredicate
+}
+
+// BaseShowWithSingleColumn for `show databases` and `show tables` clause which only have one column.
+// Get result and do filter locally
+type BaseShowWithSingleColumn struct {
+	*BaseShow
+	like sql.NullString
+}
+
+func (bs *BaseShowWithSingleColumn) Like() (string, bool) {
+	if bs.like.Valid {
+		return bs.like.String, true
+	}
+	v, ok := bs.filter.(string)
+	return v, ok
+}
+
+func (bs *BaseShowWithSingleColumn) Filter() func(proto.Row) bool {
+	if pattern, ok := bs.Like(); ok {
+		liker := misc.NewLiker(pattern)
+		return func(row proto.Row) bool {
+			dest := make([]proto.Value, 1)
+			if row.Scan(dest) != nil {
+				return false
+			}
+			return liker.Like(dest[0].String())
+		}
+	}
+
+	// TODO make it cleaner
+	if whereFilter, ok := bs.Where(); ok {
+		target := whereFilter.(*PredicateExpressionNode).
+			P.(*BinaryComparisonPredicateNode).
+			Right.(*AtomPredicateNode).
+			A.(*ConstantExpressionAtom).
+			Inner.(string)
+		return func(row proto.Row) bool {
+			dest := make([]proto.Value, 1)
+			if row.Scan(dest) != nil {
+				return false
+			}
+			return target == dest[0].String()
+		}
+	}
+
+	return TruePredicate
 }
 
 type ShowDatabases struct {
-	*baseShow
+	*BaseShowWithSingleColumn
 }
 
 func (s ShowDatabases) Mode() SQLType {
@@ -93,14 +157,14 @@ func (s ShowDatabases) Mode() SQLType {
 
 func (s ShowDatabases) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("SHOW DATABASES")
-	if err := s.baseShow.Restore(flag, sb, args); err != nil {
+	if err := s.BaseShow.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
 	return nil
 }
 
 type ShowCollation struct {
-	*baseShow
+	*BaseShow
 }
 
 func (s ShowCollation) Mode() SQLType {
@@ -109,15 +173,14 @@ func (s ShowCollation) Mode() SQLType {
 
 func (s ShowCollation) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("SHOW COLLATION")
-	if err := s.baseShow.Restore(flag, sb, args); err != nil {
+	if err := s.BaseShow.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
 	return nil
 }
 
 type ShowTables struct {
-	*baseShow
-	like sql.NullString
+	*BaseShowWithSingleColumn
 }
 
 func (st *ShowTables) Mode() SQLType {
@@ -126,21 +189,14 @@ func (st *ShowTables) Mode() SQLType {
 
 func (st *ShowTables) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("SHOW TABLES")
-	if err := st.baseShow.Restore(flag, sb, args); err != nil {
+	if err := st.BaseShowWithSingleColumn.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
 	return nil
 }
 
-func (st *ShowTables) Like() (string, bool) {
-	if st.like.Valid {
-		return st.like.String, true
-	}
-	return "", false
-}
-
 type ShowTopology struct {
-	*baseShow
+	*BaseShow
 }
 
 func (s ShowTopology) Mode() SQLType {
@@ -148,11 +204,11 @@ func (s ShowTopology) Mode() SQLType {
 }
 
 func (s ShowTopology) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
-	return s.baseShow.Restore(flag, sb, args)
+	return s.BaseShow.Restore(flag, sb, args)
 }
 
 type ShowOpenTables struct {
-	*baseShow
+	*BaseShow
 }
 
 func (s ShowOpenTables) Mode() SQLType {
@@ -161,7 +217,7 @@ func (s ShowOpenTables) Mode() SQLType {
 
 func (s ShowOpenTables) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("SHOW OPEN TABLES")
-	if err := s.baseShow.Restore(flag, sb, args); err != nil {
+	if err := s.BaseShow.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
 	return nil
@@ -220,10 +276,6 @@ func (s *ShowCreate) Target() string {
 	return s.tgt
 }
 
-func (s *ShowCreate) CntParams() int {
-	return 0
-}
-
 func (s *ShowCreate) Mode() SQLType {
 	return SQLTypeShowCreate
 }
@@ -253,13 +305,6 @@ func (s *ShowIndex) Where() (ExpressionNode, bool) {
 		return s.where, true
 	}
 	return nil, false
-}
-
-func (s *ShowIndex) CntParams() int {
-	if s.where == nil {
-		return 0
-	}
-	return s.where.CntParams()
 }
 
 func (s *ShowIndex) Mode() SQLType {
@@ -327,10 +372,6 @@ func (sh *ShowColumns) Table() TableName {
 	return sh.TableName
 }
 
-func (sh *ShowColumns) CntParams() int {
-	return 0
-}
-
 func (sh *ShowColumns) Mode() SQLType {
 	return SQLTypeShowColumns
 }
@@ -383,16 +424,12 @@ func (s *ShowVariables) Like() (string, bool) {
 	return "", false
 }
 
-func (s *ShowVariables) CntParams() int {
-	return 0
-}
-
 func (s *ShowVariables) Mode() SQLType {
 	return SQLTypeShowVariables
 }
 
 type ShowStatus struct {
-	*baseShow
+	*BaseShow
 	flag   showColumnsFlag
 	global bool
 }
@@ -407,7 +444,7 @@ func (s *ShowStatus) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int)
 	}
 	sb.WriteString(" STATUS ")
 
-	if err := s.baseShow.Restore(flag, sb, args); err != nil {
+	if err := s.BaseShow.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
 
@@ -419,7 +456,7 @@ func (s *ShowStatus) Mode() SQLType {
 }
 
 type ShowTableStatus struct {
-	*baseShow
+	*BaseShow
 	Database string
 }
 
@@ -451,7 +488,7 @@ func (s *ShowTableStatus) Mode() SQLType {
 }
 
 type ShowWarnings struct {
-	*baseShow
+	*BaseShow
 	Limit *LimitNode
 }
 
@@ -463,8 +500,14 @@ func (s *ShowWarnings) Restore(flag RestoreFlag, sb *strings.Builder, args *[]in
 	// Todo implements 1: SHOW WARNINGS [LIMIT [offset,] row_count],  2: SHOW COUNT(*) WARNINGS
 	sb.WriteString("SHOW WARNINGS")
 
-	if err := s.baseShow.Restore(flag, sb, args); err != nil {
+	if err := s.BaseShow.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
+	}
+	if s.Limit != nil {
+		sb.WriteString(" LIMIT ")
+		if err := s.Limit.Restore(flag, sb, args); err != nil {
+			return errors.WithStack(err)
+		}
 	}
 
 	return nil
@@ -475,7 +518,7 @@ func (s *ShowWarnings) Mode() SQLType {
 }
 
 type ShowCharset struct {
-	*baseShow
+	*BaseShow
 }
 
 func (s *ShowCharset) Mode() SQLType {
@@ -485,7 +528,7 @@ func (s *ShowCharset) Mode() SQLType {
 func (s *ShowCharset) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("SHOW CHARACTER SET")
 
-	if err := s.baseShow.Restore(flag, sb, args); err != nil {
+	if err := s.BaseShow.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
 
@@ -493,7 +536,7 @@ func (s *ShowCharset) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int
 }
 
 type ShowReplicas struct {
-	*baseShow
+	*BaseShow
 }
 
 func (s ShowReplicas) Mode() SQLType {
@@ -503,7 +546,7 @@ func (s ShowReplicas) Mode() SQLType {
 func (s ShowReplicas) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("SHOW REPLICAS ")
 
-	if err := s.baseShow.Restore(flag, sb, args); err != nil {
+	if err := s.BaseShow.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
 
@@ -511,7 +554,7 @@ func (s ShowReplicas) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int
 }
 
 type ShowMasterStatus struct {
-	*baseShow
+	*BaseShow
 }
 
 func (s *ShowMasterStatus) Mode() SQLType {
@@ -521,11 +564,11 @@ func (s *ShowMasterStatus) Mode() SQLType {
 func (s *ShowMasterStatus) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("SHOW MASTER STATUS")
 
-	return s.baseShow.Restore(flag, sb, args)
+	return s.BaseShow.Restore(flag, sb, args)
 }
 
 type ShowProcessList struct {
-	*baseShow
+	*BaseShow
 }
 
 func (s *ShowProcessList) Mode() SQLType {
@@ -535,11 +578,11 @@ func (s *ShowProcessList) Mode() SQLType {
 func (s *ShowProcessList) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("SHOW PROCESSLIST")
 
-	return s.baseShow.Restore(flag, sb, args)
+	return s.BaseShow.Restore(flag, sb, args)
 }
 
 type ShowReplicaStatus struct {
-	*baseShow
+	*BaseShow
 }
 
 func (s *ShowReplicaStatus) Mode() SQLType {
@@ -548,5 +591,93 @@ func (s *ShowReplicaStatus) Mode() SQLType {
 
 func (s *ShowReplicaStatus) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("SHOW REPLICA STATUS")
-	return s.baseShow.Restore(flag, sb, args)
+	return s.BaseShow.Restore(flag, sb, args)
+}
+
+type ShowNodes struct {
+	Tenant string
+}
+
+func (s *ShowNodes) Mode() SQLType {
+	return SQLTypeShowNodes
+}
+
+func (s *ShowNodes) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	sb.WriteString("SHOW NODES FROM ")
+
+	if len(s.Tenant) > 0 {
+		WriteID(sb, s.Tenant)
+	}
+
+	return nil
+}
+
+type ShowUsers struct {
+	Tenant string
+}
+
+func (s *ShowUsers) Mode() SQLType {
+	return SQLTypeShowUsers
+}
+
+func (s *ShowUsers) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	sb.WriteString("SHOW USERS FROM ")
+
+	if len(s.Tenant) > 0 {
+		WriteID(sb, s.Tenant)
+	}
+
+	return nil
+}
+
+type ShowShardingTable struct {
+	*BaseShow
+}
+
+func (s *ShowShardingTable) Mode() SQLType {
+	return SQLTypeShowShardingTable
+}
+
+func (s *ShowShardingTable) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	val, ok := s.BaseShow.filter.(string)
+	if !ok {
+		return errors.New("show sharding table database type error")
+	}
+	sb.WriteString(val)
+	return nil
+}
+
+type ShowCreateSequence struct {
+	Tenant string
+}
+
+func (s *ShowCreateSequence) Mode() SQLType {
+	return SQLTypeShowCreateSequence
+}
+
+func (s *ShowCreateSequence) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	sb.WriteString("SHOW CREATE SEQUENCE ")
+
+	if len(s.Tenant) > 0 {
+		WriteID(sb, s.Tenant)
+	}
+	return nil
+}
+
+type ShowDatabaseRule struct {
+	*BaseShow
+	Database  string
+	TableName string
+}
+
+func (s ShowDatabaseRule) Mode() SQLType {
+	return SQLTypeShowDatabaseRules
+}
+
+func (s ShowDatabaseRule) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	sb.WriteString("SHOW DATABASE RULES ")
+	if err := s.BaseShow.Restore(flag, sb, args); err != nil {
+		return errors.WithStack(err)
+	}
+	return nil
 }

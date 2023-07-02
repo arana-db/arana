@@ -47,12 +47,14 @@ const (
 	_defaultUIPath = "/var/www/arana"
 )
 
-const _ADMIN_SERVICE = "ARANA_ADMIN_SERVICE"
-const _SERVICE_DISCOVERY = "ARANA_SERVICE_DISCOVERY"
+const (
+	_ADMIN_SERVICE     = "ARANA_ADMIN_SERVICE"
+	_SERVICE_DISCOVERY = "ARANA_SERVICE_DISCOVERY"
+)
 
 var _hooks []Hook
 
-type Hook func(Router)
+type Hook func(Router, Router)
 
 type Handler func(*gin.Context) error
 
@@ -131,16 +133,21 @@ func (srv *Server) Listen(addr string) error {
 		log.Fatal("JWT Error:" + err.Error())
 	}
 
+	// Mount OpenAPI no auth
+	openRg := srv.engine.Group("/openapi/v1")
+
 	srv.engine.POST("/login", authMiddleware.LoginHandler)
 	auth := srv.engine.Group("/auth")
 	auth.POST("/logout", authMiddleware.LogoutHandler)
 	auth.POST("/refresh_token", authMiddleware.RefreshHandler)
+
 	srv.engine.Use(authMiddleware.MiddlewareFunc())
 
 	// Mount APIs
 	rg := srv.engine.Group("/api/v1")
+
 	for _, hook := range _hooks {
-		hook((*myRouter)(rg))
+		hook((*myRouter)(rg), (*myRouter)(openRg))
 	}
 
 	// Mount static resources

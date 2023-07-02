@@ -19,7 +19,6 @@ package rule
 
 import (
 	"fmt"
-	"strconv"
 	"testing"
 )
 
@@ -30,6 +29,7 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/testdata"
 )
 
@@ -52,12 +52,25 @@ func TestRule(t *testing.T) {
 			}
 		)
 
-		vtab.SetShardMetadata("uid", &ShardMetadata{
-			Stepper:  stepper,
-			Computer: c1,
-		}, &ShardMetadata{
-			Stepper:  stepper,
-			Computer: c2,
+		vtab.AddVShards(&VShard{
+			DB: &ShardMetadata{
+				ShardColumns: []*ShardColumn{
+					{
+						Name:    "uid",
+						Stepper: stepper,
+					},
+				},
+				Computer: c1,
+			},
+			Table: &ShardMetadata{
+				ShardColumns: []*ShardColumn{
+					{
+						Name:    "uid",
+						Stepper: stepper,
+					},
+				},
+				Computer: c2,
+			},
 		})
 
 		// table topology: 4 databases, 16 tables
@@ -84,65 +97,55 @@ func TestRule(t *testing.T) {
 	c1 := testdata.NewMockShardComputer(ctrl)
 	c1.EXPECT().
 		Compute(gomock.Any()).
-		DoAndReturn(func(value interface{}) (int, error) {
-			return value.(int) % 4, nil
+		DoAndReturn(func(value proto.Value) (int, error) {
+			x, _ := value.Int64()
+			return int(x) % 16 / 4, nil
 		}).
 		MinTimes(1)
+	c1.EXPECT().Variables().Return([]string{"uid"}).MinTimes(1)
 
 	c2 := testdata.NewMockShardComputer(ctrl)
 	c2.EXPECT().
 		Compute(gomock.Any()).
-		DoAndReturn(func(value interface{}) (int, error) {
-			return value.(int) % 16, nil
+		DoAndReturn(func(value proto.Value) (int, error) {
+			x, _ := value.Int64()
+			return int(x % 16), nil
 		}).
 		MinTimes(1)
+	c2.EXPECT().Variables().Return([]string{"uid"}).MinTimes(1)
 
 	ru := buildRule(c1, c2)
 
 	assert.True(t, ru.Has("student"))
 	assert.False(t, ru.Has("fake_table"))
 
-	assert.True(t, ru.HasColumn("student", "uid"))
-	assert.False(t, ru.HasColumn("student", "fake_field"))
-	assert.False(t, ru.HasColumn("fake_table", "uid"))
-	assert.False(t, ru.HasColumn("fake_table", "fake_field"))
+	assert.True(t, ru.MustVTable("student").HasVShard("uid"))
+	assert.False(t, ru.MustVTable("student").HasVShard("fake_field"))
 
 	vtab := ru.MustVTable("student")
 
-	var ok bool
-	_, _, ok = vtab.GetShardMetadata("name")
-	assert.False(t, ok)
-	_, _, ok = vtab.GetShardMetadata("fake_field")
-	assert.False(t, ok)
-	_, _, ok = vtab.GetShardMetadata("uid")
-	assert.True(t, ok)
+	assert.Equal(t, 1, vtab.GetVShards()[0].Len(), "length shard keys should be 1")
 
-	assert.Len(t, vtab.GetShardKeys(), 1, "length shard keys should be 1")
-
-	dbIdx, tblIdx, err := vtab.Shard("uid", 42)
+	dbIdx, tblIdx, err := vtab.Shard(map[string]proto.Value{
+		"uid": proto.NewValueInt64(42),
+	})
 	assert.NoError(t, err)
 	assert.Equal(t, uint32(2), dbIdx)
 	assert.Equal(t, uint32(10), tblIdx)
 
 	db, tbl, ok := vtab.Topology().Render(int(dbIdx), int(tblIdx))
 	assert.True(t, ok)
+	assert.Equal(t, "school_0002", db)
+	assert.Equal(t, "student_0010", tbl)
 
 	t.Logf("shard result: %s.%s\n", db, tbl)
 
-	_, _, noDataErr := vtab.Shard("name", 42)
-	assert.Error(t, noDataErr)
+	_, _, err = vtab.Shard(map[string]proto.Value{
+		"name": proto.NewValueInt64(42),
+	})
+	assert.Error(t, err)
 
 	ru.RemoveVTable("student")
 	assert.False(t, ru.Has("student"))
 	assert.False(t, (*Rule)(nil).Has("student"))
-}
-
-func TestDirectShardComputer_Compute(t *testing.T) {
-	dc := DirectShardComputer(func(i interface{}) (int, error) {
-		n, _ := strconv.Atoi(fmt.Sprintf("%v", i))
-		return n % 32, nil
-	})
-	res, err := dc.Compute(33)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, res, "should compute correctly")
 }

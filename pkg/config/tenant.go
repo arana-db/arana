@@ -32,14 +32,15 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/admin/exception"
 	"github.com/arana-db/arana/pkg/util/log"
 )
 
-var _ TenantOperator = (*tenantOperate)(nil)
+var _ TenantOperator = (*tenantOperator)(nil)
 
 // NewTenantOperator create a tenant data operator
 func NewTenantOperator(op StoreOperator) (TenantOperator, error) {
-	tenantOp := &tenantOperate{
+	tenantOp := &tenantOperator{
 		op:        op,
 		tenants:   map[string]struct{}{},
 		cancels:   []context.CancelFunc{},
@@ -53,7 +54,7 @@ func NewTenantOperator(op StoreOperator) (TenantOperator, error) {
 	return tenantOp, nil
 }
 
-type tenantOperate struct {
+type tenantOperator struct {
 	op   StoreOperator
 	lock sync.RWMutex
 
@@ -63,11 +64,11 @@ type tenantOperate struct {
 	cancels []context.CancelFunc
 }
 
-func (tp *tenantOperate) Subscribe(ctx context.Context, c EventCallback) context.CancelFunc {
+func (tp *tenantOperator) Subscribe(ctx context.Context, c EventCallback) context.CancelFunc {
 	return tp.observers.add(EventTypeTenants, c)
 }
 
-func (tp *tenantOperate) init() error {
+func (tp *tenantOperator) init() error {
 	tp.lock.Lock()
 	defer tp.lock.Unlock()
 
@@ -93,7 +94,7 @@ func (tp *tenantOperate) init() error {
 	return tp.watchTenants(ctx)
 }
 
-func (tp *tenantOperate) watchTenants(ctx context.Context) error {
+func (tp *tenantOperator) watchTenants(ctx context.Context) error {
 	ch, err := tp.op.Watch(DefaultTenantsPath)
 	if err != nil {
 		return err
@@ -134,7 +135,7 @@ func (tp *tenantOperate) watchTenants(ctx context.Context) error {
 	return nil
 }
 
-func (tp *tenantOperate) ListTenants() []string {
+func (tp *tenantOperator) ListTenants() []string {
 	tp.lock.RLock()
 	defer tp.lock.RUnlock()
 
@@ -147,7 +148,7 @@ func (tp *tenantOperate) ListTenants() []string {
 	return ret
 }
 
-func (tp *tenantOperate) CreateTenant(name string) error {
+func (tp *tenantOperator) CreateTenant(name string) error {
 	tp.lock.Lock()
 	defer tp.lock.Unlock()
 
@@ -181,7 +182,44 @@ func (tp *tenantOperate) CreateTenant(name string) error {
 	return nil
 }
 
-func (tp *tenantOperate) RemoveTenantUser(tenant, username string) error {
+func (tp *tenantOperator) UpdateTenant(name string, newName string) error {
+	tp.lock.Lock()
+	defer tp.lock.Unlock()
+
+	if _, ok := tp.tenants[name]; ok {
+		return nil
+	}
+
+	tp.tenants[newName] = tp.tenants[name]
+	delete(tp.tenants, name)
+
+	ret := make([]string, 0, len(tp.tenants))
+
+	for i := range tp.tenants {
+		ret = append(ret, i)
+	}
+
+	data, err := yaml.Marshal(ret)
+	if err != nil {
+		return err
+	}
+
+	if err := tp.op.Save(DefaultTenantsPath, data); err != nil {
+		return errors.Wrap(err, "create tenant name")
+	}
+
+	// need to insert the relevant configuration data under the relevant tenant
+	tenantPathInfo := NewPathInfo(name)
+	for i := range tenantPathInfo.ConfigKeyMapping {
+		if err := tp.op.Save(i, []byte("")); err != nil {
+			return errors.Wrapf(err, "create tenant resource : %s", i)
+		}
+	}
+
+	return nil
+}
+
+func (tp *tenantOperator) RemoveTenantUser(tenant, username string) error {
 	p := NewPathInfo(tenant)
 
 	prev, err := tp.op.Get(p.DefaultConfigDataUsersPath)
@@ -221,7 +259,7 @@ func (tp *tenantOperate) RemoveTenantUser(tenant, username string) error {
 	return nil
 }
 
-func (tp *tenantOperate) CreateTenantUser(tenant, username, password string) error {
+func (tp *tenantOperator) CreateTenantUser(tenant, username, password string) error {
 	p := NewPathInfo(tenant)
 
 	prev, err := tp.op.Get(p.DefaultConfigDataUsersPath)
@@ -260,7 +298,44 @@ func (tp *tenantOperate) CreateTenantUser(tenant, username, password string) err
 	return nil
 }
 
-func (tp *tenantOperate) RemoveTenant(name string) error {
+func (tp *tenantOperator) UpdateTenantUser(tenant, username, password, oldUsername string) error {
+	p := NewPathInfo(tenant)
+
+	prev, err := tp.op.Get(p.DefaultConfigDataUsersPath)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	var users Users
+	if err := yaml.Unmarshal(prev, &users); err != nil {
+		return errors.WithStack(err)
+	}
+	found := false
+	for i := 0; i < len(users); i++ {
+		if users[i].Username == oldUsername {
+			users[i].Password = password
+			users[i].Username = username
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return exception.New(exception.CodeNotFound, "user not found")
+	}
+
+	b, err := yaml.Marshal(users)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	if err := tp.op.Save(p.DefaultConfigDataUsersPath, b); err != nil {
+		return errors.WithStack(err)
+	}
+	return nil
+}
+
+func (tp *tenantOperator) RemoveTenant(name string) error {
 	tp.lock.Lock()
 	defer tp.lock.Unlock()
 
@@ -279,7 +354,7 @@ func (tp *tenantOperate) RemoveTenant(name string) error {
 	return tp.op.Save(DefaultTenantsPath, data)
 }
 
-func (tp *tenantOperate) UpsertNode(tenant, node, name, host string, port int, username, password, database, weight string) error {
+func (tp *tenantOperator) UpsertNode(tenant, node, name, host string, port int, username, password, database, weight string) error {
 	p := NewPathInfo(tenant)
 
 	prev, err := tp.op.Get(p.DefaultConfigDataNodesPath)
@@ -313,7 +388,7 @@ func (tp *tenantOperate) UpsertNode(tenant, node, name, host string, port int, u
 	return nil
 }
 
-func (tp *tenantOperate) RemoveNode(tenant, name string) error {
+func (tp *tenantOperator) RemoveNode(tenant, name string) error {
 	p := NewPathInfo(tenant)
 
 	prev, err := tp.op.Get(p.DefaultConfigDataNodesPath)
@@ -339,7 +414,7 @@ func (tp *tenantOperate) RemoveNode(tenant, name string) error {
 	return nil
 }
 
-func (tp *tenantOperate) Close() error {
+func (tp *tenantOperator) Close() error {
 	for i := range tp.cancels {
 		tp.cancels[i]()
 	}

@@ -26,15 +26,13 @@ const (
 	_flagUpdateIgnore
 )
 
-var (
-	_ Statement     = (*UpdateStatement)(nil)
-	_ paramsCounter = (*UpdateStatement)(nil)
-)
+var _ Statement = (*UpdateStatement)(nil)
 
 // UpdateStatement represents mysql update statement. see https://dev.mysql.com/doc/refman/8.0/en/update.html
 type UpdateStatement struct {
 	flag       uint8
 	Table      TableName
+	Hint       *HintNode
 	TableAlias string
 	Updated    []*UpdateElement
 	Where      ExpressionNode
@@ -56,6 +54,14 @@ func (u *UpdateStatement) ResetTable(table string) *UpdateStatement {
 
 func (u *UpdateStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("UPDATE ")
+
+	if u.Hint != nil {
+		if err := u.Hint.Restore(flag, sb, args); err != nil {
+			return err
+		}
+		sb.WriteString(" ")
+	}
+
 	if u.IsEnableLowPriority() {
 		sb.WriteString("LOW_PRIORITY ")
 	}
@@ -117,25 +123,6 @@ func (u *UpdateStatement) enableLowPriority() {
 
 func (u *UpdateStatement) enableIgnore() {
 	u.flag |= _flagUpdateIgnore
-}
-
-func (u *UpdateStatement) CntParams() int {
-	var n int
-	for _, it := range u.Updated {
-		n += it.CntParams()
-	}
-	if u.Where != nil {
-		n += u.Where.CntParams()
-	}
-	if u.Limit != nil {
-		if u.Limit.IsLimitVar() {
-			n++
-		}
-		if u.Limit.IsOffsetVar() {
-			n++
-		}
-	}
-	return n
 }
 
 func (u *UpdateStatement) Mode() SQLType {

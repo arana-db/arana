@@ -33,6 +33,8 @@ type TenantManager interface {
 	GetTenants() []string
 	// GetUser returns user by tenant and username.
 	GetUser(tenant string, username string) (*config.User, bool)
+	// GetUsers returns users by tenant
+	GetUsers(tenant string) ([]*config.User, bool)
 	// GetClusters returns cluster names.
 	GetClusters(tenant string) []string
 	// GetTenantsOfCluster returns all tenants of cluster.
@@ -81,6 +83,21 @@ func (st *simpleTenantManager) GetUser(tenant string, username string) (*config.
 	}
 	user, ok := exist.users[username]
 	return user, ok
+}
+
+func (st *simpleTenantManager) GetUsers(tenant string) ([]*config.User, bool) {
+	st.RLock()
+	defer st.RUnlock()
+	users := []*config.User{}
+	exist, ok := st.tenants[tenant]
+	if !ok {
+		return nil, false
+	} else {
+		for _, v := range exist.users {
+			users = append(users, v)
+		}
+	}
+	return users, ok
 }
 
 func (st *simpleTenantManager) GetClusters(tenant string) []string {

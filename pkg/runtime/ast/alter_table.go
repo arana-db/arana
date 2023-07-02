@@ -127,10 +127,6 @@ func (a *AlterTableSpecStatement) Restore(flag RestoreFlag, sb *strings.Builder,
 	return nil
 }
 
-func (a *AlterTableSpecStatement) CntParams() int {
-	return 0
-}
-
 // AlterTableStatement represents mysql alter table statement. see https://dev.mysql.com/doc/refman/8.0/en/alter-table.html
 type AlterTableStatement struct {
 	Table TableName
@@ -165,10 +161,6 @@ func (at *AlterTableStatement) Restore(flag RestoreFlag, sb *strings.Builder, ar
 		}
 	}
 	return nil
-}
-
-func (at *AlterTableStatement) CntParams() int {
-	return 0
 }
 
 func (at *AlterTableStatement) Mode() SQLType {

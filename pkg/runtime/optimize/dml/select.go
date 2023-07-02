@@ -27,8 +27,10 @@ import (
 )
 
 import (
+	mysql "github.com/arana-db/arana/pkg/constants/mysql"
 	"github.com/arana-db/arana/pkg/dataset"
 	"github.com/arana-db/arana/pkg/merge/aggregator"
+	mysqlErrors "github.com/arana-db/arana/pkg/mysql/errors"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/hint"
 	"github.com/arana-db/arana/pkg/proto/rule"
@@ -122,7 +124,7 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 
 	if flag&_bypass != 0 {
 		if len(stmt.From) > 0 {
-			err := rewriteSelectStatement(ctx, stmt, stmt.From[0].TableName().Suffix())
+			err := rewriteSelectStatement(ctx, stmt, stmt.From[0].Source.(ast.TableName).Suffix())
 			if err != nil {
 				return nil, err
 			}
@@ -148,8 +150,8 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		shards    rule.DatabaseTables
 		fullScan  bool
 		err       error
-		vt        = o.Rule.MustVTable(stmt.From[0].TableName().Suffix())
-		tableName = stmt.From[0].TableName()
+		tableName = stmt.From[0].Source.(ast.TableName)
+		vt        = o.Rule.MustVTable(tableName.Suffix())
 	)
 	if len(o.Hints) > 0 {
 		if shards, err = optimize.Hints(tableName, o.Hints, o.Rule); err != nil {
@@ -202,7 +204,7 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 			ok        bool
 		)
 		if db0, tbl0, ok = vt.Topology().Render(0, 0); !ok {
-			return nil, errors.Errorf("cannot compute minimal topology from '%s'", stmt.From[0].TableName().Suffix())
+			return nil, errors.Errorf("cannot compute minimal topology from '%s'", stmt.From[0].Source.(ast.TableName).Suffix())
 		}
 
 		return toSingle(db0, tbl0)
@@ -412,12 +414,11 @@ func handleGroupBy(parentPlan proto.Plan, stmt *ast.SelectStatement) (proto.Plan
 	return groupPlan, nil
 }
 
-// optimizeJoin ony support  a join b in one db
+// optimizeJoin ony support  a join b in one db.
+// DEPRECATED: reimplement in the future
 func optimizeJoin(ctx context.Context, o *optimize.Optimizer, stmt *ast.SelectStatement) (proto.Plan, error) {
-	join := stmt.From[0].Source().(*ast.JoinNode)
-
-	compute := func(tableSource *ast.TableSourceNode) (database, alias string, shardList []string, err error) {
-		table := tableSource.TableName()
+	compute := func(tableSource *ast.TableSourceItem) (database, alias string, shardList []string, err error) {
+		table := tableSource.Source.(ast.TableName)
 		if table == nil {
 			err = errors.New("must table, not statement or join node")
 			return
@@ -452,11 +453,13 @@ func optimizeJoin(ctx context.Context, o *optimize.Optimizer, stmt *ast.SelectSt
 		return
 	}
 
-	dbLeft, aliasLeft, shardLeft, err := compute(join.Left)
+	from := stmt.From[0]
+
+	dbLeft, aliasLeft, shardLeft, err := compute(&from.TableSourceItem)
 	if err != nil {
 		return nil, err
 	}
-	dbRight, aliasRight, shardRight, err := compute(join.Right)
+	dbRight, aliasRight, shardRight, err := compute(from.Joins[0].Target)
 	if err != nil {
 		return nil, err
 	}
@@ -470,7 +473,7 @@ func optimizeJoin(ctx context.Context, o *optimize.Optimizer, stmt *ast.SelectSt
 			Tables: shardLeft,
 			Alias:  aliasLeft,
 		},
-		Join: join,
+		Join: from.Joins[0],
 		Right: &dml.JoinTable{
 			Tables: shardRight,
 			Alias:  aliasRight,
@@ -486,7 +489,7 @@ func getSelectFlag(ru *rule.Rule, stmt *ast.SelectStatement) (flag uint32) {
 	switch len(stmt.From) {
 	case 1:
 		from := stmt.From[0]
-		tn := from.TableName()
+		tn := from.Source.(ast.TableName)
 
 		if tn == nil { // only FROM table supported now
 			return
@@ -582,10 +585,13 @@ func rewriteSelectStatement(ctx context.Context, stmt *ast.SelectStatement, tb s
 	}
 
 	if len(tb) < 1 {
-		tb = stmt.From[0].TableName().Suffix()
+		tb = stmt.From[0].Source.(ast.TableName).Suffix()
 	}
 	metadatas, err := proto.LoadSchemaLoader().Load(ctx, rcontext.Schema(ctx), []string{tb})
 	if err != nil {
+		if strings.Contains(err.Error(), "Table doesn't exist") {
+			return mysqlErrors.NewSQLError(mysql.ERNoSuchTable, mysql.SSNoTableSelected, "Table '%s' doesn't exist", tb)
+		}
 		return errors.WithStack(err)
 	}
 	metadata := metadatas[tb]

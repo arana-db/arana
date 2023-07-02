@@ -18,6 +18,7 @@
 package misc
 
 import (
+	"io"
 	"regexp"
 	"sync"
 )
@@ -47,4 +48,47 @@ func ParseTable(input string) (db, tbl string, err error) {
 	db = mat[1]
 	tbl = mat[2]
 	return
+}
+
+func TryClose(i interface{}) error {
+	if c, ok := i.(io.Closer); ok {
+		return c.Close()
+	}
+	return nil
+}
+
+func ReverseSlice[T any](input []T) {
+	if len(input) < 2 {
+		return
+	}
+	for i, j := 0, len(input)-1; i < j; {
+		input[i], input[j] = input[j], input[i]
+		i++
+		j--
+	}
+}
+
+// CartesianProduct compute cartesian product.
+func CartesianProduct[T any](inputs [][]T) [][]T {
+	var (
+		res [][]T
+		rec []T
+	)
+	cartesianProductHelper[T](inputs, &res, &rec, 0)
+	return res
+}
+
+func cartesianProductHelper[T any](input [][]T, res *[][]T, rec *[]T, index int) {
+	if index < len(input) {
+		for _, v := range input[index] {
+			*rec = append(*rec, v)
+			cartesianProductHelper(input, res, rec, index+1)
+			*rec = (*rec)[:index]
+		}
+		return
+	}
+	tmp := make([]T, len(input))
+	copy(tmp, *rec)
+	*res = append(*res, tmp)
+	*rec = (*rec)[:index]
 }
