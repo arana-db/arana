@@ -18,7 +18,6 @@
 package dataset
 
 import (
-	"go.uber.org/atomic"
 	"io"
 	"sync"
 )
@@ -26,6 +25,7 @@ import (
 import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cast"
+	"go.uber.org/atomic"
 )
 
 import (
