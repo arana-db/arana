@@ -148,7 +148,7 @@ func makeFakeRule(c *gomock.Controller, table string, mod int, ru *rule.Rule) *r
 		Table: sm,
 	})
 
-	ru.SetVTable("student", &tab)
-	return &ru
+	ru.SetVTable(table, &tab)
+	return ru
 
 }

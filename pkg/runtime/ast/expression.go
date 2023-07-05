@@ -81,7 +81,7 @@ func (l *LogicalExpressionNode) Mode() ExpressionMode {
 
 func (l *LogicalExpressionNode) Clone() ExpressionNode {
 	return &LogicalExpressionNode{
-		Op:    l.Op,
+		Or:    l.Or,
 		Left:  l.Left.Clone(),
 		Right: l.Right.Clone(),
 	}
