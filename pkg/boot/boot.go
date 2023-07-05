@@ -257,6 +257,7 @@ func buildNamespace(ctx context.Context, tenant string, provider Discovery, clus
 			continue
 		}
 		ru.SetVTable(table, vt)
+		log.Infof("add logical table '%s' success", table)
 	}
 
 	initCmds = append(initCmds, namespace.UpdateRule(&ru))

@@ -32,19 +32,19 @@ var _ Statement = (*CreateTableStmt)(nil)
 
 type CreateTableStmt struct {
 	IfNotExists bool
-	//TemporaryKeyword
+	// TemporaryKeyword
 	// Meanless when TemporaryKeyword is not TemporaryGlobal.
 	// ON COMMIT DELETE ROWS => true
 	// ON COMMIT PRESERVE ROW => false
-	//OnCommitDelete bool
+	// OnCommitDelete bool
 	Table       *TableName
 	ReferTable  *TableName
 	Cols        []*ast.ColumnDef
 	Constraints []*ast.Constraint
 	Options     []*ast.TableOption
-	//Partition      *PartitionOptions
-	//OnDuplicate    OnDuplicateKeyHandlingType
-	//Select         ResultSetNode
+	// Partition      *PartitionOptions
+	// OnDuplicate    OnDuplicateKeyHandlingType
+	// Select         ResultSetNode
 }
 
 func NewCreateTableStmt() *CreateTableStmt {

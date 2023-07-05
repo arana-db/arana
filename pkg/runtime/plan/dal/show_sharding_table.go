@@ -97,8 +97,10 @@ func (st *ShowShardingTable) ExecIn(ctx context.Context, conn proto.VConn) (prot
 
 		ds.Rows = append(ds.Rows, rows.NewTextVirtualRow(fields, []proto.Value{
 			proto.NewValueString(rawMetadata["name"]),
-			proto.NewValueString(rawMetadata["sequence_type"]), proto.NewValueString(rawMetadata["db_rules"]),
-			proto.NewValueString(rawMetadata["tbl_rules"]), proto.NewValueString(rawMetadata["attributes"]),
+			proto.NewValueString(rawMetadata["sequence_type"]),
+			proto.NewValueString(rawMetadata["db_rules"]),
+			proto.NewValueString(rawMetadata["tbl_rules"]),
+			proto.NewValueString(rawMetadata["attributes"]),
 		}))
 
 	}

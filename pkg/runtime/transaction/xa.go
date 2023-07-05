@@ -29,9 +29,7 @@ import (
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 )
 
-var (
-	ErrorInvalidTxId = errors.New("invalid transaction id")
-)
+var ErrorInvalidTxId = errors.New("invalid transaction id")
 
 // StartXA do start xa transaction action
 func StartXA(ctx context.Context, bc *mysql.BackendConnection) (proto.Result, error) {

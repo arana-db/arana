@@ -64,14 +64,14 @@ data:
               type: snowflake
               option:
             db_rules:
-              - column: uid
-                type: scriptExpr
+              - columns:
+                  - name: uid
                 expr: parseInt($value % 32 / 8)
             tbl_rules:
-              - column: uid
-                type: scriptExpr
+              - columns:
+                  - name: uid
+                  - step: 32
                 expr: $value % 32
-                step: 32
             topology:
               db_pattern: employees_${0000..0003}
               tbl_pattern: student_${0000..0031}

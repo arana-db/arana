@@ -23,6 +23,8 @@ import (
 
 import (
 	"github.com/pkg/errors"
+
+	"golang.org/x/exp/slices"
 )
 
 import (
@@ -57,52 +59,49 @@ func optimizeInsert(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		return ret, nil
 	}
 
-	// TODO: handle multiple shard keys.
-
-	bingo := -1
-	// check existing shard columns
-	for i, col := range stmt.Columns {
-		if _, _, ok = vt.GetShardMetadata(col); ok {
-			bingo = i
-			break
+	vshards := vt.GetVShards()
+	bingo := slices.IndexFunc(vshards, func(shard *rule.VShard) bool {
+		keys := shard.Variables()
+		for _, key := range keys {
+			if !slices.Contains(stmt.Columns, key) {
+				return false
+			}
 		}
-	}
+		return true
+	})
 
-	if bingo < 0 {
+	if bingo == -1 {
 		return nil, errors.Wrap(optimize.ErrNoShardKeyFound, "failed to insert")
 	}
 
+	vShard := vshards[bingo]
+	keys := vShard.Variables()
+
 	// check on duplicated key update
 	for _, upd := range stmt.DuplicatedUpdates {
-		if upd.Column.Suffix() == stmt.Columns[bingo] {
+		if slices.Contains(keys, upd.Column.Suffix()) {
 			return nil, errors.New("do not support update sharding key")
 		}
 	}
 
 	var (
 		sharder = optimize.NewXSharder(ctx, o.Rule, o.Args)
-		left    = ast.ColumnNameExpressionAtom(make([]string, 1))
-		filter  = &ast.PredicateExpressionNode{
-			P: &ast.BinaryComparisonPredicateNode{
-				Left: &ast.AtomPredicateNode{
-					A: left,
-				},
-				Op: cmp.Ceq,
-			},
-		}
-		slots = make(map[string]map[string][]int) // (db,table,valuesIndex)
+		slots   = make(map[string]map[string][]int) // (db,table,valuesIndex)
 	)
 
-	// reset filter
-	resetFilter := func(column string, value ast.ExpressionNode) {
-		left[0] = column
-		filter.P.(*ast.BinaryComparisonPredicateNode).Right = value.(*ast.PredicateExpressionNode).P
-	}
-
 	for i, values := range stmt.Values {
-		var shards rule.DatabaseTables
-		value := values[bingo]
-		resetFilter(stmt.Columns[bingo], value)
+		var (
+			shards rule.DatabaseTables
+			filter ast.ExpressionNode
+		)
+
+		if len(keys) == 1 {
+			key := keys[0]
+			idx := slices.Index(stmt.Columns, key)
+			filter = buildFilter(stmt.Columns[idx], values[idx])
+		} else {
+			filter = buildLogicalFilter(stmt.Columns, values, keys)
+		}
 
 		if len(o.Hints) > 0 {
 			if shards, err = optimize.Hints(tableName, o.Hints, o.Rule); err != nil {
@@ -287,4 +286,32 @@ func createSequenceIfAbsent(ctx context.Context, vtab *rule.VTable, metadata *pr
 		}
 	}
 	return nil
+}
+
+func buildFilter(column string, value ast.ExpressionNode) ast.ExpressionNode {
+	// reset filter
+	return &ast.PredicateExpressionNode{
+		P: &ast.BinaryComparisonPredicateNode{
+			Left: &ast.AtomPredicateNode{
+				A: ast.ColumnNameExpressionAtom([]string{column}),
+			},
+			Op:    cmp.Ceq,
+			Right: value.(*ast.PredicateExpressionNode).P,
+		},
+	}
+}
+
+func buildLogicalFilter(columns []string, values []ast.ExpressionNode, keys []string) ast.ExpressionNode {
+	idx0 := slices.Index(columns, keys[0])
+	cur := buildFilter(columns[idx0], values[idx0])
+	for i := 1; i < len(keys); i++ {
+		idx := slices.Index(columns, keys[i])
+		next := buildFilter(columns[idx], values[idx])
+
+		cur = &ast.LogicalExpressionNode{
+			Left:  cur,
+			Right: next,
+		}
+	}
+	return cur
 }

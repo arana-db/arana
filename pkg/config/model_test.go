@@ -92,11 +92,11 @@ func TestShardingRuleConf(t *testing.T) {
 	assert.Equal(t, "employees.student", table.Name)
 
 	assert.Len(t, table.DbRules, 1)
-	assert.Equal(t, "uid", table.DbRules[0].Column)
+	assert.Equal(t, "uid", table.DbRules[0].Columns[0].Name)
 	assert.Equal(t, "parseInt($value % 32 / 8)", table.DbRules[0].Expr)
 
 	assert.Len(t, table.TblRules, 1)
-	assert.Equal(t, "uid", table.TblRules[0].Column)
+	assert.Equal(t, "uid", table.TblRules[0].Columns[0].Name)
 	assert.Equal(t, "$value % 32", table.TblRules[0].Expr)
 
 	assert.Equal(t, "employees_${0000..0003}", table.Topology.DbPattern)
@@ -105,7 +105,6 @@ func TestShardingRuleConf(t *testing.T) {
 	// assert.Equal(t, "__test_student_${0000...0007}", table.ShadowTopology.TblPattern)
 	assert.Len(t, table.Attributes, 2)
 	assert.Equal(t, "true", table.Attributes["allow_full_scan"])
-
 }
 
 func TestUnmarshalTextForProtocolTypeNil(t *testing.T) {

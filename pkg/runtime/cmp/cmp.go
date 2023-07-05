@@ -122,6 +122,10 @@ type Comparative struct {
 	v   string
 }
 
+func (c *Comparative) SetComparison(comparison Comparison) {
+	c.c = comparison
+}
+
 // Kind returns the Kind.
 func (c *Comparative) Kind() Kind {
 	return c.k

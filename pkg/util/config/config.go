@@ -34,7 +34,6 @@ var (
 func IsEnableLocalMathCompu(enable bool) bool {
 	_enableLocalMathCompuSync.Do(func() {
 		_enableLocalMathCompu = enable
-
 	})
 	return _enableLocalMathCompu
 }

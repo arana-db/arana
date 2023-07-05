@@ -310,7 +310,7 @@ func (tp *tenantOperator) UpdateTenantUser(tenant, username, password, oldUserna
 	if err := yaml.Unmarshal(prev, &users); err != nil {
 		return errors.WithStack(err)
 	}
-	var found = false
+	found := false
 	for i := 0; i < len(users); i++ {
 		if users[i].Username == oldUsername {
 			users[i].Password = password

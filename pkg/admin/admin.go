@@ -47,8 +47,10 @@ const (
 	_defaultUIPath = "/var/www/arana"
 )
 
-const _ADMIN_SERVICE = "ARANA_ADMIN_SERVICE"
-const _SERVICE_DISCOVERY = "ARANA_SERVICE_DISCOVERY"
+const (
+	_ADMIN_SERVICE     = "ARANA_ADMIN_SERVICE"
+	_SERVICE_DISCOVERY = "ARANA_SERVICE_DISCOVERY"
+)
 
 var _hooks []Hook
 
