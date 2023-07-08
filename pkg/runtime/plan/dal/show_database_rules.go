@@ -19,14 +19,14 @@ package dal
 
 import (
 	"context"
-	"github.com/arana-db/arana/pkg/mysql/rows"
-	"github.com/arana-db/arana/pkg/proto/rule"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/dataset"
+	"github.com/arana-db/arana/pkg/mysql/rows"
 	"github.com/arana-db/arana/pkg/mysql/thead"
 	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/resultx"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/plan"

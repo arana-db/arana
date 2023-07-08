@@ -23,6 +23,7 @@ import (
 
 import (
 	"github.com/arana-db/parser"
+
 	"github.com/stretchr/testify/assert"
 )
 

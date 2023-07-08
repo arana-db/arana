@@ -19,6 +19,14 @@ package utility
 
 import (
 	"context"
+	"strings"
+)
+
+import (
+	"github.com/pkg/errors"
+)
+
+import (
 	constant "github.com/arana-db/arana/pkg/constants/mysql"
 	"github.com/arana-db/arana/pkg/dataset"
 	"github.com/arana-db/arana/pkg/mysql"
@@ -28,8 +36,6 @@ import (
 	"github.com/arana-db/arana/pkg/resultx"
 	"github.com/arana-db/arana/pkg/runtime/ast"
 	"github.com/arana-db/arana/pkg/runtime/plan"
-	"github.com/pkg/errors"
-	"strings"
 )
 
 type ExplainPlan struct {

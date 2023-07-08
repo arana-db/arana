@@ -117,7 +117,11 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		case *ShowColumns:
 			return &DescribeStatement{Table: tgt.TableName, Column: tgt.Column}, nil
 		case *SelectStatement:
-			return &ExplainStatement{Target: tgt, Table: tgt.From[0].Source.(TableName)}, nil
+			if len(tgt.From) != 0 {
+				return &ExplainStatement{Target: tgt, Table: tgt.From[0].Source.(TableName)}, nil
+			} else {
+				return &ExplainStatement{Target: tgt}, nil
+			}
 		case *DeleteStatement:
 			return &ExplainStatement{Target: tgt, Table: tgt.Table}, nil
 		case *InsertStatement:

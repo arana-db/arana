@@ -1362,7 +1362,7 @@ func (s *IntegrationSuite) TestExplain() {
 	}
 
 	for _, it := range [...]tt{
-		{"explain select * from student where uid = 1;"},
+		{"explain select * from student where uid = 1"},
 		{"explain delete from student where uid = 1"},
 		{"explain INSERT INTO student(uid,name) values(1,'name_1'),(2,'name_2'), (9,'name_3')"},
 		{"explain update student set score=100.0 where uid = 1"},
