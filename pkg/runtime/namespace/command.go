@@ -251,7 +251,7 @@ func UpdateSlowThreshold() Command {
 
 func UpdateSlowLogger(path string, cfg *log.LoggingConfig) Command {
 	return func(ns *Namespace) error {
-		ns.slowLog = log.NewLogger(path, log.WarnLevel, cfg)
+		ns.slowLog = log.NewSlowLogger(path, cfg)
 		return nil
 	}
 }

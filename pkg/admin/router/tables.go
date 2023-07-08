@@ -42,9 +42,7 @@ func init() {
 }
 
 func ListAllTables(c *gin.Context) error {
-	var (
-		result = make([]*admin.TableDTO, 0)
-	)
+	result := make([]*admin.TableDTO, 0)
 	service := admin.GetService(c)
 
 	tenants, err := service.ListTenants(c)

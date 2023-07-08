@@ -36,7 +36,7 @@ jobs:
       - uses: reviewdog/action-golangci-lint@v2
         with:
           go_version: "1.18"
-          golangci_lint_version: "v1.46.2" # use latest version by default
+          golangci_lint_version: "v1.47.3" # use latest version by default
           golangci_lint_flags: "-v --timeout 10m"
           fail_on_error: true
 

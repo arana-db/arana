@@ -98,6 +98,14 @@ var (
 	_ Value = (*timeValue)(nil)
 )
 
+func MustNewValue(input interface{}) Value {
+	v, err := NewValue(input)
+	if err != nil {
+		panic(err.Error())
+	}
+	return v
+}
+
 func NewValue(input interface{}) (Value, error) {
 	if input == nil {
 		return nil, nil

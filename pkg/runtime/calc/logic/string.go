@@ -15,14 +15,19 @@
  * limitations under the License.
  */
 
-package main
+package logic
 
 import (
-	"github.com/arana-db/arana/cmd/start"
-	"github.com/arana-db/arana/testdata"
+	"strings"
 )
 
-func main() {
-	bootstrap := testdata.Path("../conf/bootstrap.yaml")
-	start.Run(bootstrap)
+type String string
+
+func (s String) Compare(item Item) int {
+	switch that := item.(type) {
+	case String:
+		return strings.Compare(string(s), string(that))
+	default:
+		return -1
+	}
 }

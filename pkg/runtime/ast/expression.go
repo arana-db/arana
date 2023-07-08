@@ -25,10 +25,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-import (
-	"github.com/arana-db/arana/pkg/runtime/logical"
-)
-
 const (
 	_ ExpressionMode = iota
 	EmLogical
@@ -51,7 +47,7 @@ type ExpressionNode interface {
 }
 
 type LogicalExpressionNode struct {
-	Op    logical.Op
+	Or    bool
 	Left  ExpressionNode
 	Right ExpressionNode
 }
@@ -65,13 +61,10 @@ func (l *LogicalExpressionNode) Restore(flag RestoreFlag, sb *strings.Builder, a
 		return errors.WithStack(err)
 	}
 
-	switch l.Op {
-	case logical.Land:
-		sb.WriteString(" AND ")
-	case logical.Lor:
+	if l.Or {
 		sb.WriteString(" OR ")
-	default:
-		panic("unreachable")
+	} else {
+		sb.WriteString(" AND ")
 	}
 
 	if err := l.Right.Restore(flag, sb, args); err != nil {

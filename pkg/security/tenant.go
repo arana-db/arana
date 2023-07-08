@@ -88,7 +88,7 @@ func (st *simpleTenantManager) GetUser(tenant string, username string) (*config.
 func (st *simpleTenantManager) GetUsers(tenant string) ([]*config.User, bool) {
 	st.RLock()
 	defer st.RUnlock()
-	var users = []*config.User{}
+	users := []*config.User{}
 	exist, ok := st.tenants[tenant]
 	if !ok {
 		return nil, false

@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 
-package rule
+package calc
 
 import (
-	"sort"
 	"testing"
 )
 
@@ -27,44 +26,47 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
 )
 
-func TestRule_Route(t *testing.T) {
-	ru := makeTestRule(4)
-
-	const key = "uid"
-
-	vtab, _ := ru.VTable(fakeTable)
-
-	tb := []struct {
-		C *cmp.Comparative
-		E []int
-	}{
-		// simple
-		{cmp.NewInt64(key, cmp.Ceq, 1), []int{1}},
-		{cmp.NewInt64(key, cmp.Cgt, 1), nil},
-		{cmp.NewInt64(key, cmp.Cgte, 1), nil},
-		{cmp.NewInt64(key, cmp.Clt, 3), nil},
-		{cmp.NewInt64(key, cmp.Clte, 3), nil},
+func TestComputeRange(t *testing.T) {
+	m := &rule.ShardMetadata{
+		ShardColumns: []*rule.ShardColumn{
+			{
+				Name:  "x",
+				Steps: 8,
+				Stepper: rule.Stepper{
+					N: 1,
+					U: rule.Unum,
+				},
+			},
+		},
 	}
-	for _, it := range tb {
-		mat, err := Route(vtab, it.C)
-		assert.NoError(t, err)
-		ret, err := mat.Eval()
-		assert.NoError(t, err, "eval failed")
-		t.Logf("+++++++++ %s ++++++++\n", it.C)
 
-		actual := make([]int, 0)
-		for ret.HasNext() {
-			actual = append(actual, int(ret.Next().(int64)))
-		}
+	type tt struct {
+		scene      string
+		begin, end *cmp.Comparative
+		expect     []interface{}
+	}
 
-		t.Log("route result:", actual)
-		if it.E != nil {
-			sort.Ints(actual)
-			sort.Ints(it.E)
-			assert.EqualValues(t, it.E, actual)
-		}
+	for _, next := range []tt{
+		{
+			"x>=1 && x<=4",
+			cmp.NewInt64("x", cmp.Cgte, 1),
+			cmp.NewInt64("x", cmp.Clte, 4),
+			[]interface{}{int64(1), int64(2), int64(3), int64(4)},
+		},
+		{
+			"x>=1 && x<4",
+			cmp.NewInt64("x", cmp.Cgte, 1),
+			cmp.NewInt64("x", cmp.Clt, 4),
+			[]interface{}{int64(1), int64(2), int64(3)},
+		},
+	} {
+		t.Run(next.scene, func(t *testing.T) {
+			actual := computeRange(m, next.begin, next.end)
+			assert.Equal(t, next.expect, actual)
+		})
 	}
 }

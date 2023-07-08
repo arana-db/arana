@@ -52,7 +52,6 @@ func TestDodiv(t *testing.T) {
 		{8, decimal.NewFromFloat(0.001549967), decimal.NewFromFloat(0.002570910), decimal.NewFromFloat(0.60288653)},
 	} {
 		t.Run(fmt.Sprint(v.want), func(t *testing.T) {
-
 			out, err := d.DoDiv(
 				context.WithValue(context.Background(), ctxPrecisionKey, v.p),
 				v.inFirst,

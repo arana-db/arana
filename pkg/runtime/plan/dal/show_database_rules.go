@@ -19,6 +19,8 @@ package dal
 
 import (
 	"context"
+	"fmt"
+	"strings"
 )
 
 import (
@@ -53,13 +55,18 @@ func (s *ShowDatabaseRulesPlan) ExecIn(ctx context.Context, _ proto.VConn) (prot
 		Columns: fields,
 	}
 
-	dbRules := s.rule.DBRule()
-	if rules, ok := dbRules[s.Stmt.TableName]; ok {
-		for _, ruleItem := range rules {
+	if vt, ok := s.rule.VTable(s.Stmt.TableName); ok {
+		for _, vs := range vt.GetVShards() {
+			var columns []string
+			for i := range vs.DB.ShardColumns {
+				columns = append(columns, vs.DB.ShardColumns[i].Name)
+			}
 			ds.Rows = append(ds.Rows, rows.NewTextVirtualRow(fields, []proto.Value{
 				proto.NewValueString(s.Stmt.TableName),
-				proto.NewValueString(ruleItem.Column), proto.NewValueString(ruleItem.Type),
-				proto.NewValueString(ruleItem.Expr), proto.NewValueInt64(int64(ruleItem.Step)),
+				proto.NewValueString(strings.Join(columns, ",")),
+				proto.NewValueString(""),
+				proto.NewValueString(fmt.Sprintf("%s", vs.DB.Computer)),
+				proto.NewValueInt64(1),
 			}))
 		}
 	}

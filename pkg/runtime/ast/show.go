@@ -637,6 +637,7 @@ type ShowShardingTable struct {
 func (s *ShowShardingTable) Mode() SQLType {
 	return SQLTypeShowShardingTable
 }
+
 func (s *ShowShardingTable) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	val, ok := s.BaseShow.filter.(string)
 	if !ok {
