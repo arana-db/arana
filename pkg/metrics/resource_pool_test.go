@@ -22,10 +22,15 @@ import (
 	"strings"
 	"testing"
 	"time"
+)
 
-	"github.com/arana-db/arana/third_party/pools"
+import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
+)
+
+import (
+	"github.com/arana-db/arana/third_party/pools"
 )
 
 type TestResource struct {
