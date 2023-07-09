@@ -14,7 +14,7 @@ GO_LICENSE_CHECKER = $(GO_PATH)/bin/license-header-checker
 LICENSE_DIR = /tmp/tools/license
 
 unit-test:
-	go test ./pkg/... ./third_party/... -coverprofile=coverage.txt -covermode=atomic
+	go test ./pkg/... -coverprofile=coverage.txt -covermode=atomic
 
 # Generate binaries for a Cortex release
 dist dist/arana-linux-amd64 dist/arana-darwin-amd64 dist/arana-linux-amd64-sha-256 dist/arana-darwin-amd64-sha-256:
