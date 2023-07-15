@@ -20,9 +20,15 @@ package runtime
 import (
 	"context"
 	"fmt"
-	"github.com/arana-db/arana/pkg/mysql"
-	"github.com/stretchr/testify/assert"
 	"testing"
+)
+
+import (
+	"github.com/stretchr/testify/assert"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/mysql"
 )
 
 func TestBackendResourcePool_Get(t *testing.T) {

@@ -21,6 +21,7 @@
 package test
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"sort"
@@ -40,6 +41,8 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/proto"
+	"github.com/arana-db/arana/pkg/runtime"
 	"github.com/arana-db/arana/pkg/util/rand2"
 	utils "github.com/arana-db/arana/pkg/util/tableprint"
 )
@@ -1373,6 +1376,63 @@ func (s *IntegrationSuite) TestExplain() {
 			rows, err := db.Query(it.sql)
 			assert.NoError(t, err)
 			defer rows.Close()
+		})
+	}
+}
+
+func (s *IntegrationSuite) TestSequence() {
+	var (
+		db = s.DB()
+		t  = s.T()
+	)
+
+	rt, err := runtime.Load("arana", "employees")
+	if err != nil {
+		panic(err)
+	}
+	ctx := context.WithValue(context.Background(), proto.RuntimeCtxKey{}, rt)
+	ctx = context.WithValue(ctx, proto.ContextKeyTenant{}, "arana")
+	ctx = context.WithValue(ctx, proto.ContextKeySchema{}, "employees")
+	_, err = proto.LoadSequenceManager().CreateSequence(ctx, "arana", "employees", proto.SequenceConfig{Name: "student", Type: "group"})
+	if err != nil {
+		panic(err)
+	}
+
+	type testCase struct {
+		sql       string
+		exceptVal int64
+	}
+
+	for _, it := range [...]testCase{
+		{
+			"select student.nextVal",
+			1,
+		},
+		{
+			"select student.currVal",
+			1,
+		},
+		{
+			"select student.nextVal",
+			2,
+		},
+		{
+			"select notexist.currVal",
+			-1,
+		},
+	} {
+		t.Run(it.sql, func(t *testing.T) {
+			rows, err := db.Query(it.sql)
+			if it.exceptVal == -1 {
+				assert.True(t, err != nil, err)
+				return
+			}
+			defer rows.Close()
+			assert.NoError(t, err, "should query successfully")
+			var val int64
+			records, _ := utils.PrintTable(rows)
+			val, err = strconv.ParseInt(records[0][0], 10, 64)
+			assert.Equal(t, it.exceptVal, val)
 		})
 	}
 }
