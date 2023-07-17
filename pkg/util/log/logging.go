@@ -19,10 +19,12 @@ package log
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 )
 
 import (
@@ -35,8 +37,10 @@ import (
 type (
 	// LogLevel represents the level of logging.
 	LogLevel int8
-	// LogType represents the type of logging
+	// LogType represents the type of logging.
 	LogType string
+	// LoggerKey represents the context key of logging.
+	LoggerKey string
 )
 
 const (
@@ -112,6 +116,7 @@ func (l *LogLevel) unmarshalText(text []byte) bool {
 	return true
 }
 
+//Logger TODO add methods support LogType
 type Logger interface {
 	Debug(v ...interface{})
 	Debugf(format string, v ...interface{})
@@ -128,15 +133,9 @@ type Logger interface {
 }
 
 var (
-	mainLog        Logger
-	logicalSqlLog  Logger
-	physicalSqlLog Logger
-	txLog          Logger
+	globalLogger *compositeLogger
 
-	loggerCfg *LoggingConfig
-	zapLogger *zap.Logger
-
-	zapLoggerConfig        = zap.NewDevelopmentConfig()
+	// TODO remove in the future
 	zapLoggerEncoderConfig = zapcore.EncoderConfig{
 		TimeKey:        "time",
 		LevelKey:       "level",
@@ -149,20 +148,52 @@ var (
 		EncodeDuration: zapcore.SecondsDurationEncoder,
 		EncodeCaller:   zapcore.ShortCallerEncoder,
 	}
+	defaultLoggingConfig = &LoggingConfig{
+		LogName:            "arana.log",
+		LogPath:            "log",
+		LogLevel:           -1,
+		LogMaxSize:         10,
+		LogMaxBackups:      5,
+		LogMaxAge:          30,
+		LogCompress:        false,
+		DefaultLogName:     "arana.log",
+		TxLogName:          "tx.log",
+		SqlLogEnabled:      true,
+		SqlLogName:         "sql.log",
+		PhysicalSqlLogName: "physql.log",
+	}
+	loggerCfg = defaultLoggingConfig
 )
 
 func init() {
-	zapLoggerConfig.EncoderConfig = zapLoggerEncoderConfig
-	zapLogger, _ = zapLoggerConfig.Build(zap.AddCallerSkip(1))
-	mainLog = zapLogger.Sugar()
+	globalLogger = NewCompositeLogger(defaultLoggingConfig)
 }
 
 func Init(cfg *LoggingConfig) {
 	loggerCfg = cfg
-	mainLog = NewLogger(MainLog, cfg)
-	logicalSqlLog = NewLogger(LogicalSqlLog, cfg)
-	physicalSqlLog = NewLogger(PhysicalSqlLog, cfg)
-	txLog = NewLogger(TxLog, cfg)
+	globalLogger = NewCompositeLogger(cfg)
+}
+
+type compositeLogger struct {
+	loggerCfg *LoggingConfig
+
+	mainLog        *zap.SugaredLogger
+	logicalSqlLog  *zap.SugaredLogger
+	physicalSqlLog *zap.SugaredLogger
+	txLog          *zap.SugaredLogger
+
+	// TODO replace global slowLog
+	slowLog *zap.SugaredLogger
+}
+
+func NewCompositeLogger(cfg *LoggingConfig) *compositeLogger {
+	return &compositeLogger{
+		loggerCfg:      cfg,
+		mainLog:        NewLogger(MainLog, cfg),
+		logicalSqlLog:  NewLogger(LogicalSqlLog, cfg),
+		physicalSqlLog: NewLogger(PhysicalSqlLog, cfg),
+		txLog:          NewLogger(TxLog, cfg),
+	}
 }
 
 func NewLogger(logType LogType, cfg *LoggingConfig) *zap.SugaredLogger {
@@ -172,13 +203,14 @@ func NewLogger(logType LogType, cfg *LoggingConfig) *zap.SugaredLogger {
 	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
 
+	// notice: can use zapLoggerEncoderConfig directly, because it would write gibberish into the file.
 	encoder := zapcore.NewConsoleEncoder(encoderConfig)
 	level := zap.DebugLevel
 	if logType == MainLog {
 		level = getLoggerLevel(cfg.LogLevel)
 	}
 	core := zapcore.NewCore(encoder, syncer, zap.NewAtomicLevelAt(level))
-	return zap.New(core, zap.AddCaller(), zap.AddCallerSkip(1)).Sugar()
+	return zap.New(core, zap.AddCaller(), zap.AddCallerSkip(2)).Sugar()
 }
 
 //nolint:staticcheck
@@ -191,7 +223,7 @@ func NewSlowLogger(logPath string, cfg *LoggingConfig) *zap.SugaredLogger {
 
 	encoder := zapcore.NewConsoleEncoder(encoderConfig)
 	core := zapcore.NewCore(encoder, syncer, zap.NewAtomicLevelAt(zap.WarnLevel))
-	return zap.New(core, zap.AddCaller(), zap.AddCallerSkip(1)).Sugar()
+	return zap.New(core, zap.AddCaller(), zap.AddCallerSkip(2)).Sugar()
 }
 
 //nolint:staticcheck
@@ -222,6 +254,21 @@ func buildLumberJack(logPath string, logType LogType, cfg *LoggingConfig) *lumbe
 	}
 }
 
+func NewContext(ctx context.Context, connectionID uint32, fields ...zapcore.Field) context.Context {
+	return context.WithValue(ctx, LoggerKey(strconv.Itoa(int(connectionID))), WithContext(connectionID, ctx).With(fields...))
+}
+
+func WithContext(connectionID uint32, ctx context.Context) *compositeLogger {
+	if ctx == nil {
+		return globalLogger
+	}
+	ctxLogger, ok := ctx.Value(LoggerKey(strconv.Itoa(int(connectionID)))).(*compositeLogger)
+	if ok {
+		return ctxLogger
+	}
+	return NewCompositeLogger(loggerCfg)
+}
+
 func getLoggerLevel(level int) zapcore.Level {
 	logLevel := LogLevel(level)
 	if logLevel < _minLevel || logLevel > _maxLevel {
@@ -233,167 +280,241 @@ func getLoggerLevel(level int) zapcore.Level {
 func currentPath() string {
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err != nil {
-		mainLog.Error("can not get current path")
+		globalLogger.Error("can not get current path")
 	}
 	return dir
 }
 
-// SetLogger customize yourself logger.
-func SetLogger(logger Logger) {
-	mainLog = logger
+func (c *compositeLogger) Debug(v ...interface{}) {
+	c.mainLog.Debug(v...)
 }
 
-// GetLogger get logger
-func GetLogger() Logger {
-	return mainLog
+func (c *compositeLogger) Debugf(format string, v ...interface{}) {
+	c.mainLog.Debugf(format, v...)
+}
+
+func (c *compositeLogger) DebugfWithLogType(logType LogType, format string, v ...interface{}) {
+	c.mainLog.Debugf(format, v...)
+	switch logType {
+	case LogicalSqlLog:
+		c.logicalSqlLog.Debugf(format, v...)
+	case PhysicalSqlLog:
+		c.physicalSqlLog.Debugf(format, v...)
+	case TxLog:
+		c.txLog.Debugf(format, v...)
+	case MainLog:
+		break
+	}
+}
+
+func (c *compositeLogger) Info(v ...interface{}) {
+	c.mainLog.Info(v...)
+}
+
+func (c *compositeLogger) Infof(format string, v ...interface{}) {
+	c.mainLog.Infof(format, v...)
+}
+
+func (c *compositeLogger) InfofWithLogType(logType LogType, format string, v ...interface{}) {
+	c.mainLog.Infof(format, v...)
+	switch logType {
+	case LogicalSqlLog:
+		c.logicalSqlLog.Infof(format, v...)
+	case PhysicalSqlLog:
+		c.physicalSqlLog.Infof(format, v...)
+	case TxLog:
+		c.txLog.Infof(format, v...)
+	case MainLog:
+		break
+	}
+}
+
+func (c *compositeLogger) Warn(v ...interface{}) {
+	c.mainLog.Warn(v...)
+}
+
+func (c *compositeLogger) Warnf(format string, v ...interface{}) {
+	c.mainLog.Warnf(format, v...)
+}
+
+func (c *compositeLogger) WarnfWithLogType(logType LogType, format string, v ...interface{}) {
+	c.mainLog.Warnf(format, v...)
+	switch logType {
+	case LogicalSqlLog:
+		c.logicalSqlLog.Warnf(format, v...)
+	case PhysicalSqlLog:
+		c.physicalSqlLog.Warnf(format, v...)
+	case TxLog:
+		c.txLog.Warnf(format, v...)
+	case MainLog:
+		break
+	}
+}
+
+func (c *compositeLogger) Error(v ...interface{}) {
+	c.mainLog.Error(v...)
+}
+
+func (c *compositeLogger) Errorf(format string, v ...interface{}) {
+	c.mainLog.Errorf(format, v...)
+}
+
+func (c *compositeLogger) ErrorfWithLogType(logType LogType, format string, v ...interface{}) {
+	c.mainLog.Errorf(format, v...)
+	switch logType {
+	case LogicalSqlLog:
+		c.logicalSqlLog.Errorf(format, v...)
+	case PhysicalSqlLog:
+		c.physicalSqlLog.Errorf(format, v...)
+	case TxLog:
+		c.txLog.Errorf(format, v...)
+	case MainLog:
+		break
+	}
+}
+
+func (c *compositeLogger) Panic(v ...interface{}) {
+	c.mainLog.Panic(v...)
+}
+
+func (c *compositeLogger) Panicf(format string, v ...interface{}) {
+	c.mainLog.Panicf(format, v...)
+}
+
+func (c *compositeLogger) PanicfWithLogType(logType LogType, format string, v ...interface{}) {
+	c.mainLog.Panicf(format, v...)
+	switch logType {
+	case LogicalSqlLog:
+		c.logicalSqlLog.Panicf(format, v...)
+	case PhysicalSqlLog:
+		c.physicalSqlLog.Panicf(format, v...)
+	case TxLog:
+		c.txLog.Panicf(format, v...)
+	case MainLog:
+		break
+	}
+}
+
+func (c *compositeLogger) Fatal(v ...interface{}) {
+	c.mainLog.Fatal(v...)
+}
+
+func (c *compositeLogger) Fatalf(format string, v ...interface{}) {
+	c.mainLog.Fatalf(format, v...)
+}
+
+func (c *compositeLogger) FatalfWithLogType(logType LogType, format string, v ...interface{}) {
+	c.mainLog.Fatalf(format, v...)
+	switch logType {
+	case LogicalSqlLog:
+		c.logicalSqlLog.Fatalf(format, v...)
+	case PhysicalSqlLog:
+		c.physicalSqlLog.Fatalf(format, v...)
+	case TxLog:
+		c.txLog.Fatalf(format, v...)
+	case MainLog:
+		break
+	}
+}
+
+func (c *compositeLogger) With(fields ...zap.Field) *compositeLogger {
+	args := make([]interface{}, 0, len(fields))
+	for _, field := range fields {
+		args = append(args, field)
+	}
+	c.mainLog = c.mainLog.With(args...)
+	c.logicalSqlLog = c.logicalSqlLog.With(args...)
+	c.physicalSqlLog = c.physicalSqlLog.With(args...)
+	c.txLog = c.txLog.With(args...)
+	return c
 }
 
 // Debug ...
 func Debug(v ...interface{}) {
-	mainLog.Debug(v...)
+	globalLogger.Debug(v...)
 }
 
 // Debugf ...
 func Debugf(format string, v ...interface{}) {
-	mainLog.Debugf(format, v...)
+	globalLogger.Debugf(format, v...)
 }
 
 // DebugfWithLogType ...
 func DebugfWithLogType(logType LogType, format string, v ...interface{}) {
-	mainLog.Debugf(format, v...)
-	switch logType {
-	case LogicalSqlLog:
-		logicalSqlLog.Debugf(format, v)
-	case PhysicalSqlLog:
-		physicalSqlLog.Debugf(format, v)
-	case TxLog:
-		txLog.Debugf(format, v)
-	case MainLog:
-		break
-	}
+	globalLogger.DebugfWithLogType(logType, format, v)
 }
 
 // Info ...
 func Info(v ...interface{}) {
-	mainLog.Info(v...)
+	globalLogger.Info(v...)
 }
 
 // Infof ...
 func Infof(format string, v ...interface{}) {
-	mainLog.Infof(format, v...)
+	globalLogger.Infof(format, v...)
 }
 
 // InfofWithLogType ...
 func InfofWithLogType(logType LogType, format string, v ...interface{}) {
-	mainLog.Infof(format, v...)
-	switch logType {
-	case LogicalSqlLog:
-		logicalSqlLog.Infof(format, v)
-	case PhysicalSqlLog:
-		physicalSqlLog.Infof(format, v)
-	case TxLog:
-		txLog.Infof(format, v)
-	case MainLog:
-		break
-	}
+	globalLogger.InfofWithLogType(logType, format, v)
 }
 
 // Warn ...
 func Warn(v ...interface{}) {
-	mainLog.Warn(v...)
+	globalLogger.Warn(v...)
 }
 
 // Warnf ...
 func Warnf(format string, v ...interface{}) {
-	mainLog.Warnf(format, v...)
+	globalLogger.Warnf(format, v...)
 }
 
 // WarnfWithLogType ...
 func WarnfWithLogType(logType LogType, format string, v ...interface{}) {
-	mainLog.Warnf(format, v...)
-	switch logType {
-	case LogicalSqlLog:
-		logicalSqlLog.Warnf(format, v)
-	case PhysicalSqlLog:
-		physicalSqlLog.Warnf(format, v)
-	case TxLog:
-		txLog.Warnf(format, v)
-	case MainLog:
-		break
-	}
+	globalLogger.WarnfWithLogType(logType, format, v)
 }
 
 // Error ...
 func Error(v ...interface{}) {
-	mainLog.Error(v...)
+	globalLogger.Error(v...)
 }
 
 // Errorf ...
 func Errorf(format string, v ...interface{}) {
-	mainLog.Errorf(format, v...)
+	globalLogger.Errorf(format, v...)
 }
 
 // ErrorfWithLogType ...
 func ErrorfWithLogType(logType LogType, format string, v ...interface{}) {
-	mainLog.Errorf(format, v...)
-	switch logType {
-	case LogicalSqlLog:
-		logicalSqlLog.Errorf(format, v)
-	case PhysicalSqlLog:
-		physicalSqlLog.Errorf(format, v)
-	case TxLog:
-		txLog.Errorf(format, v)
-	case MainLog:
-		break
-	}
+	globalLogger.ErrorfWithLogType(logType, format, v)
 }
 
 // Panic ...
 func Panic(v ...interface{}) {
-	mainLog.Panic(v...)
+	globalLogger.Panic(v...)
 }
 
 // Panicf ...
 func Panicf(format string, v ...interface{}) {
-	mainLog.Panicf(format, v...)
+	globalLogger.Panicf(format, v...)
 }
 
 // ErrorfWithLogType ...
 func PanicfWithLogType(logType LogType, format string, v ...interface{}) {
-	mainLog.Panicf(format, v...)
-	switch logType {
-	case LogicalSqlLog:
-		logicalSqlLog.Panicf(format, v)
-	case PhysicalSqlLog:
-		physicalSqlLog.Panicf(format, v)
-	case TxLog:
-		txLog.Panicf(format, v)
-	case MainLog:
-		break
-	}
+	globalLogger.PanicfWithLogType(logType, format, v)
 }
 
 // Fatal ...
 func Fatal(v ...interface{}) {
-	mainLog.Fatal(v...)
+	globalLogger.Fatal(v...)
 }
 
 // Fatalf ...
 func Fatalf(format string, v ...interface{}) {
-	mainLog.Fatalf(format, v...)
+	globalLogger.Fatalf(format, v...)
 }
 
 // FatalfWithLogType ...
 func FatalfWithLogType(logType LogType, format string, v ...interface{}) {
-	mainLog.Fatalf(format, v...)
-	switch logType {
-	case LogicalSqlLog:
-		logicalSqlLog.Fatalf(format, v)
-	case PhysicalSqlLog:
-		physicalSqlLog.Fatalf(format, v)
-	case TxLog:
-		txLog.Fatalf(format, v)
-	case MainLog:
-		break
-	}
+	globalLogger.FatalfWithLogType(logType, format, v)
 }

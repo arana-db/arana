@@ -63,11 +63,11 @@ func Initialize(ctx context.Context, traceCfg *config.Trace) error {
 	return err
 }
 
-func Extract(ctx *proto.Context, hints []*hint.Hint) {
-	currentProvider.Extract(ctx, hints)
+func Extract(ctx *proto.Context, hints []*hint.Hint) bool {
+	return currentProvider.Extract(ctx, hints)
 }
 
 type Provider interface {
 	Initialize(ctx context.Context, traceCfg *config.Trace) error
-	Extract(ctx *proto.Context, hints []*hint.Hint)
+	Extract(ctx *proto.Context, hints []*hint.Hint) bool
 }
