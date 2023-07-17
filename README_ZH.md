@@ -35,6 +35,7 @@ arana start -c ${configFilePath}
 
 ### 前提条件
 
++ Go 1.20+
 + MySQL server 5.7+
 
 ## 设计与实现
