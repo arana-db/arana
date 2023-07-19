@@ -42,11 +42,16 @@ func TestFuncCastChar(t *testing.T) {
 	}
 	for _, v := range []tt{
 		{"Hello", len("Hello"), "ASCII", "Hello"},
+		{"Hello", -1, "ASCII", "Hello"},
 		{"Hello", len("Hello"), "unicode", "\x00H\x00e\x00l\x00l\x00o"},
 		{"Hello世界", len("Hello世界"), "CHARACTER SET GBK", "Hello\xca\xc0\xbd\xe7"},
 		{"Hello世界", len("Hello世界"), "CHARACTER SET gb18030", "Hello\xca\xc0\xbd\xe7"},
 		{"Hello世界", len("Hello世界"), "", "Hello世界"},
 		{"Hello世界", 5, "CHARACTER SET latin2", "Hello"},
+		{"Hello世界", 5, "CHARACTER SET latin5", "Hello"},
+		{"Hello世界", 5, "CHARACTER SET greek", "Hello"},
+		{"Hello世界", 5, "CHARACTER SET hebrew", "Hello"},
+		{"Hello世界", 5, "CHARACTER SET latin7", "Hello"},
 	} {
 		t.Run(v.want, func(t *testing.T) {
 			out, err := fn.Apply(
@@ -57,6 +62,16 @@ func TestFuncCastChar(t *testing.T) {
 			)
 			assert.NoError(t, err)
 			assert.Equal(t, v.want, fmt.Sprint(out))
+		})
+
+		t.Run(v.want, func(t *testing.T) {
+			out, err := fn.Apply(
+				context.Background(),
+				proto.ToValuer(proto.NewValueString(v.inFirst)),
+				proto.ToValuer(proto.NewValueInt64(int64(v.inSecond))),
+			)
+			assert.NoError(t, err)
+			assert.Equal(t, v.inFirst, fmt.Sprint(out))
 		})
 	}
 }
