@@ -67,7 +67,7 @@ supervisor:
   password: root
 
 logging_config:
-  log_name: arana_log
+  log_name: arana.log
   log_path: log
   log_level: 7 #KERN_DEBUG
   log_max_size: 10

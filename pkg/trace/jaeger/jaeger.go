@@ -55,6 +55,7 @@ func (j *Jaeger) Initialize(_ context.Context, traceCfg *config.Trace) error {
 	// Register our TracerProvider as the global so any imported
 	// instrumentation in the future will default to using it.
 	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(&propagation.TraceContext{})
 	return nil
 }
 
@@ -76,17 +77,20 @@ func (j *Jaeger) tracerProvider(traceCfg *config.Trace) (*tracesdk.TracerProvide
 	return tp, nil
 }
 
-func (j *Jaeger) Extract(ctx *proto.Context, hints []*hint.Hint) {
-	var traceId string
+func (j *Jaeger) Extract(ctx *proto.Context, hints []*hint.Hint) bool {
+	var (
+		traceContext string
+	)
 	for _, h := range hints {
 		if h.Type != hint.TypeTrace {
 			continue
 		}
-		traceId = h.Inputs[0].V
+		traceContext = h.Inputs[0].V
 		break
 	}
-	if len(traceId) == 0 {
-		return
+	if len(traceContext) == 0 {
+		return false
 	}
-	ctx.Context = otel.GetTextMapPropagator().Extract(ctx.Context, propagation.MapCarrier{parentKey: traceId})
+	ctx.Context = otel.GetTextMapPropagator().Extract(ctx.Context, propagation.MapCarrier{parentKey: traceContext})
+	return true
 }
