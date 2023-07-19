@@ -116,7 +116,7 @@ func (l *LogLevel) unmarshalText(text []byte) bool {
 	return true
 }
 
-//Logger TODO add methods support LogType
+// Logger TODO add methods support LogType
 type Logger interface {
 	Debug(v ...interface{})
 	Debugf(format string, v ...interface{})
