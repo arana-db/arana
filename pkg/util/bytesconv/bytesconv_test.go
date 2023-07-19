@@ -23,7 +23,7 @@ package bytesconv
 
 import (
 	"bytes"
-	"math/rand"
+	"crypto/rand"
 	"strings"
 	"testing"
 	"time"
