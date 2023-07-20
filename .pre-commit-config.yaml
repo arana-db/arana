@@ -39,6 +39,6 @@ repos:
       - id: go-mod-tidy
       - id: go-staticcheck-mod
   - repo: https://github.com/golangci/golangci-lint
-    rev: v1.47.3
+    rev: v1.53.3
     hooks:
       - id: golangci-lint

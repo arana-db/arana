@@ -37,13 +37,15 @@ const (
 var errInvalidByteQuantity = errors.New("byte quantity must be a positive integer with a unit of measurement like M, MB, MiB, G, GiB, or GB")
 
 // ByteSize returns a human-readable byte string of the form 10M, 12.5K, and so forth.  The following units are available:
-//  E: Exabyte
-//  P: Petabyte
-//  T: Terabyte
-//  G: Gigabyte
-//  M: Megabyte
-//  K: Kilobyte
-//  B: Byte
+//
+//	E: Exabyte
+//	P: Petabyte
+//	T: Terabyte
+//	G: Gigabyte
+//	M: Megabyte
+//	K: Kilobyte
+//	B: Byte
+//
 // The unit that results in the smallest number greater than or equal to 1 is always chosen.
 func ByteSize(bytes uint64) string {
 	unit := ""

@@ -49,18 +49,18 @@ type Item interface {
 
 // Logic represents a logical target which compile to (.. ∩ .. ∩ ..) ∪ (.. ∩ .. ∩ ..) ∪ (.. ∩ .. ∩ ..) ...
 // It follows the rules below:
-//     1. A ∩ !A <=> 0
-//     2. A ∩ B <=> B ∩ A
-//     3. A ∪ B <=> B ∪ A
-//     4. (A ∩ B) ∩ C <=> A ∩ (B ∩ C)
-//     5. (A ∪ B) ∪ C <=> A ∪ (B ∪ C)
-//     7. A ∪ (B ∩ C) <=> (A ∪ B) ∩ (A ∪ C)
-//     8. A ∩ (B ∪ C) <=> (A ∩ B) ∪ (A ∩ C)
-//     9. A ∪ (A ∩ B) <=> A
-//     10. A ∩ (A ∪ B) <=> A
-//     11. !(A ∩ B) <=> !A ∪ !B
-//     12. !(A ∪ B) <=> !A ∩ !B
-//     13. A ∪ !A <=> 1
+//  1. A ∩ !A <=> 0
+//  2. A ∩ B <=> B ∩ A
+//  3. A ∪ B <=> B ∪ A
+//  4. (A ∩ B) ∩ C <=> A ∩ (B ∩ C)
+//  5. (A ∪ B) ∪ C <=> A ∪ (B ∪ C)
+//  7. A ∪ (B ∩ C) <=> (A ∪ B) ∩ (A ∪ C)
+//  8. A ∩ (B ∪ C) <=> (A ∩ B) ∪ (A ∩ C)
+//  9. A ∪ (A ∩ B) <=> A
+//  10. A ∩ (A ∪ B) <=> A
+//  11. !(A ∩ B) <=> !A ∪ !B
+//  12. !(A ∪ B) <=> !A ∩ !B
+//  13. A ∪ !A <=> 1
 type Logic[T Item] interface {
 	fmt.Stringer
 	Eval(o Operator[T]) (T, error)

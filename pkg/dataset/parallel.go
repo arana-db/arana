@@ -229,6 +229,28 @@ func Parallel(first GenerateFunc, others ...GenerateFunc) (RandomAccessDataset, 
 	}, nil
 }
 
+type parallelBuilder struct {
+	genFuns []GenerateFunc
+}
+
+func NewParallelBuilder() parallelBuilder {
+	return parallelBuilder{}
+}
+
+func (pb *parallelBuilder) Add(genFunc GenerateFunc) {
+	pb.genFuns = append(pb.genFuns, genFunc)
+}
+
+func (pb *parallelBuilder) Build() (RandomAccessDataset, error) {
+	if len(pb.genFuns) == 0 {
+		return nil, errors.New("failed to create parallel datasets")
+	}
+	if len(pb.genFuns) == 1 {
+		return Parallel(pb.genFuns[0], nil)
+	}
+	return Parallel(pb.genFuns[0], pb.genFuns[1:]...)
+}
+
 // Peekable converts a dataset to a peekable one.
 func Peekable(origin proto.Dataset) PeekableDataset {
 	return &peekableDataset{

@@ -94,7 +94,7 @@ func GetSeed() int64 {
 }
 
 func init() {
-	rand.Seed(GetSeed())
+	rand.New(rand.NewSource(GetSeed()))
 }
 
 var (
@@ -102,7 +102,7 @@ var (
 	New = rand.New
 
 	// See math/rand for documentation.
-	Seed = rand.Seed
+	Seed = rand.New
 
 	// See math/rand for documentation.
 	Int63 = rand.Int63

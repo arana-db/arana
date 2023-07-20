@@ -20,7 +20,7 @@ package function
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
+	"io"
 	"strings"
 	"unicode/utf8"
 )
@@ -187,7 +187,7 @@ func (a castcharFunc) getResult(runes []rune, num int64, charEncode string) (str
 		// UTF-16 bigendian, no-bom
 		trans := transform.NewReader(srcReader,
 			unicode.UTF16(unicode.BigEndian, unicode.IgnoreBOM).NewEncoder())
-		dstString, err := ioutil.ReadAll(trans)
+		dstString, err := io.ReadAll(trans)
 		if err == nil {
 			return string(dstString), nil
 		} else {

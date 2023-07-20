@@ -57,6 +57,7 @@ func (d *DescribeStatement) Mode() SQLType {
 // ExplainStatement represents mysql explain statement. see https://dev.mysql.com/doc/refman/8.0/en/explain.html
 type ExplainStatement struct {
 	Target Statement
+	Table  TableName
 }
 
 func (e *ExplainStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
@@ -68,5 +69,5 @@ func (e *ExplainStatement) Restore(flag RestoreFlag, sb *strings.Builder, args *
 }
 
 func (e *ExplainStatement) Mode() SQLType {
-	return SQLTypeSelect
+	return SQLTypeExplain
 }
