@@ -1227,7 +1227,7 @@ func strconvErr(err error) error {
 // RandomBuf return random salt, seed must be in the range of ascii
 func RandomBuf(size int) ([]byte, error) {
 	buf := make([]byte, size)
-	rand.Seed(time.Now().UTC().UnixNano())
+	rand.New(rand.NewSource(time.Now().UTC().UnixNano()))
 	min, max := 30, 127
 	for i := 0; i < size; i++ {
 		buf[i] = byte(min + rand.Intn(max-min))

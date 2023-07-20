@@ -69,8 +69,8 @@ func Test_storeOpertae(t *testing.T) {
 	lpurl, _ := url.Parse(DefaultListenPeerURLs)
 	lcurl, _ := url.Parse(DefaultListenClientURLs)
 	etcdCfg := embed.NewConfig()
-	etcdCfg.LPUrls = []url.URL{*lpurl}
-	etcdCfg.LCUrls = []url.URL{*lcurl}
+	etcdCfg.ListenPeerUrls = []url.URL{*lpurl}
+	etcdCfg.ListenClientUrls = []url.URL{*lcurl}
 	etcdCfg.Dir = _defaultEtcdV3WorkDir
 	e, err := embed.StartEtcd(etcdCfg)
 	if err != nil {

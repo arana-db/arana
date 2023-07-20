@@ -23,7 +23,7 @@ package charsetconv
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strings"
 )
 
@@ -99,7 +99,7 @@ func GetCharset(charset string) (Charset, error) {
 
 func transformString(t transform.Transformer, s string) (string, error) {
 	r := transform.NewReader(strings.NewReader(s), t)
-	b, err := ioutil.ReadAll(r)
+	b, err := io.ReadAll(r)
 	return string(b), err
 }
 

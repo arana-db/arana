@@ -495,11 +495,12 @@ func (c *Connector) NewBackendConnection(ctx context.Context) (*BackendConnectio
 // The sync logic:
 //
 // CLIENT  ----ConnA---->  ARANA  ----ConnB----> MySQL
-//               |                      |
-//         transient-vars          persist-vars
-//                \                     /
-//                 \                   /
-//                      >>> SYNC <<<
+//
+//	      |                      |
+//	transient-vars          persist-vars
+//	       \                     /
+//	        \                   /
+//	             >>> SYNC <<<
 func (conn *BackendConnection) SyncVariables(vars map[string]proto.Value) error {
 	transient := conn.c.TransientVariables()
 
