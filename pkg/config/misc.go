@@ -18,7 +18,7 @@
 package config
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 )
 
@@ -35,7 +35,7 @@ import (
 
 // LoadBootOptions loads BootOptions from specified file path.
 func LoadBootOptions(path string) (*BootOptions, error) {
-	content, err := ioutil.ReadFile(path)
+	content, err := os.ReadFile(path)
 	if err != nil {
 		err = errors.Wrap(err, "failed to load config")
 		return nil, err
@@ -52,7 +52,7 @@ func LoadBootOptions(path string) (*BootOptions, error) {
 		return nil, err
 	}
 
-	log.Init(cfg.LogPath, log.InfoLevel, cfg.LoggingConfig)
+	log.Init(cfg.LoggingConfig)
 	return &cfg, nil
 }
 

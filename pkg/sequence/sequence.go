@@ -39,7 +39,7 @@ func newSequenceManager() proto.SequenceManager {
 	}
 }
 
-// SequenceManager Uniform management of seqneuce manager
+// SequenceManager uniform management of sequence manager
 type sequenceManager struct {
 	lock    sync.RWMutex
 	tenants map[string]*tenantBucket

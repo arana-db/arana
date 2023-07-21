@@ -34,6 +34,8 @@ data:
         password: "123456"
         # TODO It is recommended that the initialization of the subsequent system library be handled by arana internally
         database: __arana_sys
+        weight: r10w10
+        parameters:
       clusters:
         - name: employees
           type: mysql
@@ -50,12 +52,12 @@ data:
               type: snowflake
               option:
             db_rules:
-              - column: uid
-                type: scriptExpr
+              - columns:
+                  - name: uid
                 expr: parseInt(0)
             tbl_rules:
-              - column: uid
-                type: scriptExpr
+              - columns:
+                  - name: uid
                 expr: $value % 32
             topology:
               db_pattern: employees_0000

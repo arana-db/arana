@@ -47,6 +47,7 @@ const (
 	SQLTypeShowShardingTable          // SHOW SHARDING TABLE
 	SQLTypeShowCreateSequence         // SHOW CREATE SEQUENCE
 	SQLTypeDescribe                   // DESCRIBE
+	SQLTypeExplain                    // EXPLAIN
 	SQLTypeUnion                      // UNION
 	SQLTypeDropTrigger                // DROP TRIGGER
 	SQLTypeCreateIndex                // CREATE INDEX
@@ -89,6 +90,7 @@ var _sqlTypeNames = [...]string{
 	SQLTypeShowVariables:      "SHOW VARIABLES",
 	SQLTypeShowCreateSequence: "SHOW CREATE SEQUENCE",
 	SQLTypeDescribe:           "DESCRIBE",
+	SQLTypeExplain:            "EXPLAIN",
 	SQLTypeUnion:              "UNION",
 	SQLTypeDropTrigger:        "DROP TRIGGER",
 	SQLTypeCreateIndex:        "CREATE INDEX",

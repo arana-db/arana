@@ -304,6 +304,7 @@ func NewSelectElementExpr(expr ExpressionNode, alias string) *SelectElementExpr 
 		alias: alias,
 	}
 }
+
 func NewSelectElementExprFull(expr ExpressionNode, alias string, originalText string) *SelectElementExpr {
 	return &SelectElementExpr{
 		inner:        expr,

@@ -39,7 +39,6 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/hint"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
-	"github.com/arana-db/arana/pkg/runtime/logical"
 )
 
 var _opcode2comparison = map[opcode.Op]cmp.Comparison{
@@ -116,6 +115,20 @@ func FromStmtNode(node ast.StmtNode) (Statement, error) {
 		switch tgt := result.(type) {
 		case *ShowColumns:
 			return &DescribeStatement{Table: tgt.TableName, Column: tgt.Column}, nil
+		case *SelectStatement:
+			if len(tgt.From) != 0 {
+				return &ExplainStatement{Target: tgt, Table: tgt.From[0].Source.(TableName)}, nil
+			} else {
+				return &ExplainStatement{Target: tgt}, nil
+			}
+		case *DeleteStatement:
+			return &ExplainStatement{Target: tgt, Table: tgt.Table}, nil
+		case *InsertStatement:
+			return &ExplainStatement{Target: tgt, Table: tgt.Table}, nil
+		case *InsertSelectStatement:
+			return &ExplainStatement{Target: tgt, Table: tgt.Table}, nil
+		case *UpdateStatement:
+			return &ExplainStatement{Target: tgt, Table: tgt.Table}, nil
 		default:
 			return &ExplainStatement{Target: tgt}, nil
 		}
@@ -1594,13 +1607,12 @@ func (cc *convCtx) convBinaryOperationExpr(expr *ast.BinaryOperationExpr) interf
 		}
 	case opcode.LogicAnd:
 		return &LogicalExpressionNode{
-			Op:    logical.Land,
 			Left:  toExpressionNode(left),
 			Right: toExpressionNode(right),
 		}
 	case opcode.LogicOr:
 		return &LogicalExpressionNode{
-			Op:    logical.Lor,
+			Or:    true,
 			Left:  toExpressionNode(left),
 			Right: toExpressionNode(right),
 		}

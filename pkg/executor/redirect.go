@@ -34,6 +34,10 @@ import (
 
 	"github.com/pkg/errors"
 
+	rtrace "go.opentelemetry.io/otel/trace"
+
+	"go.uber.org/zap"
+
 	"golang.org/x/exp/slices"
 )
 
@@ -174,7 +178,15 @@ func (executor *RedirectExecutor) doExecutorComQuery(ctx *proto.Context, act ast
 		hints = append(hints, h)
 	}
 
-	trace.Extract(ctx, hints)
+	// extract trace context
+	if trace.Extract(ctx, hints) {
+		traceBytes, err := rtrace.SpanFromContext(ctx).SpanContext().MarshalJSON()
+		if err != nil {
+			return nil, 0, err
+		}
+		ctx.Context = log.NewContext(ctx.Context, ctx.C.ID(), zap.String("trace-context", strings.ReplaceAll(string(traceBytes), "\"", "")))
+	}
+
 	metrics.ParserDuration.Observe(time.Since(start).Seconds())
 
 	if len(ctx.C.Schema()) < 1 {
@@ -312,7 +324,7 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context, h func(re
 		return h(nil, 0, errEmptyQuery)
 	}
 
-	log.Debugf("ComQuery: '%s'", query)
+	log.DebugfWithLogType(log.LogicalSqlLog, "ComQuery: '%s'", query)
 
 	charset, collation := getCharsetCollation(ctx.C.CharacterSet())
 

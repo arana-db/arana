@@ -27,8 +27,10 @@ import (
 )
 
 import (
+	mysql "github.com/arana-db/arana/pkg/constants/mysql"
 	"github.com/arana-db/arana/pkg/dataset"
 	"github.com/arana-db/arana/pkg/merge/aggregator"
+	mysqlErrors "github.com/arana-db/arana/pkg/mysql/errors"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/hint"
 	"github.com/arana-db/arana/pkg/proto/rule"
@@ -587,6 +589,9 @@ func rewriteSelectStatement(ctx context.Context, stmt *ast.SelectStatement, tb s
 	}
 	metadatas, err := proto.LoadSchemaLoader().Load(ctx, rcontext.Schema(ctx), []string{tb})
 	if err != nil {
+		if strings.Contains(err.Error(), "Table doesn't exist") {
+			return mysqlErrors.NewSQLError(mysql.ERNoSuchTable, mysql.SSNoTableSelected, "Table '%s' doesn't exist", tb)
+		}
 		return errors.WithStack(err)
 	}
 	metadata := metadatas[tb]

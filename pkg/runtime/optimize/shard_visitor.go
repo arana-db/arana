@@ -32,14 +32,16 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/runtime/ast"
+	"github.com/arana-db/arana/pkg/runtime/calc"
+	"github.com/arana-db/arana/pkg/runtime/calc/logic"
 	"github.com/arana-db/arana/pkg/runtime/cmp"
-	"github.com/arana-db/arana/pkg/runtime/logical"
 	"github.com/arana-db/arana/pkg/runtime/misc"
 	"github.com/arana-db/arana/pkg/runtime/misc/extvalue"
-	rrule "github.com/arana-db/arana/pkg/runtime/rule"
 )
 
 var _ ast.Visitor = (*ShardVisitor)(nil)
+
+type Calculus = logic.Logic[*calc.Calculus]
 
 type ShardVisitor struct {
 	ctx context.Context
@@ -55,6 +57,10 @@ func NewXSharder(ctx context.Context, ru *rule.Rule, args []proto.Value) *ShardV
 		ru:   ru,
 		args: args,
 	}
+}
+
+func (sd *ShardVisitor) Result() []misc.Pair[ast.TableName, *rule.Shards] {
+	return sd.results
 }
 
 func (sd *ShardVisitor) SimpleShard(table ast.TableName, where ast.ExpressionNode) (rule.DatabaseTables, error) {
@@ -113,14 +119,13 @@ func (sd *ShardVisitor) ForSingleSelect(table ast.TableName, alias string, where
 		return errors.WithStack(err)
 	}
 
-	ev, err := rrule.Eval(l.(logical.Logical), vtab)
-	// 2. logical to evaluator
+	// 2. eval shards
+	shards, err := calc.Eval(vtab, l.(logic.Logic[*calc.Calculus]))
 	if err != nil {
 		return errors.Wrap(err, "compute shard evaluator failed")
 	}
 	// 3. eval
-	shards, err := ev.Eval(vtab)
-	if err != nil && !errors.Is(err, rrule.ErrNoRuleMetadata) {
+	if err != nil && !errors.Is(err, calc.ErrNoShardMatched) {
 		return errors.Wrap(err, "eval shards failed")
 	}
 
@@ -155,15 +160,11 @@ func (sd *ShardVisitor) VisitLogicalExpression(node *ast.LogicalExpressionNode) 
 		return nil, errors.WithStack(err)
 	}
 
-	ll, lr := left.(logical.Logical), right.(logical.Logical)
-	switch node.Op {
-	case logical.Lor:
-		return ll.Or(lr), nil
-	case logical.Land:
-		return ll.And(lr), nil
-	default:
-		panic("unreachable")
+	ll, lr := left.(Calculus), right.(Calculus)
+	if node.Or {
+		return logic.OR(ll, lr), nil
 	}
+	return logic.AND(ll, lr), nil
 }
 
 func (sd *ShardVisitor) VisitNotExpression(node *ast.NotExpressionNode) (interface{}, error) {
@@ -171,12 +172,13 @@ func (sd *ShardVisitor) VisitNotExpression(node *ast.NotExpressionNode) (interfa
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	return ret.(logical.Logical).Not(), nil
+	return logic.NOT(ret.(Calculus)), nil
 }
 
 func (sd *ShardVisitor) VisitPredicateExpression(node *ast.PredicateExpressionNode) (interface{}, error) {
 	return node.P.Accept(sd)
 }
+
 func (sd *ShardVisitor) VisitSelectElementExpr(node *ast.SelectElementExpr) (interface{}, error) {
 	switch inner := node.Expression().(type) {
 	case *ast.PredicateExpressionNode:
@@ -186,6 +188,7 @@ func (sd *ShardVisitor) VisitSelectElementExpr(node *ast.SelectElementExpr) (int
 	}
 	return node.Expression().Accept(sd)
 }
+
 func (sd *ShardVisitor) VisitPredicateAtom(node *ast.AtomPredicateNode) (interface{}, error) {
 	return node.A.Accept(sd)
 }
@@ -205,15 +208,65 @@ func (sd *ShardVisitor) VisitPredicateBetween(node *ast.BetweenPredicateNode) (i
 
 	if node.Not {
 		// convert: f NOT BETWEEN a AND b -> f < a OR f > b
-		k1 := rrule.NewKeyed(key.Suffix(), cmp.Clt, l)
-		k2 := rrule.NewKeyed(key.Suffix(), cmp.Cgt, r)
-		return k1.ToLogical().Or(k2.ToLogical()), nil
+		k1, err := newCmp(key.Suffix(), cmp.Clt, l)
+		if err != nil {
+			return nil, err
+		}
+		k2, err := newCmp(key.Suffix(), cmp.Cgt, r)
+		if err != nil {
+			return nil, err
+		}
+		return logic.OR(
+			calc.Wrap(k1),
+			calc.Wrap(k2),
+		), nil
 	}
 
 	// convert: f BETWEEN a AND b -> f >= a AND f <= b
-	k1 := rrule.NewKeyed(key.Suffix(), cmp.Cgte, l)
-	k2 := rrule.NewKeyed(key.Suffix(), cmp.Clte, r)
-	return k1.ToLogical().And(k2.ToLogical()), nil
+	k1, err := newCmp(key.Suffix(), cmp.Cgte, l)
+	if err != nil {
+		return nil, err
+	}
+	k2, err := newCmp(key.Suffix(), cmp.Clte, r)
+	if err != nil {
+		return nil, err
+	}
+	return logic.AND(
+		calc.Wrap(k1),
+		calc.Wrap(k2),
+	), nil
+}
+
+func newCmp(key string, comparison cmp.Comparison, v proto.Value) (*cmp.Comparative, error) {
+	switch v.Family() {
+	case proto.ValueFamilyString:
+		return cmp.NewString(key, comparison, v.String()), nil
+	case proto.ValueFamilySign, proto.ValueFamilyUnsigned, proto.ValueFamilyFloat, proto.ValueFamilyDecimal:
+		i, err := v.Int64()
+		if err != nil {
+			return nil, err
+		}
+		return cmp.NewInt64(key, comparison, i), nil
+
+	case proto.ValueFamilyBool:
+		b, err := v.Bool()
+		if err != nil {
+			return nil, err
+		}
+		if b {
+			return cmp.NewInt64(key, comparison, 1), nil
+		}
+		return cmp.NewInt64(key, comparison, 0), nil
+
+	case proto.ValueFamilyTime:
+		t, err := v.Time()
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+		return cmp.NewDate(key, comparison, t), nil
+	default:
+		return cmp.NewString(key, comparison, v.String()), nil
+	}
 }
 
 func (sd *ShardVisitor) VisitPredicateBinaryComparison(node *ast.BinaryComparisonPredicateNode) (interface{}, error) {
@@ -222,11 +275,15 @@ func (sd *ShardVisitor) VisitPredicateBinaryComparison(node *ast.BinaryCompariso
 		v, err := extvalue.Compute(sd.ctx, node.Right, sd.args...)
 		if err != nil {
 			if extvalue.IsErrNotSupportedValue(err) {
-				return rrule.AlwaysTrueLogical, nil
+				return alwaysTrue(), nil
 			}
 			return nil, errors.WithStack(err)
 		}
-		return rrule.NewKeyed(k.Suffix(), node.Op, v).ToLogical(), nil
+		c, err := newCmp(k.Suffix(), node.Op, v)
+		if err != nil {
+			return nil, err
+		}
+		return calc.Wrap(c), nil
 	}
 
 	switch k := node.Right.(*ast.AtomPredicateNode).A.(type) {
@@ -234,17 +291,21 @@ func (sd *ShardVisitor) VisitPredicateBinaryComparison(node *ast.BinaryCompariso
 		v, err := extvalue.Compute(sd.ctx, node.Left, sd.args...)
 		if err != nil {
 			if extvalue.IsErrNotSupportedValue(err) {
-				return rrule.AlwaysTrueLogical, nil
+				return alwaysTrue(), nil
 			}
 			return nil, errors.WithStack(err)
 		}
-		return rrule.NewKeyed(k.Suffix(), node.Op, v).ToLogical(), nil
+		c, err := newCmp(k.Suffix(), node.Op, v)
+		if err != nil {
+			return nil, err
+		}
+		return calc.Wrap(c), nil
 	}
 
 	l, _ := extvalue.Compute(sd.ctx, node.Left, sd.args...)
 	r, _ := extvalue.Compute(sd.ctx, node.Right, sd.args...)
 	if l == nil || r == nil {
-		return rrule.AlwaysTrueLogical, nil
+		return alwaysTrue(), nil
 	}
 
 	var (
@@ -295,38 +356,45 @@ func (sd *ShardVisitor) VisitPredicateBinaryComparison(node *ast.BinaryCompariso
 	}
 
 	if bingo {
-		return rrule.AlwaysTrueLogical, nil
+		return alwaysTrue(), nil
 	}
-	return rrule.AlwaysFalseLogical, nil
+	return alwaysFalse(), nil
 }
 
 func (sd *ShardVisitor) VisitPredicateIn(node *ast.InPredicateNode) (interface{}, error) {
 	key := node.P.(*ast.AtomPredicateNode).A.(ast.ColumnNameExpressionAtom)
 
-	var ret logical.Logical
+	var ret Calculus
 	for i := range node.E {
 		actualValue, err := extvalue.Compute(sd.ctx, node.E[i], sd.args...)
 		if err != nil {
 			if extvalue.IsErrNotSupportedValue(err) {
-				return rrule.AlwaysTrueLogical, nil
+				return alwaysTrue(), nil
 			}
 			return nil, errors.WithStack(err)
 		}
+
 		if node.Not {
+			ke, err := newCmp(key.Suffix(), cmp.Cne, actualValue)
+			if err != nil {
+				return nil, err
+			}
 			// convert: f NOT IN (a,b,c) -> f <> a AND f <> b AND f <> c
-			ke := rrule.NewKeyed(key.Suffix(), cmp.Cne, actualValue)
 			if ret == nil {
-				ret = ke.ToLogical()
+				ret = calc.Wrap(ke)
 			} else {
-				ret = ret.And(ke.ToLogical())
+				ret = logic.AND(ret, calc.Wrap(ke))
 			}
 		} else {
 			// convert: f IN (a,b,c) -> f = a OR f = b OR f = c
-			ke := rrule.NewKeyed(key.Suffix(), cmp.Ceq, actualValue)
+			ke, err := newCmp(key.Suffix(), cmp.Ceq, actualValue)
+			if err != nil {
+				return nil, err
+			}
 			if ret == nil {
-				ret = ke.ToLogical()
+				ret = calc.Wrap(ke)
 			} else {
-				ret = ret.Or(ke.ToLogical())
+				ret = logic.OR(ret, calc.Wrap(ke))
 			}
 		}
 	}
@@ -340,28 +408,33 @@ func (sd *ShardVisitor) VisitPredicateLike(node *ast.LikePredicateNode) (interfa
 	like, err := extvalue.Compute(sd.ctx, node.Right, sd.args...)
 	if err != nil {
 		if extvalue.IsErrNotSupportedValue(err) {
-			return rrule.AlwaysTrueLogical, nil
+			return alwaysTrue(), nil
 		}
 		return nil, errors.WithStack(err)
 	}
 
 	if like == nil {
-		return rrule.AlwaysTrueLogical, nil
+		return alwaysTrue(), nil
 	}
 
 	if !strings.ContainsAny(like.String(), "%_") {
-		return rrule.NewKeyed(key.Suffix(), cmp.Ceq, like).ToLogical(), nil
+		c, err := newCmp(key.Suffix(), cmp.Ceq, like)
+		if err != nil {
+			return nil, err
+		}
+
+		return calc.Wrap(c), nil
 	}
 
-	return rrule.AlwaysTrueLogical, nil
+	return alwaysTrue(), nil
 }
 
-func (sd *ShardVisitor) VisitPredicateRegexp(node *ast.RegexpPredicationNode) (interface{}, error) {
-	return rrule.AlwaysTrueLogical, nil
+func (sd *ShardVisitor) VisitPredicateRegexp(_ *ast.RegexpPredicationNode) (interface{}, error) {
+	return alwaysTrue(), nil
 }
 
-func (sd *ShardVisitor) VisitAtomColumn(node ast.ColumnNameExpressionAtom) (interface{}, error) {
-	return rrule.AlwaysTrueLogical, nil
+func (sd *ShardVisitor) VisitAtomColumn(_ ast.ColumnNameExpressionAtom) (interface{}, error) {
+	return alwaysTrue(), nil
 }
 
 func (sd *ShardVisitor) VisitAtomConstant(node *ast.ConstantExpressionAtom) (interface{}, error) {
@@ -380,7 +453,7 @@ func (sd *ShardVisitor) VisitAtomFunction(node *ast.FunctionCallExpressionAtom) 
 	val, err := extvalue.Compute(sd.ctx, node, sd.args...)
 	if err != nil {
 		if extvalue.IsErrNotSupportedValue(err) {
-			return rrule.AlwaysTrueLogical, nil
+			return alwaysTrue(), nil
 		}
 		return nil, errors.WithStack(err)
 	}
@@ -399,37 +472,44 @@ func (sd *ShardVisitor) VisitAtomMath(node *ast.MathExpressionAtom) (interface{}
 	return sd.fromValueNode(node)
 }
 
-func (sd *ShardVisitor) VisitAtomSystemVariable(node *ast.SystemVariableExpressionAtom) (interface{}, error) {
-	return rrule.AlwaysTrueLogical, nil
+func (sd *ShardVisitor) VisitAtomSystemVariable(_ *ast.SystemVariableExpressionAtom) (interface{}, error) {
+	return alwaysTrue(), nil
 }
 
 func (sd *ShardVisitor) VisitAtomVariable(node ast.VariableExpressionAtom) (interface{}, error) {
 	return sd.fromConstant(sd.args[node.N()])
 }
 
-func (sd *ShardVisitor) VisitAtomInterval(node *ast.IntervalExpressionAtom) (interface{}, error) {
-	return rrule.AlwaysTrueLogical, nil
+func (sd *ShardVisitor) VisitAtomInterval(_ *ast.IntervalExpressionAtom) (interface{}, error) {
+	return alwaysTrue(), nil
 }
 
-func (sd *ShardVisitor) fromConstant(val proto.Value) (logical.Logical, error) {
+func (sd *ShardVisitor) fromConstant(val proto.Value) (Calculus, error) {
 	if val == nil {
-		return rrule.AlwaysFalseLogical, nil
+		return alwaysFalse(), nil
 	}
 
 	if b, err := val.Bool(); err == nil && !b {
-		return rrule.AlwaysFalseLogical, nil
+		return alwaysFalse(), nil
 	}
-
-	return rrule.AlwaysTrueLogical, nil
+	return alwaysTrue(), nil
 }
 
 func (sd *ShardVisitor) fromValueNode(node ast.Node) (interface{}, error) {
 	val, err := extvalue.Compute(sd.ctx, node, sd.args...)
 	if err != nil {
 		if extvalue.IsErrNotSupportedValue(err) {
-			return rrule.AlwaysTrueLogical, nil
+			return alwaysTrue(), nil
 		}
 		return nil, errors.WithStack(err)
 	}
 	return sd.fromConstant(val)
+}
+
+func alwaysTrue() Calculus {
+	return logic.True[*calc.Calculus]()
+}
+
+func alwaysFalse() Calculus {
+	return logic.False[*calc.Calculus]()
 }

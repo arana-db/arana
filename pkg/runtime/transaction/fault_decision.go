@@ -29,7 +29,6 @@ type TxFaultDecisionExecutor struct {
 
 // Run Core logic of the decision -making decision -making at the bottom of the affairs
 func (bm *TxFaultDecisionExecutor) Run() {
-
 }
 
 func (bm *TxFaultDecisionExecutor) scanUnFinishTxLog() ([]TrxLog, error) {
@@ -37,13 +36,10 @@ func (bm *TxFaultDecisionExecutor) scanUnFinishTxLog() ([]TrxLog, error) {
 }
 
 func (bm *TxFaultDecisionExecutor) handlePreparing(tx TrxLog) {
-
 }
 
 func (bm *TxFaultDecisionExecutor) handleCommitting(tx TrxLog) {
-
 }
 
 func (bm *TxFaultDecisionExecutor) handleAborting(tx TrxLog) {
-
 }

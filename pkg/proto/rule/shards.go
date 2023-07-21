@@ -91,6 +91,9 @@ func (sd *Shards) Add(db, table uint32, otherTables ...uint32) {
 }
 
 func (sd *Shards) Each(h func(db, tb uint32) bool) {
+	if sd == nil {
+		return
+	}
 	(*btree.BTree)(sd).Ascend(func(i btree.Item) bool {
 		s := i.(shard)
 		return h(s.getDB(), s.getTable())
@@ -122,7 +125,12 @@ func (sd *Shards) Len() int {
 }
 
 func (sd *Shards) String() string {
+	if sd == nil {
+		return "*"
+	}
+
 	var sb strings.Builder
+	sb.WriteByte('[')
 	prev := int64(-1)
 	sd.Each(func(db, tb uint32) bool {
 		if prev != int64(db) {
@@ -138,6 +146,7 @@ func (sd *Shards) String() string {
 		_, _ = fmt.Fprint(&sb, tb)
 		return true
 	})
+	sb.WriteByte(']')
 	return sb.String()
 }
 

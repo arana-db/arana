@@ -23,11 +23,12 @@ import (
 
 import (
 	"github.com/arana-db/parser"
+
 	"github.com/stretchr/testify/assert"
 )
 
 func TestShowDatabaseRulesSQL(t *testing.T) {
-	sql := "SHOW DATABASE RULES FROM employees"
+	sql := "SHOW DATABASE RULES FROM student"
 
 	p := parser.New()
 

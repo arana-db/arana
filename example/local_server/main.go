@@ -23,6 +23,6 @@ import (
 )
 
 func main() {
-	bootstrap := testdata.Path("../conf/bootstrap.local-etcd.yaml")
+	bootstrap := testdata.Path("../conf/bootstrap.yaml")
 	start.Run(bootstrap)
 }

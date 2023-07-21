@@ -28,55 +28,104 @@ import (
 	"github.com/pkg/errors"
 )
 
-type (
-	// ShardMetadata represents the metadata of shards.
-	ShardMetadata struct {
-		Steps    int           // steps
-		Stepper  Stepper       // stepper
-		Computer ShardComputer // compute shards
-	}
-
-	// ShardComputer computes the shard index from an input value.
-	ShardComputer interface {
-		// Compute computes the shard index.
-		Compute(value interface{}) (int, error)
-	}
-
-	DirectShardComputer func(interface{}) (int, error)
+import (
+	"github.com/arana-db/arana/pkg/proto"
 )
-
-func (d DirectShardComputer) Compute(value interface{}) (int, error) {
-	return d(value)
-}
 
 const (
 	attrAllowFullScan byte = 0x01
 )
 
 type (
-	// RawShardRule represents the raw database_rule and table_rule of shards.
-	RawShardRule struct {
-		Column string `json:"column"`
-		Type   string `json:"type"`
-		Expr   string `json:"expr"`
-		Step   int    `json:"step,omitempty"`
+	// ShardColumn represents the shard column.
+	ShardColumn struct {
+		Name    string
+		Steps   int
+		Stepper Stepper
 	}
-	// RawShardMetadata represents the raw metadata of shards.
-	RawShardMetadata struct {
-		Name         string                 `json:"name,omitempty"`
-		SequenceType string                 `json:"sequence_type,omitempty"`
-		DbRules      []*RawShardRule        `json:"db_rules"`
-		TblRules     []*RawShardRule        `json:"tbl_rules"`
-		Attributes   map[string]interface{} `json:"attributes,omitempty"`
+
+	// ShardMetadata represents the metadata of shards.
+	ShardMetadata struct {
+		ShardColumns []*ShardColumn
+		Computer     ShardComputer // compute shards
+	}
+
+	// ShardComputer computes the shard index from an input value.
+	ShardComputer interface {
+		// Variables returns the variable names.
+		Variables() []string
+		// Compute computes the shard index.
+		Compute(values ...proto.Value) (int, error)
+	}
+
+	VShard struct {
+		sync.Once
+		DB, Table *ShardMetadata
+		variables []string
+	}
+
+	ShardComputerFactory interface {
+		Apply(columns []string, expr string) (ShardComputer, error)
 	}
 )
 
-func (r RawShardMetadata) JSONMarshal() (string, error) {
-	jsons, errs := json.Marshal(r)
-	if errs != nil {
-		return "", errors.Errorf("cannot marshal the shard metadata to json")
+var _shardComputers map[string]ShardComputerFactory
+
+type FuncShardComputerFactory func([]string, string) (ShardComputer, error)
+
+func (f FuncShardComputerFactory) Apply(columns []string, expr string) (ShardComputer, error) {
+	return f(columns, expr)
+}
+
+func RegisterShardComputer(typ string, factory ShardComputerFactory) {
+	if _shardComputers == nil {
+		_shardComputers = make(map[string]ShardComputerFactory)
 	}
-	return string(jsons), nil
+	_shardComputers[typ] = factory
+}
+
+func NewComputer(typ string, columns []string, expr string) (ShardComputer, error) {
+	f, ok := _shardComputers[typ]
+	if !ok {
+		return nil, errors.Errorf("no such shard computer type '%s'", typ)
+	}
+	return f.Apply(columns, expr)
+}
+
+func (sm *ShardMetadata) GetShardColumn(name string) *ShardColumn {
+	for i := range sm.ShardColumns {
+		if sm.ShardColumns[i].Name == name {
+			return sm.ShardColumns[i]
+		}
+	}
+	return nil
+}
+
+func (vs *VShard) Len() int {
+	return len(vs.Variables())
+}
+
+func (vs *VShard) Variables() []string {
+	vs.Do(func() {
+		visits := make(map[string]struct{})
+
+		handle := func(vars []string) {
+			for i := range vars {
+				if _, ok := visits[vars[i]]; ok {
+					continue
+				}
+				visits[vars[i]] = struct{}{}
+				vs.variables = append(vs.variables, vars[i])
+			}
+		}
+		if vs.DB != nil {
+			handle(vs.DB.Computer.Variables())
+		}
+		if vs.Table != nil {
+			handle(vs.Table.Computer.Variables())
+		}
+	})
+	return vs.variables
 }
 
 // VTable represents a virtual/logical table.
@@ -85,13 +134,8 @@ type VTable struct {
 	name          string // TODO: set name
 	autoIncrement *AutoIncrement
 	topology      *Topology
-	shards        map[string][2]*ShardMetadata // column -> [db shard metadata,table shard metadata]
-	rawShards     *RawShardMetadata
-}
-
-func (vt *VTable) HasColumn(column string) bool {
-	_, ok := vt.shards[column]
-	return ok
+	shards        []*VShard
+	ext           map[string]interface{}
 }
 
 func (vt *VTable) Name() string {
@@ -115,44 +159,71 @@ func (vt *VTable) AllowFullScan() bool {
 	return ret
 }
 
-func (vt *VTable) GetShardKeys() []string {
-	keys := make([]string, 0, len(vt.shards))
-	for k := range vt.shards {
-		keys = append(keys, k)
-	}
-	return keys
+func (vt *VTable) HasVShard(keys ...string) bool {
+	_, ok := vt.SearchVShard(keys...)
+	return ok
 }
-func (vt *VTable) SetRawShardMetaData(rawData *RawShardMetadata) {
-	vt.rawShards = rawData
+
+func (vt *VTable) SearchVShard(keys ...string) (*VShard, bool) {
+	vShards := vt.GetVShards()
+L:
+	for i := range vShards {
+		variables := vShards[i].Variables()
+		if len(variables) != len(keys) {
+			continue
+		}
+		for j := range keys {
+			if variables[j] != keys[j] {
+				continue L
+			}
+		}
+		return vShards[i], true
+	}
+	return nil, false
+}
+
+func (vt *VTable) GetVShards() []*VShard {
+	return vt.shards
 }
 
 func (vt *VTable) GetShardMetaDataJSON() (map[string]string, error) {
 	res := make(map[string]string)
+
+	res["name"] = vt.Name()
+	res["sequence_type"] = vt.GetAutoIncrement().Type
+
 	var (
-		val []byte
-		err error
+		dbRules  []interface{}
+		tblRules []interface{}
 	)
+	for _, vs := range vt.GetVShards() {
+		dbShardColumns := make([]string, 0, len(vs.DB.ShardColumns))
+		for i := range vs.DB.ShardColumns {
+			dbShardColumns = append(dbShardColumns, vs.DB.ShardColumns[i].Name)
+		}
+		tblShardColumns := make([]string, 0, len(vs.Table.ShardColumns))
+		for i := range vs.Table.ShardColumns {
+			tblShardColumns = append(tblShardColumns, vs.Table.ShardColumns[i].Name)
+		}
 
-	res["name"] = vt.rawShards.Name
-	res["sequence_type"] = vt.rawShards.SequenceType
-
-	val, err = json.Marshal(vt.rawShards.DbRules)
-	if err != nil {
-		return res, err
+		dbRules = append(dbRules, map[string]interface{}{
+			"columns":    dbShardColumns,
+			"expression": fmt.Sprintf("%s", vs.DB.Computer),
+		})
+		tblRules = append(tblRules, map[string]interface{}{
+			"columns":    tblShardColumns,
+			"expression": fmt.Sprintf("%s", vs.Table.Computer),
+		})
 	}
-	res["db_rules"] = string(val)
 
-	val, err = json.Marshal(vt.rawShards.TblRules)
-	if err != nil {
-		return res, err
-	}
-	res["tbl_rules"] = string(val)
+	dbRulesJson, _ := json.Marshal(dbRules)
+	tblRulesJson, _ := json.Marshal(tblRules)
 
-	val, err = json.Marshal(vt.rawShards.Attributes)
-	if err != nil {
-		return res, err
-	}
-	res["attributes"] = string(val)
+	res["db_rules"] = string(dbRulesJson)
+	res["tbl_rules"] = string(tblRulesJson)
+
+	b, _ := json.Marshal(vt.ext)
+	res["attributes"] = string(b)
 
 	return res, nil
 }
@@ -163,56 +234,55 @@ func (vt *VTable) Topology() *Topology {
 }
 
 // Shard returns the shard result.
-func (vt *VTable) Shard(column string, value interface{}) (uint32 /* db */, uint32 /* table */, error) {
+func (vt *VTable) Shard(inputs map[string]proto.Value) (uint32 /* db */, uint32 /* table */, error) {
+	var bingo *VShard
+L:
+	for i := range vt.shards {
+		for _, key := range vt.shards[i].Variables() {
+			if _, ok := inputs[key]; !ok {
+				continue L
+			}
+		}
+		if bingo != nil {
+			return 0, 0, errors.New("conflict vshards")
+		}
+		bingo = vt.shards[i]
+	}
+
+	if bingo == nil {
+		return 0, 0, errors.Errorf("no available vshards")
+	}
+
+	compute := func(c ShardComputer) (int, error) {
+		args := make([]proto.Value, 0, len(c.Variables()))
+		for _, variable := range c.Variables() {
+			args = append(args, inputs[variable])
+		}
+		return c.Compute(args...)
+	}
+
 	var (
 		db, table int
 		err       error
 	)
-	sm, ok := vt.shards[column]
-	if !ok {
-		return 0, 0, errors.Errorf("no shard metadata for column %s", column)
-	}
 
-	if sm[0] != nil { // compute the index of db
-		if db, err = sm[0].Computer.Compute(value); err != nil {
-			return 0, 0, errors.WithStack(err)
+	if bingo.DB != nil {
+		if db, err = compute(bingo.DB.Computer); err != nil {
+			return 0, 0, errors.Wrap(err, "cannot compute db shard")
 		}
 	}
-	if sm[1] != nil { // compute the index of table
-		if table, err = sm[1].Computer.Compute(value); err != nil {
-			return 0, 0, errors.WithStack(err)
+
+	if bingo.Table != nil {
+		if table, err = compute(bingo.Table.Computer); err != nil {
+			return 0, 0, errors.Wrap(err, "cannot compute table shard")
 		}
 	}
 
 	return uint32(db), uint32(table), nil
 }
 
-// GetShardMetadata returns the shard metadata with given column.
-func (vt *VTable) GetShardMetadata(column string) (db *ShardMetadata, tbl *ShardMetadata, ok bool) {
-	var exist [2]*ShardMetadata
-	if exist, ok = vt.shards[column]; !ok {
-		return
-	}
-	db, tbl = exist[0], exist[1]
-	x, y := vt.Topology().Len()
-
-	// fix steps
-	if db != nil && db.Steps == 0 {
-		db.Steps = x
-	}
-	if tbl != nil && tbl.Steps == 0 {
-		tbl.Steps = y
-	}
-
-	return
-}
-
-// SetShardMetadata sets the shard metadata.
-func (vt *VTable) SetShardMetadata(column string, dbShardMetadata, tblShardMetadata *ShardMetadata) {
-	if vt.shards == nil {
-		vt.shards = make(map[string][2]*ShardMetadata)
-	}
-	vt.shards[column] = [2]*ShardMetadata{dbShardMetadata, tblShardMetadata}
+func (vt *VTable) AddVShards(shard *VShard) {
+	vt.shards = append(vt.shards, shard)
 }
 
 // SetTopology sets the topology.
@@ -228,16 +298,6 @@ func (vt *VTable) SetName(name string) {
 type Rule struct {
 	mu    sync.RWMutex
 	vtabs map[string]*VTable // table name -> *VTable
-}
-
-// HasColumn returns true if the table and columns exists.
-func (ru *Rule) HasColumn(table, column string) bool {
-	vt, ok := ru.VTable(table)
-	if !ok {
-		return false
-	}
-	_, _, ok = vt.GetShardMetadata(column)
-	return ok
 }
 
 // Has return true if the table exists.
@@ -285,17 +345,6 @@ func (ru *Rule) VTables() map[string]*VTable {
 	ru.mu.RLock()
 	defer ru.mu.RUnlock()
 	return ru.vtabs
-}
-
-// DBRule returns all the database rule
-func (ru *Rule) DBRule() map[string][]*RawShardRule {
-	ru.mu.RLock()
-	defer ru.mu.RUnlock()
-	allDBRule := make(map[string][]*RawShardRule, 10)
-	for _, tb := range ru.vtabs {
-		allDBRule[tb.name] = tb.rawShards.DbRules
-	}
-	return allDBRule
 }
 
 // MustVTable returns the VTable with given table name, panic if not exist.

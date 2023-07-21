@@ -23,6 +23,7 @@ package bytesconv
 
 import (
 	"bytes"
+	crand "crypto/rand"
 	"math/rand"
 	"strings"
 	"testing"
@@ -47,7 +48,7 @@ func rawStrToBytes(s string) []byte {
 func TestBytesToString(t *testing.T) {
 	data := make([]byte, 1024)
 	for i := 0; i < 100; i++ {
-		rand.Read(data)
+		crand.Read(data)
 		if rawBytesToStr(data) != BytesToString(data) {
 			t.Fatal("don't match")
 		}
