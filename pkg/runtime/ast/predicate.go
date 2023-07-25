@@ -44,6 +44,7 @@ type PredicateNode interface {
 	Node
 	Restorer
 	phantom() predicateNodePhantom
+	Clone() PredicateNode
 }
 
 type LikePredicateNode struct {
@@ -81,6 +82,14 @@ func (l *LikePredicateNode) phantom() predicateNodePhantom {
 	return predicateNodePhantom{}
 }
 
+func (l *LikePredicateNode) Clone() PredicateNode {
+	return &LikePredicateNode{
+		Not:   l.Not,
+		Left:  l.Left.Clone(),
+		Right: l.Right.Clone(),
+	}
+}
+
 type RegexpPredicationNode struct {
 	Left  PredicateNode
 	Right PredicateNode
@@ -109,6 +118,14 @@ func (rp *RegexpPredicationNode) Restore(flag RestoreFlag, sb *strings.Builder, 
 
 func (rp *RegexpPredicationNode) phantom() predicateNodePhantom {
 	return predicateNodePhantom{}
+}
+
+func (rp *RegexpPredicationNode) Clone() PredicateNode {
+	return &RegexpPredicationNode{
+		Left:  rp.Left.Clone(),
+		Right: rp.Right.Clone(),
+		Not:   rp.Not,
+	}
 }
 
 type BinaryComparisonPredicateNode struct {
@@ -158,6 +175,14 @@ func (b *BinaryComparisonPredicateNode) phantom() predicateNodePhantom {
 	return predicateNodePhantom{}
 }
 
+func (b *BinaryComparisonPredicateNode) Clone() PredicateNode {
+	return &BinaryComparisonPredicateNode{
+		Left:  b.Left.Clone(),
+		Right: b.Right.Clone(),
+		Op:    b.Op,
+	}
+}
+
 type AtomPredicateNode struct {
 	A ExpressionAtom
 }
@@ -183,6 +208,12 @@ func (a *AtomPredicateNode) Restore(flag RestoreFlag, sb *strings.Builder, args 
 
 func (a *AtomPredicateNode) phantom() predicateNodePhantom {
 	return predicateNodePhantom{}
+}
+
+func (a *AtomPredicateNode) Clone() PredicateNode {
+	return &AtomPredicateNode{
+		A: a.A.Clone(),
+	}
 }
 
 type BetweenPredicateNode struct {
@@ -220,6 +251,15 @@ func (b *BetweenPredicateNode) Restore(flag RestoreFlag, sb *strings.Builder, ar
 
 func (b *BetweenPredicateNode) phantom() predicateNodePhantom {
 	return predicateNodePhantom{}
+}
+
+func (b *BetweenPredicateNode) Clone() PredicateNode {
+	return &BetweenPredicateNode{
+		Not:   b.Not,
+		Key:   b.Key.Clone(),
+		Left:  b.Left.Clone(),
+		Right: b.Right.Clone(),
+	}
 }
 
 type InPredicateNode struct {
@@ -263,4 +303,17 @@ func (ip *InPredicateNode) Restore(flag RestoreFlag, sb *strings.Builder, args *
 
 func (ip *InPredicateNode) phantom() predicateNodePhantom {
 	return predicateNodePhantom{}
+}
+
+func (ip *InPredicateNode) Clone() PredicateNode {
+	e := make([]ExpressionNode, 0, len(ip.E))
+	for _, node := range ip.E {
+		e = append(e, node.Clone())
+	}
+
+	return &InPredicateNode{
+		Not: ip.Not,
+		P:   ip.P.Clone(),
+		E:   e,
+	}
 }

@@ -267,6 +267,13 @@ func (s *SelectElementColumn) Suffix() string {
 	return s.Name[len(s.Name)-1]
 }
 
+func (s *SelectElementColumn) Prefix() string {
+	if len(s.Name) < 2 {
+		return ""
+	}
+	return s.Name[len(s.Name)-2]
+}
+
 func (s *SelectElementColumn) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	if err := ColumnNameExpressionAtom(s.Name).Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
