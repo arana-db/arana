@@ -95,3 +95,45 @@ func TestCastUnsigned(t *testing.T) {
 		})
 	}
 }
+
+func TestCastSign_Error(t *testing.T) {
+	fn := proto.MustGetFunc(FuncCastSign)
+	assert.Equal(t, 1, fn.NumInput())
+
+	type tt struct {
+		desc string
+		in   proto.Value
+		out  int64
+	}
+
+	for _, it := range []tt{
+		{"CAST(a AS SIGNED)", proto.NewValueString("a"), 0},
+	} {
+		t.Run(it.desc, func(t *testing.T) {
+			out, err := fn.Apply(context.Background(), proto.ToValuer(it.in))
+			assert.Error(t, err)
+			assert.Nil(t, out)
+		})
+	}
+}
+
+func TestCastSign_Nil(t *testing.T) {
+	fn := proto.MustGetFunc(FuncCastSign)
+	assert.Equal(t, 1, fn.NumInput())
+
+	type tt struct {
+		desc string
+		in   proto.Value
+		out  int64
+	}
+
+	for _, it := range []tt{
+		{"CAST(nil AS SIGNED)", nil, 0},
+	} {
+		t.Run(it.desc, func(t *testing.T) {
+			out, err := fn.Apply(context.Background(), proto.ToValuer(it.in))
+			assert.Nil(t, err)
+			assert.Nil(t, out)
+		})
+	}
+}

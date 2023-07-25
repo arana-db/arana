@@ -100,7 +100,7 @@ func (a castDatetimeFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (pr
 		}
 		datetimeArrReplace := _datetimeReplace.ReplaceAllStringFunc(datetimeArr[0], func(s string) string { return "-" })
 		year, month, day := castDate.splitDateWithSep(datetimeArrReplace)
-		year = castDate.amend4DigtalYear(year)
+		year = castDate.amend4DigitalYear(year)
 
 		match = _datetimeMatchLowerString.MatchString(datetimeArr[1])
 		if !match {
@@ -125,7 +125,7 @@ func (a castDatetimeFunc) Apply(ctx context.Context, inputs ...proto.Valuer) (pr
 		datetimeLen := len(datetimeArgs)
 		dateArgs := datetimeArgs[0 : datetimeLen-6]
 		year, month, day := castDate.splitDateWithoutSep(dateArgs)
-		year = castDate.amend4DigtalYear(year)
+		year = castDate.amend4DigitalYear(year)
 
 		timeArgs := datetimeArgs[datetimeLen-6 : datetimeLen]
 		hour, minutes, second := a.splitDatetimeWithoutSep(timeArgs)
