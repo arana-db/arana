@@ -63,3 +63,113 @@ func TestCastDecimal(t *testing.T) {
 		})
 	}
 }
+
+func TestCastDecimal_Inputs_Error(t *testing.T) {
+	fn := proto.MustGetFunc(FuncCastDecimal)
+	assert.Equal(t, 3, fn.NumInput())
+
+	type tt struct {
+		inFirst  proto.Value
+		inSecond proto.Value
+		intThird proto.Value
+		out      string
+	}
+
+	for _, it := range []tt{
+		{proto.NewValueInt64(15), proto.NewValueInt64(4), proto.NewValueInt64(2), "15.00"},
+	} {
+		t.Run(it.out, func(t *testing.T) {
+			out, err := fn.Apply(context.Background(), proto.ToValuer(it.inFirst), proto.ToValuer(it.inSecond))
+			assert.Error(t, err)
+			assert.Nil(t, out)
+		})
+	}
+}
+
+func TestCastDecimal_Inputs_0_Error(t *testing.T) {
+	fn := proto.MustGetFunc(FuncCastDecimal)
+	assert.Equal(t, 3, fn.NumInput())
+
+	type tt struct {
+		inFirst  proto.Value
+		inSecond proto.Value
+		intThird proto.Value
+		out      string
+	}
+
+	for _, it := range []tt{
+		{proto.NewValueString("a"), proto.NewValueInt64(4), proto.NewValueInt64(2), "0"},
+	} {
+		t.Run(it.out, func(t *testing.T) {
+			out, err := fn.Apply(context.Background(), proto.ToValuer(it.inFirst), proto.ToValuer(it.inSecond), proto.ToValuer(it.intThird))
+			assert.NoError(t, err)
+			assert.Equal(t, it.out, fmt.Sprint(out))
+		})
+	}
+}
+
+func TestCastDecimal_Inputs_1_Error(t *testing.T) {
+	fn := proto.MustGetFunc(FuncCastDecimal)
+	assert.Equal(t, 3, fn.NumInput())
+
+	type tt struct {
+		inFirst  proto.Value
+		inSecond proto.Value
+		intThird proto.Value
+		out      string
+	}
+
+	for _, it := range []tt{
+		{proto.NewValueInt64(15), proto.NewValueString("a"), proto.NewValueInt64(2), "0"},
+	} {
+		t.Run(it.out, func(t *testing.T) {
+			out, err := fn.Apply(context.Background(), proto.ToValuer(it.inFirst), proto.ToValuer(it.inSecond), proto.ToValuer(it.intThird))
+			assert.Error(t, err)
+			assert.Nil(t, out)
+		})
+	}
+}
+
+func TestCastDecimal_Inputs_2_Error(t *testing.T) {
+	fn := proto.MustGetFunc(FuncCastDecimal)
+	assert.Equal(t, 3, fn.NumInput())
+
+	type tt struct {
+		inFirst  proto.Value
+		inSecond proto.Value
+		intThird proto.Value
+		out      string
+	}
+
+	for _, it := range []tt{
+		{proto.NewValueInt64(15), proto.NewValueInt64(4), proto.NewValueString("a"), "0"},
+	} {
+		t.Run(it.out, func(t *testing.T) {
+			out, err := fn.Apply(context.Background(), proto.ToValuer(it.inFirst), proto.ToValuer(it.inSecond), proto.ToValuer(it.intThird))
+			assert.Error(t, err)
+			assert.Nil(t, out)
+		})
+	}
+}
+
+func TestCastDecimal_Error(t *testing.T) {
+	fn := proto.MustGetFunc(FuncCastDecimal)
+	assert.Equal(t, 3, fn.NumInput())
+
+	type tt struct {
+		inFirst  proto.Value
+		inSecond proto.Value
+		intThird proto.Value
+		out      string
+	}
+
+	for _, it := range []tt{
+		{proto.NewValueInt64(15), proto.NewValueInt64(4), proto.NewValueInt64(5), "0"},
+	} {
+		t.Run(it.out, func(t *testing.T) {
+			out, err := fn.Apply(context.Background(), proto.ToValuer(it.inFirst), proto.ToValuer(it.inSecond), proto.ToValuer(it.intThird))
+			assert.Error(t, err)
+			assert.Nil(t, out)
+		})
+	}
+}
