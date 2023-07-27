@@ -57,9 +57,13 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 	stmt := o.Stmt.(*ast.SelectStatement)
 	enableLocalMathComputation := ctx.Value(proto.ContextKeyEnableLocalComputation{}).(bool)
 	if enableLocalMathComputation && len(stmt.From) == 0 {
-		isLocalFlag := true
-		var columnList []string
-		var valueList []proto.Value
+		var (
+			isLocalFlag = true
+			isSequence  = false
+			columnList  []string
+			valueList   []proto.Value
+			vts         []*rule.VTable
+		)
 		for i := range stmt.Select {
 			switch selectItem := stmt.Select[i].(type) {
 			case *ast.SelectElementExpr:
@@ -95,8 +99,26 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 				}
 				valueList = append(valueList, calculateRes)
 				columnList = append(columnList, stmt.Select[i].DisplayName())
-
+			case *ast.SelectElementColumn:
+				if len(selectItem.Name) == 2 &&
+					(strings.EqualFold(selectItem.Name[1], "currval") || strings.EqualFold(selectItem.Name[1], "nextval")) {
+					isSequence = true
+					vt, ok := o.Rule.VTable(selectItem.Name[0])
+					if !ok {
+						return nil, proto.ErrorNotFoundSequence
+					}
+					vts = append(vts, vt)
+				}
 			}
+		}
+		if isSequence {
+			ret := &dml.LocalSequencePlan{
+				Stmt:       stmt,
+				VTs:        vts,
+				ColumnList: columnList,
+			}
+			ret.BindArgs(o.Args)
+			return ret, nil
 		}
 		if isLocalFlag {
 
