@@ -68,12 +68,29 @@ func (f FuncValuer) Value(ctx context.Context) (Value, error) {
 	return f(ctx)
 }
 
+type alwaysErrorValuer struct {
+	err error
+}
+
+func (a alwaysErrorValuer) Value(ctx context.Context) (Value, error) {
+	return nil, a.err
+}
+
 type directValuer struct {
 	v Value
 }
 
 func (t directValuer) Value(ctx context.Context) (Value, error) {
 	return t.v, nil
+}
+
+// ToValuerWithError returns a Valuer which always returns an error.
+// NOTICE: we don't usually use this method, it's only for testing!
+func ToValuerWithError(err error) Valuer {
+	if err == nil {
+		panic("the ToValuerWithError only accept non-nil error!")
+	}
+	return alwaysErrorValuer{err: err}
 }
 
 // ToValuer wraps Value to Valuer directly.

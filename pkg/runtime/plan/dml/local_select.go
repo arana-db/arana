@@ -49,9 +49,7 @@ func (s *LocalSelectPlan) Type() proto.PlanType {
 func (s *LocalSelectPlan) ExecIn(ctx context.Context, _ proto.VConn) (proto.Result, error) {
 	_, span := plan.Tracer.Start(ctx, "LocalSelectPlan.ExecIn")
 	defer span.End()
-	var (
-		theadLocalSelect thead.Thead
-	)
+	var theadLocalSelect thead.Thead
 
 	for i, item := range s.ColumnList {
 		sRes := s.Result[i].String()

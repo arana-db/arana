@@ -18,7 +18,9 @@
 
 package config
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestEventTypes(t *testing.T) {
 	tests := []struct {

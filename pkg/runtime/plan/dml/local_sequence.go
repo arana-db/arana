@@ -95,5 +95,4 @@ func (s *LocalSequencePlan) ExecIn(ctx context.Context, _ proto.VConn) (proto.Re
 
 	ds.Rows = append(ds.Rows, rows.NewTextVirtualRow(columns, values))
 	return resultx.New(resultx.WithDataset(ds)), nil
-
 }

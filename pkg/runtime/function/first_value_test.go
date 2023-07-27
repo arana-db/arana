@@ -40,7 +40,7 @@ func TestFuncFirstValue(t *testing.T) {
 	for _, v := range []tt{
 		{
 			[][]proto.Value{
-				//order column, partition column, value column
+				// order column, partition column, value column
 				{proto.NewValueString("07:00:00"), proto.NewValueString("st113"), proto.NewValueFloat64(10)},
 				{proto.NewValueString("07:00:00"), proto.NewValueString("st113"), proto.NewValueFloat64(10)},
 				{proto.NewValueString("07:15:00"), proto.NewValueString("st113"), proto.NewValueFloat64(9)},
@@ -56,7 +56,7 @@ func TestFuncFirstValue(t *testing.T) {
 		},
 		{
 			[][]proto.Value{
-				//order column, partition column, value column
+				// order column, partition column, value column
 				{proto.NewValueString("07:15:00"), proto.NewValueString("st113"), proto.NewValueFloat64(9)},
 				{proto.NewValueString("07:00:00"), proto.NewValueString("st113"), proto.NewValueFloat64(10)},
 				{proto.NewValueString("07:15:00"), proto.NewValueString("st113"), proto.NewValueFloat64(9)},
@@ -72,7 +72,7 @@ func TestFuncFirstValue(t *testing.T) {
 		},
 		{
 			[][]proto.Value{
-				//order column, partition column, value column
+				// order column, partition column, value column
 				{proto.NewValueString("07:30:00"), proto.NewValueString("st113"), proto.NewValueFloat64(25)},
 				{proto.NewValueString("07:00:00"), proto.NewValueString("st113"), proto.NewValueFloat64(10)},
 				{proto.NewValueString("07:15:00"), proto.NewValueString("st113"), proto.NewValueFloat64(9)},
@@ -88,7 +88,7 @@ func TestFuncFirstValue(t *testing.T) {
 		},
 		{
 			[][]proto.Value{
-				//order column, partition column, value column
+				// order column, partition column, value column
 				{proto.NewValueString("07:45:00"), proto.NewValueString("st113"), proto.NewValueFloat64(0)},
 				{proto.NewValueString("07:00:00"), proto.NewValueString("st113"), proto.NewValueFloat64(10)},
 				{proto.NewValueString("07:15:00"), proto.NewValueString("st113"), proto.NewValueFloat64(9)},
@@ -104,7 +104,7 @@ func TestFuncFirstValue(t *testing.T) {
 		},
 		{
 			[][]proto.Value{
-				//order column, partition column, value column
+				// order column, partition column, value column
 				{proto.NewValueString("07:00:00"), proto.NewValueString("xh458"), proto.NewValueFloat64(0)},
 				{proto.NewValueString("07:00:00"), proto.NewValueString("st113"), proto.NewValueFloat64(10)},
 				{proto.NewValueString("07:15:00"), proto.NewValueString("st113"), proto.NewValueFloat64(9)},
@@ -120,7 +120,7 @@ func TestFuncFirstValue(t *testing.T) {
 		},
 		{
 			[][]proto.Value{
-				//order column, partition column, value column
+				// order column, partition column, value column
 				{proto.NewValueString("07:15:00"), proto.NewValueString("xh458"), proto.NewValueFloat64(10)},
 				{proto.NewValueString("07:00:00"), proto.NewValueString("st113"), proto.NewValueFloat64(10)},
 				{proto.NewValueString("07:15:00"), proto.NewValueString("st113"), proto.NewValueFloat64(9)},
@@ -136,7 +136,7 @@ func TestFuncFirstValue(t *testing.T) {
 		},
 		{
 			[][]proto.Value{
-				//order column, partition column, value column
+				// order column, partition column, value column
 				{proto.NewValueString("07:30:00"), proto.NewValueString("xh458"), proto.NewValueFloat64(5)},
 				{proto.NewValueString("07:00:00"), proto.NewValueString("st113"), proto.NewValueFloat64(10)},
 				{proto.NewValueString("07:15:00"), proto.NewValueString("st113"), proto.NewValueFloat64(9)},
@@ -152,7 +152,7 @@ func TestFuncFirstValue(t *testing.T) {
 		},
 		{
 			[][]proto.Value{
-				//order column, partition column, value column
+				// order column, partition column, value column
 				{proto.NewValueString("07:45:00"), proto.NewValueString("xh458"), proto.NewValueFloat64(30)},
 				{proto.NewValueString("07:00:00"), proto.NewValueString("st113"), proto.NewValueFloat64(10)},
 				{proto.NewValueString("07:15:00"), proto.NewValueString("st113"), proto.NewValueFloat64(9)},
@@ -168,7 +168,7 @@ func TestFuncFirstValue(t *testing.T) {
 		},
 		{
 			[][]proto.Value{
-				//order column, partition column, value column
+				// order column, partition column, value column
 				{proto.NewValueString("08:00:00"), proto.NewValueString("xh458"), proto.NewValueFloat64(25)},
 				{proto.NewValueString("07:00:00"), proto.NewValueString("st113"), proto.NewValueFloat64(10)},
 				{proto.NewValueString("07:15:00"), proto.NewValueString("st113"), proto.NewValueFloat64(9)},

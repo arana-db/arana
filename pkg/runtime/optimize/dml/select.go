@@ -489,7 +489,7 @@ func optimizeJoin(ctx context.Context, o *optimize.Optimizer, stmt *ast.SelectSt
 		return joinPan, nil
 	}
 
-	//multiple shards & do hash join
+	// multiple shards & do hash join
 	hashJoinPlan := &dml.HashJoinPlan{
 		Stmt: stmt,
 	}
@@ -953,7 +953,7 @@ func filterNodeByTable(expNode ast.ExpressionNode, metadata *proto.TableMetadata
 				}
 			}
 
-			//columnNode := bpn.Right.(*ast.AtomPredicateNode).A.(ast.ColumnNameExpressionAtom)
+			// columnNode := bpn.Right.(*ast.AtomPredicateNode).A.(ast.ColumnNameExpressionAtom)
 			return nil
 		}
 
