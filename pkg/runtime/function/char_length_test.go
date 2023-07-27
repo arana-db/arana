@@ -51,3 +51,21 @@ func TestCharLength(t *testing.T) {
 		})
 	}
 }
+
+func TestCharLength_Error(t *testing.T) {
+	fn := proto.MustGetFunc(FuncCharLength)
+	assert.Equal(t, 1, fn.NumInput())
+	type tt struct {
+		name    string
+		inFirst proto.Value
+	}
+	for _, v := range []tt{
+		{"Test_nil", nil},
+	} {
+		t.Run(v.name, func(t *testing.T) {
+			out, err := fn.Apply(context.Background(), proto.ToValuer(v.inFirst))
+			assert.Nil(t, err)
+			assert.Nil(t, out)
+		})
+	}
+}
