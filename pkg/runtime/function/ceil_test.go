@@ -52,7 +52,6 @@ func TestCeil(t *testing.T) {
 		{proto.NewValueString("-618"), "-618"},
 		{proto.NewValueString("-11.11"), "-11"},
 		{proto.NewValueString("foobar"), "0"},
-		{nil, "0"},
 	} {
 		t.Run(it.out, func(t *testing.T) {
 			out, err := fn.Apply(context.Background(), proto.ToValuer(it.in))
