@@ -68,7 +68,7 @@ func (e *ExplainPlan) ExecIn(ctx context.Context, vConn proto.VConn) (proto.Resu
 	sb.Grow(256)
 	*stmt = *e.stmt
 
-	//build parallel dataset
+	// build parallel dataset
 	pBuilder := dataset.NewParallelBuilder()
 
 	for db, tables := range e.shards {

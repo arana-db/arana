@@ -150,5 +150,4 @@ func makeFakeRule(c *gomock.Controller, table string, mod int, ru *rule.Rule) *r
 
 	ru.SetVTable(table, &tab)
 	return ru
-
 }

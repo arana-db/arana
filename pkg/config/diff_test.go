@@ -347,7 +347,6 @@ func TestDataSourceClusterDiff(t *testing.T) {
 }
 
 func TestGroupsDiff(t *testing.T) {
-
 	oldGroups := Groups{
 		&Group{
 			Name:  "group1",

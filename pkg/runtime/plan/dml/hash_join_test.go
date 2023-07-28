@@ -140,5 +140,4 @@ func TestHashJoinPlan(t *testing.T) {
 		// expected value:  uid = emp_no
 		assert.Equal(t, dest[0], dest[2])
 	}
-
 }
