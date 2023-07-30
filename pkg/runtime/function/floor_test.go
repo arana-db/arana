@@ -58,3 +58,23 @@ func TestFloor(t *testing.T) {
 		})
 	}
 }
+
+func TestFloor_Error(t *testing.T) {
+	fn := proto.MustGetFunc(FuncFloor)
+	assert.Equal(t, 1, fn.NumInput())
+
+	type tt struct {
+		in  proto.Value
+		out string
+	}
+
+	for _, it := range []tt{
+		{nil, ""},
+	} {
+		t.Run(it.out, func(t *testing.T) {
+			out, err := fn.Apply(context.Background(), proto.ToValuer(it.in))
+			assert.NoError(t, err)
+			assert.Nil(t, out)
+		})
+	}
+}

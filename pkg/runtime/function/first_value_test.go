@@ -33,6 +33,8 @@ import (
 
 func TestFuncFirstValue(t *testing.T) {
 	fn := proto.MustGetFunc(FuncFirstValue)
+	assert.Equal(t, 0, fn.NumInput())
+
 	type tt struct {
 		inputs [][]proto.Value
 		want   string
@@ -182,6 +184,19 @@ func TestFuncFirstValue(t *testing.T) {
 			},
 			"0",
 		},
+		{
+			[][]proto.Value{
+				{proto.NewValueString("08:00:00"), proto.NewValueString("xh458")},
+			},
+			"",
+		},
+		{
+			[][]proto.Value{
+				// order column, partition column, value column
+				{proto.NewValueString("07:00:00"), proto.NewValueString("st113"), proto.NewValueFloat64(10)},
+			},
+			"10",
+		},
 	} {
 		t.Run(v.want, func(t *testing.T) {
 			var inputs []proto.Valuer
@@ -193,6 +208,40 @@ func TestFuncFirstValue(t *testing.T) {
 			out, err := fn.Apply(context.Background(), inputs...)
 			assert.NoError(t, err)
 			assert.Equal(t, v.want, fmt.Sprint(out))
+		})
+	}
+}
+
+func TestFuncFirstValue_Error(t *testing.T) {
+	fn := proto.MustGetFunc(FuncFirstValue)
+	assert.Equal(t, 0, fn.NumInput())
+
+	type tt struct {
+		inputs []proto.Value
+		want   string
+	}
+	for _, v := range []tt{
+		{
+			[]proto.Value{
+				proto.NewValueString("07:00:00"), nil, proto.NewValueFloat64(10),
+			},
+			"",
+		},
+		{
+			[]proto.Value{
+				proto.NewValueString("07:00:00"), proto.NewValueString("st113"), nil,
+			},
+			"",
+		},
+	} {
+		t.Run(v.want, func(t *testing.T) {
+			var inputs []proto.Valuer
+			for i := range v.inputs {
+				inputs = append(inputs, proto.ToValuer(v.inputs[i]))
+			}
+			out, err := fn.Apply(context.Background(), inputs...)
+			assert.NoError(t, err)
+			assert.Nil(t, out)
 		})
 	}
 }
