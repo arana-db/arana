@@ -59,3 +59,24 @@ func TestExp(t *testing.T) {
 		})
 	}
 }
+
+func TestExp_Error(t *testing.T) {
+	fn := proto.MustGetFunc(FuncExp)
+	assert.Equal(t, 1, fn.NumInput())
+
+	type tt struct {
+		desc string
+		in   proto.Value
+		out  float64
+	}
+
+	for _, it := range []tt{
+		{"EXP(Nil)", nil, 1},
+	} {
+		t.Run(it.desc, func(t *testing.T) {
+			out, err := fn.Apply(context.Background(), proto.ToValuer(it.in))
+			assert.Nil(t, err)
+			assert.Nil(t, out)
+		})
+	}
+}

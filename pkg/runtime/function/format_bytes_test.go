@@ -60,3 +60,58 @@ func TestFormatBytes(t *testing.T) {
 		})
 	}
 }
+
+func TestFormatBytes_Nil(t *testing.T) {
+	fn := proto.MustGetFunc(FuncFormatBytes)
+	assert.Equal(t, 1, fn.NumInput())
+
+	out, err := fn.Apply(context.TODO(), proto.ToValuer(nil))
+	assert.NoError(t, err)
+	assert.Nil(t, out)
+
+	type tt struct {
+		name   string
+		input  interface{}
+		output string
+	}
+
+	for _, next := range []tt{
+		{"Test_Nil", nil, "512 bytes"},
+	} {
+		t.Run(fmt.Sprint(next.name), func(t *testing.T) {
+			val, err := proto.NewValue(next.input)
+			assert.NoError(t, err)
+			actual, err := fn.Apply(context.TODO(), proto.ToValuer(val))
+			assert.NoError(t, err)
+			assert.Nil(t, actual)
+		})
+	}
+}
+
+func TestFormatBytes_Error(t *testing.T) {
+	fn := proto.MustGetFunc(FuncFormatBytes)
+	assert.Equal(t, 1, fn.NumInput())
+
+	out, err := fn.Apply(context.TODO(), proto.ToValuer(nil))
+	assert.NoError(t, err)
+	assert.Nil(t, out)
+
+	type tt struct {
+		name   string
+		input  interface{}
+		output string
+	}
+
+	for _, next := range []tt{
+		{"Test_Error", "a", "0 bytes"},
+		{"Test_Error", "0", "0 bytes"},
+	} {
+		t.Run(fmt.Sprint(next.name), func(t *testing.T) {
+			val, err := proto.NewValue(next.input)
+			assert.NoError(t, err)
+			actual, err := fn.Apply(context.TODO(), proto.ToValuer(val))
+			assert.NoError(t, err)
+			assert.Equal(t, next.output, actual.String())
+		})
+	}
+}
