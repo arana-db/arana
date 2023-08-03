@@ -31,8 +31,10 @@ import (
 	"github.com/arana-db/arana/pkg/proto"
 )
 
-func TestFuncDenseRankt(t *testing.T) {
+func TestFuncDenseRank(t *testing.T) {
 	fn := proto.MustGetFunc(FuncDenseRank)
+	assert.Equal(t, 0, fn.NumInput())
+
 	type tt struct {
 		inputs []proto.Value
 		want   string
@@ -122,6 +124,41 @@ func TestFuncDenseRankt(t *testing.T) {
 			out, err := fn.Apply(context.Background(), inputs...)
 			assert.NoError(t, err)
 			assert.Equal(t, v.want, fmt.Sprint(out))
+		})
+	}
+}
+
+func TestFuncDenseRank_Error(t *testing.T) {
+	fn := proto.MustGetFunc(FuncDenseRank)
+	assert.Equal(t, 0, fn.NumInput())
+
+	type tt struct {
+		name   string
+		inputs []proto.Value
+	}
+	for _, v := range []tt{
+		{
+			"Test_Nil",
+			[]proto.Value{
+				nil,
+			},
+		},
+		{
+			"Test_Nil_1",
+			[]proto.Value{
+				proto.NewValueFloat64(5),
+				nil,
+			},
+		},
+	} {
+		t.Run(v.name, func(t *testing.T) {
+			var inputs []proto.Valuer
+			for i := range v.inputs {
+				inputs = append(inputs, proto.ToValuer(v.inputs[i]))
+			}
+			out, err := fn.Apply(context.Background(), inputs...)
+			assert.Nil(t, err)
+			assert.Nil(t, out)
 		})
 	}
 }

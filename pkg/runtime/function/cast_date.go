@@ -136,7 +136,7 @@ func (a castDateFunc) splitDateWithSep(dateArgs string) (year, month, day int) {
 	dateYearStr := dateLeft
 
 	dateYear, _ := strconv.Atoi(dateYearStr)
-	dateYear = a.amend4DigtalYear(dateYear)
+	dateYear = a.amend4DigitalYear(dateYear)
 	dateMonth, _ := strconv.Atoi(dateMonthStr)
 	dateDay, _ := strconv.Atoi(dateDayStr)
 
@@ -155,14 +155,14 @@ func (a castDateFunc) splitDateWithoutSep(dateArgs string) (year, month, day int
 	dateYearStr := dateLeft
 
 	dateYear, _ := strconv.Atoi(dateYearStr)
-	dateYear = a.amend4DigtalYear(dateYear)
+	dateYear = a.amend4DigitalYear(dateYear)
 	dateMonth, _ := strconv.Atoi(dateMonthStr)
 	dateDay, _ := strconv.Atoi(dateDayStr)
 
 	return dateYear, dateMonth, dateDay
 }
 
-func (a castDateFunc) amend4DigtalYear(year int) int {
+func (a castDateFunc) amend4DigitalYear(year int) int {
 	if year >= 0 && year <= 69 {
 		year += 2000
 	}
@@ -222,14 +222,6 @@ func (a castDateFunc) IsDayValid(year, month, day int) bool {
 		}
 	}
 	return false
-}
-
-func (a castDateFunc) MaxDateValue() proto.Value {
-	return proto.NewValueString("9999-12-31")
-}
-
-func (a castDateFunc) MinDateValue() proto.Value {
-	return proto.NewValueString("0000-01-01")
 }
 
 func (a castDateFunc) DefaultDateValue() proto.Value {

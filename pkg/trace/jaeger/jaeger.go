@@ -78,9 +78,7 @@ func (j *Jaeger) tracerProvider(traceCfg *config.Trace) (*tracesdk.TracerProvide
 }
 
 func (j *Jaeger) Extract(ctx *proto.Context, hints []*hint.Hint) bool {
-	var (
-		traceContext string
-	)
+	var traceContext string
 	for _, h := range hints {
 		if h.Type != hint.TypeTrace {
 			continue

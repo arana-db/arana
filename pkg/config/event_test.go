@@ -13,44 +13,57 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
-package runtime
+package config
 
 import (
-	"context"
-	"fmt"
 	"testing"
 )
 
-import (
-	"github.com/stretchr/testify/assert"
-)
-
-import (
-	"github.com/arana-db/arana/pkg/mysql"
-)
-
-func TestBackendResourcePool_Get(t *testing.T) {
-	type args struct {
-		ctx context.Context
-	}
+func TestEventTypes(t *testing.T) {
 	tests := []struct {
-		name    string
-		bcp     BackendResourcePool
-		args    args
-		want    *mysql.BackendConnection
-		wantErr assert.ErrorAssertionFunc
+		name string
+		e    Event
+		want EventType
 	}{
-		// TODO: Add test cases.
+		{
+			name: "Test TenantsEvent type",
+			e:    TenantsEvent{},
+			want: EventTypeTenants,
+		},
+		{
+			name: "Test NodesEvent type",
+			e:    NodesEvent{},
+			want: EventTypeNodes,
+		},
+		{
+			name: "Test UsersEvent type",
+			e:    UsersEvent{},
+			want: EventTypeUsers,
+		},
+		{
+			name: "Test ClustersEvent type",
+			e:    ClustersEvent{},
+			want: EventTypeClusters,
+		},
+		{
+			name: "Test ShardingRuleEvent type",
+			e:    ShardingRuleEvent{},
+			want: EventTypeShardingRule,
+		},
+		{
+			name: "Test ShadowRuleEvent type",
+			e:    ShadowRuleEvent{},
+			want: EventTypeShadowRule,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := tt.bcp.Get(tt.args.ctx)
-			if !tt.wantErr(t, err, fmt.Sprintf("Get(%v)", tt.args.ctx)) {
-				return
+			if got := tt.e.Type(); got != tt.want {
+				t.Errorf("Event.Type() = %v, want %v", got, tt.want)
 			}
-			assert.Equalf(t, tt.want, got, "Get(%v)", tt.args.ctx)
 		})
 	}
 }

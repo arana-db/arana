@@ -63,6 +63,7 @@ func (s *ShowIndexPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Res
 	}
 
 	db, table := s.Shards.Smallest()
+	toTable := s.Stmt.TableName.Suffix()
 	s.Stmt.TableName = ast.TableName{table}
 
 	if err = s.Stmt.Restore(ast.RestoreDefault, &sb, &indexes); err != nil {
@@ -83,8 +84,6 @@ func (s *ShowIndexPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Res
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-
-	toTable := s.Stmt.TableName.Suffix()
 
 	ds = dataset.Pipe(ds,
 		dataset.Map(nil, func(next proto.Row) (proto.Row, error) {

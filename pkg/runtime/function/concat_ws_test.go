@@ -32,7 +32,8 @@ import (
 )
 
 func TestConcatWSFunc_Apply(t *testing.T) {
-	f := proto.MustGetFunc(FuncConcatWS)
+	fn := proto.MustGetFunc(FuncConcatWS)
+	assert.Equal(t, 2, fn.NumInput())
 
 	tests := []struct {
 		inputs []proto.Value
@@ -87,7 +88,7 @@ func TestConcatWSFunc_Apply(t *testing.T) {
 			for i := range next.inputs {
 				inputs = append(inputs, proto.ToValuer(next.inputs[i]))
 			}
-			out, err := f.Apply(context.Background(), inputs...)
+			out, err := fn.Apply(context.Background(), inputs...)
 			assert.NoError(t, err)
 
 			var actual string

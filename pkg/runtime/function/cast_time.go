@@ -219,13 +219,6 @@ func (a castTimeFunc) splitTimeWithoutSep(timeArgs string) (hour, minutes, secon
 	return timeHour, timeMinutes, timeSecond
 }
 
-func (a castTimeFunc) IsDayValid(day int) bool {
-	if day >= 0 && day <= 34 {
-		return true
-	}
-	return false
-}
-
 func (a castTimeFunc) IsHourValid(hour int) bool {
 	if hour >= 0 && hour <= 838 {
 		return true

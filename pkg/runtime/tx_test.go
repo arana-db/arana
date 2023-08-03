@@ -21,13 +21,20 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"testing"
+	"time"
+)
+
+import (
+	"github.com/stretchr/testify/assert"
+
+	"go.uber.org/atomic"
+)
+
+import (
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime/gtid"
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/atomic"
-	"testing"
-	"time"
 )
 
 func Test_branchTx_CallFieldList(t *testing.T) {

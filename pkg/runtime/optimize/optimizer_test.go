@@ -33,6 +33,9 @@ import (
 )
 
 import (
+	consts "github.com/arana-db/arana/pkg/constants/mysql"
+	"github.com/arana-db/arana/pkg/dataset"
+	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/resultx"
@@ -64,7 +67,7 @@ func TestOptimizer_OptimizeSelect(t *testing.T) {
 	var (
 		sql = "select id, uid from student where uid in (?,?,?)"
 		ctx = context.WithValue(context.Background(), proto.ContextKeyEnableLocalComputation{}, true)
-		ru  = makeFakeRule(ctrl, 8)
+		ru  = makeFakeRule(ctrl, "student", 8, nil)
 	)
 
 	p := parser.New()
@@ -75,6 +78,83 @@ func TestOptimizer_OptimizeSelect(t *testing.T) {
 		proto.NewValueInt64(3),
 	})
 	assert.NoError(t, err)
+	plan, err := opt.Optimize(ctx)
+	assert.NoError(t, err)
+
+	_, _ = plan.ExecIn(ctx, conn)
+}
+
+func TestOptimizer_OptimizeHashJoin(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	studentFields := []proto.Field{
+		mysql.NewField("uid", consts.FieldTypeLongLong),
+	}
+
+	salariesFields := []proto.Field{
+		mysql.NewField("uid", consts.FieldTypeLongLong),
+	}
+
+	conn := testdata.NewMockVConn(ctrl)
+	buildPlan := true
+	conn.EXPECT().Query(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, db string, sql string, args ...interface{}) (proto.Result, error) {
+			t.Logf("fake query: db=%s, sql=%s, args=%v\n", db, sql, args)
+
+			result := testdata.NewMockResult(ctrl)
+			fakeData := &dataset.VirtualDataset{}
+			if buildPlan {
+				fakeData.Columns = append(studentFields, mysql.NewField("uid", consts.FieldTypeLongLong))
+				result.EXPECT().Dataset().Return(fakeData, nil).AnyTimes()
+				buildPlan = false
+			} else {
+				fakeData.Columns = append(salariesFields, mysql.NewField("uid", consts.FieldTypeLongLong))
+				result.EXPECT().Dataset().Return(fakeData, nil).AnyTimes()
+			}
+
+			return result, nil
+		}).MinTimes(2)
+
+	fakeData := make(map[string]*proto.TableMetadata)
+	// fake data
+	fakeData["student_0000"] = &proto.TableMetadata{
+		Name:        "student_0000",
+		Columns:     map[string]*proto.ColumnMetadata{"uid": {}},
+		ColumnNames: []string{"uid"},
+	}
+
+	fakeData["salaries_0000"] = &proto.TableMetadata{
+		Name:        "salaries_0000",
+		Columns:     map[string]*proto.ColumnMetadata{"uid": {}},
+		ColumnNames: []string{"uid"},
+	}
+	loader := testdata.NewMockSchemaLoader(ctrl)
+	loader.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any()).Return(fakeData, nil).AnyTimes()
+
+	oldLoader := proto.LoadSchemaLoader()
+	proto.RegisterSchemaLoader(loader)
+	defer proto.RegisterSchemaLoader(oldLoader)
+
+	var (
+		sql = "select * from student join salaries on student.uid = salaries.uid"
+		ctx = context.WithValue(context.Background(), proto.ContextKeyEnableLocalComputation{}, true)
+		ru  = makeFakeRule(ctrl, "student", 8, nil)
+	)
+
+	ru = makeFakeRule(ctrl, "salaries", 8, ru)
+
+	p := parser.New()
+	stmt, _ := p.ParseOneStmt(sql, "", "")
+	opt, err := NewOptimizer(ru, nil, stmt, nil)
+	assert.NoError(t, err)
+
+	vTable, _ := ru.VTable("student")
+	vTable.SetAllowFullScan(true)
+
+	vTable2, _ := ru.VTable("salaries")
+	vTable2.SetAllowFullScan(true)
+
 	plan, err := opt.Optimize(ctx)
 	assert.NoError(t, err)
 
@@ -143,7 +223,7 @@ func TestOptimizer_OptimizeInsert(t *testing.T) {
 
 	var (
 		ctx = context.Background()
-		ru  = makeFakeRule(ctrl, 8)
+		ru  = makeFakeRule(ctrl, "student", 8, nil)
 	)
 
 	t.Run("sharding", func(t *testing.T) {
