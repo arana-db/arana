@@ -21,6 +21,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
+	"strings"
 	"testing"
 )
 
@@ -73,6 +74,35 @@ func TestFilter(t *testing.T) {
 		_ = next.Scan(dest)
 		assert.Equal(t, "1", fmt.Sprint(dest[2]))
 
+		t.Logf("id=%v, name=%v, gender=%v\n", dest[0], dest[1], dest[2])
+	}
+
+	for i := int64(10); i < 100; i++ {
+		root.Rows = append(root.Rows, rows.NewTextVirtualRow(fields, []proto.Value{
+			proto.NewValueInt64(i),
+			proto.NewValueString(fmt.Sprintf("fake-name-%d", i)),
+			proto.NewValueInt64(i & 1), // 0=female,1=male
+		}))
+	}
+
+	preFiltered := Pipe(root, FilterPrefix(func(row proto.Row) bool {
+		dest := make([]proto.Value, len(fields))
+		_ = row.Scan(dest)
+		var fkname sql.NullString
+		_ = fkname.Scan(dest[1])
+		assert.True(t, fkname.Valid)
+		return strings.HasPrefix(fkname.String, "fake-name-1")
+	}, "fake"))
+
+	for {
+		next, err := preFiltered.Next()
+		if err == io.EOF {
+			break
+		}
+		assert.NoError(t, err)
+
+		dest := make([]proto.Value, len(fields))
+		_ = next.Scan(dest)
 		t.Logf("id=%v, name=%v, gender=%v\n", dest[0], dest[1], dest[2])
 	}
 }
