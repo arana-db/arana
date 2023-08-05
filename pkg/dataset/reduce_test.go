@@ -20,14 +20,18 @@ package dataset
 import (
 	"fmt"
 	"testing"
+)
 
+import (
+	"github.com/stretchr/testify/assert"
+)
+
+import (
 	consts "github.com/arana-db/arana/pkg/constants/mysql"
 	"github.com/arana-db/arana/pkg/mysql"
-	"github.com/arana-db/arana/pkg/reduce"
-
 	vrows "github.com/arana-db/arana/pkg/mysql/rows"
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/stretchr/testify/assert"
+	"github.com/arana-db/arana/pkg/reduce"
 )
 
 func TestReduce(t *testing.T) {
