@@ -16,7 +16,7 @@
 #
 
 ### BUILDER LAYER
-FROM golang:1.18-alpine AS BE
+FROM golang:1.20-alpine AS BE
 
 WORKDIR /app
 
@@ -28,7 +28,7 @@ RUN go mod download
 COPY . .
 
 RUN mkdir ./bin && \
-    go build -ldflags "-X main.Version=`cat VERSION` -extldflags \"-static\" -s -w" -o ./bin/arana ./cmd
+    go build -ldflags "-X main.Version=`cat VERSION` -extldflags \"-static\" -s -w" -o ./bin/arana ./cmd/arana
 
 ### UI LAYER
 FROM node:16-alpine as FE
@@ -47,19 +47,22 @@ RUN git clone -n https://github.com/arana-db/arana-ui.git /arana-ui && \
 ### RUNTIME LAYER
 FROM alpine:3
 
-ENV ARANA_LOG_NAME=arana.log \
-    ARANA_LOG_LEVEL=0 \
-    ARANA_LOG_MAX_SIZE=10 \
-    ARANA_LOG_MAX_BACKUPS=5 \
-    ARANA_LOG_MAX_AGE=30 \
-    ARANA_LOG_COMPRESS=false
+ENV ARANA_LOG_PATH=/var/log/arana \
+    ARANA_LOG_LEVEL=INFO \
+    ARANA_LOG_MAX_SIZE=128MB \
+    ARANA_LOG_MAX_BACKUPS=3 \
+    ARANA_LOG_MAX_AGE=7 \
+    ARANA_LOG_COMPRESS=false \
+    ARANA_LOG_CONSOLE=true \
+    ARANA_LOG_SQL=false
 
 WORKDIR /
 
-RUN mkdir -p /etc/arana /var/www/arana
+RUN mkdir -p /etc/arana /var/www/arana /var/log/arana
 
 VOLUME /etc/arana
 VOLUME /var/www/arana
+VOLUME /var/log/arana
 
 EXPOSE 13306
 EXPOSE 8080

@@ -15,25 +15,12 @@
  * limitations under the License.
  */
 
-package cmds
+package main
 
 import (
-	"github.com/spf13/cobra"
+	"github.com/arana-db/arana/cmd"
 )
 
-var _handlers []Handler
-
-// Handler represents the command handler.
-type Handler func(cmd *cobra.Command)
-
-// Handle handles the main command.
-func Handle(input Handler) {
-	_handlers = append(_handlers, input)
-}
-
-// Do process the root command with handlers.
-func Do(cmd *cobra.Command) {
-	for _, it := range _handlers {
-		it(cmd)
-	}
+func main() {
+	cmd.Main()
 }

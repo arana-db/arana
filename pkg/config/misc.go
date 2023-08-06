@@ -23,6 +23,8 @@ import (
 )
 
 import (
+	"github.com/go-playground/validator/v10"
+
 	"github.com/pkg/errors"
 
 	"gopkg.in/yaml.v3"
@@ -47,12 +49,17 @@ func LoadBootOptions(path string) (*BootOptions, error) {
 	}
 
 	var cfg BootOptions
+	cfg.Logging = log.DefaultConfig()
+
 	if err = yaml.Unmarshal(content, &cfg); err != nil {
-		err = errors.Wrap(err, "failed to unmarshal config")
-		return nil, err
+		return nil, errors.Wrap(err, "failed to unmarshal config")
 	}
 
-	log.Init(cfg.LoggingConfig)
+	if err = validator.New().Struct(&cfg); err != nil {
+		return nil, errors.Wrap(err, "failed to validate boot config")
+	}
+
+	log.Init(cfg.Logging)
 	return &cfg, nil
 }
 

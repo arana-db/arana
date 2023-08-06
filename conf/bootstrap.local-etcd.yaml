@@ -31,12 +31,11 @@ supervisor:
   username: root
   password: root
 
-logging_config:
-  log_name: arana_log
-  log_path: ./
-  log_level: 7
-  log_max_size: 10
-  log_max_backups: 5
-  log_max_age: 30
-  log_compress: false
-  default_log_name: "arana.log"
+logging:
+  level: INFO
+  path: ~/arana/logs
+  max_size: 128m
+  max_backups: 5
+  max_age: 30
+  compress: false
+  console: true

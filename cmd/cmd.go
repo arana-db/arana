@@ -15,30 +15,22 @@
  * limitations under the License.
  */
 
-package main
+package cmd
 
 import (
+	"github.com/pkg/errors"
+
 	"github.com/spf13/cobra"
-)
-
-import (
-	_ "github.com/arana-db/arana/cmd/admin"
-	"github.com/arana-db/arana/cmd/cmds"
-	_ "github.com/arana-db/arana/cmd/start"
-	_ "github.com/arana-db/arana/cmd/tools"
 )
 
 var Version = "0.1.0"
 
-func main() {
-	rootCommand := &cobra.Command{
-		Use:     "arana",
-		Short:   "arana is a db proxy server",
-		Version: Version,
-	}
+var RootCommand = &cobra.Command{
+	Use:     "arana",
+	Short:   "arana is a db proxy server",
+	Version: Version,
+}
 
-	// initialize sub commands
-	cmds.Do(rootCommand)
-
-	_ = rootCommand.Execute()
+func Main() error {
+	return errors.WithStack(RootCommand.Execute())
 }

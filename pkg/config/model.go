@@ -81,13 +81,13 @@ type (
 	}
 
 	BootOptions struct {
-		Spec          `yaml:",inline"`
-		Config        *Options           `yaml:"config" json:"config"`
-		Listeners     []*Listener        `validate:"required,dive" yaml:"listeners" json:"listeners"`
-		Registry      *Registry          `yaml:"registry" json:"registry"`
-		Trace         *Trace             `yaml:"trace" json:"trace"`
-		Supervisor    *User              `validate:"required,dive" yaml:"supervisor" json:"supervisor"`
-		LoggingConfig *log.LoggingConfig `validate:"required,dive" yaml:"logging_config" json:"loggingconfig"`
+		Spec       `yaml:",inline"`
+		Config     *Options    `yaml:"config" json:"config"`
+		Listeners  []*Listener `validate:"required,dive" yaml:"listeners" json:"listeners"`
+		Registry   *Registry   `yaml:"registry" json:"registry"`
+		Trace      *Trace      `yaml:"trace" json:"trace"`
+		Supervisor *User       `validate:"required,dive" yaml:"supervisor" json:"supervisor"`
+		Logging    *log.Config `validate:"required,dive" yaml:"logging" json:"logging"`
 	}
 
 	// Configuration represents an Arana configuration.

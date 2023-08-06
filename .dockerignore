@@ -31,4 +31,5 @@ staticcheck.conf
 .chglog/
 justfile
 Makefile
+cliff.toml
 *.md

@@ -34,3 +34,12 @@ trace:
 supervisor:
   username: root
   password: root
+
+logging:
+  level: INFO
+  path: /var/log/arana
+  max_size: 128m
+  max_backups: 3
+  max_age: 7
+  compress: true
+  console: true

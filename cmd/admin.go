@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package admin
+package cmd
 
 import (
 	"context"
@@ -29,7 +29,6 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/cmd/cmds"
 	"github.com/arana-db/arana/pkg/admin"
 	_ "github.com/arana-db/arana/pkg/admin/router"
 	"github.com/arana-db/arana/pkg/boot"
@@ -53,19 +52,36 @@ func init() {
 		Use:     "admin",
 		Short:   "admin",
 		Example: "arana admin -c bootstrap.yaml -p 8080",
-		RunE:    run,
+		RunE:    runAdmin,
 	}
 	cmd.PersistentFlags().
 		StringP(constants.ConfigPathKey, "c", os.Getenv(constants.EnvBootstrapPath), "bootstrap configuration file path")
 	cmd.PersistentFlags().
 		Uint16P(_keyPort, "p", _defaultPort, "listen port")
 
-	cmds.Handle(func(root *cobra.Command) {
-		root.AddCommand(cmd)
-	})
+	RootCommand.AddCommand(cmd)
 }
 
-func Run(bootstrapPath string, addr string) error {
+func runAdmin(cmd *cobra.Command, args []string) error {
+	_ = args
+	bootstrapPath, _ := cmd.PersistentFlags().GetString(constants.ConfigPathKey)
+	port, _ := cmd.PersistentFlags().GetUint16("port")
+	if len(bootstrapPath) < 1 {
+		// search bootstrap yaml
+		for _, path := range constants.GetConfigSearchPathList() {
+			bootstrapPath = filepath.Join(path, "bootstrap.yaml")
+			if _, err := os.Stat(bootstrapPath); err == nil {
+				break
+			}
+			bootstrapPath = filepath.Join(path, "bootstrap.yml")
+			if _, err := os.Stat(bootstrapPath); err == nil {
+				break
+			}
+		}
+	}
+
+	addr := fmt.Sprintf(":%d", port)
+
 	bootOptions, err := config.LoadBootOptions(bootstrapPath)
 	if err != nil {
 		return err
@@ -92,25 +108,4 @@ func Run(bootstrapPath string, addr string) error {
 
 	adminServer := admin.New(op, serviceDiscovery)
 	return adminServer.Listen(addr)
-}
-
-func run(cmd *cobra.Command, args []string) error {
-	_ = args
-	btPath, _ := cmd.PersistentFlags().GetString(constants.ConfigPathKey)
-	port, _ := cmd.PersistentFlags().GetUint16("port")
-	if len(btPath) < 1 {
-		// search bootstrap yaml
-		for _, path := range constants.GetConfigSearchPathList() {
-			btPath = filepath.Join(path, "bootstrap.yaml")
-			if _, err := os.Stat(btPath); err == nil {
-				break
-			}
-			btPath = filepath.Join(path, "bootstrap.yml")
-			if _, err := os.Stat(btPath); err == nil {
-				break
-			}
-		}
-	}
-
-	return Run(btPath, fmt.Sprintf(":%d", port))
 }

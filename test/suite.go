@@ -38,7 +38,7 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/cmd/start"
+	"github.com/arana-db/arana/cmd"
 	"github.com/arana-db/arana/pkg/constants"
 	"github.com/arana-db/arana/pkg/util/rand2"
 	"github.com/arana-db/arana/testdata"
@@ -236,7 +236,7 @@ func (ms *MySuite) SetupSuite() {
 	}
 	go func() {
 		_ = os.Setenv(constants.EnvConfigPath, ms.tmpFile)
-		start.Run(ms.tmpBootFile)
+		cmd.Start(ms.tmpBootFile)
 	}()
 
 	// waiting for arana server started

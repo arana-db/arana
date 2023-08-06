@@ -71,10 +71,10 @@ func (fp *discovery) Init(ctx context.Context) error {
 	}
 
 	cfg, err := config.LoadBootOptions(fp.path)
-	uconfig.IsEnableLocalMathCompu(cfg.Spec.EnableLocalMathComputation)
 	if err != nil {
 		return err
 	}
+	uconfig.IsEnableLocalMathCompu(cfg.Spec.EnableLocalMathComputation)
 	fp.options = cfg
 
 	if err := config.Init(*fp.options.Config, fp.options.Spec.APIVersion); err != nil {

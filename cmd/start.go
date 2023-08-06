@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package start
+package cmd
 
 import (
 	"context"
@@ -31,7 +31,6 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/cmd/cmds"
 	"github.com/arana-db/arana/pkg/boot"
 	"github.com/arana-db/arana/pkg/constants"
 	"github.com/arana-db/arana/pkg/executor"
@@ -59,17 +58,34 @@ func init() {
 		Use:     "start",
 		Short:   "start arana",
 		Example: "arana start -c bootstrap.yaml",
-		Run:     run,
+		Run:     runStart,
 	}
 	cmd.PersistentFlags().
 		StringP(_keyBootstrap, "c", os.Getenv(constants.EnvBootstrapPath), "bootstrap configuration file path")
 
-	cmds.Handle(func(root *cobra.Command) {
-		root.AddCommand(cmd)
-	})
+	RootCommand.AddCommand(cmd)
 }
 
-func Run(bootstrapConfigPath string) {
+func runStart(cmd *cobra.Command, _ []string) {
+	bootstrapConfigPath, _ := cmd.PersistentFlags().GetString(_keyBootstrap)
+	Start(bootstrapConfigPath)
+}
+
+func Start(bootstrapConfigPath string) {
+	if len(bootstrapConfigPath) < 1 {
+		// search bootstrap yaml
+		for _, path := range constants.GetConfigSearchPathList() {
+			bootstrapConfigPath = filepath.Join(path, "bootstrap.yaml")
+			if _, err := os.Stat(bootstrapConfigPath); err == nil {
+				break
+			}
+			bootstrapConfigPath = filepath.Join(path, "bootstrap.yml")
+			if _, err := os.Stat(bootstrapConfigPath); err == nil {
+				break
+			}
+		}
+	}
+
 	// print slogan
 	fmt.Printf("\033[92m%s\033[0m\n", slogan) // 92m: light green
 
@@ -129,26 +145,4 @@ func Run(bootstrapConfigPath string) {
 	}()
 
 	<-ctx.Done()
-}
-
-func run(cmd *cobra.Command, args []string) {
-	_ = args
-
-	bootstrapConfigPath, _ := cmd.PersistentFlags().GetString(_keyBootstrap)
-
-	if len(bootstrapConfigPath) < 1 {
-		// search bootstrap yaml
-		for _, path := range constants.GetConfigSearchPathList() {
-			bootstrapConfigPath = filepath.Join(path, "bootstrap.yaml")
-			if _, err := os.Stat(bootstrapConfigPath); err == nil {
-				break
-			}
-			bootstrapConfigPath = filepath.Join(path, "bootstrap.yml")
-			if _, err := os.Stat(bootstrapConfigPath); err == nil {
-				break
-			}
-		}
-	}
-
-	Run(bootstrapConfigPath)
 }

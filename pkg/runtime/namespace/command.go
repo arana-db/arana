@@ -249,7 +249,7 @@ func UpdateSlowThreshold() Command {
 	}
 }
 
-func UpdateSlowLogger(path string, cfg *log.LoggingConfig) Command {
+func UpdateSlowLogger(path string, cfg *log.Config) Command {
 	return func(ns *Namespace) error {
 		ns.slowLog = log.NewSlowLogger(path, cfg)
 		return nil
