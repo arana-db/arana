@@ -41,6 +41,11 @@ func TestTransform(t *testing.T) {
 		mysql.NewField("name", consts.FieldTypeVarChar),
 		mysql.NewField("level", consts.FieldTypeLong),
 	}
+	tsFields := []proto.Field{
+		mysql.NewField("id", consts.FieldTypeLong),
+		mysql.NewField("name", consts.FieldTypeVarChar),
+		mysql.NewField("constlevel", consts.FieldTypeLong),
+	}
 
 	root := &VirtualDataset{
 		Columns: fields,
@@ -75,5 +80,39 @@ func TestTransform(t *testing.T) {
 		_ = next.Scan(dest)
 
 		assert.Equal(t, "100", fmt.Sprint(dest[2]))
+	}
+
+	for i := int64(0); i < 10; i++ {
+		root.Rows = append(root.Rows, rows.NewTextVirtualRow(fields, []proto.Value{
+			proto.NewValueInt64(i),
+			proto.NewValueString(fmt.Sprintf("fake-name-%d", i)),
+			proto.NewValueInt64(rand2.Int63n(10)),
+		}))
+	}
+
+	fdTransformed := Pipe(root, Map(func(fields []proto.Field) []proto.Field {
+		return tsFields
+	}, nil))
+
+	for {
+		next, err := fdTransformed.Next()
+		if err == io.EOF {
+			break
+		}
+
+		assert.NoError(t, err)
+
+		actualFields, _ := fdTransformed.Fields()
+		actualSet := &VirtualDataset{
+			Columns: actualFields,
+		}
+		actualCell := make([]proto.Value, len(actualFields))
+		_ = next.Scan(actualCell)
+		actualSet.Rows = append(actualSet.Rows, rows.NewTextVirtualRow(actualFields, actualCell))
+
+		dest := make([]proto.Value, len(actualFields))
+		_ = actualSet.Rows[0].Scan(dest)
+
+		t.Logf("id=%v, myname=%v, constlevel=%v\n", dest[0], dest[1], dest[2])
 	}
 }
