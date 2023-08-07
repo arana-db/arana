@@ -102,7 +102,7 @@ func Run(bootstrapConfigPath string) {
 			return
 		}
 
-		if err := registry.DoRegistry(context.Background(), serviceRegistry, "service", listenersConf); err != nil {
+		if err = registry.DoRegistry(context.Background(), serviceRegistry, "service", listenersConf); err != nil {
 			log.Errorf("do service register failed: %v", err)
 			return
 		}
