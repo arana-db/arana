@@ -78,8 +78,7 @@ func Run(bootstrapPath string, addr string) error {
 		return err
 	}
 	discovery := boot.NewDiscovery(bootstrapPath)
-
-	if err := boot.Boot(context.Background(), discovery); err != nil {
+	if err = boot.Boot(context.Background(), discovery); err != nil {
 		log.Fatal("start failed: %v", err)
 		return err
 	}
