@@ -31,7 +31,7 @@ import (
 
 func TestSimpleTenantManager(t *testing.T) {
 	var (
-		tm = newSimpleTenantManager()
+		tm = DefaultTenantManager()
 		ok bool
 	)
 
@@ -43,9 +43,9 @@ func TestSimpleTenantManager(t *testing.T) {
 	assert.Empty(t, cluster)
 
 	tm.PutCluster("fake-tenant", "fake-cluster")
-	tm.PutUser("fake-tenant", &config.User{
-		Username: "fake-user",
-	})
+	tm.PutUser("fake-tenant", &config.User{Username: "fake-user"})
+	tm.PutUser("arana-tenant", &config.User{Username: "arana-user"})
+	assert.Equal(t, tm.GetTenants(), []string{"fake-tenant", "arana-tenant"})
 
 	var (
 		user     *config.User
@@ -61,10 +61,25 @@ func TestSimpleTenantManager(t *testing.T) {
 	assert.NotNil(t, user)
 	assert.Equal(t, "fake-user", user.Username)
 
+	users, b := tm.GetUsers("fake-tenant")
+	assert.Equal(t, b, true)
+	assert.Equal(t, users, []*config.User{{Username: "fake-user"}})
+
 	clusters = tm.GetClusters("fake-tenant")
 	assert.Len(t, clusters, 1)
 	assert.Equal(t, []string{"fake-cluster"}, clusters)
 
 	tm.RemoveUser("fake-tenant", "fake-user")
 	tm.RemoveCluster("fake-tenant", "fake-cluster")
+
+	users, b = tm.GetUsers("fake-user")
+	assert.Equal(t, b, false)
+	assert.Empty(t, users)
+
+	tm.RemoveUser("real-tenant", "real-user")
+	tm.RemoveCluster("real-tenant", "real-cluster")
+
+	supervisor := &config.User{Username: "arana", Password: "arana"}
+	tm.SetSupervisor(supervisor)
+	assert.Equal(t, tm.GetSupervisor(), supervisor)
 }
