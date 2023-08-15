@@ -15,8 +15,6 @@
 # limitations under the License.
 #
 
-kind: ConfigMap
-apiVersion: "1.0"
 listeners:
   - protocol_type: mysql
     server_version: 5.7.0
@@ -27,26 +25,15 @@ config:
   name: file
   options:
 
-  # name: etcd
-  # options:
-  #   endpoints: "http://localhost:2379"
+supervisor:
+  username: root
+  password: root
 
-  # name: nacos
-  # options:
-  #   endpoints: "localhost:8080"
-  #   namespace: arana
-  #   group: arana
-  #   contextPath: /nacos
-  #   scheme: http
-  #   username: nacos
-  #   password: nacos
-
-logging_config:
-  log_name: arana_log
-  log_path: ./
-  log_level: 7 #KERN_DEBUG
-  log_max_size: 10
-  log_max_backups: 5
-  log_max_age: 30
-  log_compress: false
-  default_log_name: "arana.log"
+logging:
+  level: INFO
+  path: ~/arana/logs
+  max_size: 128m
+  max_backups: 3
+  max_age: 7
+  compress: true
+  console: true

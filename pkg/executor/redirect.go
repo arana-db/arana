@@ -317,6 +317,15 @@ func (executor *RedirectExecutor) doExecutorComQuery(ctx *proto.Context, act ast
 }
 
 func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context, h func(result proto.Result, warns uint16, failure error) error) error {
+	wrapParseErr := func(err error) error {
+		return mysqlErrors.NewSQLError(
+			mConstants.ERParseError,
+			mConstants.SS42000,
+			"You have an error in your SQL syntax; %s",
+			err.Error(),
+		)
+	}
+
 	p := parser.New()
 	query := ctx.GetQuery()
 
@@ -330,19 +339,31 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context, h func(re
 
 	switch strings.IndexByte(query, ';') {
 	case -1: // no ';' exists
-		stmt, err := p.ParseOneStmt(query, charset, collation)
-		if err != nil {
-			return err
+		var (
+			stmt    ast.StmtNode
+			result  proto.Result
+			warns   uint16
+			failure error
+		)
+		if stmt, failure = p.ParseOneStmt(query, charset, collation); failure == nil {
+			result, warns, failure = executor.doExecutorComQuery(ctx, stmt)
+		} else {
+			failure = wrapParseErr(failure)
 		}
-		result, warns, failure := executor.doExecutorComQuery(ctx, stmt)
 		return h(result, warns, failure)
 	case len(query) - 1: // suffix is ';'
 		ctx.Data = ctx.Data[:len(ctx.Data)-1]
-		stmt, err := p.ParseOneStmt(query[:len(query)-1], charset, collation)
-		if err != nil {
-			return err
+		var (
+			stmt    ast.StmtNode
+			result  proto.Result
+			warns   uint16
+			failure error
+		)
+		if stmt, failure = p.ParseOneStmt(query[:len(query)-1], charset, collation); failure == nil {
+			result, warns, failure = executor.doExecutorComQuery(ctx, stmt)
+		} else {
+			failure = wrapParseErr(failure)
 		}
-		result, warns, failure := executor.doExecutorComQuery(ctx, stmt)
 		return h(result, warns, failure)
 	}
 
@@ -350,7 +371,7 @@ func (executor *RedirectExecutor) ExecutorComQuery(ctx *proto.Context, h func(re
 	p = parser.New()
 	stmts, _, err := p.Parse(query, charset, collation)
 	if err != nil {
-		return h(nil, 0, err)
+		return h(nil, 0, wrapParseErr(err))
 	}
 
 	for i := range stmts {

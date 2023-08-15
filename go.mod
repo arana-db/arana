@@ -9,7 +9,7 @@ require (
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/cespare/xxhash/v2 v2.2.0
 	github.com/creasty/defaults v1.6.0
-	github.com/docker/go-units v0.4.0
+	github.com/docker/go-units v0.5.0
 	github.com/dop251/goja v0.0.0-20230427124612-428fc442ff5f
 	github.com/dubbogo/gost v1.12.3
 	github.com/gin-gonic/gin v1.8.1

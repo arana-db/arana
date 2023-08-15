@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package tools
+package cmd
 
 import (
 	"os"
@@ -26,14 +26,13 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/cmd/cmds"
 	"github.com/arana-db/arana/pkg/boot"
 	"github.com/arana-db/arana/pkg/constants"
 )
 
 var (
-	sourceConfigPath   string
-	importBootConfPath string
+	_sourceConfigPath   string
+	_importBootConfPath string
 )
 
 // init Init startCmd
@@ -41,24 +40,18 @@ func init() {
 	cmd := &cobra.Command{
 		Use:     "import",
 		Short:   "import arana config",
-		Example: "./arana import -c ../docker/conf/bootstrap.yaml -s ../docker/conf/config.yaml",
-		Run:     run,
+		Example: "arana import -c ../docker/conf/bootstrap.yaml -s ../docker/conf/config.yaml",
+		Run:     runTools,
 	}
 
 	cmd.PersistentFlags().
-		StringVarP(&importBootConfPath, constants.ConfigPathKey, "c", os.Getenv(constants.EnvBootstrapPath), "bootstrap configuration file path")
+		StringVarP(&_importBootConfPath, constants.ConfigPathKey, "c", os.Getenv(constants.EnvBootstrapPath), "bootstrap configuration file path")
 	cmd.PersistentFlags().
-		StringVarP(&sourceConfigPath, constants.ImportConfigPathKey, "s", "", "import configuration file path")
+		StringVarP(&_sourceConfigPath, constants.ImportConfigPathKey, "s", "", "import configuration file path")
 
-	cmds.Handle(func(root *cobra.Command) {
-		root.AddCommand(cmd)
-	})
+	RootCommand.AddCommand(cmd)
 }
 
-func run(_ *cobra.Command, _ []string) {
-	Run(importBootConfPath, sourceConfigPath)
-}
-
-func Run(importConfPath, configPath string) {
-	boot.RunImport(importConfPath, configPath)
+func runTools(_ *cobra.Command, _ []string) {
+	boot.RunImport(_importBootConfPath, _sourceConfigPath)
 }

@@ -25,6 +25,7 @@ import (
 
 import (
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLoadBootOptions(t *testing.T) {
@@ -35,7 +36,7 @@ func TestLoadBootOptions(t *testing.T) {
 
 	defer os.Remove(tmpfile.Name())
 
-	text := []byte(`
+	text := `
 listeners:
 - protocol_type: "http"
   server_version: "1.0"
@@ -49,26 +50,19 @@ trace:
 supervisor:
   username: "admin"
   password: "password"
-logging_config:
-  log_name: "test"
-  log_path: "/log/path"
-  log_level: 1
-  log_max_size: 500
-  log_max_backups: 5
-  log_max_age: 10
-  log_compress: false
-  default_log_name: "default"
-  tx_log_name: "tx"
-  sql_log_enabled: true
-  sql_log_name: "sql"
-  physical_sql_log_name: "physical_sql"
-`)
-	if _, err := tmpfile.Write(text); err != nil {
-		t.Fatal(err)
-	}
-	if err := tmpfile.Close(); err != nil {
-		t.Fatal(err)
-	}
+logging:
+  level: INFO
+  path: /var/log/arana
+  max_size: 128m
+  max_backups: 3
+  max_age: 7
+  compress: true
+  console: true
+`
+	_, err = tmpfile.WriteString(text)
+	require.NoError(t, err)
+	err = tmpfile.Close()
+	require.NoError(t, err)
 
 	cfg, err := LoadBootOptions(tmpfile.Name())
 	assert.NoError(t, err)
@@ -82,16 +76,11 @@ logging_config:
 	assert.Equal(t, "http://localhost:14268/api/traces", cfg.Trace.Address)
 	assert.Equal(t, "admin", cfg.Supervisor.Username)
 	assert.Equal(t, "password", cfg.Supervisor.Password)
-	assert.Equal(t, "test", cfg.LoggingConfig.LogName)
-	assert.Equal(t, "/log/path", cfg.LoggingConfig.LogPath)
-	assert.Equal(t, 1, cfg.LoggingConfig.LogLevel)
-	assert.Equal(t, 500, cfg.LoggingConfig.LogMaxSize)
-	assert.Equal(t, 5, cfg.LoggingConfig.LogMaxBackups)
-	assert.Equal(t, 10, cfg.LoggingConfig.LogMaxAge)
-	assert.False(t, cfg.LoggingConfig.LogCompress)
-	assert.Equal(t, "default", cfg.LoggingConfig.DefaultLogName)
-	assert.Equal(t, "tx", cfg.LoggingConfig.TxLogName)
-	assert.True(t, cfg.LoggingConfig.SqlLogEnabled)
-	assert.Equal(t, "sql", cfg.LoggingConfig.SqlLogName)
-	assert.Equal(t, "physical_sql", cfg.LoggingConfig.PhysicalSqlLogName)
+	assert.Equal(t, "INFO", cfg.Logging.Level)
+	assert.Equal(t, "/var/log/arana", cfg.Logging.Path)
+	assert.Equal(t, "128m", cfg.Logging.MaxSize)
+	assert.Equal(t, 3, cfg.Logging.MaxBackups)
+	assert.Equal(t, 7, cfg.Logging.MaxAge)
+	assert.True(t, cfg.Logging.Compress)
+	assert.False(t, cfg.Logging.SqlLogEnabled)
 }

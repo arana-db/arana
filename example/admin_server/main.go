@@ -18,11 +18,25 @@
 package main
 
 import (
-	"github.com/arana-db/arana/cmd/admin"
+	"os"
+)
+
+import (
+	"github.com/arana-db/arana/cmd"
 	"github.com/arana-db/arana/testdata"
 )
 
+func init() {
+	os.Args = append(
+		os.Args,
+		"admin",
+		"-c",
+		testdata.Path("../conf/bootstrap.local-etcd.yaml"),
+		"-p",
+		"8080",
+	)
+}
+
 func main() {
-	bootstrap := testdata.Path("../conf/bootstrap.local-etcd.yaml")
-	_ = admin.Run(bootstrap, ":8080")
+	_ = cmd.Main()
 }

@@ -18,12 +18,25 @@
 package main
 
 import (
-	"github.com/arana-db/arana/cmd/tools"
+	"os"
+)
+
+import (
+	"github.com/arana-db/arana/cmd"
 	"github.com/arana-db/arana/testdata"
 )
 
+func init() {
+	os.Args = append(
+		os.Args,
+		"import",
+		"-c",
+		testdata.Path("../conf/bootstrap.yaml"),
+		"-s",
+		testdata.Path("../conf/config.yaml"),
+	)
+}
+
 func main() {
-	bootstrap := testdata.Path("../conf/bootstrap.yaml")
-	config := testdata.Path("../conf/config.yaml")
-	tools.Run(bootstrap, config)
+	_ = cmd.Main()
 }

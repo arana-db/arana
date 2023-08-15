@@ -18,11 +18,18 @@
 package main
 
 import (
-	"github.com/arana-db/arana/cmd/start"
+	"os"
+)
+
+import (
+	"github.com/arana-db/arana/cmd"
 	"github.com/arana-db/arana/testdata"
 )
 
+func init() {
+	os.Args = append(os.Args, "start", "-c", testdata.Path("../conf/bootstrap.local-etcd.yaml"))
+}
+
 func main() {
-	bootstrap := testdata.Path("../conf/bootstrap.yaml")
-	start.Run(bootstrap)
+	_ = cmd.Main()
 }
