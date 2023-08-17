@@ -445,7 +445,7 @@ func (d *watcher) onNodeAdd(ctx context.Context, node *config.Node) error {
 func (d *watcher) onNodeUpdate(ctx context.Context, node *config.Node) error {
 	clusters := security.DefaultTenantManager().GetClusters(d.tenant)
 
-	var paramsMap map[string]config.ParametersMap
+	paramsMap := make(map[string]config.ParametersMap)
 
 	updateNode := func(rt runtime.Runtime, cluster, group string) {
 		clonedNode := *node

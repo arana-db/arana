@@ -88,8 +88,8 @@ type Server struct {
 }
 
 func New(tenantOp config.TenantOperator, serviceDiscovery base.Discovery) *Server {
-	srv := &myConfigService{
-		tenantOp: tenantOp,
+	srv := &MyConfigService{
+		TenantOp: tenantOp,
 	}
 	srvDiscSrv := &myServiceDiscovery{
 		serviceDiscovery: serviceDiscovery,
