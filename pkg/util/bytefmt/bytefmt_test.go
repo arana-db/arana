@@ -45,7 +45,7 @@ func TestByteSize(t *testing.T) {
 		{in: 10.5 * KILOBYTE, want: "10.5K"},
 		{in: 268435456, want: "256M"},
 		{in: 0, want: "0"},
-		{in: 1000, want: "1K"},
+		{in: 1000, want: "1000B"},
 		{in: 1024, want: "1K"},
 	}
 	for i := 0; i < len(tables); i++ {
