@@ -46,8 +46,8 @@ type LoginPayload struct {
 }
 
 func NewAuthMiddleware(server *Server, realm, secretKey string) (*jwt.GinJWTMiddleware, error) {
-	conf := server.service.(*myConfigService)
-	for _, tenant := range conf.tenantOp.ListTenants() {
+	conf := server.service.(*MyConfigService)
+	for _, tenant := range conf.TenantOp.ListTenants() {
 		center, err := conf.getCenter(context.Background(), tenant)
 		if err != nil {
 			return nil, err

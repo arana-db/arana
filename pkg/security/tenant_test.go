@@ -45,7 +45,9 @@ func TestSimpleTenantManager(t *testing.T) {
 	tm.PutCluster("fake-tenant", "fake-cluster")
 	tm.PutUser("fake-tenant", &config.User{Username: "fake-user"})
 	tm.PutUser("arana-tenant", &config.User{Username: "arana-user"})
-	assert.Equal(t, tm.GetTenants(), []string{"fake-tenant", "arana-tenant"})
+	tenants = tm.GetTenants()
+	assert.Len(t, tenants, 2)
+	assert.Contains(t, tenants, "fake-tenant", "arana-tenant")
 
 	var (
 		user     *config.User

@@ -41,7 +41,7 @@ import (
 	"github.com/arana-db/arana/pkg/util/misc"
 )
 
-var _ ConfigService = (*myConfigService)(nil)
+var _ ConfigService = (*MyConfigService)(nil)
 
 var (
 	errNoSuchTenant  = errors.New("no such tenant")
@@ -49,24 +49,24 @@ var (
 	errNoSuchGroup   = errors.New("no such group")
 )
 
-type myConfigService struct {
-	tenantOp config.TenantOperator
+type MyConfigService struct {
+	TenantOp config.TenantOperator
 	centers  sync.Map // map[string]*lazyCenter
 }
 
-func (cs *myConfigService) RemoveUser(ctx context.Context, tenant string, username string) error {
-	return cs.tenantOp.RemoveTenantUser(tenant, username)
+func (cs *MyConfigService) RemoveUser(ctx context.Context, tenant string, username string) error {
+	return cs.TenantOp.RemoveTenantUser(tenant, username)
 }
 
-func (cs *myConfigService) UpsertUser(ctx context.Context, tenant string, user *config.User, username string) error {
+func (cs *MyConfigService) UpsertUser(ctx context.Context, tenant string, user *config.User, username string) error {
 	if username != "" && username != user.Username {
-		return cs.tenantOp.UpdateTenantUser(tenant, user.Username, user.Password, username)
+		return cs.TenantOp.UpdateTenantUser(tenant, user.Username, user.Password, username)
 	}
-	return cs.tenantOp.CreateTenantUser(tenant, user.Username, user.Password)
+	return cs.TenantOp.CreateTenantUser(tenant, user.Username, user.Password)
 }
 
-func (cs *myConfigService) ListTenants(ctx context.Context) ([]*TenantDTO, error) {
-	tenants := cs.tenantOp.ListTenants()
+func (cs *MyConfigService) ListTenants(ctx context.Context) ([]*TenantDTO, error) {
+	tenants := cs.TenantOp.ListTenants()
 
 	ret := make([]*TenantDTO, 0, len(tenants))
 	for _, tenant := range tenants {
@@ -104,7 +104,7 @@ func (cs *myConfigService) ListTenants(ctx context.Context) ([]*TenantDTO, error
 	return ret, nil
 }
 
-func (cs *myConfigService) ListNodes(ctx context.Context, tenant string) ([]*NodeDTO, error) {
+func (cs *MyConfigService) ListNodes(ctx context.Context, tenant string) ([]*NodeDTO, error) {
 	ct, err := cs.getCenter(ctx, tenant)
 	if err != nil {
 		return nil, perrors.WithStack(err)
@@ -142,7 +142,7 @@ func (cs *myConfigService) ListNodes(ctx context.Context, tenant string) ([]*Nod
 	return ret, nil
 }
 
-func (cs *myConfigService) ListClusters(ctx context.Context, tenant string) ([]*ClusterDTO, error) {
+func (cs *MyConfigService) ListClusters(ctx context.Context, tenant string) ([]*ClusterDTO, error) {
 	ct, err := cs.getCenter(ctx, tenant)
 	if err != nil {
 		return nil, perrors.WithStack(err)
@@ -181,7 +181,7 @@ func (cs *myConfigService) ListClusters(ctx context.Context, tenant string) ([]*
 	return ret, nil
 }
 
-func (cs *myConfigService) ListDBGroups(ctx context.Context, tenant, cluster string) ([]*GroupDTO, error) {
+func (cs *MyConfigService) ListDBGroups(ctx context.Context, tenant, cluster string) ([]*GroupDTO, error) {
 	ct, err := cs.getCenter(ctx, tenant)
 	if err != nil {
 		return nil, perrors.WithStack(err)
@@ -224,7 +224,7 @@ func (cs *myConfigService) ListDBGroups(ctx context.Context, tenant, cluster str
 	return ret, nil
 }
 
-func (cs *myConfigService) ListTables(ctx context.Context, tenant, cluster string) ([]*TableDTO, error) {
+func (cs *MyConfigService) ListTables(ctx context.Context, tenant, cluster string) ([]*TableDTO, error) {
 	ct, err := cs.getCenter(ctx, tenant)
 	if err != nil {
 		return nil, errNoSuchTenant
@@ -264,17 +264,17 @@ func (cs *myConfigService) ListTables(ctx context.Context, tenant, cluster strin
 	return ret, nil
 }
 
-func (cs *myConfigService) UpsertTenant(ctx context.Context, tenant string, body *TenantDTO) error {
+func (cs *MyConfigService) UpsertTenant(ctx context.Context, tenant string, body *TenantDTO) error {
 	if tenant != body.Name {
-		cs.tenantOp.UpdateTenant(tenant, body.Name)
+		cs.TenantOp.UpdateTenant(tenant, body.Name)
 		return nil
 	}
-	if err := cs.tenantOp.CreateTenant(tenant); err != nil {
+	if err := cs.TenantOp.CreateTenant(tenant); err != nil {
 		return perrors.Wrapf(err, "failed to create tenant '%s'", tenant)
 	}
 
 	for _, next := range body.Users {
-		if err := cs.tenantOp.CreateTenantUser(tenant, next.Username, next.Password); err != nil {
+		if err := cs.TenantOp.CreateTenantUser(tenant, next.Username, next.Password); err != nil {
 			return perrors.WithStack(err)
 		}
 	}
@@ -282,14 +282,14 @@ func (cs *myConfigService) UpsertTenant(ctx context.Context, tenant string, body
 	return nil
 }
 
-func (cs *myConfigService) RemoveTenant(ctx context.Context, tenant string) error {
-	if err := cs.tenantOp.RemoveTenant(tenant); err != nil {
+func (cs *MyConfigService) RemoveTenant(ctx context.Context, tenant string) error {
+	if err := cs.TenantOp.RemoveTenant(tenant); err != nil {
 		return perrors.Wrapf(err, "failed to remove tenant '%s'", tenant)
 	}
 	return nil
 }
 
-func (cs *myConfigService) UpsertCluster(ctx context.Context, tenant, cluster string, body *ClusterDTO) error {
+func (cs *MyConfigService) UpsertCluster(ctx context.Context, tenant, cluster string, body *ClusterDTO) error {
 	op, err := cs.getCenter(ctx, tenant)
 	if err != nil {
 		return perrors.WithStack(err)
@@ -336,7 +336,7 @@ func (cs *myConfigService) UpsertCluster(ctx context.Context, tenant, cluster st
 	return nil
 }
 
-func (cs *myConfigService) RemoveCluster(ctx context.Context, tenant, cluster string) error {
+func (cs *MyConfigService) RemoveCluster(ctx context.Context, tenant, cluster string) error {
 	op, err := cs.getCenter(ctx, tenant)
 	if err != nil {
 		return perrors.WithStack(err)
@@ -363,7 +363,7 @@ func (cs *myConfigService) RemoveCluster(ctx context.Context, tenant, cluster st
 	return nil
 }
 
-func (cs *myConfigService) UpsertNode(ctx context.Context, tenant, node string, body *NodeDTO) error {
+func (cs *MyConfigService) UpsertNode(ctx context.Context, tenant, node string, body *NodeDTO) error {
 	op, err := cs.getCenter(ctx, tenant)
 	if err != nil {
 		return perrors.WithStack(err)
@@ -409,7 +409,7 @@ func (cs *myConfigService) UpsertNode(ctx context.Context, tenant, node string, 
 	return nil
 }
 
-func (cs *myConfigService) RemoveNode(ctx context.Context, tenant, node string) error {
+func (cs *MyConfigService) RemoveNode(ctx context.Context, tenant, node string) error {
 	op, err := cs.getCenter(ctx, tenant)
 	if err != nil {
 		return perrors.WithStack(err)
@@ -432,7 +432,7 @@ func (cs *myConfigService) RemoveNode(ctx context.Context, tenant, node string) 
 	return nil
 }
 
-func (cs *myConfigService) UpsertGroup(ctx context.Context, tenant, cluster, group string, body *GroupDTO) error {
+func (cs *MyConfigService) UpsertGroup(ctx context.Context, tenant, cluster, group string, body *GroupDTO) error {
 	op, err := cs.getCenter(ctx, tenant)
 	if err != nil {
 		return perrors.WithStack(err)
@@ -481,7 +481,7 @@ func (cs *myConfigService) UpsertGroup(ctx context.Context, tenant, cluster, gro
 	return nil
 }
 
-func (cs *myConfigService) RemoveGroup(ctx context.Context, tenant, cluster, group string) error {
+func (cs *MyConfigService) RemoveGroup(ctx context.Context, tenant, cluster, group string) error {
 	op, err := cs.getCenter(ctx, tenant)
 	if err != nil {
 		return perrors.WithStack(err)
@@ -521,7 +521,7 @@ func (cs *myConfigService) RemoveGroup(ctx context.Context, tenant, cluster, gro
 	return nil
 }
 
-func (cs *myConfigService) BindNode(ctx context.Context, tenant, cluster, group, node string) error {
+func (cs *MyConfigService) BindNode(ctx context.Context, tenant, cluster, group, node string) error {
 	op, err := cs.getCenter(ctx, tenant)
 	if err != nil {
 		return perrors.WithStack(err)
@@ -559,7 +559,7 @@ func (cs *myConfigService) BindNode(ctx context.Context, tenant, cluster, group,
 	return nil
 }
 
-func (cs *myConfigService) UnbindNode(ctx context.Context, tenant, cluster, group, node string) error {
+func (cs *MyConfigService) UnbindNode(ctx context.Context, tenant, cluster, group, node string) error {
 	op, err := cs.getCenter(ctx, tenant)
 	if err != nil {
 		return perrors.WithStack(err)
@@ -600,7 +600,7 @@ func (cs *myConfigService) UnbindNode(ctx context.Context, tenant, cluster, grou
 	return nil
 }
 
-func (cs *myConfigService) UpsertTable(ctx context.Context, tenant, cluster, table string, body *TableDTO) error {
+func (cs *MyConfigService) UpsertTable(ctx context.Context, tenant, cluster, table string, body *TableDTO) error {
 	if body.Name == "" {
 		body.Name = table
 	}
@@ -659,7 +659,7 @@ func (cs *myConfigService) UpsertTable(ctx context.Context, tenant, cluster, tab
 	return nil
 }
 
-func (cs *myConfigService) RemoveTable(ctx context.Context, tenant, cluster, table string) error {
+func (cs *MyConfigService) RemoveTable(ctx context.Context, tenant, cluster, table string) error {
 	op, err := cs.getCenter(ctx, tenant)
 	if err != nil {
 		return perrors.WithStack(err)
@@ -697,7 +697,7 @@ func (cs *myConfigService) RemoveTable(ctx context.Context, tenant, cluster, tab
 	return nil
 }
 
-func (cs *myConfigService) getCenter(ctx context.Context, tenant string) (config.Center, error) {
+func (cs *MyConfigService) getCenter(ctx context.Context, tenant string) (config.Center, error) {
 	if exist, ok := cs.centers.Load(tenant); ok {
 		return exist.(*lazyCenter).compute(ctx)
 	}

@@ -21,6 +21,7 @@ import (
 	"context"
 	"os"
 	"testing"
+	"time"
 )
 
 import (
@@ -28,6 +29,8 @@ import (
 )
 
 import (
+	"github.com/arana-db/arana/pkg/admin"
+	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/constants"
 	_ "github.com/arana-db/arana/pkg/runtime/builtin"
 	"github.com/arana-db/arana/testdata"
@@ -67,4 +70,58 @@ func TestFileProvider(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, table.AllowFullScan())
 	t.Logf("vtable: %v\n", table)
+
+	RunImport(testdata.Path("fake_bootstrap.yaml"), testdata.Path("fake_config.yaml"))
+
+	op, err := config.NewTenantOperator(config.GetStoreOperate())
+	assert.NoError(t, err)
+	srv := &admin.MyConfigService{
+		TenantOp: op,
+	}
+
+	var userBody config.User
+	userBody.Username = "arana"
+	userBody.Password = "654321"
+	err = srv.UpsertUser(context.Background(), "arana", &userBody, "arana")
+	assert.NoError(t, err)
+	err = srv.RemoveUser(context.Background(), "arana", "arana")
+	assert.NoError(t, err)
+
+	allGroups, err := srv.ListDBGroups(context.Background(), "arana", "employees")
+	assert.NoError(t, err)
+	groupBody := allGroups[0]
+	groupBody.Nodes = groupBody.Nodes[0:1]
+	err = srv.UpsertGroup(context.Background(), "arana", "employees", "employees_0000", groupBody)
+	assert.NoError(t, err)
+	var groupNew admin.GroupDTO
+	groupNew.ClusterName = "employees"
+	groupNew.Name = "employees_0100"
+	groupNew.Nodes = append(groupNew.Nodes, "node0_r_0")
+	err = srv.UpsertGroup(context.Background(), "arana", "employees", "employees_0100", &groupNew)
+	assert.NoError(t, err)
+	err = srv.RemoveGroup(context.Background(), "arana", "employees", "employees_0100")
+	assert.NoError(t, err)
+
+	allNodes, err := srv.ListNodes(context.Background(), "arana")
+	assert.NoError(t, err)
+	nodeBody := allNodes[0]
+	nodeBody.Weight = "r5w10"
+	err = srv.UpsertNode(context.Background(), "arana", nodeBody.Name, nodeBody)
+	assert.NoError(t, err)
+	err = srv.RemoveNode(context.Background(), "arana", "node0_r_0")
+	assert.NoError(t, err)
+
+	allTables, err := srv.ListTables(context.Background(), "arana", "employees")
+	assert.NoError(t, err)
+	tableBody := allTables[0]
+	tableBody.Attributes["allow_full_scan"] = "false"
+	err = srv.UpsertTable(context.Background(), "arana", "employees", tableBody.Name, tableBody)
+	assert.NoError(t, err)
+	err = srv.RemoveTable(context.Background(), "arana", "employees", "student")
+	assert.NoError(t, err)
+
+	err = srv.RemoveCluster(context.Background(), "arana", "employees")
+	assert.NoError(t, err)
+	//wait for watcher consumer
+	time.Sleep(3 * time.Second)
 }
