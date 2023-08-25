@@ -20,7 +20,9 @@ package env
 import (
 	"os"
 	"testing"
+)
 
+import (
 	"github.com/arana-db/arana/pkg/constants"
 )
 

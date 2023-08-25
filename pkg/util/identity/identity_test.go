@@ -18,9 +18,12 @@
 package identity
 
 import (
-	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
+)
+
+import (
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetNodeIdentity(t *testing.T) {
