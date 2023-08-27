@@ -21,7 +21,9 @@ import (
 	"bytes"
 	"errors"
 	"testing"
+)
 
+import (
 	"github.com/arana-db/arana/pkg/util/misc"
 )
 
