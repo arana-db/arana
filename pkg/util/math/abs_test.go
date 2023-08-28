@@ -17,29 +17,20 @@
 
 package math
 
-import "testing"
+import (
+	"github.com/stretchr/testify/assert"
+	"testing"
+)
 
 func TestAbs(t *testing.T) {
 	// Test cases for positive numbers
-	if result := Abs(5); result != 5 {
-		t.Errorf("Abs(5) = %v; want 5", result)
-	}
-
-	if result := Abs(int32(10)); result != int32(10) {
-		t.Errorf("Abs(int32(10)) = %v; want 10", result)
-	}
+	assert.Equal(t, 5, Abs(5))
+	assert.Equal(t, int32(10), Abs(int32(10)))
 
 	// Test cases for negative numbers
-	if result := Abs(-5); result != 5 {
-		t.Errorf("Abs(-5) = %v; want 5", result)
-	}
-
-	if result := Abs(int64(-10)); result != int64(10) {
-		t.Errorf("Abs(int64(-10)) = %v; want 10", result)
-	}
+	assert.Equal(t, 5, Abs(-5))
+	assert.Equal(t, int64(10), Abs(int64(-10)))
 
 	// Test case for zero
-	if result := Abs(0); result != 0 {
-		t.Errorf("Abs(0) = %v; want 0", result)
-	}
+	assert.Equal(t, 0, Abs(0))
 }

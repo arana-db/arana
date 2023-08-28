@@ -17,15 +17,15 @@
 
 package math
 
-import "testing"
+import (
+	"github.com/stretchr/testify/assert"
+	"testing"
+)
 
 func TestMax(t *testing.T) {
 	// Test case 1：a > b
 	result := Max(5, 3)
-	expected := 5
-	if result != expected {
-		t.Errorf("Max(5, 3) returned：%d, expected：%d", result, expected)
-	}
+	assert.Equal(t, 5, result)
 
 	// Test case 2：a < b
 	// result = Max(2.5, 6.7)
@@ -36,38 +36,23 @@ func TestMax(t *testing.T) {
 
 	// Test case 3：a == b
 	result = Max(-10, -10)
-	expected = -10
-	if result != expected {
-		t.Errorf("Max(-10, -10) returned：%d, expected：%d", result, expected)
-	}
+	assert.Equal(t, -10, result)
 }
 
 func TestMin(t *testing.T) {
 	// Test case 1: a is smaller than b
 	result := Min(2, 5)
-	expected := 2
-	if result != expected {
-		t.Errorf("Min(2, 5) returned %d, expected %d", result, expected)
-	}
+	assert.Equal(t, 2, result)
 
 	// Test case 2: b is smaller than a
 	result = Min(7, 3)
-	expected = 3
-	if result != expected {
-		t.Errorf("Min(7, 3) returned %d, expected %d", result, expected)
-	}
+	assert.Equal(t, 3, result)
 
 	// Test case 3: a and b are equal
 	result = Min(4, 4)
-	expected = 4
-	if result != expected {
-		t.Errorf("Min(4, 4) returned %d, expected %d", result, expected)
-	}
+	assert.Equal(t, 4, result)
 
 	// Test case 4: a is a floating-point number
 	resultFloat := Min(2.5, 1.5)
-	expectedFloat := 1.5
-	if resultFloat != expectedFloat {
-		t.Errorf("Min(2.5, 1.5) returned %f, expected %f", resultFloat, expectedFloat)
-	}
+	assert.Equal(t, 1.5, resultFloat)
 }
