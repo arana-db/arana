@@ -18,57 +18,42 @@
 package match
 
 import (
+	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
 )
 
 func TestIsEmpty(t *testing.T) {
 	// Test nil case
-	if !isEmpty(nil) {
-		t.Errorf("Expected true for nil case")
-	}
+	assert.True(t, isEmpty(nil))
 
 	// Test empty array
 	arr := []int{}
-	if !isEmpty(arr) {
-		t.Errorf("Expected true for empty array")
-	}
+	assert.True(t, isEmpty(arr))
 
 	// Test non-empty array
 	arr = []int{1, 2, 3}
-	if isEmpty(arr) {
-		t.Errorf("Expected false for non-empty array")
-	}
+	assert.False(t, isEmpty(arr))
 
 	// Test empty map
 	m := map[string]int{}
-	if !isEmpty(m) {
-		t.Errorf("Expected true for empty map")
-	}
+	assert.True(t, isEmpty(m))
 
 	// Test non-empty map
 	m = map[string]int{"a": 1}
-	if isEmpty(m) {
-		t.Errorf("Expected false for non-empty map")
-	}
+	assert.False(t, isEmpty(m))
 
 	// Test empty slice
 	s := make([]int, 0)
-	if !isEmpty(s) {
-		t.Errorf("Expected true for empty slice")
-	}
+	assert.True(t, isEmpty(s))
 
 	// Test non-empty slice
 	s = make([]int, 3)
-	if isEmpty(s) {
-		t.Errorf("Expected false for non-empty slice")
-	}
+	assert.False(t, isEmpty(s))
 
 	// Test empty channel
 	ch := make(chan int)
-	if !isEmpty(ch) {
-		t.Errorf("Expected true for empty channel")
-	}
+	assert.True(t, isEmpty(ch))
 
 	// Test non-empty channel
 	// ch <- 1
@@ -78,28 +63,20 @@ func TestIsEmpty(t *testing.T) {
 
 	// Test empty pointer
 	var ptr *int
-	if !isEmpty(ptr) {
-		t.Errorf("Expected true for empty pointer")
-	}
+	assert.True(t, isEmpty(ptr))
 
 	// Test non-empty pointer
 	i := 10
 	ptr = &i
-	if isEmpty(ptr) {
-		t.Errorf("Expected false for non-empty pointer")
-	}
+	assert.False(t, isEmpty(ptr))
 
 	// Test zero value
 	str := ""
-	if !isEmpty(str) {
-		t.Errorf("Expected true for zero value")
-	}
+	assert.True(t, isEmpty(str))
 
 	// Test non-zero value
 	str = "Hello"
-	if isEmpty(str) {
-		t.Errorf("Expected false for non-zero value")
-	}
+	assert.False(t, isEmpty(s))
 }
 
 func TestElementsMatch(t *testing.T) {

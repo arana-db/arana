@@ -18,6 +18,7 @@
 package env
 
 import (
+	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
 )
@@ -30,33 +31,25 @@ func TestIsDevelopEnvironment(t *testing.T) {
 	// Test case 1: Environment variable is set to "1"
 	os.Setenv(constants.EnvDevelopEnvironment, "1")
 	isDev := IsDevelopEnvironment()
-	if !isDev {
-		t.Errorf("Expected IsDevelopEnvironment() to return true, but got false")
-	}
+	assert.True(t, isDev)
 	os.Unsetenv(constants.EnvDevelopEnvironment)
 
 	// Test case 2: Environment variable is set to "yes"
 	os.Setenv(constants.EnvDevelopEnvironment, "yes")
 	isDev = IsDevelopEnvironment()
-	if !isDev {
-		t.Errorf("Expected IsDevelopEnvironment() to return true, but got false")
-	}
+	assert.True(t, isDev)
 	os.Unsetenv(constants.EnvDevelopEnvironment)
 
 	// Test case 3: Environment variable is set to "on"
 	os.Setenv(constants.EnvDevelopEnvironment, "on")
 	isDev = IsDevelopEnvironment()
-	if !isDev {
-		t.Errorf("Expected IsDevelopEnvironment() to return true, but got false")
-	}
+	assert.True(t, isDev)
 	os.Unsetenv(constants.EnvDevelopEnvironment)
 
 	// Test case 4: Environment variable is set to "true"
 	os.Setenv(constants.EnvDevelopEnvironment, "true")
 	isDev = IsDevelopEnvironment()
-	if !isDev {
-		t.Errorf("Expected IsDevelopEnvironment() to return true, but got false")
-	}
+	assert.True(t, isDev)
 	os.Unsetenv(constants.EnvDevelopEnvironment)
 
 	// Test case 5: Environment variable is set to any other value
