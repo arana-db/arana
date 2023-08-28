@@ -18,8 +18,11 @@
 package file
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+)
+
+import (
+	"github.com/stretchr/testify/assert"
 )
 
 func TestIsYaml(t *testing.T) {

@@ -18,9 +18,12 @@
 package env
 
 import (
-	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
+)
+
+import (
+	"github.com/stretchr/testify/assert"
 )
 
 import (

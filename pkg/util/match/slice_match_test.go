@@ -18,9 +18,12 @@
 package match
 
 import (
-	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
+)
+
+import (
+	"github.com/stretchr/testify/assert"
 )
 
 func TestIsEmpty(t *testing.T) {
