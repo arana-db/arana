@@ -18,9 +18,13 @@
 package math
 
 import (
-	gxbig "github.com/dubbogo/gost/math/big"
-	"github.com/stretchr/testify/assert"
 	"testing"
+)
+
+import (
+	gxbig "github.com/dubbogo/gost/math/big"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestToDecimal(t *testing.T) {

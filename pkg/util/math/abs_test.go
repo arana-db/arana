@@ -18,8 +18,11 @@
 package math
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+)
+
+import (
+	"github.com/stretchr/testify/assert"
 )
 
 func TestAbs(t *testing.T) {
