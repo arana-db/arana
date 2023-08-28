@@ -210,28 +210,28 @@ func TestDiffLists(t *testing.T) {
 	}
 }
 
-// 测试 expected 和 actual 都为 nil 的情况
+// Test case 1: expected and actual are nil
 func TestObjectsAreEqual_BothNil(t *testing.T) {
 	if !ObjectsAreEqual(nil, nil) {
 		t.Error("Expected ObjectsAreEqual(nil, nil) to return true")
 	}
 }
 
-// 测试 expected 为 nil，actual 不为 nil 的情况
+// Test case 2: expected is nil，actual is not nil
 func TestObjectsAreEqual_ExpectedNil(t *testing.T) {
 	if ObjectsAreEqual(nil, "some value") {
 		t.Error("Expected ObjectsAreEqual(nil, \"some value\") to return false")
 	}
 }
 
-// 测试 expected 不为 nil，actual 为 nil 的情况
+// Test case 3: expected is not nil，actual is nil
 func TestObjectsAreEqual_ActualNil(t *testing.T) {
 	if ObjectsAreEqual("some value", nil) {
 		t.Error("Expected ObjectsAreEqual(\"some value\", nil) to return false")
 	}
 }
 
-// 测试 expected 和 actual 都为 []byte 类型，且内容相等的情况
+// Test case 4: expected and actual are the type of []byte, and the contents are equal
 func TestObjectsAreEqual_BothBytesEqual(t *testing.T) {
 	expected := []byte{1, 2, 3}
 	actual := []byte{1, 2, 3}
@@ -240,7 +240,7 @@ func TestObjectsAreEqual_BothBytesEqual(t *testing.T) {
 	}
 }
 
-// 测试 expected 和 actual 都为 []byte 类型，但内容不相等的情况
+// Test case 5: expected and actual are the type of []byte, and the contents are not equal
 func TestObjectsAreEqual_BothBytesNotEqual(t *testing.T) {
 	expected := []byte{1, 2, 3}
 	actual := []byte{4, 5, 6}
@@ -249,7 +249,7 @@ func TestObjectsAreEqual_BothBytesNotEqual(t *testing.T) {
 	}
 }
 
-// 测试 expected 不为 []byte 类型，actual 为 []byte 类型的情况
+// Test case 6: expected is not the type of []byte, but actual is the type of []byte
 func TestObjectsAreEqual_ExpectedNotBytes(t *testing.T) {
 	expected := "some value"
 	actual := []byte{1, 2, 3}
@@ -258,7 +258,7 @@ func TestObjectsAreEqual_ExpectedNotBytes(t *testing.T) {
 	}
 }
 
-// 测试 expected 为 []byte 类型，actual 不为 []byte 类型的情况
+// Test case 7: expected is the type of []byte, but actual is not the type []byte
 func TestObjectsAreEqual_ActualNotBytes(t *testing.T) {
 	expected := []byte{1, 2, 3}
 	actual := "some value"
@@ -267,7 +267,7 @@ func TestObjectsAreEqual_ActualNotBytes(t *testing.T) {
 	}
 }
 
-// 测试 expected 和 actual 都为非 nil 且非 []byte 类型，且内容相等的情况
+// Test case 7: expected and actual are not nil, and not the type of []byte, but the contents are equal
 func TestObjectsAreEqual_BothNonBytesEqual(t *testing.T) {
 	expected := "some value"
 	actual := "some value"
@@ -276,7 +276,7 @@ func TestObjectsAreEqual_BothNonBytesEqual(t *testing.T) {
 	}
 }
 
-// 测试 expected 和 actual 都为非 nil 且非 []byte 类型，但内容不相等的情况
+// Test case 8: expected and actual are not nil, and not the type of []byte, but the contents are not equal
 func TestObjectsAreEqual_BothNonBytesNotEqual(t *testing.T) {
 	expected := "some value"
 	actual := "another value"

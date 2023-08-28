@@ -33,6 +33,7 @@ func TestIsDevelopEnvironment(t *testing.T) {
 	if !isDev {
 		t.Errorf("Expected IsDevelopEnvironment() to return true, but got false")
 	}
+	os.Unsetenv(constants.EnvDevelopEnvironment)
 
 	// Test case 2: Environment variable is set to "yes"
 	os.Setenv(constants.EnvDevelopEnvironment, "yes")
@@ -40,6 +41,7 @@ func TestIsDevelopEnvironment(t *testing.T) {
 	if !isDev {
 		t.Errorf("Expected IsDevelopEnvironment() to return true, but got false")
 	}
+	os.Unsetenv(constants.EnvDevelopEnvironment)
 
 	// Test case 3: Environment variable is set to "on"
 	os.Setenv(constants.EnvDevelopEnvironment, "on")
@@ -47,6 +49,7 @@ func TestIsDevelopEnvironment(t *testing.T) {
 	if !isDev {
 		t.Errorf("Expected IsDevelopEnvironment() to return true, but got false")
 	}
+	os.Unsetenv(constants.EnvDevelopEnvironment)
 
 	// Test case 4: Environment variable is set to "true"
 	os.Setenv(constants.EnvDevelopEnvironment, "true")
@@ -54,6 +57,7 @@ func TestIsDevelopEnvironment(t *testing.T) {
 	if !isDev {
 		t.Errorf("Expected IsDevelopEnvironment() to return true, but got false")
 	}
+	os.Unsetenv(constants.EnvDevelopEnvironment)
 
 	// Test case 5: Environment variable is set to any other value
 	//os.Setenv(constants.EnvDevelopEnvironment, "false")
