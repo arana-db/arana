@@ -79,7 +79,7 @@ func TestIsEmpty(t *testing.T) {
 
 	// Test non-zero value
 	str = "Hello"
-	assert.False(t, isEmpty(s))
+	assert.False(t, isEmpty(str))
 }
 
 func TestElementsMatch(t *testing.T) {
