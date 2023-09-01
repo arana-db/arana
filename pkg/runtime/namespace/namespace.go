@@ -193,8 +193,10 @@ func (ns *Namespace) DB(ctx context.Context, group string) proto.DB {
 	if len(wrList) != 0 {
 		target = selector.NewWeightRandomSelector(wrList).GetDataSourceNo()
 	}
-
-	return exist[target]
+	if len(exist) > 0 {
+		return exist[target]
+	}
+	return nil
 }
 
 // DBMaster returns a master DB, returns nil if nothing selected.
@@ -243,8 +245,9 @@ func (ns *Namespace) DBSlave(_ context.Context, group string) proto.DB {
 	}
 	if len(wrList) != 0 {
 		target = selector.NewWeightRandomSelector(wrList).GetDataSourceNo()
+		return readDBList[target]
 	}
-	return readDBList[target]
+	return nil
 }
 
 // SysDB returns SysDB
