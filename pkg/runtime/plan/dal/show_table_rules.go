@@ -20,6 +20,7 @@ package dal
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -34,55 +35,61 @@ import (
 	"github.com/arana-db/arana/pkg/runtime/plan"
 )
 
-var _ proto.Plan = (*ShowDatabaseRulesPlan)(nil)
+var _ proto.Plan = (*ShowTableRulesPlan)(nil)
 
-type ShowDatabaseRulesPlan struct {
+type ShowTableRulesPlan struct {
 	plan.BasePlan
-	Stmt *ast.ShowDatabaseRule
+	Stmt *ast.ShowTableRule
 	rule *rule.Rule
 }
 
-func (s *ShowDatabaseRulesPlan) Type() proto.PlanType {
+func (s *ShowTableRulesPlan) Type() proto.PlanType {
 	return proto.PlanTypeQuery
 }
 
-func (s *ShowDatabaseRulesPlan) ExecIn(ctx context.Context, _ proto.VConn) (proto.Result, error) {
-	_, span := plan.Tracer.Start(ctx, "ShowDatabaseRulesPlan.ExecIn")
+func (s *ShowTableRulesPlan) ExecIn(ctx context.Context, _ proto.VConn) (proto.Result, error) {
+	_, span := plan.Tracer.Start(ctx, "ShowTableRulesPlan.ExecIn")
 	defer span.End()
 
-	fields := thead.DBRule.ToFields()
+	fields := thead.TableRule.ToFields()
 	ds := &dataset.VirtualDataset{
 		Columns: fields,
 	}
-
 	vt, ok := s.rule.VTable(s.Stmt.TableName)
 	if !ok {
 		return resultx.New(resultx.WithDataset(ds)), nil
 	}
 
 	for _, vs := range vt.GetVShards() {
-		var columns []string
-		for i := range vs.DB.ShardColumns {
-			columns = append(columns, vs.DB.ShardColumns[i].Name)
+		var (
+			columns []string
+			steps   []string
+		)
+
+		for i := range vs.Table.ShardColumns {
+			columns = append(columns, vs.Table.ShardColumns[i].Name)
+			steps = append(steps, strconv.Itoa(vs.Table.ShardColumns[i].Steps))
 		}
+
 		ds.Rows = append(ds.Rows, rows.NewTextVirtualRow(fields, []proto.Value{
 			proto.NewValueString(s.Stmt.TableName),
 			proto.NewValueString(strings.Join(columns, ",")),
 			proto.NewValueString(""),
-			proto.NewValueString(fmt.Sprintf("%s", vs.DB.Computer)),
-			proto.NewValueInt64(1),
+			proto.NewValueString(fmt.Sprintf("%s", vs.Table.Computer)),
+			proto.NewValueString(strings.Join(steps, ",")),
 		}))
 	}
+
 	return resultx.New(resultx.WithDataset(ds)), nil
 }
 
-func (s *ShowDatabaseRulesPlan) SetRule(rule *rule.Rule) {
+func (s *ShowTableRulesPlan) SetRule(rule *rule.Rule) {
 	s.rule = rule
 }
 
-// NewShowDatabaseRulesPlan create ShowDatabaseRules Plan
-func NewShowDatabaseRulesPlan(stmt *ast.ShowDatabaseRule) *ShowDatabaseRulesPlan {
-	return &ShowDatabaseRulesPlan{
+// NewShowTableRulesPlan create ShowTableRules Plan
+func NewShowTableRulesPlan(stmt *ast.ShowTableRule) *ShowTableRulesPlan {
+	return &ShowTableRulesPlan{
 		Stmt: stmt,
 	}
 }

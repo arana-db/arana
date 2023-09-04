@@ -70,6 +70,14 @@ var (
 		Col{Name: "expr", FieldType: consts.FieldTypeVarString},
 		Col{Name: "step", FieldType: consts.FieldTypeInt24},
 	}
+
+	TableRule = Thead{
+		Col{Name: "table_name", FieldType: consts.FieldTypeVarString},
+		Col{Name: "column", FieldType: consts.FieldTypeVarString},
+		Col{Name: "type", FieldType: consts.FieldTypeVarString},
+		Col{Name: "expr", FieldType: consts.FieldTypeVarString},
+		Col{Name: "step", FieldType: consts.FieldTypeVarString},
+	}
 )
 
 type Col struct {
