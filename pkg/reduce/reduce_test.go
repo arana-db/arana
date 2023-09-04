@@ -24,6 +24,7 @@ import (
 
 import (
 	"github.com/shopspring/decimal"
+
 	"github.com/stretchr/testify/assert"
 )
 
