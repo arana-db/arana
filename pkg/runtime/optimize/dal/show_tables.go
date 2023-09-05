@@ -24,32 +24,57 @@ import (
 import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime/ast"
+	rcontext "github.com/arana-db/arana/pkg/runtime/context"
+	"github.com/arana-db/arana/pkg/runtime/namespace"
 	"github.com/arana-db/arana/pkg/runtime/optimize"
 	"github.com/arana-db/arana/pkg/runtime/plan/dal"
+	"github.com/arana-db/arana/pkg/security"
 )
 
 func init() {
 	optimize.Register(ast.SQLTypeShowTables, optimizeShowTables)
 }
 
-func optimizeShowTables(_ context.Context, o *optimize.Optimizer) (proto.Plan, error) {
+func optimizeShowTables(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error) {
 	stmt := o.Stmt.(*ast.ShowTables)
-	var invertedIndex map[string]string
-	for logicalTable, v := range o.Rule.VTables() {
-		t := v.Topology()
-		t.Each(func(x, y int) bool {
-			if _, phyTable, ok := t.Render(x, y); ok {
-				if invertedIndex == nil {
-					invertedIndex = make(map[string]string)
-				}
-				invertedIndex[phyTable] = logicalTable
-			}
-			return true
-		})
-	}
 
 	ret := dal.NewShowTablesPlan(stmt)
 	ret.BindArgs(o.Args)
-	ret.SetInvertedShards(invertedIndex)
+
+	var tables []string
+	if table, ok := stmt.BaseShowWithSingleColumn.BaseShow.Like(); ok {
+		var (
+			tenant   = rcontext.Tenant(ctx)
+			clusters = security.DefaultTenantManager().GetClusters(tenant)
+		)
+		for _, cluster := range clusters {
+			if table == cluster {
+				groups := namespace.Load(tenant, cluster).DBGroups()
+				for i := 0; i < len(groups); i++ {
+					tables = append(tables, groups[i])
+				}
+				break
+			}
+		}
+	}
+
+	if len(tables) != 0 {
+		ret.SetTables(tables)
+	} else {
+		var invertedIndex map[string]string
+		for logicalTable, v := range o.Rule.VTables() {
+			t := v.Topology()
+			t.Each(func(x, y int) bool {
+				if _, phyTable, ok := t.Render(x, y); ok {
+					if invertedIndex == nil {
+						invertedIndex = make(map[string]string)
+					}
+					invertedIndex[phyTable] = logicalTable
+				}
+				return true
+			})
+		}
+		ret.SetInvertedShards(invertedIndex)
+	}
 	return ret, nil
 }

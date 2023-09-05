@@ -32,6 +32,7 @@ import (
 	"github.com/arana-db/arana/pkg/dataset"
 	"github.com/arana-db/arana/pkg/mysql"
 	"github.com/arana-db/arana/pkg/mysql/rows"
+	"github.com/arana-db/arana/pkg/mysql/thead"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/resultx"
 	"github.com/arana-db/arana/pkg/runtime/ast"
@@ -45,6 +46,7 @@ type ShowTablesPlan struct {
 	plan.BasePlan
 	Database       string
 	Stmt           *ast.ShowTables
+	tables         []string
 	invertedShards map[string]string // phy table name -> logical table name
 }
 
@@ -60,14 +62,27 @@ func (st *ShowTablesPlan) Type() proto.PlanType {
 }
 
 func (st *ShowTablesPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.Result, error) {
+	ctx, span := plan.Tracer.Start(ctx, "ShowTablesPlan.ExecIn")
+	defer span.End()
+
+	if len(st.tables) != 0 {
+		var (
+			columns = thead.Database.ToFields()
+			ds      = &dataset.VirtualDataset{Columns: columns}
+		)
+
+		for i := 0; i < len(st.tables); i++ {
+			ds.Rows = append(ds.Rows, rows.NewTextVirtualRow(columns, []proto.Value{proto.NewValueString(st.tables[i])}))
+		}
+		return resultx.New(resultx.WithDataset(ds)), nil
+	}
+
 	var (
 		sb      strings.Builder
 		indexes []int
 		res     proto.Result
 		err     error
 	)
-	ctx, span := plan.Tracer.Start(ctx, "ShowTablesPlan.ExecIn")
-	defer span.End()
 
 	if err = st.Stmt.Restore(ast.RestoreDefault, &sb, &indexes); err != nil {
 		return nil, errors.WithStack(err)
@@ -146,4 +161,8 @@ func (st *ShowTablesPlan) SetDatabase(db string) {
 
 func (st *ShowTablesPlan) SetInvertedShards(m map[string]string) {
 	st.invertedShards = m
+}
+
+func (st *ShowTablesPlan) SetTables(tables []string) {
+	st.tables = tables
 }
