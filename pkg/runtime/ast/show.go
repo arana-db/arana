@@ -213,7 +213,7 @@ func (st *ShowTables) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int
 		sb.WriteString("FULL ")
 	}
 
-	sb.WriteString("TABLES ")
+	sb.WriteString("TABLES")
 	if err := st.BaseShow.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
