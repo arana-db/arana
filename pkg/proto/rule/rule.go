@@ -367,3 +367,50 @@ func (ru *Rule) Range(f func(table string, vt *VTable) bool) {
 		}
 	}
 }
+
+// GetInvertedPhyTableMap returns the inverse relationship from physical table name to logical table name.
+func (ru *Rule) GetInvertedPhyTableMap() map[string]string {
+	var invertedIndex map[string]string
+	for logicalTable, v := range ru.VTables() {
+		t := v.Topology()
+		t.Each(func(x, y int) bool {
+			if _, phyTable, ok := t.Render(x, y); ok {
+				if invertedIndex == nil {
+					invertedIndex = make(map[string]string)
+				}
+				invertedIndex[phyTable] = logicalTable
+			}
+			return true
+		})
+	}
+
+	return invertedIndex
+}
+
+// GetInvertedVTableMap returns the inverse relationship from logical table name to all physical table name.
+// TODO: did we need an sorted version?
+func (ru *Rule) GetInvertedVTableMap() map[string][]string {
+	var invertedIndex map[string][]string
+
+	vtables := ru.VTables()
+	if len(vtables) > 0 {
+		invertedIndex = make(map[string][]string)
+	}
+
+	for logicalTable, v := range vtables {
+		t := v.Topology()
+
+		_, tblLength := t.Len()
+		// memory allocation
+		invertedIndex[logicalTable] = make([]string, 0, tblLength)
+
+		t.Each(func(x, y int) bool {
+			if _, phyTable, ok := t.Render(x, y); ok {
+				invertedIndex[logicalTable] = append(invertedIndex[logicalTable], phyTable)
+			}
+			return true
+		})
+	}
+
+	return invertedIndex
+}

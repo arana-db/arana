@@ -45,7 +45,8 @@ type ShowTablesPlan struct {
 	plan.BasePlan
 	Database       string
 	Stmt           *ast.ShowTables
-	invertedShards map[string]string // phy table name -> logical table name
+	invertedShards map[string]string   // phy table name -> logical table name
+	duplicates     map[string]struct{} // filter duplicates
 }
 
 // NewShowTablesPlan create ShowTables Plan
@@ -91,9 +92,6 @@ func (st *ShowTablesPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 
 	fields[0] = mysql.NewField(headerPrefix+rcontext.Schema(ctx), constant.FieldTypeVarString)
 
-	// filter duplicates
-	duplicates := make(map[string]struct{})
-
 	// 1. convert to logical table name
 	// 2. filter duplicated table name
 	// 3. if pattern exists, then filter table name that matches with the pattern
@@ -128,10 +126,10 @@ func (st *ShowTablesPlan) ExecIn(ctx context.Context, conn proto.VConn) (proto.R
 			}
 
 			tableName := vr.Values()[0].String()
-			if _, ok := duplicates[tableName]; ok {
+			if _, ok := st.duplicates[tableName]; ok {
 				return false
 			}
-			duplicates[tableName] = struct{}{}
+			st.duplicates[tableName] = struct{}{}
 			return true
 		}, systemTablePrefix),
 		dataset.Filter(st.Stmt.Filter()),
@@ -146,4 +144,8 @@ func (st *ShowTablesPlan) SetDatabase(db string) {
 
 func (st *ShowTablesPlan) SetInvertedShards(m map[string]string) {
 	st.invertedShards = m
+}
+
+func (st *ShowTablesPlan) SetDuplicates(m map[string]struct{}) {
+	st.duplicates = m
 }

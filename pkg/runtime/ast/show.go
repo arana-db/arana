@@ -179,19 +179,45 @@ func (s ShowCollation) Restore(flag RestoreFlag, sb *strings.Builder, args *[]in
 	return nil
 }
 
+type showTablesFlag int8
+
+const (
+	stFlagFull showTablesFlag = 0x01 << iota
+	stFlagExtended
+)
+
 type ShowTables struct {
-	*BaseShowWithSingleColumn
+	*BaseShow
+	flag showTablesFlag
 }
 
 func (st *ShowTables) Mode() SQLType {
 	return SQLTypeShowTables
 }
 
+func (st *ShowTables) IsFull() bool {
+	return st.flag&stFlagFull != 0
+}
+
+func (st *ShowTables) IsExtended() bool {
+	return st.flag&stFlagExtended != 0
+}
+
 func (st *ShowTables) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
-	sb.WriteString("SHOW TABLES")
-	if err := st.BaseShowWithSingleColumn.Restore(flag, sb, args); err != nil {
+	sb.WriteString("SHOW ")
+
+	if st.IsExtended() {
+		sb.WriteString("EXTENDED ")
+	}
+	if st.IsFull() {
+		sb.WriteString("FULL ")
+	}
+
+	sb.WriteString("TABLES ")
+	if err := st.BaseShow.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
+
 	return nil
 }
 

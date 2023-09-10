@@ -19,6 +19,7 @@ package rule
 
 import (
 	"fmt"
+	"sort"
 	"testing"
 )
 
@@ -34,20 +35,27 @@ import (
 )
 
 func TestRule(t *testing.T) {
-	m := make(map[int][]int)
+	const (
+		shardDBSize       = 4
+		logicalVtableSize = 16
+		stepperSize       = 1
+	)
 
-	for i := 0; i < 16; i++ {
-		m[i%4] = append(m[i%4], i%16)
+	topologyStatus := make(map[int][]int)
+
+	// table topology: 4 databases, 16 tables
+	for i := 0; i < logicalVtableSize; i++ {
+		topologyStatus[i%shardDBSize] = append(topologyStatus[i%shardDBSize], i%logicalVtableSize)
 	}
 
-	t.Log(m)
+	t.Log("topology: ", topologyStatus)
 
 	buildRule := func(c1, c2 ShardComputer) *Rule {
 		var (
 			ru      Rule
 			vtab    VTable
 			stepper = Stepper{
-				N: 1,
+				N: stepperSize,
 				U: Unum,
 			}
 		)
@@ -75,10 +83,10 @@ func TestRule(t *testing.T) {
 
 		// table topology: 4 databases, 16 tables
 		var topo Topology
-		topo.SetTopology(0, 0, 4, 8, 12)
-		topo.SetTopology(1, 1, 5, 9, 13)
-		topo.SetTopology(2, 2, 6, 10, 14)
-		topo.SetTopology(3, 3, 7, 11, 15)
+		for i := 0; i < logicalVtableSize; i++ {
+			topo.SetTopology(i%shardDBSize, topologyStatus[i%shardDBSize]...)
+		}
+
 		topo.SetRender(func(i int) string {
 			return fmt.Sprintf("school_%04d", i)
 		}, func(i int) string {
@@ -99,7 +107,7 @@ func TestRule(t *testing.T) {
 		Compute(gomock.Any()).
 		DoAndReturn(func(value proto.Value) (int, error) {
 			x, _ := value.Int64()
-			return int(x) % 16 / 4, nil
+			return int(x) % logicalVtableSize / shardDBSize, nil
 		}).
 		MinTimes(1)
 	c1.EXPECT().Variables().Return([]string{"uid"}).MinTimes(1)
@@ -109,7 +117,7 @@ func TestRule(t *testing.T) {
 		Compute(gomock.Any()).
 		DoAndReturn(func(value proto.Value) (int, error) {
 			x, _ := value.Int64()
-			return int(x % 16), nil
+			return int(x % logicalVtableSize), nil
 		}).
 		MinTimes(1)
 	c2.EXPECT().Variables().Return([]string{"uid"}).MinTimes(1)
@@ -130,8 +138,8 @@ func TestRule(t *testing.T) {
 		"uid": proto.NewValueInt64(42),
 	})
 	assert.NoError(t, err)
-	assert.Equal(t, uint32(2), dbIdx)
-	assert.Equal(t, uint32(10), tblIdx)
+	assert.Equal(t, uint32(42/logicalVtableSize), dbIdx)
+	assert.Equal(t, uint32(42%logicalVtableSize), tblIdx)
 
 	db, tbl, ok := vtab.Topology().Render(int(dbIdx), int(tblIdx))
 	assert.True(t, ok)
@@ -144,6 +152,24 @@ func TestRule(t *testing.T) {
 		"name": proto.NewValueInt64(42),
 	})
 	assert.Error(t, err)
+
+	// test table name invert functions
+	phy2VtableMap := ru.GetInvertedPhyTableMap()
+	expectedPhy2VtableMap := make(map[string]string, logicalVtableSize)
+	for i := 0; i < logicalVtableSize; i++ {
+		expectedPhy2VtableMap[fmt.Sprintf("student_%04d", i)] = "student"
+	}
+	assert.Equal(t, expectedPhy2VtableMap, phy2VtableMap)
+
+	vtable2PhyMap := ru.GetInvertedVTableMap()
+	expectedVtable2PhyMap := make(map[string][]string)
+	for i := 0; i < logicalVtableSize; i++ {
+		expectedVtable2PhyMap["student"] = append(expectedVtable2PhyMap["student"], fmt.Sprintf("student_%04d", i))
+	}
+	for tblName := range vtable2PhyMap {
+		sort.Strings(vtable2PhyMap[tblName])
+	}
+	assert.Equal(t, expectedPhy2VtableMap, phy2VtableMap)
 
 	ru.RemoveVTable("student")
 	assert.False(t, ru.Has("student"))

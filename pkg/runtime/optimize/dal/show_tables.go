@@ -24,32 +24,43 @@ import (
 import (
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/runtime/ast"
+	rcontext "github.com/arana-db/arana/pkg/runtime/context"
+	"github.com/arana-db/arana/pkg/runtime/namespace"
 	"github.com/arana-db/arana/pkg/runtime/optimize"
 	"github.com/arana-db/arana/pkg/runtime/plan/dal"
+	"github.com/arana-db/arana/pkg/runtime/plan/dml"
+	"github.com/arana-db/arana/pkg/security"
 )
 
 func init() {
 	optimize.Register(ast.SQLTypeShowTables, optimizeShowTables)
 }
 
-func optimizeShowTables(_ context.Context, o *optimize.Optimizer) (proto.Plan, error) {
+func optimizeShowTables(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error) {
 	stmt := o.Stmt.(*ast.ShowTables)
-	var invertedIndex map[string]string
-	for logicalTable, v := range o.Rule.VTables() {
-		t := v.Topology()
-		t.Each(func(x, y int) bool {
-			if _, phyTable, ok := t.Render(x, y); ok {
-				if invertedIndex == nil {
-					invertedIndex = make(map[string]string)
-				}
-				invertedIndex[phyTable] = logicalTable
-			}
-			return true
-		})
+	// construct table
+	invertedIndex := o.Rule.GetInvertedPhyTableMap()
+	// filter duplicates
+	duplicates := make(map[string]struct{})
+
+	tenant := rcontext.Tenant(ctx)
+	clusters := security.DefaultTenantManager().GetClusters(tenant)
+	plans := make([]proto.Plan, 0, len(clusters))
+	for _, cluster := range clusters {
+		ns := namespace.Load(tenant, cluster)
+		// execute query to all dbs
+		groups := ns.DBGroups()
+		for i := 0; i < len(groups); i++ {
+			ret := dal.NewShowTablesPlan(stmt)
+			ret.BindArgs(o.Args)
+			ret.SetInvertedShards(invertedIndex)
+			ret.SetDatabase(groups[i])
+			ret.SetDuplicates(duplicates)
+			plans = append(plans, ret)
+		}
 	}
 
-	ret := dal.NewShowTablesPlan(stmt)
-	ret.BindArgs(o.Args)
-	ret.SetInvertedShards(invertedIndex)
-	return ret, nil
+	return &dml.CompositePlan{
+		Plans: plans,
+	}, nil
 }

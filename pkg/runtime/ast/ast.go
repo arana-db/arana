@@ -735,12 +735,14 @@ func (cc *convCtx) convShowStmt(node *ast.ShowStmt) Statement {
 	case ast.ShowShardingTable:
 		return &ShowShardingTable{BaseShow: toBaseShow()}
 	case ast.ShowTables:
-		var pattern sql.NullString
-		if like, ok := toLike(node); ok {
-			pattern.Valid = true
-			pattern.String = like
+		ret := &ShowTables{BaseShow: toBaseShow()}
+		if node.Extended {
+			ret.flag |= stFlagExtended
 		}
-		return &ShowTables{BaseShowWithSingleColumn: &BaseShowWithSingleColumn{toBaseShow(), pattern}}
+		if node.Full {
+			ret.flag |= stFlagFull
+		}
+		return ret
 	case ast.ShowReplicas:
 		return &ShowReplicas{BaseShow: toBaseShow()}
 	case ast.ShowMasterStatus:
