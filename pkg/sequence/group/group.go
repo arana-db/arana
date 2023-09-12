@@ -77,14 +77,12 @@ type groupSequence struct {
 	tableName string
 	step      int64
 
-	nextGroupStartVal  int64
-	nextGroupMaxVal    int64
 	currentGroupMaxVal int64
 	currentVal         int64
 }
 
 // Start sequence and do some initialization operations
-func (seq *groupSequence) Start(ctx context.Context, option proto.SequenceConfig) error {
+func (seq *groupSequence) Start(ctx context.Context, conf proto.SequenceConfig) error {
 	rt := ctx.Value(proto.RuntimeCtxKey{}).(runtime.Runtime)
 	ctx = rcontext.WithRead(rcontext.WithDirect(ctx))
 
@@ -94,11 +92,11 @@ func (seq *groupSequence) Start(ctx context.Context, option proto.SequenceConfig
 	}
 
 	// init sequence
-	if err := seq.initStep(option); err != nil {
+	if err := seq.initStep(conf); err != nil {
 		return err
 	}
 
-	seq.tableName = option.Name
+	seq.tableName = conf.Name
 	return nil
 }
 
@@ -131,12 +129,12 @@ func (seq *groupSequence) initTable(ctx context.Context, rt runtime.Runtime) err
 	return nil
 }
 
-func (seq *groupSequence) initStep(option proto.SequenceConfig) error {
+func (seq *groupSequence) initStep(conf proto.SequenceConfig) error {
 	seq.mu.Lock()
 	defer seq.mu.Unlock()
 
 	var step int64
-	stepValue, ok := option.Option[_stepKey]
+	stepValue, ok := conf.Option[_stepKey]
 	if ok {
 		tempStep, err := strconv.Atoi(stepValue)
 		if err != nil {
@@ -169,8 +167,6 @@ func (seq *groupSequence) Acquire(ctx context.Context) (int64, error) {
 		if err != nil {
 			return 0, err
 		}
-		seq.currentVal = seq.nextGroupStartVal
-		seq.currentGroupMaxVal = seq.nextGroupMaxVal
 	} else {
 		seq.currentVal++
 	}
@@ -196,13 +192,14 @@ func (seq *groupSequence) acquireNextGroup(ctx context.Context, rt runtime.Runti
 	if err != nil {
 		return err
 	}
-	val := make([]proto.Value, 1)
+	vals := make([]proto.Value, 1)
 	row, err := ds.Next()
 	if err != nil {
+		// first time, init the start seq val for the table
 		if errors.Is(err, io.EOF) {
-			seq.nextGroupStartVal = _startSequence
-			seq.nextGroupMaxVal = _startSequence + seq.step - 1
-			rs, err := tx.Exec(ctx, "", _initGroupSequence, proto.NewValueInt64(seq.nextGroupMaxVal+1), proto.NewValueInt64(seq.step), proto.NewValueString(seq.tableName))
+			seq.currentVal = _startSequence
+			seq.currentGroupMaxVal = _startSequence + seq.step - 1
+			rs, err := tx.Exec(ctx, "", _initGroupSequence, proto.NewValueInt64(_startSequence), proto.NewValueInt64(seq.step), proto.NewValueString(seq.tableName))
 			if err != nil {
 				return err
 			}
@@ -216,20 +213,19 @@ func (seq *groupSequence) acquireNextGroup(ctx context.Context, rt runtime.Runti
 		}
 		return err
 	}
-	if err = row.Scan(val); err != nil {
+
+	if err = row.Scan(vals); err != nil {
 		return err
 	}
 	_, _ = ds.Next()
 
-	if val[0] != nil {
-		nextGroupStartVal, _ := val[0].Int64()
-		if nextGroupStartVal%seq.step != 0 {
-			// padding left
-			nextGroupStartVal = (nextGroupStartVal/seq.step + 1) * seq.step
-		}
-		seq.nextGroupStartVal = nextGroupStartVal
-		seq.nextGroupMaxVal = seq.nextGroupStartVal + seq.step - 1
-		rs, err := tx.Exec(ctx, "", _updateNextGroup, proto.NewValueInt64(seq.nextGroupMaxVal+1), proto.NewValueString(seq.tableName))
+	if vals[0] != nil {
+		lastGroupStartVal, _ := vals[0].Int64()
+		// padding left
+		currentGroupStartVal := (lastGroupStartVal/seq.step+1)*seq.step + 1
+		seq.currentVal = currentGroupStartVal
+		seq.currentGroupMaxVal = currentGroupStartVal + seq.step - 1
+		rs, err := tx.Exec(ctx, "", _updateNextGroup, proto.NewValueInt64(currentGroupStartVal), proto.NewValueString(seq.tableName))
 		if err != nil {
 			return err
 		}

@@ -148,7 +148,7 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 
 	if flag&_bypass != 0 {
 		if len(stmt.From) > 0 {
-			err := rewriteSelectStatement(ctx, stmt, o)
+			err := expandSelectStar(ctx, stmt, o)
 			if err != nil {
 				return nil, err
 			}
@@ -197,7 +197,7 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 	}
 
 	toSingle := func(db, tbl string) (proto.Plan, error) {
-		if err := rewriteSelectStatement(ctx, stmt, o); err != nil {
+		if err := expandSelectStar(ctx, stmt, o); err != nil {
 			return nil, err
 		}
 		ret := &dml.SimpleQueryPlan{
@@ -243,7 +243,7 @@ func optimizeSelect(ctx context.Context, o *optimize.Optimizer) (proto.Plan, err
 		return toSingle(db, tbl)
 	}
 
-	if err = rewriteSelectStatement(ctx, stmt, o); err != nil {
+	if err = expandSelectStar(ctx, stmt, o); err != nil {
 		return nil, errors.WithStack(err)
 	}
 
@@ -570,7 +570,7 @@ func optimizeJoin(ctx context.Context, o *optimize.Optimizer, stmt *ast.SelectSt
 			Stmt: selectStmt,
 		}
 		if _, ok = selectStmt.Select[0].(*ast.SelectElementAll); ok && len(selectStmt.Select) == 1 {
-			if err = rewriteSelectStatement(ctx, selectStmt, optimizer); err != nil {
+			if err = expandSelectStar(ctx, selectStmt, optimizer); err != nil {
 				return nil, err
 			}
 
@@ -624,7 +624,7 @@ func optimizeJoin(ctx context.Context, o *optimize.Optimizer, stmt *ast.SelectSt
 		scanner  = newSelectScanner(stmt, o.Args)
 	)
 
-	if err = rewriteSelectStatement(ctx, stmt, o); err != nil {
+	if err = expandSelectStar(ctx, stmt, o); err != nil {
 		return nil, errors.WithStack(err)
 	}
 
@@ -786,7 +786,7 @@ func overwriteLimit(stmt *ast.SelectStatement, args *[]proto.Value) (originOffse
 	return
 }
 
-func rewriteSelectStatement(ctx context.Context, stmt *ast.SelectStatement, o *optimize.Optimizer) error {
+func expandSelectStar(ctx context.Context, stmt *ast.SelectStatement, o *optimize.Optimizer) error {
 	// todo db 计算逻辑&tb shard 的计算逻辑
 	starExpand := false
 	if len(stmt.Select) == 1 {
