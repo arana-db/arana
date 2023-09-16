@@ -53,7 +53,8 @@ func TestRegister(t *testing.T) {
 		db := testdata.NewMockDB(ctrl)
 		db.EXPECT().ID().Return(fmt.Sprintf("the-mysql-instance-%d", i)).AnyTimes()
 		db.EXPECT().Weight().Return(proto.Weight{R: 10, W: 10}).AnyTimes()
-		db.EXPECT().Close().Times(1)
+		db.EXPECT().SetWeight(proto.Weight{R: 9, W: 1}).Return(nil).AnyTimes()
+		db.EXPECT().Close().AnyTimes()
 		return db
 	}
 
@@ -84,6 +85,41 @@ func TestRegister(t *testing.T) {
 	assert.NotNil(t, db)
 
 	assert.Equal(t, []string{getGroup(0), getGroup(1)}, ns.DBGroups())
+
+	err = ns.EnqueueCommand(UpdateWeight(getGroup(1), getDB(2).ID(), proto.Weight{R: 9, W: 1}))
+	assert.NoError(t, err)
+	time.Sleep(5 * time.Millisecond)
+
+	dbs := ns.DBs(getGroup(0))
+	assert.NotNil(t, dbs)
+	db0 := ns.DB0(context.Background())
+	assert.NotNil(t, db0)
+	assert.Equal(t, dbs[0].ID(), db0.ID())
+
+	dbm := ns.DBMaster(context.Background(), getGroup(0))
+	assert.NotNil(t, dbm)
+	dbl := ns.DBSlave(context.Background(), getGroup(0))
+	assert.Nil(t, dbl)
+
+	sys := ns.SysDB()
+	assert.Nil(t, sys)
+	rule := ns.Rule()
+	assert.NotNil(t, rule)
+
+	err = ns.EnqueueCommand(RemoveNode(getGroup(0), getDB(1).ID()))
+	assert.Nil(t, err)
+	time.Sleep(5 * time.Millisecond)
+
+	err = ns.EnqueueCommand(RemoveDB(getGroup(1), getDB(2).ID()))
+	assert.Nil(t, err)
+	time.Sleep(5 * time.Millisecond)
+	db = ns.DB(context.Background(), getGroup(1))
+	assert.Nil(t, db)
+	err = ns.EnqueueCommand(RemoveGroup(getGroup(1)))
+	assert.Nil(t, err)
+	time.Sleep(5 * time.Millisecond)
+	gp := ns.DBGroups()
+	assert.Equal(t, 1, len(gp))
 }
 
 func TestGetDBByWeight(t *testing.T) {
@@ -117,6 +153,9 @@ func TestGetDBByWeight(t *testing.T) {
 		assert.NoError(t, err, "should unregister ok")
 	}()
 	time.Sleep(5 * time.Millisecond)
+	nsList := List()
+	assert.NotNil(t, nsList, "should list namespace")
+	assert.Equal(t, 1, len(nsList))
 	ns = Load(tenant, name)
 	assert.NotNil(t, ns, "should load namespace")
 	ctx := rcontext.WithRead(context.Background())
