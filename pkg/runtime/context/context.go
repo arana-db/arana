@@ -75,11 +75,7 @@ func WithHints(ctx context.Context, hints []*hint.Hint) context.Context {
 
 // Tenant extracts the tenant.
 func Tenant(ctx context.Context) string {
-	tenant, ok := ctx.Value(proto.ContextKeyTenant{}).(string)
-	if !ok {
-		return ""
-	}
-	return tenant
+	return isString(ctx, proto.ContextKeyTenant{})
 }
 
 // IsRead returns true if this is a read operation
@@ -99,40 +95,25 @@ func IsDirect(ctx context.Context) bool {
 
 // SQL returns the original sql string.
 func SQL(ctx context.Context) string {
-	if sql, ok := ctx.Value(proto.ContextKeySQL{}).(string); ok {
-		return sql
-	}
-	return ""
+	return isString(ctx, proto.ContextKeySQL{})
 }
 
 func Schema(ctx context.Context) string {
-	if schema, ok := ctx.Value(proto.ContextKeySchema{}).(string); ok {
-		return schema
-	}
-	return ""
+	return isString(ctx, proto.ContextKeySchema{})
 }
 
 func Version(ctx context.Context) string {
-	if schema, ok := ctx.Value(proto.ContextKeyServerVersion{}).(string); ok {
-		return schema
-	}
-	return ""
+	return isString(ctx, proto.ContextKeyServerVersion{})
 }
 
 // NodeLabel returns the label of node.
 func NodeLabel(ctx context.Context) string {
-	if label, ok := ctx.Value(keyNodeLabel{}).(string); ok {
-		return label
-	}
-	return ""
+	return isString(ctx, keyNodeLabel{})
 }
 
 // TransactionID returns the transactions id
 func TransactionID(ctx context.Context) string {
-	if label, ok := ctx.Value(keyTransactionID{}).(string); ok {
-		return label
-	}
-	return ""
+	return isString(ctx, keyTransactionID{})
 }
 
 // Hints extracts the hints.
@@ -161,4 +142,11 @@ func getFlag(ctx context.Context) cFlag {
 		return 0
 	}
 	return f
+}
+
+func isString(ctx context.Context, v any) string {
+	if data, ok := ctx.Value(v).(string); ok {
+		return data
+	}
+	return ""
 }

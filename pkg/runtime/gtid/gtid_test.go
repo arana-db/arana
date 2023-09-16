@@ -18,45 +18,16 @@
 package gtid
 
 import (
-	"strconv"
-	"sync"
+	"testing"
 )
 
 import (
-	"github.com/bwmarrin/snowflake"
+	"github.com/stretchr/testify/assert"
 )
 
-import (
-	"github.com/arana-db/arana/pkg/util/identity"
-	"github.com/arana-db/arana/pkg/util/rand2"
-)
-
-var (
-	nodeId     string
-	once       sync.Once
-	seqBuilder *snowflake.Node
-)
-
-// ID Gtid
-type ID struct {
-	NodeID string
-	Seq    int64
-}
-
-// NewID generates next Gtid
-func NewID() ID {
-	once.Do(func() {
-		nodeId = identity.GetNodeIdentity()
-		seqBuilder, _ = snowflake.NewNode(rand2.Int63n(1024))
-	})
-
-	return ID{
-		NodeID: nodeId,
-		Seq:    seqBuilder.Generate().Int64(),
-	}
-}
-
-// String ID to string
-func (i ID) String() string {
-	return i.NodeID + "-" + strconv.FormatInt(i.Seq, 10)
+func TestGtID(t *testing.T) {
+	id := NewID()
+	assert.NotEmpty(t, id.NodeID)
+	assert.NotEmpty(t, id.Seq)
+	assert.NotEmpty(t, id.String())
 }
