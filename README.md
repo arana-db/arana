@@ -87,7 +87,7 @@ Arana Chinese Community Meeting Time: **Every Saturday At 9:00PM GMT+8**
 
 ## Contributing
 
-Thanks for your help improving the project! We are so happy to have you! We have a contributing guide to help you get
+Thanks for your help improving the project! We are so happy to have you! We have a [contributing guide](./CONTRIBUTING.md) to help you get
 involved in the Arana project.
 
 ## Developer
