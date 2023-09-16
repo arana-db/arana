@@ -77,7 +77,7 @@ func (fp *discovery) Init(ctx context.Context) error {
 	uconfig.IsEnableLocalMathCompu(cfg.Spec.EnableLocalMathComputation)
 	fp.options = cfg
 
-	if err := config.Init(*fp.options.Config, fp.options.Spec.APIVersion); err != nil {
+	if err = config.Init(*fp.options.Config, fp.options.Spec.APIVersion); err != nil {
 		return err
 	}
 
@@ -85,10 +85,7 @@ func (fp *discovery) Init(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := fp.initAllConfigCenter(); err != nil {
-		return err
-	}
-	return nil
+	return fp.initAllConfigCenter()
 }
 
 func (fp *discovery) InitTenant(tenant string) error {
@@ -121,11 +118,7 @@ func (fp *discovery) initAllConfigCenter() error {
 }
 
 func (fp *discovery) GetDataSourceCluster(ctx context.Context, tenant, cluster string) (*config.DataSourceCluster, error) {
-	dataSourceCluster, err := fp.loadCluster(tenant, cluster)
-	if err != nil {
-		return nil, err
-	}
-	return dataSourceCluster, nil
+	return fp.loadCluster(tenant, cluster)
 }
 
 func (fp *discovery) GetGroup(ctx context.Context, tenant, cluster, group string) (*config.Group, error) {
@@ -197,10 +190,9 @@ func (fp *discovery) InitTrace(ctx context.Context) error {
 }
 
 func (fp *discovery) InitSupervisor(ctx context.Context) error {
-	if fp.options.Supervisor == nil {
-		return nil
+	if fp.options.Supervisor != nil {
+		security.DefaultTenantManager().SetSupervisor(fp.options.Supervisor)
 	}
-	security.DefaultTenantManager().SetSupervisor(fp.options.Supervisor)
 	return nil
 }
 
@@ -270,11 +262,11 @@ func (fp *discovery) ListTables(ctx context.Context, tenant, cluster string) ([]
 		return nil, err
 	}
 
-	rule := cfg.ShardingRule
+	shardingRule := cfg.ShardingRule
 	tables := make([]string, 0, 4)
 
-	for i := range rule.Tables {
-		db, tb, err := misc.ParseTable(rule.Tables[i].Name)
+	for i := range shardingRule.Tables {
+		db, tb, err := misc.ParseTable(shardingRule.Tables[i].Name)
 		if err != nil {
 			return nil, err
 		}

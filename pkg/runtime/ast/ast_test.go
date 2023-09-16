@@ -279,6 +279,7 @@ func TestParseMore(t *testing.T) {
 		"show indexes from student where Column_name='a'",
 		"show full columns from student",
 		"show full columns from student like 'PRI'",
+		"show tables from employees",
 
 		"explain select * from student where uid = 1",
 		"explain delete from student where uid = 1",
