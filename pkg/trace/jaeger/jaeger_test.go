@@ -19,6 +19,7 @@ func TestJaegerProvider(t *testing.T) {
 		Type:    "jaeger",
 		Address: "http://localhost:14268/api/traces",
 	}
+
 	tPCtx := &proto.Context{
 		Context: tCtx,
 	}
@@ -48,4 +49,11 @@ func TestJaegerProvider(t *testing.T) {
 
 	// test extracted content to ctx
 	assert.NotEqual(t, tCtx, tPCtx.Context)
+
+	// test extract hint by jaeger
+	failResult := j.Extract(tPCtx, []*hint.Hint{{
+		Type:   hint.TypeDirect,
+		Inputs: nil,
+	}})
+	assert.Equal(t, false, failResult)
 }
