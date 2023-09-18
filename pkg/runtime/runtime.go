@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+//go:generate mockgen -destination=./mock_runtime.go -package=runtime . Runtime
 package runtime
 
 import (
@@ -61,6 +62,8 @@ import (
 var (
 	_ Runtime     = (*defaultRuntime)(nil)
 	_ proto.VConn = (*defaultRuntime)(nil)
+
+	_runtimes sync.Map
 )
 
 var Tracer = otel.Tracer("Runtime")
@@ -77,8 +80,20 @@ type Runtime interface {
 	Begin(ctx context.Context, hooks ...TxHook) (proto.Tx, error)
 }
 
+// Register registers a Runtime.
+func Register(tenant string, schema string, rt Runtime) error {
+	if _, loaded := _runtimes.LoadOrStore(tenant+":"+schema, rt); loaded {
+		return perrors.Errorf("cannot register conflict runtime: tenant=%s, name=%s", tenant, schema)
+	}
+	return nil
+}
+
 // Load loads a Runtime, here schema means logical database name.
 func Load(tenant, schema string) (Runtime, error) {
+	if rt, ok := _runtimes.Load(tenant + ":" + schema); ok {
+		return rt.(Runtime), nil
+	}
+
 	var ns *namespace.Namespace
 	if ns = namespace.Load(tenant, schema); ns == nil {
 		return nil, perrors.Errorf("no such schema: tenant=%s, schema=%s", tenant, schema)
@@ -96,6 +111,7 @@ func Unload(tenant, schema string) error {
 
 var _ proto.DB = (*AtomDB)(nil)
 
+// AtomDB represents an atom physical database instance
 type AtomDB struct {
 	mu sync.Mutex
 

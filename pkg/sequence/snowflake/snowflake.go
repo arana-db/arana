@@ -248,8 +248,8 @@ func (seq *snowflakeSequence) GetSequenceConfig() proto.SequenceConfig {
 	}
 }
 
-func (seq *snowflakeSequence) findWorkID(ctx context.Context, tx proto.Tx, seqName string) (int64, error) {
-	ret, err := tx.Query(ctx, "", _selectSelfWorkIdWithXLock, proto.NewValueString(seqName), proto.NewValueString(_nodeId))
+func (seq *snowflakeSequence) findWorkID(ctx context.Context, tx proto.Tx, tableName string) (int64, error) {
+	ret, err := tx.Query(ctx, "", _selectSelfWorkIdWithXLock, proto.NewValueString(tableName), proto.NewValueString(_nodeId))
 	if err != nil {
 		return 0, err
 	}
@@ -271,7 +271,7 @@ func (seq *snowflakeSequence) findWorkID(ctx context.Context, tx proto.Tx, seqNa
 		}
 	}
 
-	ret, err = tx.Query(ctx, "", _selectMaxWorkIdWithXLock, proto.NewValueString(seqName))
+	ret, err = tx.Query(ctx, "", _selectMaxWorkIdWithXLock, proto.NewValueString(tableName))
 	if err != nil {
 		return 0, err
 	}
@@ -297,7 +297,7 @@ func (seq *snowflakeSequence) findWorkID(ctx context.Context, tx proto.Tx, seqNa
 	curId, _ := val[0].Int64()
 	curId++
 	if curId > workIdMax {
-		ret, err := tx.Query(ctx, "", _selectFreeWorkIdWithXLock, proto.NewValueString(seqName))
+		ret, err := tx.Query(ctx, "", _selectFreeWorkIdWithXLock, proto.NewValueString(tableName))
 		if err != nil {
 			return 0, err
 		}

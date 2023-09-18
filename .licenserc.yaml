@@ -82,6 +82,7 @@ header: # `header` section is configurations for source codes license header.
     - 'pkg/resolver/mysql/encoding.go'
     - 'pkg/resolver/mysql/sql_error.go'
     - 'pkg/resolver/mysql/type.go'
+    - 'pkg/runtime/mock_runtime.go'
     - 'VERSION'
     - ".errcheck-exclude"
     - ".golangci.yml"
