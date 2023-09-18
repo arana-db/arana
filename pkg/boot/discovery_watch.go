@@ -33,12 +33,10 @@ func (fp *discovery) WatchTenants(ctx context.Context) (<-chan config.TenantsEve
 	ch := make(chan config.TenantsEvent)
 
 	cancel := fp.tenantOp.Subscribe(ctx, func(e config.Event) {
-		ch <- *e.(*config.TenantsEvent)
+		safeSendCh(ch, *e.(*config.TenantsEvent))
 	})
 
-	return ch, wrapWatchCancel(cancel, func() {
-		close(ch)
-	}), nil
+	return ch, wrapWatchCancel(cancel, ch), nil
 }
 
 func (fp *discovery) WatchNodes(ctx context.Context, tenant string) (<-chan config.NodesEvent, context.CancelFunc, error) {
@@ -50,15 +48,13 @@ func (fp *discovery) WatchNodes(ctx context.Context, tenant string) (<-chan conf
 	ch := make(chan config.NodesEvent)
 
 	cancel, err := op.Subscribe(ctx, config.EventTypeNodes, func(e config.Event) {
-		ch <- *e.(*config.NodesEvent)
+		safeSendCh(ch, *e.(*config.NodesEvent))
 	})
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return ch, wrapWatchCancel(cancel, func() {
-		close(ch)
-	}), nil
+	return ch, wrapWatchCancel(cancel, ch), nil
 }
 
 func (fp *discovery) WatchUsers(ctx context.Context, tenant string) (<-chan config.UsersEvent, context.CancelFunc, error) {
@@ -70,15 +66,13 @@ func (fp *discovery) WatchUsers(ctx context.Context, tenant string) (<-chan conf
 	ch := make(chan config.UsersEvent)
 
 	cancel, err := op.Subscribe(ctx, config.EventTypeUsers, func(e config.Event) {
-		ch <- *e.(*config.UsersEvent)
+		safeSendCh(ch, *e.(*config.UsersEvent))
 	})
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return ch, wrapWatchCancel(cancel, func() {
-		close(ch)
-	}), nil
+	return ch, wrapWatchCancel(cancel, ch), nil
 }
 
 func (fp *discovery) WatchClusters(ctx context.Context, tenant string) (<-chan config.ClustersEvent, context.CancelFunc, error) {
@@ -90,15 +84,13 @@ func (fp *discovery) WatchClusters(ctx context.Context, tenant string) (<-chan c
 	ch := make(chan config.ClustersEvent)
 
 	cancel, err := op.Subscribe(ctx, config.EventTypeClusters, func(e config.Event) {
-		ch <- *e.(*config.ClustersEvent)
+		safeSendCh(ch, *e.(*config.ClustersEvent))
 	})
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return ch, wrapWatchCancel(cancel, func() {
-		close(ch)
-	}), nil
+	return ch, wrapWatchCancel(cancel, ch), nil
 }
 
 func (fp *discovery) WatchShardingRule(ctx context.Context, tenant string) (<-chan config.ShardingRuleEvent, context.CancelFunc, error) {
@@ -110,15 +102,13 @@ func (fp *discovery) WatchShardingRule(ctx context.Context, tenant string) (<-ch
 	ch := make(chan config.ShardingRuleEvent)
 
 	cancel, err := op.Subscribe(ctx, config.EventTypeShardingRule, func(e config.Event) {
-		ch <- *e.(*config.ShardingRuleEvent)
+		safeSendCh(ch, *e.(*config.ShardingRuleEvent))
 	})
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return ch, wrapWatchCancel(cancel, func() {
-		close(ch)
-	}), nil
+	return ch, wrapWatchCancel(cancel, ch), nil
 }
 
 func (fp *discovery) WatchShadowRule(ctx context.Context, tenant string) (<-chan config.ShadowRuleEvent, context.CancelFunc, error) {
@@ -130,23 +120,29 @@ func (fp *discovery) WatchShadowRule(ctx context.Context, tenant string) (<-chan
 	ch := make(chan config.ShadowRuleEvent)
 
 	cancel, err := op.Subscribe(ctx, config.EventTypeShadowRule, func(e config.Event) {
-		ch <- *e.(*config.ShadowRuleEvent)
+		safeSendCh(ch, *e.(*config.ShadowRuleEvent))
 	})
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return ch, wrapWatchCancel(cancel, func() {
-		close(ch)
-	}), nil
+	return ch, wrapWatchCancel(cancel, ch), nil
 }
 
-func wrapWatchCancel(cancel context.CancelFunc, closeChan func()) context.CancelFunc {
+func safeSendCh[T any](ch chan<- T, t T) {
+	// recover if chan is closed
+	defer func() {
+		_ = recover()
+	}()
+	ch <- t
+}
+
+func wrapWatchCancel[T any](cancel context.CancelFunc, ch chan T) context.CancelFunc {
 	return func() {
 		timer := time.NewTimer(100 * time.Millisecond)
 		defer timer.Stop()
 		cancel()
 		<-timer.C
-		closeChan()
+		close(ch)
 	}
 }

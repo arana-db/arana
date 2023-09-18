@@ -37,7 +37,12 @@ import (
 )
 
 func TestFileProvider(t *testing.T) {
-	os.Setenv(constants.EnvConfigPath, testdata.Path("fake_config.yaml"))
+	prevEnv := os.Getenv(constants.EnvConfigPath)
+	defer func() {
+		_ = os.Setenv(constants.EnvConfigPath, prevEnv)
+	}()
+	_ = os.Setenv(constants.EnvConfigPath, testdata.Path("fake_config.yaml"))
+
 	provider := NewDiscovery(testdata.Path("fake_bootstrap.yaml"))
 
 	err := Boot(context.Background(), provider)
