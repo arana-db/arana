@@ -6,7 +6,7 @@
 
 `Arana` is a Cloud Native Database Proxy. It can be deployed as a Database mesh sidecar. It provides transparent data
 access capabilities,
-when using `arana`, user doesn't need to care about the `sharding` details of database, they can use it just like a
+when using `Arana`, user doesn't need to care about the `sharding` details of database, they can use it just like a
 single `MySQL` database.
 
 ## Overview
@@ -23,11 +23,11 @@ single `MySQL` database.
 
 ## Introduction | [中文](https://github.com/arana-db/arana/blob/master/README_CN.md)
 
-First, `Arana` is a Cloud Native Database Proxy. It provides transparent data access capabilities, when using `arana`,
+First, `Arana` is a Cloud Native Database Proxy. It provides transparent data access capabilities, when using `Arana`,
 user doesn't need to care about the `sharding` details of database, they can use it just like a single `MySQL` database.
 `Arana` also provide abilities of `Multi Tenant`, `Distributed transaction`, `Shadow database`, `SQL Audit`
 , `Data encrypt / decrypt`
-and so on. Through simple config, user can use these abilities provided by `arana` directly.
+and so on. Through simple config, user can use these abilities provided by `Arana` directly.
 
 Second, `Arana` can also be deployed as a Database mesh sidecar. As a Database mesh sidecar, arana switches data access
 from
@@ -51,9 +51,9 @@ provides all the capabilities of proxy.
 |      Multi Tenant       |      √       |
 | Distributed Primary Key |      √       |
 |      Shadow Table       |      √       |
+|    Tracing / Metrics    |      √       |
 | Distributed Transaction |     WIP      |
 |      Database Mesh      |     WIP      |
-|    Tracing / Metrics    |     WIP      |
 |        SQL Audit        |     WIP      |
 | Data encrypt / decrypt  |   Roadmap    |
 |       SQL LIMITER       |   Roadmap    |
@@ -81,7 +81,7 @@ arana start -c ${configFilePath}
 
 ## Contact
 
-Arana Chinese Community Meeting Time: **Every Saturday At 9:00PM GMT+8**
+`Arana` Chinese Community Meeting Time: **Every Saturday At 9:00PM GMT+8**
 
 <img src="https://raw.githubusercontent.com/arana-db/arana/master/docs/pics/dingtalk-group.jpeg" width="300px"/>
 
@@ -100,5 +100,5 @@ Thanks to [all developers](https://github.com/arana-db/arana/graphs/contributors
 
 ## License
 
-Arana software is licenced under the Apache License Version 2.0. See
+`Arana` software is licenced under the Apache License Version 2.0. See
 the [LICENSE](https://github.com/arana-db/arana/blob/master/LICENSE) file for details.
