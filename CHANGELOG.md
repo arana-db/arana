@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [unreleased]
+## [0.2.0] - 2023-09-30
 
 ### Bug Fixes
 
@@ -29,11 +29,17 @@ All notable changes to this project will be documented in this file.
 - Handle empty query correctly (#654)
 - Connection leak when concurrent updates (#669)
 - Select from table not exist cause panic (#693)
+- Some problems when server starting (#735)
+- Security ut tenants sort (#751)
+- Show tables from database (#761)
+- Send to closed chan in discovery (#768)
+- Update readme (#770)
 
 ### Documentation
 
 - Updated features (#441)
 - Add contributors list (#594)
+- Contributing guide (#763)
 
 ### Features
 
@@ -106,6 +112,14 @@ All notable changes to this project will be documented in this file.
 - Support show database rule from (#689)
 - Auto clean transaction log (#671)
 - Multiple sharding keys implementation (#681)
+- Support explain statement by loop shards (#695)
+- Upgrade go version to 1.20 (#716)
+- Support nextval and currval (#718)
+- Add unit test for cast function (#723)
+- Add unit test for concat_ws function (#725)
+- Add unit test for function (#726)
+- Add unit test (#749)
+- Add unit test (#754)
 
 ### Miscellaneous Tasks
 
@@ -115,7 +129,10 @@ All notable changes to this project will be documented in this file.
 - Rename function2 pkg (#521)
 - Perf div and float precision (#610)
 - Clean arana project log output (#662)
-- Add git-cliff configs
+- Add unit test for conn_pool.go and tx.go  (#690)
+- Add git-cliff configs (#697)
+- Add a testing valuer which always returns an error (#724)
+- Add unit test (#753)
 
 ### Performance
 
@@ -130,6 +147,15 @@ All notable changes to this project will be documented in this file.
 ### Styling
 
 - Use root path (#445)
+
+### Testing
+
+- Reduce ut (#736)
+- Security ut (#737)
+- Resultx ut (#738)
+- Gtid and context ut (#759)
+- Add unit test for pkg/merge (#764)
+- Add unit test for /arana/pkg/sequence/... package(#731) (#765)
 
 ## [0.1.0-rc1] - 2022-09-01
 
