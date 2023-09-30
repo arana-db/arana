@@ -280,8 +280,9 @@ func (executor *RedirectExecutor) doExecutorComQuery(ctx *proto.Context, act ast
 		allowSchemaless := func(stmt *ast.ShowStmt) bool {
 			switch stmt.Tp {
 			case ast.ShowDatabases, ast.ShowVariables, ast.ShowTopology, ast.ShowStatus, ast.ShowTableStatus,
-				ast.ShowWarnings, ast.ShowCharset, ast.ShowMasterStatus, ast.ShowProcessList, ast.ShowReplicas, ast.ShowShardingTable,
-				ast.ShowReplicaStatus, ast.ShowNodes, ast.ShowUsers, ast.ShowCreateSequence, ast.ShowDatabaseRules:
+				ast.ShowWarnings, ast.ShowCharset, ast.ShowMasterStatus, ast.ShowProcessList, ast.ShowReplicas,
+				ast.ShowShardingTable, ast.ShowReplicaStatus, ast.ShowNodes, ast.ShowUsers, ast.ShowCreateSequence,
+				ast.ShowDatabaseRules, ast.ShowTableRules:
 				return true
 			default:
 				return false

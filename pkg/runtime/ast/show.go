@@ -670,12 +670,30 @@ type ShowDatabaseRule struct {
 	TableName string
 }
 
-func (s ShowDatabaseRule) Mode() SQLType {
+func (s *ShowDatabaseRule) Mode() SQLType {
 	return SQLTypeShowDatabaseRules
 }
 
-func (s ShowDatabaseRule) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+func (s *ShowDatabaseRule) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	sb.WriteString("SHOW DATABASE RULES ")
+	if err := s.BaseShow.Restore(flag, sb, args); err != nil {
+		return errors.WithStack(err)
+	}
+	return nil
+}
+
+type ShowTableRule struct {
+	*BaseShow
+	Database  string
+	TableName string
+}
+
+func (s *ShowTableRule) Mode() SQLType {
+	return SQLTypeShowTableRules
+}
+
+func (s *ShowTableRule) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
+	sb.WriteString("SHOW TABLE RULES ")
 	if err := s.BaseShow.Restore(flag, sb, args); err != nil {
 		return errors.WithStack(err)
 	}
