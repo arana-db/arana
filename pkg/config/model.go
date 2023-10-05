@@ -82,14 +82,19 @@ type (
 
 	BootOptions struct {
 		Spec       `yaml:",inline"`
-		Config     *Options    `yaml:"config" json:"config"`
-		Listeners  []*Listener `validate:"required,dive" yaml:"listeners" json:"listeners"`
-		Registry   *Registry   `yaml:"registry" json:"registry"`
-		Trace      *Trace      `yaml:"trace" json:"trace"`
-		Supervisor *User       `validate:"required,dive" yaml:"supervisor" json:"supervisor"`
-		Logging    *log.Config `validate:"required,dive" yaml:"logging" json:"logging"`
+		Config     *Options     `yaml:"config" json:"config"`
+		Listeners  []*Listener  `validate:"required,dive" yaml:"listeners" json:"listeners"`
+		Registry   *Registry    `yaml:"registry" json:"registry"`
+		Trace      *Trace       `yaml:"trace" json:"trace"`
+		Supervisor *User        `validate:"required,dive" yaml:"supervisor" json:"supervisor"`
+		Logging    *log.Config  `validate:"required,dive" yaml:"logging" json:"logging"`
+		Stats      *StatsConfig `validate:"required,dive" yaml:"stats" json:"stats"`
 	}
 
+	StatsConfig struct {
+		Service      string `yaml:"service" json:"service"`
+		StatsEnabled bool   `yaml:"stats_enabled" json:"stats_enabled"`
+	}
 	// Configuration represents an Arana configuration.
 	Configuration struct {
 		Spec `yaml:",inline"`
