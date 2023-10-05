@@ -79,3 +79,7 @@ logging_config:
   sql_log_enabled: false
   sql_log_name: sql.log
   physical_sql_log_name: physql.log
+
+stats:
+  service: "TestService"
+  stats_enable: false

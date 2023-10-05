@@ -32,10 +32,7 @@ import (
 )
 
 import (
-	"github.com/arana-db/parser"
-
 	_ "github.com/go-sql-driver/mysql"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -45,6 +42,7 @@ import (
 	"github.com/arana-db/arana/pkg/runtime"
 	"github.com/arana-db/arana/pkg/util/rand2"
 	utils "github.com/arana-db/arana/pkg/util/tableprint"
+	"github.com/arana-db/parser"
 )
 
 type IntegrationSuite struct {
@@ -1250,7 +1248,10 @@ func (s *IntegrationSuite) TestCompat80() {
 	} {
 		t.Run(it.sql, func(t *testing.T) {
 			rows, err := db.Query(it.sql)
-			assert.NoError(t, err)
+			if err != nil {
+				t.Fatalf("Failed to execute query: %v", err) // 这里使用t.Fatalf停止当前的测试，并报告错误。
+				return
+			}
 			defer rows.Close()
 		})
 	}
