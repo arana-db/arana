@@ -47,11 +47,11 @@ var kebabConverters = []struct {
 	repl string
 }{
 	// example: LC -> L-C (e.g. CamelCase -> Camel-Case).
-	{regexp.MustCompile("([a-z])([A-Z])"), "$1-$2"},
+	{regexp.MustCompile(`([a-z])([A-Z])`), "$1-$2"},
 	// example: CCa -> C-Ca (e.g. CCamel -> C-Camel).
-	{regexp.MustCompile("([A-Z])([A-Z][a-z])"), "$1-$2"},
-	{regexp.MustCompile("_"), "-"},
-	{regexp.MustCompile("\\."), "_"},
+	{regexp.MustCompile(`([A-Z])([A-Z][a-z])`), "$1-$2"},
+	{regexp.MustCompile(`_`), "-"},
+	{regexp.MustCompile(`\.`), "_"},
 }
 
 var memoizer = memoizerType{
