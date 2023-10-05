@@ -25,17 +25,12 @@ import (
 	"strings"
 	"sync"
 	"time"
-)
 
-import (
-	"go.uber.org/atomic"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/metrics/stats"
 	"github.com/arana-db/arana/pkg/metrics/stats/prometheus"
 	"github.com/arana-db/arana/pkg/util/log"
+	"go.uber.org/atomic"
 )
 
 const (
@@ -119,7 +114,8 @@ type StatisticManager struct {
 // Init init StatisticManager
 func (s *StatisticManager) Init() error {
 	s.startTime = time.Now().Unix()
-	s.closeChan = make(chan bool, 0)
+	s.closeChan = make(chan bool)
+
 	s.handlers = make(map[string]http.Handler)
 	bootOptions, err := config.LoadBootOptions(s.bootstrapPath)
 	if err != nil {
@@ -373,7 +369,7 @@ func (s *StatisticManager) CalcAvgSQLTimes() {
 				s.SQLResponsePercentile[ns].response99Max[backendAddr] = sqlTimes[(len(sqlTimes)-1)*99/100]
 				s.SQLResponsePercentile[ns].response95Max[backendAddr] = sqlTimes[(len(sqlTimes)-1)*95/100]
 			}
-			for k, _ := range sqlTimes {
+			for k := range sqlTimes {
 				sum += sqlTimes[k]
 				if k < len(sqlTimes)*95/100 {
 					p95sum += sqlTimes[k]
