@@ -57,8 +57,8 @@ const (
 type SQLResponse struct {
 	ns                      string
 	sqlExecTimeRecordSwitch bool
-	sQLExecTimeChan         chan string
-	sQLTimeList             []float64
+	sqlExecTimeChan         chan string
+	sqlTimeList             []float64
 	response99Max           map[string]float64 // map[backendAddr]P99MaxValue
 	response99Avg           map[string]float64 // map[backendAddr]P99AvgValue
 	response95Max           map[string]float64 // map[backendAddr]P95MaxValue
@@ -69,8 +69,8 @@ func NewSQLResponse(name string) *SQLResponse {
 	return &SQLResponse{
 		ns:                      name,
 		sqlExecTimeRecordSwitch: false,
-		sQLExecTimeChan:         make(chan string, SQLExecTimeSize),
-		sQLTimeList:             []float64{},
+		sqlExecTimeChan:         make(chan string, SQLExecTimeSize),
+		sqlTimeList:             []float64{},
 		response99Max:           make(map[string]float64),
 		response99Avg:           make(map[string]float64),
 		response95Max:           make(map[string]float64),
@@ -243,7 +243,7 @@ func (s *StatisticManager) recordBackendSQLTiming(namespace string, operation st
 	}
 	execTime := float64(time.Since(startTime).Milliseconds())
 	select {
-	case s.SQLResponsePercentile[namespace].sQLExecTimeChan <- fmt.Sprintf(sliceName + "__" + backendAddr + "__" + fmt.Sprintf("%f", execTime)):
+	case s.SQLResponsePercentile[namespace].sqlExecTimeChan <- fmt.Sprintf(sliceName + "__" + backendAddr + "__" + fmt.Sprintf("%f", execTime)):
 	case <-time.After(time.Millisecond):
 		s.SQLResponsePercentile[namespace].sqlExecTimeRecordSwitch = false
 	}
@@ -349,7 +349,7 @@ func (s *StatisticManager) CalcAvgSQLTimes() {
 		backendAddr := ""
 		for !quit {
 			select {
-			case tmp := <-sQLResponse.sQLExecTimeChan:
+			case tmp := <-sQLResponse.sqlExecTimeChan:
 				if len(sqlTimes) >= SQLExecTimeSize {
 					quit = true
 				}
