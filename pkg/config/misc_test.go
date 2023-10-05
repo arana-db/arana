@@ -21,9 +21,7 @@ package config
 import (
 	"os"
 	"testing"
-)
 
-import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -58,6 +56,9 @@ logging:
   max_age: 7
   compress: true
   console: true
+stats:
+  service: "TestService"
+  stats_enable: false
 `
 	_, err = tmpfile.WriteString(text)
 	require.NoError(t, err)

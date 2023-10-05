@@ -37,3 +37,7 @@ logging:
   max_age: 7
   compress: true
   console: true
+
+stats:
+  service: "TestService"
+  stats_enable: false
