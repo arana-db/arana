@@ -52,6 +52,7 @@ var snakeConverters = []struct {
 	re   *regexp.Regexp
 	repl string
 }{
+	// example: LC -> L_C (e.g. CamelCase -> Camel_Case).
 	{regexp.MustCompile(`([a-z])([A-Z])`), "${1}_${2}"},
 	{regexp.MustCompile(`([A-Z])([A-Z][a-z])`), "${1}_${2}"},
 	{regexp.MustCompile(`\.`), "_"},
