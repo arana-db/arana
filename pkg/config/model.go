@@ -28,21 +28,13 @@ import (
 	"strings"
 	"time"
 	"unicode"
-)
 
-import (
+	"github.com/arana-db/arana/pkg/util/log"
 	"github.com/go-playground/validator/v10"
-
 	"github.com/pkg/errors"
-
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
-
 	"gopkg.in/yaml.v3"
-)
-
-import (
-	"github.com/arana-db/arana/pkg/util/log"
 )
 
 type (
@@ -88,7 +80,7 @@ type (
 		Trace      *Trace       `yaml:"trace" json:"trace"`
 		Supervisor *User        `validate:"required,dive" yaml:"supervisor" json:"supervisor"`
 		Logging    *log.Config  `validate:"required,dive" yaml:"logging" json:"logging"`
-		Stats      *StatsConfig `validate:"required,dive" yaml:"stats" json:"stats"`
+		Stats      *StatsConfig `yaml:"stats" json:"stats"`
 	}
 
 	StatsConfig struct {
