@@ -92,7 +92,7 @@ func Start(bootstrapConfigPath string) {
 	discovery := boot.NewDiscovery(bootstrapConfigPath)
 
 	if err := boot.Boot(context.Background(), discovery); err != nil {
-		log.Fatal("start failed: %v", err)
+		log.Fatalf("start failed: %v", err)
 		return
 	}
 
