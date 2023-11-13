@@ -24,6 +24,7 @@ import (
 )
 
 import (
+	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 )
 
@@ -388,9 +389,9 @@ func Test_storeOperate_initContentsMap(t *testing.T) {
 				contents:  tt.fields.contents,
 			}
 
-			s.Init(map[string]interface{}{
+			assert.NoError(t, s.Init(map[string]interface{}{
 				"content": yamlConfig,
-			})
+			}))
 
 			cfg := new(config.Configuration)
 			_ = yaml.Unmarshal([]byte(tt.args.val), cfg)

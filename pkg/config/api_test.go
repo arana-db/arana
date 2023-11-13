@@ -47,6 +47,7 @@ func TestInit(t *testing.T) {
 		wantErr assert.ErrorAssertionFunc
 	}{
 		{"Init_1", args{"file", config.Options{}}, assert.Error},
+		{"Init_2", args{"", config.Options{}}, assert.NoError},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -105,7 +106,8 @@ func Test_Init(t *testing.T) {
 	err := config.InitStoreOperate(options)
 	assert.Error(t, err)
 
-	config.Register(mockFileStore)
+	err = config.Register(mockFileStore)
+	assert.NoError(t, err)
 	err = config.InitStoreOperate(options)
 	assert.NoError(t, err)
 
