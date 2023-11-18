@@ -37,11 +37,29 @@ func TestNodeEquals(t *testing.T) {
 	n1 := &Node{Name: "node1", Host: "host1", Port: 1234, Database: "db1", Username: "user1", Password: "pass1", Weight: "1", Labels: map[string]string{"label1": "label2"}, Parameters: map[string]string{"param1": "value1"}}
 	n2 := &Node{Name: "node2", Host: "host2", Port: 5678, Database: "db2", Username: "user2", Password: "pass2", Weight: "2", Labels: map[string]string{"label3": "label4"}, Parameters: map[string]string{"param2": "value2"}}
 	n3 := &Node{Name: "node1", Host: "host1", Port: 1234, Database: "db1", Username: "user1", Password: "pass1", Weight: "1", Labels: map[string]string{"label1": "label2"}, Parameters: map[string]string{"param1": "value1"}}
+	n4 := &Node{Name: "node1", Host: "host3", Port: 1234, Database: "db1", Username: "user1", Password: "pass1", Weight: "1", Labels: map[string]string{"label1": "label2"}, Parameters: map[string]string{"param1": "value1"}}
+	n5 := &Node{Name: "node1", Host: "host1", Port: 1235, Database: "db1", Username: "user1", Password: "pass1", Weight: "1", Labels: map[string]string{"label1": "label2"}, Parameters: map[string]string{"param1": "value1"}}
+	n6 := &Node{Name: "node1", Host: "host1", Port: 1234, Database: "db2", Username: "user1", Password: "pass1", Weight: "1", Labels: map[string]string{"label1": "label2"}, Parameters: map[string]string{"param1": "value1"}}
+	n7 := &Node{Name: "node1", Host: "host1", Port: 1234, Database: "db1", Username: "user2", Password: "pass1", Weight: "1", Labels: map[string]string{"label1": "label2"}, Parameters: map[string]string{"param1": "value1"}}
+	n8 := &Node{Name: "node1", Host: "host1", Port: 1234, Database: "db1", Username: "user1", Password: "pass2", Weight: "1", Labels: map[string]string{"label1": "label2"}, Parameters: map[string]string{"param1": "value1"}}
+	n9 := &Node{Name: "node1", Host: "host1", Port: 1234, Database: "db1", Username: "user1", Password: "pass1", Weight: "2", Labels: map[string]string{"label1": "label2"}, Parameters: map[string]string{"param1": "value1"}}
+	n10 := &Node{Name: "node1", Host: "host1", Port: 1234, Database: "db1", Username: "user1", Password: "pass1", Weight: "1", Labels: map[string]string{"label1": "label2", "label3": "label4"}, Parameters: map[string]string{"param1": "value1"}}
+	n11 := &Node{Name: "node1", Host: "host1", Port: 1234, Database: "db1", Username: "user1", Password: "pass1", Weight: "1", Labels: map[string]string{"label1": "label3"}, Parameters: map[string]string{"param1": "value1"}}
 	assert.False(t, n1.Equals(n2))
 	assert.True(t, n1.Equals(n3))
+	assert.False(t, n3.Equals(n4))
+	assert.False(t, n3.Equals(n5))
+	assert.False(t, n3.Equals(n6))
+	assert.False(t, n3.Equals(n7))
+	assert.False(t, n3.Equals(n8))
+	assert.False(t, n3.Equals(n9))
+	assert.False(t, n3.Equals(n10))
+	assert.False(t, n3.Equals(n11))
 }
 
 func TestRulesEquals(t *testing.T) {
+	rules0 := Rules{}
+	rules00 := Rules{}
 	rules1 := Rules{
 		&Rule{Columns: []*ColumnRule{{Name: "col1"}}},
 		&Rule{Columns: []*ColumnRule{{Name: "col2"}}},
@@ -54,8 +72,15 @@ func TestRulesEquals(t *testing.T) {
 		&Rule{Columns: []*ColumnRule{{Name: "col1"}}},
 		&Rule{Columns: []*ColumnRule{{Name: "col2"}}},
 	}
+	rules4 := Rules{
+		&Rule{Columns: []*ColumnRule{{Name: "col1"}}},
+		&Rule{Columns: []*ColumnRule{{Name: "col2"}}},
+		&Rule{Columns: []*ColumnRule{{Name: "col3"}}},
+	}
+	assert.True(t, rules0.Equals(rules00))
 	assert.False(t, rules1.Equals(rules2))
 	assert.True(t, rules1.Equals(rules3))
+	assert.False(t, rules1.Equals(rules4))
 }
 
 func TestTableEquals(t *testing.T) {
@@ -80,6 +105,54 @@ func TestTableEquals(t *testing.T) {
 		ShadowTopology: &Topology{"shadow1", "shadow2"},
 		Attributes:     map[string]string{"attr1": "value1"},
 	}
+	t4 := &Table{
+		DbRules:        Rules{&Rule{Columns: []*ColumnRule{{Name: "col1"}}}, &Rule{Columns: []*ColumnRule{{Name: "col2"}}}},
+		TblRules:       Rules{&Rule{Columns: []*ColumnRule{{Name: "col2"}}}},
+		Topology:       &Topology{"node1", "node2"},
+		ShadowTopology: &Topology{"shadow1", "shadow2"},
+		Attributes:     map[string]string{"attr1": "value1"},
+	}
+	t5 := &Table{
+		DbRules:        Rules{&Rule{Columns: []*ColumnRule{{Name: "col1"}}}},
+		TblRules:       Rules{&Rule{Columns: []*ColumnRule{{Name: "col2"}}}, &Rule{Columns: []*ColumnRule{{Name: "col3"}}}},
+		Topology:       &Topology{"node1", "node2"},
+		ShadowTopology: &Topology{"shadow1", "shadow2"},
+		Attributes:     map[string]string{"attr1": "value1"},
+	}
+	t6 := &Table{
+		DbRules:        Rules{&Rule{Columns: []*ColumnRule{{Name: "col1"}}}},
+		TblRules:       Rules{&Rule{Columns: []*ColumnRule{{Name: "col3"}}}},
+		Topology:       &Topology{"node1", "node2"},
+		ShadowTopology: &Topology{"shadow1", "shadow2"},
+		Attributes:     map[string]string{"attr1": "value1"},
+	}
+	t7 := &Table{
+		DbRules:        Rules{&Rule{Columns: []*ColumnRule{{Name: "col1"}}}},
+		TblRules:       Rules{&Rule{Columns: []*ColumnRule{{Name: "col2"}}}},
+		Topology:       &Topology{"node1", "node3"},
+		ShadowTopology: &Topology{"shadow1", "shadow2"},
+		Attributes:     map[string]string{"attr1": "value1"},
+	}
+	t8 := &Table{
+		DbRules:        Rules{&Rule{Columns: []*ColumnRule{{Name: "col1"}}}},
+		TblRules:       Rules{&Rule{Columns: []*ColumnRule{{Name: "col2"}}}},
+		Topology:       &Topology{"node1", "node2"},
+		ShadowTopology: &Topology{"shadow1", "shadow3"},
+		Attributes:     map[string]string{"attr1": "value1"},
+	}
+	t9 := &Table{
+		DbRules:        Rules{&Rule{Columns: []*ColumnRule{{Name: "col1"}}}},
+		TblRules:       Rules{&Rule{Columns: []*ColumnRule{{Name: "col2"}}}},
+		Topology:       &Topology{"node1", "node2"},
+		ShadowTopology: &Topology{"shadow1", "shadow2"},
+		Attributes:     map[string]string{"attr1": "value2"},
+	}
 	assert.False(t, t1.Equals(t2))
 	assert.True(t, t1.Equals(t3))
+	assert.False(t, t1.Equals(t4))
+	assert.False(t, t1.Equals(t5))
+	assert.False(t, t1.Equals(t6))
+	assert.False(t, t1.Equals(t7))
+	assert.False(t, t1.Equals(t8))
+	assert.False(t, t1.Equals(t9))
 }
