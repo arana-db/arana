@@ -84,3 +84,106 @@ logging:
 	assert.True(t, cfg.Logging.Compress)
 	assert.False(t, cfg.Logging.SqlLogEnabled)
 }
+
+func TestLoadBootOptions_Error(t *testing.T) {
+	cfg, err := LoadBootOptions("")
+	assert.Error(t, err)
+	assert.Nil(t, cfg)
+
+	text0 := `
+listeners:
+- protocol_type: "http"
+  server_version: "1.0"
+registry:
+  enable: true
+  name: "registryName"
+  root_path: "/root/path"
+trace:
+  type: "jaeger"
+  address: "http://localhost:14268/api/traces"
+supervisor:
+  username: "admin"
+  password: "password"
+logging:
+  level: INFO
+  path: /var/log/arana
+  max_size: 128m
+  max_backups: 3
+  max_age: 7
+  compress: true
+  console: true
+`
+	tmpfile0, err := os.CreateTemp("", "example.*.xml")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer os.Remove(tmpfile0.Name())
+	_, err = tmpfile0.WriteString(text0)
+	require.NoError(t, err)
+	err = tmpfile0.Close()
+	require.NoError(t, err)
+
+	cfg0, err := LoadBootOptions(tmpfile0.Name())
+	assert.Error(t, err)
+	assert.Nil(t, cfg0)
+
+	text1 := `
+<listeners>
+    <protocol_type>http</protocol_type>
+    <server_version>1.0</server_version>
+</listeners>
+`
+	tmpfile1, err := os.CreateTemp("", "example.*.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer os.Remove(tmpfile1.Name())
+	_, err = tmpfile1.WriteString(text1)
+	require.NoError(t, err)
+	err = tmpfile1.Close()
+	require.NoError(t, err)
+
+	cfg1, err := LoadBootOptions(tmpfile1.Name())
+	assert.Error(t, err)
+	assert.Nil(t, cfg1)
+
+	text2 := `
+listeners_error:
+- protocol_type: "http"
+  server_version: "1.0"
+registry:
+  enable: true
+  name: "registryName"
+  root_path: "/root/path"
+trace:
+  type: "jaeger"
+  address: "http://localhost:14268/api/traces"
+supervisor_error:
+  username: "admin"
+  password: "password"
+logging:
+  level: INFO
+  path: /var/log/arana
+  max_size: 128m
+  max_backups: 3
+  max_age: 7
+  compress: true
+  console: true
+`
+	tmpfile2, err := os.CreateTemp("", "example.*.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer os.Remove(tmpfile2.Name())
+	_, err = tmpfile2.WriteString(text2)
+	require.NoError(t, err)
+	err = tmpfile2.Close()
+	require.NoError(t, err)
+
+	cfg2, err := LoadBootOptions(tmpfile2.Name())
+	assert.Error(t, err)
+	assert.Nil(t, cfg2)
+}
