@@ -59,7 +59,6 @@ func TestNodeEquals(t *testing.T) {
 
 func TestRulesEquals(t *testing.T) {
 	rules0 := Rules{}
-	rules00 := Rules{}
 	rules1 := Rules{
 		&Rule{Columns: []*ColumnRule{{Name: "col1"}}},
 		&Rule{Columns: []*ColumnRule{{Name: "col2"}}},
@@ -77,7 +76,7 @@ func TestRulesEquals(t *testing.T) {
 		&Rule{Columns: []*ColumnRule{{Name: "col2"}}},
 		&Rule{Columns: []*ColumnRule{{Name: "col3"}}},
 	}
-	assert.True(t, rules0.Equals(rules00))
+	assert.True(t, rules0.Equals(Rules{}))
 	assert.False(t, rules1.Equals(rules2))
 	assert.True(t, rules1.Equals(rules3))
 	assert.False(t, rules1.Equals(rules4))
