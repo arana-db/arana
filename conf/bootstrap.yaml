@@ -74,4 +74,3 @@ logging:
   max_age: 30
   compress: false
   console: true
-
