@@ -68,6 +68,7 @@ services:
 
   arana:
     container_name: arana
+    platform: linux/amd64
     image: aranadb/arana:master
     entrypoint: [ "sh", "-c", "arana import -c /etc/arana/bootstrap.yaml -s /etc/arana/config.yaml; arana start -c /etc/arana/bootstrap.yaml" ]
     networks:
@@ -83,6 +84,7 @@ services:
     restart: on-failure
 
   arana-admin:
+    platform: linux/amd64
     container_name: arana-admin
     image: aranadb/arana:master
     entrypoint: [ "arana", "admin", "-c", "/etc/arana/bootstrap.yaml", "-p", "8088" ]
