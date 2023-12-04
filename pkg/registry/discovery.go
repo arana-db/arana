@@ -49,7 +49,7 @@ func InitDiscovery(storeType string, options map[string]interface{}) (base.Disco
 	case base.ETCD:
 		serviceDiscovery, err = initEtcdDiscovery(options)
 	case base.NACOS:
-		initNacosV2Discovery(options)
+		serviceDiscovery, err = initNacosV2Discovery(options)
 	default:
 		err = errors.Errorf("Service registry not support store:%s", storeType)
 	}
