@@ -18,6 +18,8 @@
 package file
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"sync"
 	"testing"
@@ -466,6 +468,67 @@ func Test_storeOperate_searchDefaultConfigFile(t *testing.T) {
 			}
 			if got1 != tt.want1 {
 				t.Errorf("searchDefaultConfigFile() got1 = %v, want %v", got1, tt.want1)
+			}
+		})
+	}
+}
+
+func Test_formatPath(t *testing.T) {
+	// Get current user home dir
+	home, _ := os.UserHomeDir()
+	tests := []struct {
+		name      string
+		input     string
+		want      string
+		expectErr bool
+	}{
+		{
+			name:      "PATH1",
+			input:     "~/folder",
+			want:      filepath.Join(home, "folder"),
+			expectErr: false,
+		},
+		{
+			name:      "PATH2",
+			input:     "/tmp/folder",
+			want:      "/tmp/folder",
+			expectErr: false,
+		},
+		{
+			name:      "PATH3",
+			input:     "./folder",
+			want:      filepath.Clean("./folder"),
+			expectErr: false,
+		},
+		{
+			name:      "PATH4",
+			input:     "///tmp///folder",
+			want:      "/tmp/folder",
+			expectErr: false,
+		},
+		{
+			name:      "PATH5",
+			input:     "",
+			want:      ".",
+			expectErr: false,
+		},
+		{
+			name:      "PATH6",
+			input:     "~",
+			want:      home,
+			expectErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := formatPath(tt.input)
+			if (err != nil) != tt.expectErr {
+				t.Errorf("formatPath() error = %v, expectErr %v", err, tt.expectErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("formatPath() = %v, want %v", got, tt.want)
 			}
 		})
 	}
