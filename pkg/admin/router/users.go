@@ -134,7 +134,7 @@ func CreateUser(c *gin.Context) error {
 		}
 	}
 
-	if err := admin.GetService(c).UpsertUser(c, tenant, &user, user.Username); err != nil {
+	if err = admin.GetService(c).UpsertUser(c, tenant, &user, user.Username); err != nil {
 		return err
 	}
 

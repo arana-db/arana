@@ -144,9 +144,5 @@ func validateUser(tenant, username, password string) bool {
 		return false
 	}
 
-	if username != supervisor.Username || password != supervisor.Password {
-		return false
-	}
-
-	return true
+	return !(username != supervisor.Username || password != supervisor.Password)
 }

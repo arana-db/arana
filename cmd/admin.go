@@ -80,8 +80,6 @@ func runAdmin(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	addr := fmt.Sprintf(":%d", port)
-
 	bootOptions, err := config.LoadBootOptions(bootstrapPath)
 	if err != nil {
 		return err
@@ -95,17 +93,17 @@ func runAdmin(cmd *cobra.Command, args []string) error {
 	}
 	discovery := boot.NewDiscovery(bootstrapPath)
 	if err = boot.Boot(context.Background(), discovery); err != nil {
-		log.Fatal("start failed: %v", err)
+		log.Fatalf("start failed: %v", err)
 		return err
 	}
 
 	registryConf := discovery.GetServiceRegistry(context.Background())
 	serviceDiscovery, err := registry.InitDiscovery(registryConf.Name, registryConf.Options)
 	if err != nil {
-		log.Fatal("init service discovery failed: %v", err)
+		log.Fatalf("init service discovery failed: %v", err)
 		return err
 	}
 
 	adminServer := admin.New(op, serviceDiscovery)
-	return adminServer.Listen(addr)
+	return adminServer.Listen(fmt.Sprintf(":%d", port))
 }

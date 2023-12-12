@@ -19,6 +19,7 @@ package exception
 
 import (
 	"fmt"
+	"net/http"
 )
 
 const (
@@ -30,20 +31,19 @@ const (
 )
 
 var _httpStatus = map[Code]int{
-	CodeNotFound:      404,
-	CodeInvalidParams: 400,
-	CodeAuth:          401,
-	CodeServerError:   500,
+	CodeNotFound:      http.StatusNotFound,
+	CodeInvalidParams: http.StatusBadRequest,
+	CodeAuth:          http.StatusUnauthorized,
+	CodeServerError:   http.StatusInternalServerError,
 }
 
 type Code uint16
 
 func (ec Code) HttpStatus() int {
-	hc, ok := _httpStatus[ec]
-	if ok {
+	if hc, ok := _httpStatus[ec]; ok {
 		return hc
 	}
-	return 500
+	return http.StatusInternalServerError
 }
 
 type APIException struct {
