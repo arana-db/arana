@@ -15,13 +15,11 @@
  * limitations under the License.
  */
 
-package boot
+package config
 
 import (
 	"testing"
-)
 
-import (
 	"github.com/stretchr/testify/assert"
 )
 
@@ -36,7 +34,7 @@ func TestParseDatabaseAndTable(t *testing.T) {
 		{"fake-db.fake_table", "fake-db", "fake_table"},
 	} {
 		t.Run(it.name, func(t *testing.T) {
-			db, table, err := parseDatabaseAndTable(it.name)
+			db, table, err := ParseDatabaseAndTable(it.name)
 			assert.NoError(t, err)
 			assert.Equal(t, it.db, db)
 			assert.Equal(t, it.table, table)

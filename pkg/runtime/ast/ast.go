@@ -1754,6 +1754,7 @@ func (cc *convCtx) convCreateTableStmt(stmt *ast.CreateTableStmt) Statement {
 		Cols:        stmt.Cols,
 		Constraints: stmt.Constraints,
 		Options:     stmt.Options,
+		Partition:   stmt.Partition,
 	}
 }
 

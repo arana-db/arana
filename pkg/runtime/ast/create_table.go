@@ -42,7 +42,7 @@ type CreateTableStmt struct {
 	Cols        []*ast.ColumnDef
 	Constraints []*ast.Constraint
 	Options     []*ast.TableOption
-	// Partition      *PartitionOptions
+	Partition   *ast.PartitionOptions
 	// OnDuplicate    OnDuplicateKeyHandlingType
 	// Select         ResultSetNode
 }
