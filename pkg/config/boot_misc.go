@@ -30,7 +30,6 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/util/math"
 )
