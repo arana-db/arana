@@ -23,10 +23,16 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+)
 
+import (
+	"github.com/pkg/errors"
+)
+
+import (
+	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/util/math"
-	"github.com/pkg/errors"
 )
 
 var (
