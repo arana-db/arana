@@ -78,11 +78,7 @@ func (c *storeOperate) Init(options map[string]interface{}) error {
 
 func (c *storeOperate) Save(key config.PathKey, val []byte) error {
 	_, err := c.client.Put(context.Background(), string(key), string(val))
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func (c *storeOperate) Get(key config.PathKey) ([]byte, error) {
@@ -92,7 +88,7 @@ func (c *storeOperate) Get(key config.PathKey) ([]byte, error) {
 	}
 
 	if len(resp.Kvs) == 0 {
-		return nil, err
+		return nil, nil
 	}
 
 	return resp.Kvs[0].Value, nil
@@ -150,7 +146,6 @@ func (c *storeOperate) Watch(key config.PathKey) (<-chan []byte, error) {
 		ctx, cancel := context.WithCancel(context.Background())
 		c.cancelList = append(c.cancelList, cancel)
 		go w.run(ctx)
-
 	}
 
 	w := c.receivers[key]

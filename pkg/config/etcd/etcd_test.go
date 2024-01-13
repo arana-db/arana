@@ -94,14 +94,15 @@ func Test_storeOpertae(t *testing.T) {
 
 	assert.NoError(t, err, "init must success")
 
+	assert.Error(t, operate.Init(map[string]interface{}{"endpoints": "fake"}))
+
 	doDataMock()
 	cfg, _ := config.Load(testdata.Path("fake_config.yaml"))
 
 	tenantName := cfg.Data.Tenants[0].Name
 
 	for k, v := range mockConfData {
-		err := operate.Save(k, []byte(v))
-		assert.NoError(t, err, "save must success")
+		assert.NoError(t, operate.Save(k, []byte(v)), "save must success")
 	}
 
 	for k, v := range mockConfData {
@@ -110,6 +111,9 @@ func Test_storeOpertae(t *testing.T) {
 		assert.EqualValuesf(t, v, string(ret), "must equal")
 		t.Logf("%s => %s", k, string(ret))
 	}
+
+	_, err = operate.Get("fake")
+	assert.NoError(t, err)
 
 	receiver, err := operate.Watch(mockPath[tenantName].DefaultConfigDataUsersPath)
 	assert.NoError(t, err, "watch must success")
@@ -132,4 +136,5 @@ func Test_storeOpertae(t *testing.T) {
 	t.Logf("acutal val : %s", string(ret))
 
 	assert.Equal(t, string(data), string(ret))
+	assert.NoError(t, operate.Close())
 }
