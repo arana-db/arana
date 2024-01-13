@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/appleboy/gin-jwt/v2 v2.9.1
-	github.com/arana-db/parser v0.2.16
+	github.com/arana-db/parser v0.2.17
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/cespare/xxhash/v2 v2.2.0

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package boot
+package config
 
 import (
 	"fmt"
@@ -30,7 +30,6 @@ import (
 )
 
 import (
-	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/util/math"
 )
@@ -47,7 +46,7 @@ func getTopologyRegexp() *regexp.Regexp {
 	return _regexpTopology
 }
 
-func parseTopology(input string) (format string, begin, end int, err error) {
+func ParseTopology(input string) (format string, begin, end int, err error) {
 	mats := getTopologyRegexp().FindAllStringSubmatch(input, -1)
 
 	if len(mats) < 1 {
@@ -83,7 +82,7 @@ func parseTopology(input string) (format string, begin, end int, err error) {
 	return
 }
 
-func makeVTable(tableName string, table *config.Table) (*rule.VTable, error) {
+func MakeVTable(tableName string, table *Table) (*rule.VTable, error) {
 	var (
 		vt                 rule.VTable
 		topology           rule.Topology
@@ -95,12 +94,12 @@ func makeVTable(tableName string, table *config.Table) (*rule.VTable, error) {
 
 	if table.Topology != nil {
 		if len(table.Topology.DbPattern) > 0 {
-			if dbFormat, dbBegin, dbEnd, err = parseTopology(table.Topology.DbPattern); err != nil {
+			if dbFormat, dbBegin, dbEnd, err = ParseTopology(table.Topology.DbPattern); err != nil {
 				return nil, errors.WithStack(err)
 			}
 		}
 		if len(table.Topology.TblPattern) > 0 {
-			if tbFormat, tbBegin, tbEnd, err = parseTopology(table.Topology.TblPattern); err != nil {
+			if tbFormat, tbBegin, tbEnd, err = ParseTopology(table.Topology.TblPattern); err != nil {
 				return nil, errors.WithStack(err)
 			}
 		}
@@ -170,7 +169,7 @@ var (
 	_fullTableNameRegexpOnce sync.Once
 )
 
-func parseDatabaseAndTable(name string) (db, tbl string, err error) {
+func ParseDatabaseAndTable(name string) (db, tbl string, err error) {
 	_fullTableNameRegexpOnce.Do(func() {
 		_fullTableNameRegexp = regexp.MustCompile(`^([a-zA-Z_][a-zA-Z0-9_-]+)\.([a-zA-Z_][a-zA-Z0-9_-]+)$`)
 	})
@@ -186,7 +185,7 @@ func parseDatabaseAndTable(name string) (db, tbl string, err error) {
 	return
 }
 
-func toSharder(input *config.Rule) (rule.ShardComputer, error) {
+func toSharder(input *Rule) (rule.ShardComputer, error) {
 	columns := make([]string, 0, len(input.Columns))
 	for i := range input.Columns {
 		columns = append(columns, input.Columns[i].Name)
@@ -205,8 +204,8 @@ func getRender(format string) func(int) string {
 	}
 }
 
-func toShardMetadata(rules []*config.Rule, defaultSteps int) ([]*rule.ShardMetadata, error) {
-	toShardColumn := func(ru *config.ColumnRule, dst *[]*rule.ShardColumn, defaultSteps int) {
+func toShardMetadata(rules []*Rule, defaultSteps int) ([]*rule.ShardMetadata, error) {
+	toShardColumn := func(ru *ColumnRule, dst *[]*rule.ShardColumn, defaultSteps int) {
 		unit := rule.Unum
 		switch strings.ToLower(ru.Type) {
 		case "string", "str":

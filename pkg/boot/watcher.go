@@ -320,7 +320,7 @@ func (d *watcher) onGroupAdd(ctx context.Context, cluster string, group *config.
 		}
 
 		if err := rt.Namespace().EnqueueCommand(namespace.UpsertDB(group.Name, runtime.NewAtomDB(node))); err != nil {
-			log.Errorf("[%s] failed to enqueue upsert-db command: %v", err)
+			log.Errorf("[%s] failed to enqueue upsert-db command: %v", d.tenant, err)
 		}
 	}
 
@@ -494,7 +494,7 @@ func (d *watcher) onNodeUpdate(ctx context.Context, node *config.Node) error {
 }
 
 func (d *watcher) onTableDel(_ context.Context, name string) error {
-	db, tbl, err := parseDatabaseAndTable(name)
+	db, tbl, err := config.ParseDatabaseAndTable(name)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -522,7 +522,7 @@ func (d *watcher) onTableDel(_ context.Context, name string) error {
 }
 
 func (d *watcher) onTableAdd(_ context.Context, table *config.Table) error {
-	db, tbl, err := parseDatabaseAndTable(table.Name)
+	db, tbl, err := config.ParseDatabaseAndTable(table.Name)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -537,7 +537,7 @@ func (d *watcher) onTableAdd(_ context.Context, table *config.Table) error {
 		return nil
 	}
 
-	vtab, err := makeVTable(tbl, table)
+	vtab, err := config.MakeVTable(tbl, table)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -547,7 +547,7 @@ func (d *watcher) onTableAdd(_ context.Context, table *config.Table) error {
 }
 
 func (d *watcher) onTableChange(_ context.Context, table *config.Table) error {
-	db, tbl, err := parseDatabaseAndTable(table.Name)
+	db, tbl, err := config.ParseDatabaseAndTable(table.Name)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -561,7 +561,7 @@ func (d *watcher) onTableChange(_ context.Context, table *config.Table) error {
 		return nil
 	}
 
-	vtab, err := makeVTable(tbl, table)
+	vtab, err := config.MakeVTable(tbl, table)
 	if err != nil {
 		return errors.WithStack(err)
 	}

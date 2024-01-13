@@ -337,7 +337,7 @@ func (fp *discovery) GetTable(ctx context.Context, tenant, cluster, tableName st
 		return nil, nil
 	}
 
-	return makeVTable(tableName, table)
+	return config.MakeVTable(tableName, table)
 }
 
 func (fp *discovery) loadCluster(tenant, cluster string) (*config.DataSourceCluster, error) {
