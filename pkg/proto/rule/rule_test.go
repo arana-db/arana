@@ -19,6 +19,7 @@ package rule
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 )
 
@@ -148,4 +149,37 @@ func TestRule(t *testing.T) {
 	ru.RemoveVTable("student")
 	assert.False(t, ru.Has("student"))
 	assert.False(t, (*Rule)(nil).Has("student"))
+}
+
+func TestGetShardColumn_Found(t *testing.T) {
+	sm := ShardMetadata{
+		ShardColumns: []*ShardColumn{
+			{Name: "column1"},
+			{Name: "column2"},
+			{Name: "column3"},
+		},
+	}
+
+	name := "column2"
+	expected := &ShardColumn{Name: "column2"}
+	result := sm.GetShardColumn(name)
+
+	assert.True(t, reflect.DeepEqual(result, expected))
+}
+
+func TestGetShardColumn_NotFound(t *testing.T) {
+	sm := ShardMetadata{
+		ShardColumns: []*ShardColumn{
+			{Name: "column1"},
+			{Name: "column2"},
+			{Name: "column3"},
+		},
+	}
+
+	name := "column4"
+	expected := (*ShardColumn)(nil)
+	result := sm.GetShardColumn(name)
+
+	assert.Nil(t, result)
+	assert.True(t, reflect.DeepEqual(result, expected))
 }
