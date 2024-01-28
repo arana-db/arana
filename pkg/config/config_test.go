@@ -400,3 +400,104 @@ func Test_configReader_LoadAll(t *testing.T) {
 		assert.NoError(t, err)
 	})
 }
+
+func TestCenterErrorNotImplement(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStoreOperator := mock.NewMockStoreOperator(ctrl)
+	shareCh := make(chan []byte)
+
+	defer func() {
+		close(shareCh)
+	}()
+
+	mockStoreOperator.EXPECT().Watch(gomock.Any()).AnyTimes().Return(shareCh, nil)
+	mockStoreOperator.EXPECT().Close().AnyTimes().Return(nil)
+
+	c, err := config.NewCenter("arana", mockStoreOperator)
+	assert.NoError(t, err)
+	assert.Equal(t, c.Tenant(), "arana")
+
+	cc := c.(*config.CenterTest)
+
+	t.Run("Load", func(t *testing.T) {
+		_, err = cc.Load(context.Background(), config.ConfigItemNodes)
+		assert.ErrorIs(t, err, config.ErrorNotImplement)
+	})
+
+	t.Run("LoadAll", func(t *testing.T) {
+		_, err = cc.LoadAll(context.Background())
+		assert.ErrorIs(t, err, config.ErrorNotImplement)
+	})
+
+	t.Run("Import", func(t *testing.T) {
+		err = c.Import(context.Background(), &config.Tenant{
+			Nodes: map[string]*config.Node{
+				"nodes-1": {
+					Name: "nodes-1",
+					Host: "127.0.0.1",
+					Port: 1001,
+				},
+			},
+		})
+		assert.ErrorIs(t, err, config.ErrorNotImplement)
+	})
+
+	t.Run("Write", func(t *testing.T) {
+		err = c.Write(context.Background(), config.ConfigItemNodes, &config.Tenant{
+			Nodes: map[string]*config.Node{
+				"nodes-1": {
+					Name: "nodes-1",
+					Host: "127.0.0.1",
+					Port: 1001,
+				},
+			},
+		})
+		assert.ErrorIs(t, err, config.ErrorNotImplement)
+	})
+
+	t.Run("Subscribe", func(t *testing.T) {
+		_, err = c.Subscribe(context.Background(), config.EventTypeNodes, func(e config.Event) {})
+		assert.ErrorIs(t, err, config.ErrorNotImplement)
+	})
+}
+
+func TestCenterClose(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStoreOperator := mock.NewMockStoreOperator(ctrl)
+	shareCh := make(chan []byte)
+
+	defer func() {
+		close(shareCh)
+	}()
+
+	mockStoreOperator.EXPECT().Watch(gomock.Any()).AnyTimes().Return(shareCh, nil)
+	mockStoreOperator.EXPECT().Close().AnyTimes().Return(nil)
+
+	t.Run("close read", func(t *testing.T) {
+		c, err := config.NewCenter("arana", mockStoreOperator, config.WithReader(true))
+		assert.NoError(t, err)
+		cc := c.(*config.CenterTest)
+		assert.NotNil(t, cc.Reader)
+		assert.NoError(t, cc.Close())
+	})
+
+	t.Run("close write", func(t *testing.T) {
+		c, err := config.NewCenter("arana", mockStoreOperator, config.WithWriter(true))
+		assert.NoError(t, err)
+		cc := c.(*config.CenterTest)
+		assert.NotNil(t, cc.Writer)
+		assert.NoError(t, cc.Close())
+	})
+
+	t.Run("close watch", func(t *testing.T) {
+		c, err := config.NewCenter("arana", mockStoreOperator, config.WithWatcher(true))
+		assert.NoError(t, err)
+		cc := c.(*config.CenterTest)
+		assert.NotNil(t, cc.Watcher)
+		assert.NoError(t, cc.Close())
+	})
+}
