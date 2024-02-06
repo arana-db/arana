@@ -40,10 +40,11 @@ var _ proto.Plan = (*ShowOpenTablesPlan)(nil)
 
 type ShowOpenTablesPlan struct {
 	plan.BasePlan
-	Database       string
-	Conn           proto.DB
-	Stmt           *ast.ShowOpenTables
-	invertedShards map[string]string // phy table name -> logical table name
+	Database          string
+	Conn              proto.DB
+	Stmt              *ast.ShowOpenTables
+	invertedShards    map[string]string // phy table name -> logical table name
+	invertedDatabases map[string]string // phy database name -> logical database name
 }
 
 // NewShowOpenTablesPlan create ShowTables Plan
@@ -97,6 +98,10 @@ func (st *ShowOpenTablesPlan) ExecIn(ctx context.Context, conn proto.VConn) (pro
 				return next, nil
 			}
 
+			if logicDatabaseName, ok := st.invertedDatabases[dest[0].String()]; ok {
+				dest[0] = proto.NewValueString(logicDatabaseName)
+			}
+
 			if logicalTableName, ok := st.invertedShards[dest[1].String()]; ok {
 				dest[1] = proto.NewValueString(logicalTableName)
 			}
@@ -134,4 +139,8 @@ func (st *ShowOpenTablesPlan) SetDatabase(database string) {
 
 func (st *ShowOpenTablesPlan) SetInvertedShards(m map[string]string) {
 	st.invertedShards = m
+}
+
+func (st *ShowOpenTablesPlan) SetInvertedDatabases(m map[string]string) {
+	st.invertedDatabases = m
 }

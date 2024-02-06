@@ -37,15 +37,15 @@ func init() {
 }
 
 func optimizeShowOpenTables(ctx context.Context, o *optimize.Optimizer) (proto.Plan, error) {
-	var invertedIndex map[string]string
+	var invertedShards map[string]string
 	for logicalTable, v := range o.Rule.VTables() {
 		t := v.Topology()
 		t.Each(func(x, y int) bool {
 			if _, phyTable, ok := t.Render(x, y); ok {
-				if invertedIndex == nil {
-					invertedIndex = make(map[string]string)
+				if invertedShards == nil {
+					invertedShards = make(map[string]string)
 				}
-				invertedIndex[phyTable] = logicalTable
+				invertedShards[phyTable] = logicalTable
 			}
 			return true
 		})
@@ -55,15 +55,34 @@ func optimizeShowOpenTables(ctx context.Context, o *optimize.Optimizer) (proto.P
 
 	tenant := rcontext.Tenant(ctx)
 	clusters := security.DefaultTenantManager().GetClusters(tenant)
+
+	invertedDatabases := make(map[string]string)
+	for _, cluster := range clusters {
+		ns := namespace.Load(tenant, cluster)
+		for _, d := range ns.DBGroups() {
+			invertedDatabases[d] = cluster
+		}
+	}
+
 	plans := make([]proto.Plan, 0, len(clusters))
 	for _, cluster := range clusters {
 		ns := namespace.Load(tenant, cluster)
 		// 配置里原子库 都需要执行一次
 		groups := ns.DBGroups()
 		for i := 0; i < len(groups); i++ {
-			ret := dal.NewShowOpenTablesPlan(stmt)
+			var ret *dal.ShowOpenTablesPlan
+			if db, ok := stmt.Like(); ok && db == cluster {
+				// filter in cluster
+				show := ast.NewBaseShow(groups[i])
+				stmtCopy := ast.ShowOpenTables{BaseShow: &show}
+				ret = dal.NewShowOpenTablesPlan(&stmtCopy)
+			} else {
+				// no filter or can't match any group
+				ret = dal.NewShowOpenTablesPlan(stmt)
+			}
 			ret.BindArgs(o.Args)
-			ret.SetInvertedShards(invertedIndex)
+			ret.SetInvertedShards(invertedShards)
+			ret.SetInvertedDatabases(invertedDatabases)
 			ret.SetDatabase(groups[i])
 			plans = append(plans, ret)
 		}

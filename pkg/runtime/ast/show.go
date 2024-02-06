@@ -64,6 +64,10 @@ type BaseShow struct {
 	filter interface{} // ExpressionNode or string
 }
 
+func NewBaseShow(filter string) BaseShow {
+	return BaseShow{filter: filter}
+}
+
 func (bs *BaseShow) Restore(flag RestoreFlag, sb *strings.Builder, args *[]int) error {
 	switch val := bs.filter.(type) {
 	case string:
