@@ -67,7 +67,7 @@ func optimizeShowOpenTables(ctx context.Context, o *optimize.Optimizer) (proto.P
 	plans := make([]proto.Plan, 0, len(clusters))
 	for _, cluster := range clusters {
 		ns := namespace.Load(tenant, cluster)
-		// 配置里原子库 都需要执行一次
+		// check every group from namespace
 		groups := ns.DBGroups()
 		for i := 0; i < len(groups); i++ {
 			var ret *dal.ShowOpenTablesPlan
