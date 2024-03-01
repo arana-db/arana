@@ -22,6 +22,13 @@ listeners:
       address: 0.0.0.0
       port: 13306
 
+registry:
+  enable: false
+  name: etcd
+  root_path: arana
+  options:
+    endpoints: "http://etcd:2379"
+
 config:
   name: etcd
   options:
