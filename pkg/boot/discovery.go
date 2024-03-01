@@ -23,17 +23,17 @@ import (
 
 import (
 	"github.com/creasty/defaults"
-
 	"github.com/pkg/errors"
-
-	uatomic "go.uber.org/atomic"
 )
 
 import (
 	"github.com/arana-db/arana/pkg/config"
+	"github.com/arana-db/arana/pkg/metrics"
 	"github.com/arana-db/arana/pkg/proto/rule"
 	"github.com/arana-db/arana/pkg/security"
 	"github.com/arana-db/arana/pkg/trace"
+	uatomic "go.uber.org/atomic"
+
 	uconfig "github.com/arana-db/arana/pkg/util/config"
 	"github.com/arana-db/arana/pkg/util/log"
 	"github.com/arana-db/arana/pkg/util/misc"
@@ -187,6 +187,16 @@ func (fp *discovery) InitTrace(ctx context.Context) error {
 		return err
 	}
 	return trace.Initialize(ctx, fp.options.Trace)
+}
+
+func (fp *discovery) InitPrometheus(ctx context.Context) error {
+	if fp.options.Metric == nil {
+		fp.options.Metric = &config.Metric{}
+	}
+	if err := defaults.Set(fp.options.Metric); err != nil {
+		return err
+	}
+	return metrics.Initialize(ctx, fp.options.Metric)
 }
 
 func (fp *discovery) InitSupervisor(ctx context.Context) error {

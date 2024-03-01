@@ -19,9 +19,7 @@ package boot
 
 import (
 	"context"
-)
 
-import (
 	"github.com/arana-db/arana/pkg/config"
 	"github.com/arana-db/arana/pkg/proto/rule"
 )
@@ -119,6 +117,9 @@ type Discovery interface {
 
 	// InitTrace distributed tracing
 	InitTrace(ctx context.Context) error
+
+	// InitPrometheus initializes the Prometheus metrics system.
+	InitPrometheus(ctx context.Context) error
 
 	// InitTenant initializes tenant (just a workaround, TBD)
 	InitTenant(tenant string) error

@@ -24,13 +24,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
-)
 
-import (
-	"github.com/spf13/cobra"
-)
-
-import (
 	"github.com/arana-db/arana/pkg/boot"
 	"github.com/arana-db/arana/pkg/constants"
 	"github.com/arana-db/arana/pkg/executor"
@@ -38,6 +32,7 @@ import (
 	"github.com/arana-db/arana/pkg/registry"
 	"github.com/arana-db/arana/pkg/server"
 	"github.com/arana-db/arana/pkg/util/log"
+	"github.com/spf13/cobra"
 )
 
 // slogan is generated from 'figlet -f smslant ARANA'.
@@ -126,6 +121,10 @@ func Start(bootstrapConfigPath string) {
 
 	if err := discovery.InitTrace(context.Background()); err != nil {
 		log.Warnf("init trace provider failed: %v", err)
+	}
+
+	if err := discovery.InitPrometheus(context.Background()); err != nil {
+		log.Warnf("init prometheus provider failed: %v", err)
 	}
 
 	if err := discovery.InitSupervisor(context.Background()); err != nil {

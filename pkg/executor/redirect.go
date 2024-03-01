@@ -25,30 +25,26 @@ import (
 	"sync"
 	"time"
 	"unicode"
-)
 
-import (
 	"github.com/arana-db/parser"
 	"github.com/arana-db/parser/ast"
-	pMysql "github.com/arana-db/parser/mysql"
 
+	pMysql "github.com/arana-db/parser/mysql"
 	"github.com/pkg/errors"
 
 	rtrace "go.opentelemetry.io/otel/trace"
-
 	"go.uber.org/zap"
-
 	"golang.org/x/exp/slices"
-)
 
-import (
 	mConstants "github.com/arana-db/arana/pkg/constants/mysql"
 	"github.com/arana-db/arana/pkg/metrics"
+
 	mysqlErrors "github.com/arana-db/arana/pkg/mysql/errors"
 	"github.com/arana-db/arana/pkg/proto"
 	"github.com/arana-db/arana/pkg/proto/hint"
 	"github.com/arana-db/arana/pkg/resultx"
 	"github.com/arana-db/arana/pkg/runtime"
+
 	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"github.com/arana-db/arana/pkg/runtime/transaction"
 	"github.com/arana-db/arana/pkg/security"
@@ -186,8 +182,8 @@ func (executor *RedirectExecutor) doExecutorComQuery(ctx *proto.Context, act ast
 		}
 		ctx.Context = log.NewContext(ctx.Context, ctx.C.ID(), zap.String("trace-context", strings.ReplaceAll(string(traceBytes), "\"", "")))
 	}
-
-	metrics.ParserDuration.Observe(time.Since(start).Seconds())
+	metrics.RecordMetrics("parser_duration", time.Since(start).Seconds())
+	//metrics.ParserDuration.Observe(time.Since(start).Seconds())
 
 	if len(ctx.C.Schema()) < 1 {
 		// TODO: handle multiple clusters

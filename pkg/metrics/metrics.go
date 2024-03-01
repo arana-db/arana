@@ -18,37 +18,56 @@
 package metrics
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
+	"context"
+
+	"sync"
+
+	"github.com/arana-db/arana/pkg/config"
+	"github.com/pkg/errors"
+	// Other necessary imports...
 )
 
+const (
+	Prometheus ProviderType = "prometheus"
+)
+
+// ProviderType is a string alias representing the type of Prometheus provider.
+type ProviderType string
+
+// A map to store registered providers
 var (
-	ParserDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
-		Namespace: "arana",
-		Subsystem: "parser",
-		Name:      "duration_seconds",
-		Help:      "histogram of processing time (s) in parse SQL.",
-		Buckets:   prometheus.ExponentialBuckets(0.00004, 2, 25), // 40us ~ 11min
-	})
-
-	OptimizeDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
-		Namespace: "arana",
-		Subsystem: "optimizer",
-		Name:      "duration_seconds",
-		Help:      "histogram of processing time (s) in optimizer.",
-		Buckets:   prometheus.ExponentialBuckets(0.00004, 2, 25), // 40us ~ 11min
-	})
-
-	ExecuteDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
-		Namespace: "arana",
-		Subsystem: "executor",
-		Name:      "duration_seconds",
-		Help:      "histogram of processing time (s) in execute.",
-		Buckets:   prometheus.ExponentialBuckets(0.0001, 2, 30), // 100us ~ 15h,
-	})
+	providers = make(map[ProviderType]Provider)
+	// currentProvider holds the currently active Prometheus provider.
+	currentProvider Provider
+	once            sync.Once
 )
 
-func RegisterMetrics() {
-	prometheus.MustRegister(ParserDuration)
-	prometheus.MustRegister(OptimizeDuration)
-	prometheus.MustRegister(ExecuteDuration)
+// RegisterProviders registers a new Prometheus provider.
+func RegisterProviders(pType ProviderType, p Provider) {
+	providers[pType] = p
+}
+
+// Initialize sets up the Prometheus provider based on the provided configuration.
+func Initialize(ctx context.Context, cfg *config.Metric) error {
+	var err error
+	once.Do(func() {
+		provider, ok := providers[ProviderType(cfg.Type)]
+		if !ok {
+			err = errors.Errorf("not supported %s  metrics provider ", cfg.Type)
+			return
+		}
+		currentProvider = provider
+		err = currentProvider.Initialize(ctx, cfg)
+	})
+	return err
+}
+
+func RecordMetrics(metricName string, value float64) error {
+	return currentProvider.RecordMetrics(metricName, value)
+}
+
+// Provider interface defines the methods that a Prometheus provider must implement.
+type Provider interface {
+	Initialize(ctx context.Context, cfg *config.Metric) error
+	RecordMetrics(metricName string, value float64) error
 }

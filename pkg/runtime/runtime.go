@@ -438,7 +438,8 @@ func (pi *defaultRuntime) Execute(ctx *proto.Context) (res proto.Result, warn ui
 	defer func() {
 		span.End()
 		since := time.Since(execStart)
-		metrics.ExecuteDuration.Observe(since.Seconds())
+		metrics.RecordMetrics("execute_duration", since.Seconds())
+		//metrics.ExecuteDuration.Observe(since.Seconds())
 		if pi.Namespace().SlowThreshold() != 0 && since > pi.Namespace().SlowThreshold() {
 			pi.Namespace().SlowLogger().Warnf("slow logs elapsed %v sql %s", since, ctx.GetQuery())
 		}
@@ -468,7 +469,8 @@ func (pi *defaultRuntime) Execute(ctx *proto.Context) (res proto.Result, warn ui
 		err = perrors.WithStack(err)
 		return
 	}
-	metrics.OptimizeDuration.Observe(time.Since(start).Seconds())
+	metrics.RecordMetrics("optimize_duration", time.Since(start).Seconds())
+	//metrics.OptimizeDuration.Observe(time.Since(start).Seconds())
 
 	if res, err = plan.ExecIn(ctx, pi); err != nil {
 		// TODO: how to warp error packet

@@ -28,21 +28,13 @@ import (
 	"strings"
 	"time"
 	"unicode"
-)
 
-import (
+	"github.com/arana-db/arana/pkg/util/log"
 	"github.com/go-playground/validator/v10"
-
 	"github.com/pkg/errors"
-
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
-
 	"gopkg.in/yaml.v3"
-)
-
-import (
-	"github.com/arana-db/arana/pkg/util/log"
 )
 
 type (
@@ -86,6 +78,7 @@ type (
 		Listeners  []*Listener `validate:"required,dive" yaml:"listeners" json:"listeners"`
 		Registry   *Registry   `yaml:"registry" json:"registry"`
 		Trace      *Trace      `yaml:"trace" json:"trace"`
+		Metric     *Metric     `yaml:"prometheus" json:"prometheus"`
 		Supervisor *User       `validate:"required,dive" yaml:"supervisor" json:"supervisor"`
 		Logging    *log.Config `validate:"required,dive" yaml:"logging" json:"logging"`
 	}
@@ -216,6 +209,24 @@ type (
 	Trace struct {
 		Type    string `default:"jaeger" yaml:"type" json:"type"`
 		Address string `default:"http://localhost:14268/api/traces" yaml:"address" json:"address"`
+	}
+
+	// Prometheus represents the configuration settings for a Prometheus server.
+	Metric struct {
+		Type string `default:"prometheus" yaml:"type" json:"type"`
+		// Address specifies the URL where the Prometheus server is running.
+		// Default: "http://localhost:9090"
+		Address string `default:"http://localhost:9090" yaml:"address" json:"address"`
+
+		// ScrapeInterval defines the frequency at which the Prometheus server scrapes metrics
+		// from its targets. It is represented as a duration string.
+		// Default: "15s" (15 seconds)
+		ScrapeInterval string `default:"15s" yaml:"scrape_interval" json:"scrape_interval"`
+
+		// ScrapeTimeout specifies the maximum duration to wait for a scrape request to complete
+		// before timing out. It is also represented as a duration string.
+		// Default: "10s" (10 seconds)
+		ScrapeTimeout string `default:"10s" yaml:"scrape_timeout" json:"scrape_timeout"`
 	}
 )
 
