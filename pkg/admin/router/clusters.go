@@ -36,6 +36,7 @@ func init() {
 		router.POST("/tenants/:tenant/clusters", CreateCluster)
 		router.GET("/tenants/:tenant/clusters/:cluster", GetCluster)
 		router.PUT("/tenants/:tenant/clusters/:cluster", UpdateCluster)
+		router.POST("/tenants/:tenant/clusters/:cluster", ExtendCluster)
 		router.DELETE("/tenants/:tenant/clusters/:cluster", RemoveCluster)
 	})
 }
@@ -100,6 +101,23 @@ func UpdateCluster(c *gin.Context) error {
 	}
 
 	err := service.UpsertCluster(c, tenant, cluster, &clusterBody)
+	if err != nil {
+		return err
+	}
+	c.JSON(http.StatusOK, "success")
+	return nil
+}
+
+func ExtendCluster(c *gin.Context) error {
+	service := admin.GetService(c)
+	tenant := c.Param("tenant")
+	cluster := c.Param("cluster")
+	var clusterBody admin.ClusterDTO
+	if err := c.ShouldBindJSON(&clusterBody); err != nil {
+		return exception.Wrap(exception.CodeInvalidParams, err)
+	}
+
+	err := service.ExtendCluster(c, tenant, cluster, &clusterBody)
 	if err != nil {
 		return err
 	}
