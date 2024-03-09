@@ -124,14 +124,15 @@ func drdsCreateTable(ctx context.Context, o *optimize.Optimizer) (*rule.VTable, 
 			{
 				Columns: []*config.ColumnRule{{Name: dbColume}},
 				Expr: strings.ReplaceAll(dbColume, dbColume, "$0") + " % " +
-					fmt.Sprintf("%d", stmt.Partition.Num),
+					fmt.Sprintf("%d", stmt.Partition.Num*stmt.Partition.Sub.Num) + " / " +
+					fmt.Sprintf("%d", stmt.Partition.Sub.Num),
 			},
 		},
 		TblRules: []*config.Rule{
 			{
 				Columns: []*config.ColumnRule{{Name: tbColume}},
 				Expr: strings.ReplaceAll(tbColume, tbColume, "$0") + " % " +
-					fmt.Sprintf("%d", stmt.Partition.Sub.Num),
+					fmt.Sprintf("%d", stmt.Partition.Num*stmt.Partition.Sub.Num),
 			},
 		},
 		Topology: &config.Topology{

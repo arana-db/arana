@@ -83,6 +83,7 @@ CREATE TABLE IF NOT EXISTS `employees_0000_r`.`student_0006` LIKE `employees_000
 CREATE TABLE IF NOT EXISTS `employees_0000_r`.`student_0007` LIKE `employees_0000`.`student_0000`;
 
 INSERT INTO employees_0000.student_0001(id,uid,name,score,nickname,gender,birth_year,created_at,modified_at) VALUES (1, 1, 'arana', 95, 'Awesome Arana', 0, 2021, NOW(), NOW());
+INSERT INTO employees_0000.student_0001(id,uid,name,score,nickname,gender,birth_year,created_at,modified_at) VALUES (33, 33, 'arana33', 95, 'Awesome Arana', 0, 2021, NOW(), NOW());
 
 CREATE TABLE IF NOT EXISTS `employees_0000`.`friendship_0000`
 (

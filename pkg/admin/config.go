@@ -116,6 +116,9 @@ type configWriter interface {
 	// UpsertCluster upserts a cluster into an existing tenant.
 	UpsertCluster(ctx context.Context, tenant, cluster string, body *ClusterDTO) error
 
+	// ExtendCluster extends a cluster in an existing tenant.
+	ExtendCluster(ctx context.Context, tenant, cluster string, body *ClusterDTO) error
+
 	// RemoveCluster removes a cluster from an existing tenant.
 	RemoveCluster(ctx context.Context, tenant, cluster string) error
 

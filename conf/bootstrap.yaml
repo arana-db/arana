@@ -31,6 +31,12 @@ registry:
     options:
       endpoints: "http://etcd:2379"
 
+dts:
+    enable: false
+    name: dtle
+    options:
+      endpoints: "http://dtle:4646"
+
 #    name: nacos
 #    options:
 #      endpoints: "127.0.0.1:8848"

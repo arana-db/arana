@@ -80,11 +80,18 @@ type (
 		Options  map[string]interface{} `yaml:"options" json:"options"`
 	}
 
+	Dts struct {
+		Enable  bool                   `yaml:"enable" json:"enable"`
+		Name    string                 `yaml:"name" json:"name"`
+		Options map[string]interface{} `yaml:"options" json:"options"`
+	}
+
 	BootOptions struct {
 		Spec       `yaml:",inline"`
 		Config     *Options    `yaml:"config" json:"config"`
 		Listeners  []*Listener `validate:"required,dive" yaml:"listeners" json:"listeners"`
 		Registry   *Registry   `yaml:"registry" json:"registry"`
+		Dts        *Dts        `yaml:"dts" json:"dts"`
 		Trace      *Trace      `yaml:"trace" json:"trace"`
 		Supervisor *User       `validate:"required,dive" yaml:"supervisor" json:"supervisor"`
 		Logging    *log.Config `validate:"required,dive" yaml:"logging" json:"logging"`
