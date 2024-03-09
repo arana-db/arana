@@ -41,18 +41,18 @@ func NewXAHook(tenant string, enable bool) (*xaHook, error) {
 	}
 
 	trxStateChangeFunc := map[runtime.TxState]handleFunc{
-		runtime.TrxActive:     xh.onActive,
-		runtime.TrxPreparing:  xh.onPreparing,
-		runtime.TrxPrepared:   xh.onPrepared,
-		runtime.TrxCommitting: xh.onCommitting,
-		runtime.TrxCommitted:  xh.onCommitted,
-		runtime.TrxAborting:   xh.onAborting,
-		runtime.TrxRollback:   xh.onRollbackOnly,
-		runtime.TrxRolledBack: xh.onRolledBack,
+		runtime.TrxStarted:       xh.onActive,
+		runtime.TrxPreparing:     xh.onPreparing,
+		runtime.TrxPrepared:      xh.onPrepared,
+		runtime.TrxCommitting:    xh.onCommitting,
+		runtime.TrxCommitted:     xh.onCommitted,
+		runtime.TrxFailed:        xh.onAborting,
+		runtime.TrxRolledBacking: xh.onRollbackOnly,
+		runtime.TrxRolledBacked:  xh.onRolledBack,
 	}
 
 	xh.trxMgr = trxMgr
-	xh.trxLog = &TrxLog{}
+	xh.trxLog = &GlobalTrxLog{}
 	xh.trxStateChangeFunc = trxStateChangeFunc
 
 	return xh, nil
@@ -63,7 +63,7 @@ func NewXAHook(tenant string, enable bool) (*xaHook, error) {
 type xaHook struct {
 	enable             bool
 	trxMgr             *TrxManager
-	trxLog             *TrxLog
+	trxLog             *GlobalTrxLog
 	trxStateChangeFunc map[runtime.TxState]handleFunc
 }
 
@@ -71,7 +71,7 @@ func (xh *xaHook) OnTxStateChange(ctx context.Context, state runtime.TxState, tx
 	if !xh.enable {
 		return nil
 	}
-	xh.trxLog.State = state
+	xh.trxLog.Status = state
 	handle, ok := xh.trxStateChangeFunc[state]
 	if ok {
 		return handle(ctx, tx)
@@ -84,17 +84,18 @@ func (xh *xaHook) OnCreateBranchTx(ctx context.Context, tx runtime.BranchTx) {
 	if !xh.enable {
 		return
 	}
-	xh.trxLog.Participants = append(xh.trxLog.Participants, TrxParticipant{
-		NodeID:     "",
-		RemoteAddr: tx.GetConn().GetDatabaseConn().GetNetConn().RemoteAddr().String(),
-		Schema:     tx.GetConn().DBName(),
-	})
+	// TODO: add branch trx log
+	//xh.trxLog.BranchTrxLogs = append(xh.trxLog.BranchTrxLogs, BranchTrxLog{
+	//	NodeID:     "",
+	//	RemoteAddr: tx.GetConn().GetDatabaseConn().GetNetConn().RemoteAddr().String(),
+	//	Schema:     tx.GetConn().DBName(),
+	//})
 }
 
 func (xh *xaHook) onActive(ctx context.Context, tx runtime.CompositeTx) error {
 	tx.SetBeginFunc(StartXA)
 	xh.trxLog.TrxID = tx.GetTrxID()
-	xh.trxLog.State = tx.GetTxState()
+	xh.trxLog.Status = tx.GetTxState()
 	xh.trxLog.Tenant = tx.GetTenant()
 	return nil
 }
@@ -103,14 +104,14 @@ func (xh *xaHook) onPreparing(ctx context.Context, tx runtime.CompositeTx) error
 	tx.Range(func(tx runtime.BranchTx) {
 		tx.SetPrepareFunc(PrepareXA)
 	})
-	if err := xh.trxMgr.trxLog.AddOrUpdateTxLog(*xh.trxLog); err != nil {
+	if err := xh.trxMgr.trxLog.AddOrUpdateGlobalTxLog(*xh.trxLog); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (xh *xaHook) onPrepared(ctx context.Context, tx runtime.CompositeTx) error {
-	if err := xh.trxMgr.trxLog.AddOrUpdateTxLog(*xh.trxLog); err != nil {
+	if err := xh.trxMgr.trxLog.AddOrUpdateGlobalTxLog(*xh.trxLog); err != nil {
 		return err
 	}
 	return nil
@@ -120,14 +121,14 @@ func (xh *xaHook) onCommitting(ctx context.Context, tx runtime.CompositeTx) erro
 	tx.Range(func(tx runtime.BranchTx) {
 		tx.SetCommitFunc(CommitXA)
 	})
-	if err := xh.trxMgr.trxLog.AddOrUpdateTxLog(*xh.trxLog); err != nil {
+	if err := xh.trxMgr.trxLog.AddOrUpdateGlobalTxLog(*xh.trxLog); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (xh *xaHook) onCommitted(ctx context.Context, tx runtime.CompositeTx) error {
-	if err := xh.trxMgr.trxLog.AddOrUpdateTxLog(*xh.trxLog); err != nil {
+	if err := xh.trxMgr.trxLog.AddOrUpdateGlobalTxLog(*xh.trxLog); err != nil {
 		return err
 	}
 	return nil
@@ -137,7 +138,7 @@ func (xh *xaHook) onAborting(ctx context.Context, tx runtime.CompositeTx) error 
 	tx.Range(func(bTx runtime.BranchTx) {
 		bTx.SetCommitFunc(RollbackXA)
 	})
-	if err := xh.trxMgr.trxLog.AddOrUpdateTxLog(*xh.trxLog); err != nil {
+	if err := xh.trxMgr.trxLog.AddOrUpdateGlobalTxLog(*xh.trxLog); err != nil {
 		return err
 	}
 	// auto execute XA rollback action
@@ -151,15 +152,15 @@ func (xh *xaHook) onRollbackOnly(ctx context.Context, tx runtime.CompositeTx) er
 	tx.Range(func(tx runtime.BranchTx) {
 		tx.SetCommitFunc(RollbackXA)
 	})
-	if err := xh.trxMgr.trxLog.AddOrUpdateTxLog(*xh.trxLog); err != nil {
+	if err := xh.trxMgr.trxLog.AddOrUpdateGlobalTxLog(*xh.trxLog); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (xh *xaHook) onRolledBack(ctx context.Context, tx runtime.CompositeTx) error {
-	xh.trxLog.State = runtime.TrxRolledBack
-	if err := xh.trxMgr.trxLog.AddOrUpdateTxLog(*xh.trxLog); err != nil {
+	xh.trxLog.Status = runtime.TrxRolledBacking
+	if err := xh.trxMgr.trxLog.AddOrUpdateGlobalTxLog(*xh.trxLog); err != nil {
 		return err
 	}
 	return nil

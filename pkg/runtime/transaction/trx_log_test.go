@@ -19,7 +19,6 @@ package transaction
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 )
 
@@ -42,12 +41,11 @@ func TestDeleteTxLog(t *testing.T) {
 	txLogManager := &TxLogManager{
 		sysDB: mockDB,
 	}
-	testTrxLog := TrxLog{
-		TrxID:        "test_delete_id",
-		ServerID:     1,
-		State:        runtime.TrxActive,
-		Participants: []TrxParticipant{{NodeID: "1", RemoteAddr: "127.0.0.1", Schema: "schema"}},
-		Tenant:       "test_tenant",
+	testTrxLog := GlobalTrxLog{
+		TrxID:    "test_delete_id",
+		ServerID: 1,
+		Status:   runtime.TrxStarted,
+		Tenant:   "test_tenant",
 	}
 	trxIdVal, _ := proto.NewValue("test_delete_id")
 	mockDB.EXPECT().Call(
@@ -55,7 +53,7 @@ func TestDeleteTxLog(t *testing.T) {
 		"DELETE FROM __arana_trx_log WHERE trx_id = ?",
 		gomock.Eq([]proto.Value{trxIdVal}),
 	).Return(nil, uint16(0), nil).Times(1)
-	err := txLogManager.DeleteTxLog(testTrxLog)
+	err := txLogManager.DeleteGlobalTxLog(testTrxLog)
 	assert.NoError(t, err)
 }
 
@@ -66,33 +64,28 @@ func TestAddOrUpdateTxLog(t *testing.T) {
 	txLogManager := &TxLogManager{
 		sysDB: mockDB,
 	}
-	testTrxLog := TrxLog{
-		TrxID:        "test_add_or_update_id",
-		ServerID:     1,
-		State:        runtime.TrxActive,
-		Participants: []TrxParticipant{{NodeID: "1", RemoteAddr: "127.0.0.1", Schema: "schema"}},
-		Tenant:       "test_tenant",
+	testTrxLog := GlobalTrxLog{
+		TrxID:    "test_add_or_update_id",
+		ServerID: 1,
+		Status:   runtime.TrxStarted,
+		Tenant:   "test_tenant",
 	}
-	participants, err := json.Marshal(testTrxLog.Participants)
-	assert.NoError(t, err)
 	trxIdVal, _ := proto.NewValue(testTrxLog.TrxID)
 	tenantVal, _ := proto.NewValue(testTrxLog.Tenant)
 	serverIdVal, _ := proto.NewValue(testTrxLog.ServerID)
-	stateVal, _ := proto.NewValue(int32(testTrxLog.State))
-	participantsVal, _ := proto.NewValue(string(participants))
+	stateVal, _ := proto.NewValue(int32(testTrxLog.Status))
 
 	args := []proto.Value{
 		trxIdVal,
 		tenantVal,
 		serverIdVal,
 		stateVal,
-		participantsVal,
 	}
 	mockDB.EXPECT().Call(
 		context.Background(),
 		"REPLACE INTO __arana_trx_log(trx_id, tenant, server_id, status, participant, start_time, update_time) VALUES (?,?,?,?,?,sysdate(),sysdate())",
 		args,
 	).Return(nil, uint16(0), nil).Times(1)
-	err = txLogManager.AddOrUpdateTxLog(testTrxLog)
+	err := txLogManager.AddOrUpdateGlobalTxLog(testTrxLog)
 	assert.NoError(t, err)
 }

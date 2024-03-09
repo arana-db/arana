@@ -62,15 +62,14 @@ type TxState int32
 
 const (
 	_             TxState = iota
-	TrxActive             // CompositeTx Default state
-	TrxPreparing          // Start executing the first SQL statement
+	TrxStarted            // CompositeTx Default state
+	TrxPreparing          // All SQL statements are executed, and before the Commit statement executes
 	TrxPrepared           // All SQL statements are executed, and before the Commit statement executes
 	TrxCommitting         // After preparing is completed, ready to start execution
 	TrxCommitted          // Officially complete the Commit action
-	TrxAborting           // There are abnormalities during the execution of the branch, and the composite transaction is prohibited to continue to execute
-	TrxRollback
-	TrxFinish
-	TrxRolledBack
+	TrxRolledBacking
+	TrxRolledBacked
+	TrxFailed
 )
 
 // CompositeTx distribute transaction
@@ -142,7 +141,7 @@ func newCompositeTx(ctx context.Context, pi *defaultRuntime, hooks ...TxHook) *c
 		},
 	}
 
-	tx.setTxState(ctx, TrxActive)
+	tx.setTxState(ctx, TrxStarted)
 	return tx
 }
 
@@ -331,7 +330,7 @@ func (tx *compositeTx) doPrepareCommit(ctx context.Context) error {
 		})
 	}
 	if err := g.Wait(); err != nil {
-		tx.setTxState(ctx, TrxAborting)
+		tx.setTxState(ctx, TrxFailed)
 		return err
 	}
 
@@ -401,7 +400,7 @@ func (tx *compositeTx) doPrepareRollback(ctx context.Context) error {
 	}
 
 	if err := g.Wait(); err != nil {
-		tx.setTxState(ctx, TrxAborting)
+		tx.setTxState(ctx, TrxFailed)
 		return err
 	}
 	tx.setTxState(ctx, TrxPrepared)
@@ -409,7 +408,7 @@ func (tx *compositeTx) doPrepareRollback(ctx context.Context) error {
 }
 
 func (tx *compositeTx) doRollback(ctx context.Context) error {
-	tx.setTxState(ctx, TrxRollback)
+	tx.setTxState(ctx, TrxRolledBacking)
 
 	var g errgroup.Group
 	for k, v := range tx.txs {
@@ -426,7 +425,7 @@ func (tx *compositeTx) doRollback(ctx context.Context) error {
 	if err := g.Wait(); err != nil {
 		return err
 	}
-	tx.setTxState(ctx, TrxRolledBack)
+	tx.setTxState(ctx, TrxRolledBacked)
 	return nil
 }
 
@@ -494,7 +493,7 @@ func (tx *branchTx) Commit(ctx context.Context) (res proto.Result, warn uint16, 
 	}
 	defer tx.dispose()
 	if res, err = tx.commit(ctx, tx.bc); err != nil {
-		tx.state = TrxAborting
+		tx.state = TrxFailed
 		return
 	}
 
@@ -525,9 +524,9 @@ func (tx *branchTx) Rollback(ctx context.Context) (res proto.Result, warn uint16
 		return
 	}
 	defer tx.dispose()
-	tx.state = TrxRollback
+	tx.state = TrxRolledBacking
 	res, err = tx.rollback(ctx, tx.bc)
-	tx.state = TrxRolledBack
+	tx.state = TrxRolledBacked
 	return
 }
 

@@ -21,13 +21,26 @@ import (
 	"github.com/arana-db/arana/pkg/runtime"
 )
 
-// TrxLog arana tx log
-type TrxLog struct {
-	TrxID        string
-	ServerID     int32
-	State        runtime.TxState
-	Participants []TrxParticipant
-	Tenant       string
+// Global TrxLog arana tx log
+type GlobalTrxLog struct {
+	TrxID           string
+	Tenant          string
+	ServerID        int32
+	Status          runtime.TxState
+	ExpectedEndTime int64
+	StartTime       int64
+	BranchTrxLogs   []BranchTrxLog
+}
+
+// Branch TrxLog arana tx log
+type BranchTrxLog struct {
+	TrxID         string
+	BranchID      string
+	ParticipantID string
+	Tenant        string
+	ServerID      int32
+	Status        runtime.TxState
+	StartTime     int64
 }
 
 // TrxParticipant join target trx all node info
@@ -41,6 +54,7 @@ type dBOperation string
 
 const (
 	Like           dBOperation = "LIKE"
+	In             dBOperation = "IN"
 	Equal          dBOperation = "="
 	NotEqual       dBOperation = "<>"
 	LessThan       dBOperation = "<"
