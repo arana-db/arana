@@ -41,12 +41,12 @@ func NewXAHook(tenant string, enable bool) (*xaHook, error) {
 	}
 
 	trxStateChangeFunc := map[runtime.TxState]handleFunc{
-		runtime.TrxStarted:       xh.onActive,
+		runtime.TrxStarted:       xh.onStarted,
 		runtime.TrxPreparing:     xh.onPreparing,
 		runtime.TrxPrepared:      xh.onPrepared,
 		runtime.TrxCommitting:    xh.onCommitting,
 		runtime.TrxCommitted:     xh.onCommitted,
-		runtime.TrxFailed:        xh.onAborting,
+		runtime.TrxAborted:       xh.onAborting,
 		runtime.TrxRolledBacking: xh.onRollbackOnly,
 		runtime.TrxRolledBacked:  xh.onRolledBack,
 	}
@@ -92,11 +92,14 @@ func (xh *xaHook) OnCreateBranchTx(ctx context.Context, tx runtime.BranchTx) {
 	//})
 }
 
-func (xh *xaHook) onActive(ctx context.Context, tx runtime.CompositeTx) error {
+func (xh *xaHook) onStarted(ctx context.Context, tx runtime.CompositeTx) error {
 	tx.SetBeginFunc(StartXA)
 	xh.trxLog.TrxID = tx.GetTrxID()
 	xh.trxLog.Status = tx.GetTxState()
 	xh.trxLog.Tenant = tx.GetTenant()
+	xh.trxLog.StartTime = tx.GetStartTime()
+	xh.trxLog.ExpectedEndTime = tx.GetExpectedEndTime()
+
 	return nil
 }
 

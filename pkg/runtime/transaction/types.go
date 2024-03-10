@@ -19,6 +19,7 @@ package transaction
 
 import (
 	"github.com/arana-db/arana/pkg/runtime"
+	"time"
 )
 
 // Global TrxLog arana tx log
@@ -27,8 +28,8 @@ type GlobalTrxLog struct {
 	Tenant          string
 	ServerID        int32
 	Status          runtime.TxState
-	ExpectedEndTime int64
-	StartTime       int64
+	StartTime       time.Time
+	ExpectedEndTime time.Time
 	BranchTrxLogs   []BranchTrxLog
 }
 

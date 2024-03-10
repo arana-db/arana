@@ -202,11 +202,11 @@ func (gm *TxLogManager) ScanGlobalTxLog(pageNo, pageSize uint64, conditions []Co
 		serverId, _ = dest[2].Int64()
 		log.ServerID = int32(serverId)
 		state, _ = dest[3].Int64()
-		log.Status = runtime.TxState(int32(state))
+		log.Status = runtime.TxState(state)
 		expectedEndTime, _ = dest[4].Int64()
-		log.ExpectedEndTime = expectedEndTime
+		log.ExpectedEndTime = time.UnixMilli(expectedEndTime)
 		startTime, _ = dest[5].Int64()
-		log.StartTime = startTime
+		log.StartTime = time.UnixMilli(startTime)
 		logs = append(logs, log)
 		num++
 	}
@@ -230,7 +230,7 @@ func (gm *TxLogManager) runCleanGlobalTxLogTask() {
 			{
 				FiledName: "status",
 				Operation: In,
-				Value:     []int32{int32(runtime.TrxRolledBacked), int32(runtime.TrxCommitted), int32(runtime.TrxFailed)},
+				Value:     []int32{int32(runtime.TrxRolledBacked), int32(runtime.TrxCommitted), int32(runtime.TrxAborted)},
 			},
 		}
 	)
