@@ -33,7 +33,7 @@ const (
 )
 
 // TxState Transaction status
-type TxState int32
+type TxState int64
 
 const (
 	_             TxState = iota
