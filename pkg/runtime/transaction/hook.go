@@ -19,6 +19,7 @@ package transaction
 
 import (
 	"context"
+	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 )
 
 import (
@@ -40,15 +41,15 @@ func NewXAHook(tenant string, enable bool) (*xaHook, error) {
 		enable: enable,
 	}
 
-	trxStateChangeFunc := map[runtime.TxState]handleFunc{
-		runtime.TrxStarted:       xh.onStarted,
-		runtime.TrxPreparing:     xh.onPreparing,
-		runtime.TrxPrepared:      xh.onPrepared,
-		runtime.TrxCommitting:    xh.onCommitting,
-		runtime.TrxCommitted:     xh.onCommitted,
-		runtime.TrxAborted:       xh.onAborting,
-		runtime.TrxRolledBacking: xh.onRollbackOnly,
-		runtime.TrxRolledBacked:  xh.onRolledBack,
+	trxStateChangeFunc := map[rcontext.TxState]handleFunc{
+		rcontext.TrxStarted:       xh.onStarted,
+		rcontext.TrxPreparing:     xh.onPreparing,
+		rcontext.TrxPrepared:      xh.onPrepared,
+		rcontext.TrxCommitting:    xh.onCommitting,
+		rcontext.TrxCommitted:     xh.onCommitted,
+		rcontext.TrxAborted:       xh.onAborting,
+		rcontext.TrxRolledBacking: xh.onRollbackOnly,
+		rcontext.TrxRolledBacked:  xh.onRolledBack,
 	}
 
 	xh.trxMgr = trxMgr
@@ -64,10 +65,10 @@ type xaHook struct {
 	enable             bool
 	trxMgr             *TrxManager
 	trxLog             *GlobalTrxLog
-	trxStateChangeFunc map[runtime.TxState]handleFunc
+	trxStateChangeFunc map[rcontext.TxState]handleFunc
 }
 
-func (xh *xaHook) OnTxStateChange(ctx context.Context, state runtime.TxState, tx runtime.CompositeTx) error {
+func (xh *xaHook) OnTxStateChange(ctx context.Context, state rcontext.TxState, tx runtime.CompositeTx) error {
 	if !xh.enable {
 		return nil
 	}
@@ -162,7 +163,7 @@ func (xh *xaHook) onRollbackOnly(ctx context.Context, tx runtime.CompositeTx) er
 }
 
 func (xh *xaHook) onRolledBack(ctx context.Context, tx runtime.CompositeTx) error {
-	xh.trxLog.Status = runtime.TrxRolledBacking
+	xh.trxLog.Status = rcontext.TrxRolledBacking
 	if err := xh.trxMgr.trxLog.AddOrUpdateGlobalTxLog(*xh.trxLog); err != nil {
 		return err
 	}
