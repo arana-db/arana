@@ -21,6 +21,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"testing"
 	"time"
 )
@@ -41,7 +42,7 @@ func Test_branchTx_CallFieldList(t *testing.T) {
 	type fields struct {
 		closed   atomic.Bool
 		parent   *AtomDB
-		state    TxState
+		state    rcontext.TxState
 		prepare  dbFunc
 		commit   dbFunc
 		rollback dbFunc
@@ -89,7 +90,7 @@ func Test_compositeTx_Rollback(t *testing.T) {
 		beginTime time.Time
 		endTime   time.Time
 		isoLevel  sql.IsolationLevel
-		txState   TxState
+		txState   rcontext.TxState
 		beginFunc dbFunc
 		rt        *defaultRuntime
 		txs       map[string]*branchTx

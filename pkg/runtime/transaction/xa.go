@@ -30,6 +30,7 @@ import (
 )
 
 var ErrorInvalidTxId = errors.New("invalid transaction id")
+var ErrorInvalidTxStatus = errors.New("invalid transaction status")
 
 // StartXA do start xa transaction action
 func StartXA(ctx context.Context, bc *mysql.BackendConnection) (proto.Result, error) {
@@ -37,7 +38,9 @@ func StartXA(ctx context.Context, bc *mysql.BackendConnection) (proto.Result, er
 	if len(txId) == 0 {
 		return nil, ErrorInvalidTxId
 	}
-
+	if rcontext.TransactionStatus(ctx) != rcontext.TrxStarted {
+		return nil, ErrorInvalidTxStatus
+	}
 	return bc.ExecuteWithWarningCount(fmt.Sprintf("XA START '%s'", txId), false)
 }
 

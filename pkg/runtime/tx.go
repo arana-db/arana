@@ -57,22 +57,6 @@ var (
 	_ proto.VersionSupport = (*compositeTx)(nil)
 )
 
-// TxState Transaction status
-type TxState int32
-
-const (
-	_             TxState = iota
-	TrxActive             // CompositeTx Default state
-	TrxPreparing          // Start executing the first SQL statement
-	TrxPrepared           // All SQL statements are executed, and before the Commit statement executes
-	TrxCommitting         // After preparing is completed, ready to start execution
-	TrxCommitted          // Officially complete the Commit action
-	TrxAborting           // There are abnormalities during the execution of the branch, and the composite transaction is prohibited to continue to execute
-	TrxRollback
-	TrxFinish
-	TrxRolledBack
-)
-
 // CompositeTx distribute transaction
 type (
 	// CompositeTx distribute transaction
@@ -82,7 +66,11 @@ type (
 		// GetTenant get cur tx owner tenant
 		GetTenant() string
 		// GetTxState get cur tx state
-		GetTxState() TxState
+		GetTxState() rcontext.TxState
+		// GetExpectedEndTime
+		GetStartTime() time.Time
+		// GetExpectedEndTime get cur tx expected end time
+		GetExpectedEndTime() time.Time
 		// SetBeginFunc sets begin func
 		SetBeginFunc(f dbFunc)
 		// Range range branchTx map
@@ -104,7 +92,7 @@ type (
 		// GetConn gets mysql connection
 		GetConn() *mysql.BackendConnection
 		// GetTxState get cur tx state
-		GetTxState() TxState
+		GetTxState() rcontext.TxState
 		// Commit commit tx
 		Commit(ctx context.Context) (res proto.Result, warn uint16, err error)
 		// Rollback rollback tx
@@ -114,7 +102,7 @@ type (
 	// TxHook transaction hook
 	TxHook interface {
 		// OnTxStateChange Fired when CompositeTx TrxState change
-		OnTxStateChange(ctx context.Context, state TxState, tx CompositeTx) error
+		OnTxStateChange(ctx context.Context, state rcontext.TxState, tx CompositeTx) error
 		// OnCreateBranchTx Fired when BranchTx create
 		OnCreateBranchTx(ctx context.Context, tx BranchTx)
 	}
@@ -131,18 +119,22 @@ type (
 )
 
 func newCompositeTx(ctx context.Context, pi *defaultRuntime, hooks ...TxHook) *compositeTx {
+	now := time.Now()
 	tx := &compositeTx{
-		tenant: rcontext.Tenant(ctx),
-		id:     gtid.NewID(),
-		rt:     pi,
-		txs:    make(map[string]*branchTx),
-		hooks:  hooks,
+		tenant:    rcontext.Tenant(ctx),
+		id:        gtid.NewID(),
+		rt:        pi,
+		txs:       make(map[string]*branchTx),
+		beginTime: now,
+		// TODO: set expected end time from config, it is assumed here that the timeout of a global transaction is 30 seconds
+		expectedEndTime: now.Add(time.Second * 30),
+		hooks:           hooks,
 		beginFunc: func(ctx context.Context, bc *mysql.BackendConnection) (proto.Result, error) {
 			return bc.ExecuteWithWarningCount("begin", true)
 		},
 	}
 
-	tx.setTxState(ctx, TrxActive)
+	tx.setTxState(ctx, rcontext.TrxStarted)
 	return tx
 }
 
@@ -152,11 +144,12 @@ type compositeTx struct {
 	closed atomic.Bool
 	id     gtid.ID
 
-	beginTime time.Time
-	endTime   time.Time
+	beginTime       time.Time
+	expectedEndTime time.Time
+	endTime         time.Time
 
 	isoLevel sql.IsolationLevel
-	txState  TxState
+	txState  rcontext.TxState
 
 	beginFunc dbFunc
 
@@ -172,6 +165,14 @@ func (tx *compositeTx) GetTrxID() string {
 
 func (tx *compositeTx) GetTenant() string {
 	return tx.tenant
+}
+
+func (tx *compositeTx) GetExpectedEndTime() time.Time {
+	return tx.expectedEndTime
+}
+
+func (tx *compositeTx) GetStartTime() time.Time {
+	return tx.beginTime
 }
 
 func (tx *compositeTx) Version(ctx context.Context) (string, error) {
@@ -317,7 +318,7 @@ func (tx *compositeTx) Commit(ctx context.Context) (proto.Result, uint16, error)
 }
 
 func (tx *compositeTx) doPrepareCommit(ctx context.Context) error {
-	tx.setTxState(ctx, TrxPreparing)
+	tx.setTxState(ctx, rcontext.TrxPreparing)
 
 	var g errgroup.Group
 	for k, v := range tx.txs {
@@ -331,16 +332,16 @@ func (tx *compositeTx) doPrepareCommit(ctx context.Context) error {
 		})
 	}
 	if err := g.Wait(); err != nil {
-		tx.setTxState(ctx, TrxAborting)
+		tx.setTxState(ctx, rcontext.TrxAborted)
 		return err
 	}
 
-	tx.setTxState(ctx, TrxPrepared)
+	tx.setTxState(ctx, rcontext.TrxPrepared)
 	return nil
 }
 
 func (tx *compositeTx) doCommit(ctx context.Context) error {
-	tx.setTxState(ctx, TrxCommitting)
+	tx.setTxState(ctx, rcontext.TrxCommitting)
 
 	var g errgroup.Group
 	for k, v := range tx.txs {
@@ -358,7 +359,7 @@ func (tx *compositeTx) doCommit(ctx context.Context) error {
 		return err
 	}
 
-	tx.setTxState(ctx, TrxCommitted)
+	tx.setTxState(ctx, rcontext.TrxCommitted)
 	return nil
 }
 
@@ -386,7 +387,7 @@ func (tx *compositeTx) Rollback(ctx context.Context) (proto.Result, uint16, erro
 }
 
 func (tx *compositeTx) doPrepareRollback(ctx context.Context) error {
-	tx.setTxState(ctx, TrxPreparing)
+	tx.setTxState(ctx, rcontext.TrxPreparing)
 
 	var g errgroup.Group
 	for k, v := range tx.txs {
@@ -401,15 +402,15 @@ func (tx *compositeTx) doPrepareRollback(ctx context.Context) error {
 	}
 
 	if err := g.Wait(); err != nil {
-		tx.setTxState(ctx, TrxAborting)
+		tx.setTxState(ctx, rcontext.TrxAborted)
 		return err
 	}
-	tx.setTxState(ctx, TrxPrepared)
+	tx.setTxState(ctx, rcontext.TrxPrepared)
 	return nil
 }
 
 func (tx *compositeTx) doRollback(ctx context.Context) error {
-	tx.setTxState(ctx, TrxRollback)
+	tx.setTxState(ctx, rcontext.TrxRolledBacking)
 
 	var g errgroup.Group
 	for k, v := range tx.txs {
@@ -426,7 +427,7 @@ func (tx *compositeTx) doRollback(ctx context.Context) error {
 	if err := g.Wait(); err != nil {
 		return err
 	}
-	tx.setTxState(ctx, TrxRolledBack)
+	tx.setTxState(ctx, rcontext.TrxRolledBacked)
 	return nil
 }
 
@@ -437,11 +438,11 @@ func (tx *compositeTx) Range(f func(tx BranchTx)) {
 	}
 }
 
-func (tx *compositeTx) GetTxState() TxState {
+func (tx *compositeTx) GetTxState() rcontext.TxState {
 	return tx.txState
 }
 
-func (tx *compositeTx) setTxState(ctx context.Context, state TxState) {
+func (tx *compositeTx) setTxState(ctx context.Context, state rcontext.TxState) {
 	tx.txState = state
 	for i := range tx.hooks {
 		if err := tx.hooks[i].OnTxStateChange(ctx, state, tx); err != nil {
@@ -456,7 +457,7 @@ type branchTx struct {
 	closed atomic.Bool
 	parent *AtomDB
 
-	state TxState
+	state rcontext.TxState
 
 	prepare  dbFunc
 	commit   dbFunc
@@ -481,12 +482,12 @@ func newBranchTx(parent *AtomDB, bc *mysql.BackendConnection) *branchTx {
 }
 
 // GetTxState get cur tx state
-func (tx *branchTx) GetTxState() TxState {
+func (tx *branchTx) GetTxState() rcontext.TxState {
 	return tx.state
 }
 
 func (tx *branchTx) Commit(ctx context.Context) (res proto.Result, warn uint16, err error) {
-	tx.state = TrxCommitting
+	tx.state = rcontext.TrxCommitting
 	_ = ctx
 	if !tx.closed.CAS(false, true) {
 		err = errTxClosed
@@ -494,7 +495,7 @@ func (tx *branchTx) Commit(ctx context.Context) (res proto.Result, warn uint16, 
 	}
 	defer tx.dispose()
 	if res, err = tx.commit(ctx, tx.bc); err != nil {
-		tx.state = TrxAborting
+		tx.state = rcontext.TrxAborted
 		return
 	}
 
@@ -508,14 +509,14 @@ func (tx *branchTx) Commit(ctx context.Context) (res proto.Result, warn uint16, 
 	}
 
 	res = resultx.New(resultx.WithRowsAffected(affected), resultx.WithLastInsertID(lastInsertId))
-	tx.state = TrxCommitted
+	tx.state = rcontext.TrxCommitted
 	return
 }
 
 func (tx *branchTx) Prepare(ctx context.Context) error {
-	tx.state = TrxPreparing
+	tx.state = rcontext.TrxPreparing
 	_, err := tx.prepare(ctx, tx.bc)
-	tx.state = TrxPrepared
+	tx.state = rcontext.TrxPrepared
 	return err
 }
 
@@ -525,9 +526,9 @@ func (tx *branchTx) Rollback(ctx context.Context) (res proto.Result, warn uint16
 		return
 	}
 	defer tx.dispose()
-	tx.state = TrxRollback
+	tx.state = rcontext.TrxRolledBacking
 	res, err = tx.rollback(ctx, tx.bc)
-	tx.state = TrxRolledBack
+	tx.state = rcontext.TrxRolledBacked
 	return
 }
 
@@ -581,7 +582,7 @@ func (tx *branchTx) GetConn() *mysql.BackendConnection {
 	return tx.bc
 }
 
-func NumOfStateBranchTx(state TxState, tx CompositeTx) int32 {
+func NumOfStateBranchTx(state rcontext.TxState, tx CompositeTx) int32 {
 	cnt := int32(0)
 	tx.Range(func(bTx BranchTx) {
 		if bTx.GetTxState() == state {

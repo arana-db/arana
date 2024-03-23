@@ -19,7 +19,7 @@ package transaction
 
 import (
 	"context"
-	"encoding/json"
+	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"testing"
 )
 
@@ -31,7 +31,6 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/runtime"
 	"github.com/arana-db/arana/testdata"
 )
 
@@ -42,20 +41,19 @@ func TestDeleteTxLog(t *testing.T) {
 	txLogManager := &TxLogManager{
 		sysDB: mockDB,
 	}
-	testTrxLog := TrxLog{
-		TrxID:        "test_delete_id",
-		ServerID:     1,
-		State:        runtime.TrxActive,
-		Participants: []TrxParticipant{{NodeID: "1", RemoteAddr: "127.0.0.1", Schema: "schema"}},
-		Tenant:       "test_tenant",
+	testTrxLog := GlobalTrxLog{
+		TrxID:    "test_delete_id",
+		ServerID: 1,
+		Status:   rcontext.TrxStarted,
+		Tenant:   "test_tenant",
 	}
 	trxIdVal, _ := proto.NewValue("test_delete_id")
 	mockDB.EXPECT().Call(
 		context.Background(),
-		"DELETE FROM __arana_trx_log WHERE trx_id = ?",
+		"DELETE FROM __arana_global_trx_log WHERE trx_id = ?",
 		gomock.Eq([]proto.Value{trxIdVal}),
 	).Return(nil, uint16(0), nil).Times(1)
-	err := txLogManager.DeleteTxLog(testTrxLog)
+	err := txLogManager.DeleteGlobalTxLog(testTrxLog)
 	assert.NoError(t, err)
 }
 
@@ -66,33 +64,32 @@ func TestAddOrUpdateTxLog(t *testing.T) {
 	txLogManager := &TxLogManager{
 		sysDB: mockDB,
 	}
-	testTrxLog := TrxLog{
-		TrxID:        "test_add_or_update_id",
-		ServerID:     1,
-		State:        runtime.TrxActive,
-		Participants: []TrxParticipant{{NodeID: "1", RemoteAddr: "127.0.0.1", Schema: "schema"}},
-		Tenant:       "test_tenant",
+	testTrxLog := GlobalTrxLog{
+		TrxID:    "test_add_or_update_id",
+		ServerID: 1,
+		Status:   rcontext.TrxStarted,
+		Tenant:   "test_tenant",
 	}
-	participants, err := json.Marshal(testTrxLog.Participants)
-	assert.NoError(t, err)
 	trxIdVal, _ := proto.NewValue(testTrxLog.TrxID)
 	tenantVal, _ := proto.NewValue(testTrxLog.Tenant)
 	serverIdVal, _ := proto.NewValue(testTrxLog.ServerID)
-	stateVal, _ := proto.NewValue(int32(testTrxLog.State))
-	participantsVal, _ := proto.NewValue(string(participants))
+	stateVal, _ := proto.NewValue(int32(testTrxLog.Status))
+	startTime, _ := proto.NewValue(testTrxLog.StartTime)
+	exceptEndTime, _ := proto.NewValue(testTrxLog.ExpectedEndTime)
 
 	args := []proto.Value{
 		trxIdVal,
 		tenantVal,
 		serverIdVal,
 		stateVal,
-		participantsVal,
+		startTime,
+		exceptEndTime,
 	}
 	mockDB.EXPECT().Call(
 		context.Background(),
-		"REPLACE INTO __arana_trx_log(trx_id, tenant, server_id, status, participant, start_time, update_time) VALUES (?,?,?,?,?,sysdate(),sysdate())",
+		"INSERT INTO __arana_global_trx_log (txr_id, tenant, server_id, status, start_time, expected_end_time) VALUES (?, ?, ?, ?, ?, ?);",
 		args,
 	).Return(nil, uint16(0), nil).Times(1)
-	err = txLogManager.AddOrUpdateTxLog(testTrxLog)
+	err := txLogManager.AddOrUpdateGlobalTxLog(testTrxLog)
 	assert.NoError(t, err)
 }
