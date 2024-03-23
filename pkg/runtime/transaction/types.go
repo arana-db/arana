@@ -18,7 +18,7 @@
 package transaction
 
 import (
-	"github.com/arana-db/arana/pkg/runtime"
+	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"time"
 )
 
@@ -27,7 +27,7 @@ type GlobalTrxLog struct {
 	TrxID           string
 	Tenant          string
 	ServerID        int32
-	Status          runtime.TxState
+	Status          rcontext.TxState
 	StartTime       time.Time
 	ExpectedEndTime time.Time
 	BranchTrxLogs   []BranchTrxLog
@@ -40,7 +40,7 @@ type BranchTrxLog struct {
 	ParticipantID string
 	Tenant        string
 	ServerID      int32
-	Status        runtime.TxState
+	Status        rcontext.TxState
 	StartTime     int64
 }
 

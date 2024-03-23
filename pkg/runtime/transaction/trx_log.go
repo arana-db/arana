@@ -20,6 +20,7 @@ package transaction
 import (
 	"context"
 	"fmt"
+	rcontext "github.com/arana-db/arana/pkg/runtime/context"
 	"strings"
 	"sync"
 	"time"
@@ -27,7 +28,6 @@ import (
 
 import (
 	"github.com/arana-db/arana/pkg/proto"
-	"github.com/arana-db/arana/pkg/runtime"
 )
 
 var (
@@ -119,12 +119,14 @@ func (gm *TxLogManager) AddOrUpdateGlobalTxLog(l GlobalTrxLog) error {
 	tenantVal, _ := proto.NewValue(l.Tenant)
 	serverIdVal, _ := proto.NewValue(l.ServerID)
 	statusVal, _ := proto.NewValue(int32(l.Status))
+	startTimeVal, _ := proto.NewValue(l.StartTime)
 	expectedEndTimeVal, _ := proto.NewValue(l.ExpectedEndTime)
 	args := []proto.Value{
 		trxIdVal,
 		tenantVal,
 		serverIdVal,
 		statusVal,
+		startTimeVal,
 		expectedEndTimeVal,
 	}
 	_, _, err := gm.sysDB.Call(context.Background(), insertGlobalSql, args...)
@@ -202,7 +204,7 @@ func (gm *TxLogManager) ScanGlobalTxLog(pageNo, pageSize uint64, conditions []Co
 		serverId, _ = dest[2].Int64()
 		log.ServerID = int32(serverId)
 		state, _ = dest[3].Int64()
-		log.Status = runtime.TxState(state)
+		log.Status = rcontext.TxState(state)
 		expectedEndTime, _ = dest[4].Int64()
 		log.ExpectedEndTime = time.UnixMilli(expectedEndTime)
 		startTime, _ = dest[5].Int64()
@@ -230,7 +232,7 @@ func (gm *TxLogManager) runCleanGlobalTxLogTask() {
 			{
 				FiledName: "status",
 				Operation: In,
-				Value:     []int32{int32(runtime.TrxRolledBacked), int32(runtime.TrxCommitted), int32(runtime.TrxAborted)},
+				Value:     []int32{int32(rcontext.TrxRolledBacked), int32(rcontext.TrxCommitted), int32(rcontext.TrxAborted)},
 			},
 		}
 	)
