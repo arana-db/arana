@@ -21,7 +21,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/arana-db/arana/pkg/runtime"
 )
 
 import (
@@ -39,7 +38,7 @@ func StartXA(ctx context.Context, bc *mysql.BackendConnection) (proto.Result, er
 	if len(txId) == 0 {
 		return nil, ErrorInvalidTxId
 	}
-	if rcontext.TransactionStatus(ctx) != runtime.TrxStarted {
+	if rcontext.TransactionStatus(ctx) != rcontext.TrxStarted {
 		return nil, ErrorInvalidTxStatus
 	}
 	return bc.ExecuteWithWarningCount(fmt.Sprintf("XA START '%s'", txId), false)

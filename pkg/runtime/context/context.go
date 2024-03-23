@@ -19,7 +19,6 @@ package context
 
 import (
 	"context"
-	"github.com/arana-db/arana/pkg/runtime"
 )
 
 import (
@@ -31,6 +30,22 @@ const (
 	_flagDirect cFlag = 1 << iota
 	_flagRead
 	_flagWrite
+)
+
+// TxState Transaction status
+type TxState int32
+
+const (
+	_             TxState = iota
+	TrxStarted            // CompositeTx Default state
+	TrxPreparing          // All SQL statements are executed, and before the Commit statement executes
+	TrxPrepared           // All SQL statements are executed, and before the Commit statement executes
+	TrxCommitting         // After preparing is completed, ready to start execution
+	TrxCommitted          // Officially complete the Commit action
+	TrxRolledBacking
+	TrxRolledBacked
+	TrxAborted
+	TrxUnknown // Unknown transaction
 )
 
 type (
@@ -118,7 +133,7 @@ func TransactionID(ctx context.Context) string {
 	return getString(ctx, keyTransactionID{})
 }
 
-func TransactionStatus(ctx context.Context) runtime.TxState {
+func TransactionStatus(ctx context.Context) TxState {
 	return getTxStatus(ctx, keyTransactionStatus{})
 }
 
@@ -157,11 +172,11 @@ func getString(ctx context.Context, v any) string {
 	return ""
 }
 
-func getTxStatus(ctx context.Context, v any) runtime.TxState {
+func getTxStatus(ctx context.Context, v any) TxState {
 	if data, ok := ctx.Value(v).(int32); ok {
-		if data >= int32(runtime.TrxStarted) && data <= int32(runtime.TrxAborted) {
-			return runtime.TxState(data)
+		if data >= int32(TrxStarted) && data <= int32(TrxAborted) {
+			return TxState(data)
 		}
 	}
-	return runtime.TrxUnknown
+	return TrxUnknown
 }
