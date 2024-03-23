@@ -204,7 +204,7 @@ func (gm *TxLogManager) ScanGlobalTxLog(pageNo, pageSize uint64, conditions []Co
 		serverId, _ = dest[2].Int64()
 		log.ServerID = int32(serverId)
 		state, _ = dest[3].Int64()
-		log.Status = rcontext.TxState(state)
+		log.Status = rcontext.TxState(int32(state))
 		expectedEndTime, _ = dest[4].Int64()
 		log.ExpectedEndTime = time.UnixMilli(expectedEndTime)
 		startTime, _ = dest[5].Int64()
