@@ -64,28 +64,36 @@ func optimizeShowOpenTables(ctx context.Context, o *optimize.Optimizer) (proto.P
 		}
 	}
 
+	duplicates := make(map[string]struct{})
+
 	plans := make([]proto.Plan, 0, len(clusters))
 	for _, cluster := range clusters {
 		ns := namespace.Load(tenant, cluster)
 		// check every group from namespace
 		groups := ns.DBGroups()
 		for i := 0; i < len(groups); i++ {
-			var ret *dal.ShowOpenTablesPlan
-			if db, ok := stmt.Like(); ok && db == cluster {
-				// filter in cluster
-				show := ast.NewBaseShow(groups[i])
-				stmtCopy := ast.ShowOpenTables{BaseShow: &show}
-				ret = dal.NewShowOpenTablesPlan(&stmtCopy)
-			} else {
-				// no filter or can't match any group
-				ret = dal.NewShowOpenTablesPlan(stmt)
+			if db, ok := stmt.Like(); !ok || db == cluster {
+				var ret *dal.ShowOpenTablesPlan
+				if ok {
+					// filter in cluster
+					show := ast.NewBaseShow(groups[i])
+					stmtCopy := ast.ShowOpenTables{BaseShow: &show}
+					ret = dal.NewShowOpenTablesPlan(&stmtCopy, duplicates, false)
+				} else {
+					// no filter
+					ret = dal.NewShowOpenTablesPlan(stmt, duplicates, false)
+				}
+				ret.BindArgs(o.Args)
+				ret.SetInvertedShards(invertedShards)
+				ret.SetInvertedDatabases(invertedDatabases)
+				ret.SetDatabase(groups[i])
+				plans = append(plans, ret)
 			}
-			ret.BindArgs(o.Args)
-			ret.SetInvertedShards(invertedShards)
-			ret.SetInvertedDatabases(invertedDatabases)
-			ret.SetDatabase(groups[i])
-			plans = append(plans, ret)
 		}
+	}
+	if len(plans) == 0 {
+		// can't match any group
+		return dal.NewShowOpenTablesPlan(stmt, duplicates, true), nil
 	}
 
 	return &dml.CompositePlan{

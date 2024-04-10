@@ -19,6 +19,7 @@ package dal
 
 import (
 	"context"
+	"github.com/arana-db/arana/pkg/mysql/thead"
 	"strings"
 )
 
@@ -43,14 +44,18 @@ type ShowOpenTablesPlan struct {
 	Database          string
 	Conn              proto.DB
 	Stmt              *ast.ShowOpenTables
-	invertedShards    map[string]string // phy table name -> logical table name
-	invertedDatabases map[string]string // phy database name -> logical database name
+	invertedShards    map[string]string   // phy table name -> logical table name
+	invertedDatabases map[string]string   // phy database name -> logical database name
+	duplicates        map[string]struct{} // filter duplicates
+	empty             bool                // if can't match any group, return empty result
 }
 
 // NewShowOpenTablesPlan create ShowTables Plan
-func NewShowOpenTablesPlan(stmt *ast.ShowOpenTables) *ShowOpenTablesPlan {
+func NewShowOpenTablesPlan(stmt *ast.ShowOpenTables, duplicates map[string]struct{}, empty bool) *ShowOpenTablesPlan {
 	return &ShowOpenTablesPlan{
-		Stmt: stmt,
+		Stmt:       stmt,
+		duplicates: duplicates,
+		empty:      empty,
 	}
 }
 
@@ -65,6 +70,10 @@ func (st *ShowOpenTablesPlan) ExecIn(ctx context.Context, conn proto.VConn) (pro
 		res     proto.Result
 		err     error
 	)
+
+	if st.empty {
+		return emptyRs(), nil
+	}
 
 	if err = st.Stmt.Restore(ast.RestoreDefault, &sb, &indexes); err != nil {
 		return nil, errors.WithStack(err)
@@ -85,9 +94,6 @@ func (st *ShowOpenTablesPlan) ExecIn(ctx context.Context, conn proto.VConn) (pro
 	}
 
 	fields, _ := ds.Fields()
-
-	// filter duplicates
-	duplicates := make(map[string]struct{})
 
 	// 1. convert to logical table name
 	// 2. filter duplicated table name
@@ -123,14 +129,22 @@ func (st *ShowOpenTablesPlan) ExecIn(ctx context.Context, conn proto.VConn) (pro
 			}
 
 			tableName := vr.Values()[1].String()
-			if _, ok := duplicates[tableName]; ok {
+			if _, ok := st.duplicates[tableName]; ok {
 				return false
 			}
-			duplicates[tableName] = struct{}{}
+			st.duplicates[tableName] = struct{}{}
 			return true
 		}),
 	)
 	return resultx.New(resultx.WithDataset(ds)), nil
+}
+
+func emptyRs() proto.Result {
+	columns := thead.OpenTables.ToFields()
+	ds := &dataset.VirtualDataset{
+		Columns: columns,
+	}
+	return resultx.New(resultx.WithDataset(ds))
 }
 
 func (st *ShowOpenTablesPlan) SetDatabase(database string) {
