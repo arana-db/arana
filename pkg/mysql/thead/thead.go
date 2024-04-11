@@ -78,6 +78,13 @@ var (
 		Col{Name: "expr", FieldType: consts.FieldTypeVarString},
 		Col{Name: "step", FieldType: consts.FieldTypeVarString},
 	}
+
+	OpenTables = Thead{
+		Col{Name: "Database", FieldType: consts.FieldTypeVarString},
+		Col{Name: "Table", FieldType: consts.FieldTypeVarString},
+		Col{Name: "In_use", FieldType: consts.FieldTypeInt24},
+		Col{Name: "Name_locked", FieldType: consts.FieldTypeInt24},
+	}
 )
 
 type Col struct {
