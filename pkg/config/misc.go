@@ -72,7 +72,7 @@ func LoadTenantOperatorFromPath(path string) (TenantOperator, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := Init(*cfg.Config, cfg.Spec.APIVersion); err != nil {
+	if err = Init(*cfg.Config, cfg.Spec.APIVersion); err != nil {
 		return nil, err
 	}
 

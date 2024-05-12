@@ -19,6 +19,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"testing"
 )
@@ -186,4 +187,139 @@ logging:
 	cfg2, err := LoadBootOptions(tmpfile2.Name())
 	assert.Error(t, err)
 	assert.Nil(t, cfg2)
+}
+
+func TestLoadTenantOperator(t *testing.T) {
+	root, config := bootstrapPath(t)
+	defer func() {
+		_ = os.Remove(root)
+		_ = os.Remove(config)
+	}()
+	_, err := LoadBootOptions(root)
+	assert.NoError(t, err)
+}
+
+func TestLoadTenantOperatorFromPath(t *testing.T) {
+	_, err := LoadTenantOperatorFromPath("")
+	assert.Error(t, err)
+}
+
+func bootstrapPath(t *testing.T) (string, string) {
+	create := func(config string) string {
+		tmp, err := os.CreateTemp("", "arana-fake.*.yaml")
+		assert.NoError(t, err)
+		_, err = tmp.WriteString(config)
+		assert.NoError(t, err)
+		return tmp.Name()
+	}
+
+	config := `kind: ConfigMap
+apiVersion: "1.0"
+metadata:
+  name: arana-config
+data:
+  tenants:
+    - name: arana
+      sys_db:
+        host: arana-mysql
+        port: 3306
+        username: root
+        password: "123456"
+        database: __arana_sys
+        weight: r10w10
+        parameters:
+      users:
+        - username: arana
+          password: "123456"
+      clusters:
+        - name: employees
+          type: mysql
+          sql_max_limit: -1
+          tenant: arana
+          parameters:
+            slow_threshold: 1s
+            max_allowed_packet: 256M
+          groups:
+            - name: employees_0000
+              nodes:
+                - node0
+      sharding_rule:
+        tables:
+          - name: employees.student
+            sequence:
+              type: snowflake
+              option:
+            db_rules:
+              - columns:
+                  - name: uid
+                expr: parseInt($0 % 32 / 8)
+            tbl_rules:
+              - columns:
+                  - name: uid
+                expr: $0 % 32
+            topology:
+              db_pattern: employees_${0000..0003}
+              tbl_pattern: student_${0000..0031}
+            attributes:
+              allow_full_scan: true
+              sqlMaxLimit: -1
+          - name: employees.friendship
+            sequence:
+              type: snowflake
+              option:
+            db_rules:
+              - columns:
+                  - name: uid
+                  - name: friend_id
+                expr: parseInt(($0*31+$1) % 32 / 8)
+            tbl_rules:
+              - columns:
+                  - name: uid
+                  - name: friend_id
+                expr: ($0*31+$1) % 32
+            topology:
+              db_pattern: employees_${0000..0003}
+              tbl_pattern: friendship_${0000..0031}
+            attributes:
+              allow_full_scan: true
+              sqlMaxLimit: -1
+      nodes:
+        node0:
+          name: node0
+          host: arana-mysql
+          port: 3306
+          username: root
+          password: "123456"
+          database: employees_0000
+          weight: r10w10
+          parameters:`
+	configPath := create(config)
+	assert.NoError(t, os.WriteFile(configPath, []byte(config), 0644))
+
+	bootstrap := `listeners:
+- protocol_type: "http"
+  server_version: "1.0"
+config:
+  name: file
+  options:
+    path: %s
+registry:
+  enable: true
+  name: "registryName"
+  root_path: "/root/path"
+trace:
+  type: "jaeger"
+  address: "http://localhost:14268/api/traces"
+supervisor:
+  username: "admin"
+  password: "password"
+logging:
+  level: INFO
+  path: /Users/baerwang/project/arana-db/arana
+  max_size: 128m
+  max_backups: 3
+  max_age: 7
+  compress: true
+  console: true`
+	return create(fmt.Sprintf(bootstrap, configPath)), configPath
 }
