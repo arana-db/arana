@@ -240,7 +240,8 @@ func (tx *compositeTx) Execute(ctx *proto.Context) (res proto.Result, warn uint1
 	execStart := time.Now()
 	defer func() {
 		span.End()
-		metrics.ExecuteDuration.Observe(time.Since(execStart).Seconds())
+		metrics.RecordMetrics("execute_duration", time.Since(execStart).Seconds())
+		//metrics.ExecuteDuration.Observe(time.Since(execStart).Seconds())
 	}()
 	if tx.closed.Load() {
 		err = errTxClosed
