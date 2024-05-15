@@ -31,15 +31,15 @@ type TxFaultDecisionExecutor struct {
 func (bm *TxFaultDecisionExecutor) Run() {
 }
 
-func (bm *TxFaultDecisionExecutor) scanUnFinishTxLog() ([]TrxLog, error) {
+func (bm *TxFaultDecisionExecutor) scanUnFinishTxLog() ([]GlobalTrxLog, error) {
 	return nil, nil
 }
 
-func (bm *TxFaultDecisionExecutor) handlePreparing(tx TrxLog) {
+func (bm *TxFaultDecisionExecutor) handlePreparing(tx GlobalTrxLog) {
 }
 
-func (bm *TxFaultDecisionExecutor) handleCommitting(tx TrxLog) {
+func (bm *TxFaultDecisionExecutor) handleCommitting(tx GlobalTrxLog) {
 }
 
-func (bm *TxFaultDecisionExecutor) handleAborting(tx TrxLog) {
+func (bm *TxFaultDecisionExecutor) handleAborting(tx GlobalTrxLog) {
 }

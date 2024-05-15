@@ -32,12 +32,29 @@ const (
 	_flagWrite
 )
 
+// TxState Transaction status
+type TxState int64
+
+const (
+	_             TxState = iota
+	TrxStarted            // CompositeTx Default state
+	TrxPreparing          // All SQL statements are executed, and before the Commit statement executes
+	TrxPrepared           // All SQL statements are executed, and before the Commit statement executes
+	TrxCommitting         // After preparing is completed, ready to start execution
+	TrxCommitted          // Officially complete the Commit action
+	TrxRolledBacking
+	TrxRolledBacked
+	TrxAborted
+	TrxUnknown // Unknown transaction
+)
+
 type (
-	keyFlag           struct{}
-	keyNodeLabel      struct{}
-	keyDefaultDBGroup struct{}
-	keyHints          struct{}
-	keyTransactionID  struct{}
+	keyFlag              struct{}
+	keyNodeLabel         struct{}
+	keyDefaultDBGroup    struct{}
+	keyHints             struct{}
+	keyTransactionID     struct{}
+	keyTransactionStatus struct{}
 )
 
 type cFlag uint8
@@ -75,7 +92,7 @@ func WithHints(ctx context.Context, hints []*hint.Hint) context.Context {
 
 // Tenant extracts the tenant.
 func Tenant(ctx context.Context) string {
-	return isString(ctx, proto.ContextKeyTenant{})
+	return getString(ctx, proto.ContextKeyTenant{})
 }
 
 // IsRead returns true if this is a read operation
@@ -95,25 +112,29 @@ func IsDirect(ctx context.Context) bool {
 
 // SQL returns the original sql string.
 func SQL(ctx context.Context) string {
-	return isString(ctx, proto.ContextKeySQL{})
+	return getString(ctx, proto.ContextKeySQL{})
 }
 
 func Schema(ctx context.Context) string {
-	return isString(ctx, proto.ContextKeySchema{})
+	return getString(ctx, proto.ContextKeySchema{})
 }
 
 func Version(ctx context.Context) string {
-	return isString(ctx, proto.ContextKeyServerVersion{})
+	return getString(ctx, proto.ContextKeyServerVersion{})
 }
 
 // NodeLabel returns the label of node.
 func NodeLabel(ctx context.Context) string {
-	return isString(ctx, keyNodeLabel{})
+	return getString(ctx, keyNodeLabel{})
 }
 
 // TransactionID returns the transactions id
 func TransactionID(ctx context.Context) string {
-	return isString(ctx, keyTransactionID{})
+	return getString(ctx, keyTransactionID{})
+}
+
+func TransactionStatus(ctx context.Context) TxState {
+	return getTxStatus(ctx, keyTransactionStatus{})
 }
 
 // Hints extracts the hints.
@@ -144,9 +165,18 @@ func getFlag(ctx context.Context) cFlag {
 	return f
 }
 
-func isString(ctx context.Context, v any) string {
+func getString(ctx context.Context, v any) string {
 	if data, ok := ctx.Value(v).(string); ok {
 		return data
 	}
 	return ""
+}
+
+func getTxStatus(ctx context.Context, v any) TxState {
+	if data, ok := ctx.Value(v).(int32); ok {
+		if data >= int32(TrxStarted) && data <= int32(TrxAborted) {
+			return TxState(data)
+		}
+	}
+	return TrxUnknown
 }
